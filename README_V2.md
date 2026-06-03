@@ -10,8 +10,10 @@ Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
 Run from the database host as an OS user that can connect locally as SYSDBA:
 
 ```bash
+./CrashSimulatorV2.sh --menu
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --health-check
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
@@ -25,6 +27,34 @@ without changing files or database state.
 Every scenario run prints recovery-runbook hints before any destructive
 confirmation. Use `--runbook <id>` to print the same recovery guidance without
 planning or executing the crash scenario.
+
+## Guided Menu
+
+Run the script without arguments, or use `--menu`, to open the guided terminal
+menu:
+
+```bash
+./CrashSimulatorV2.sh
+./CrashSimulatorV2.sh --menu
+```
+
+The menu keeps the CLI guardrails but makes the normal drill flow easier to
+drive from a single screen:
+
+- discover or refresh database topology
+- select a scenario
+- configure PDB, schema, FILE#, manifest, PFILE, log directory, and scenario 25 guards
+- show recovery-runbook hints
+- dry-run a scenario
+- dry-run or execute RMAN protection when supported
+- execute a scenario with the existing typed confirmation token
+- dry-run or execute recovery from a manifest
+- run the non-destructive health check
+- view recent manifests and logs
+
+Menu actions re-run the same script in CLI mode, so automation and manual usage
+stay consistent. Destructive actions still require `--execute` behavior and the
+same typed confirmation, such as `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
 
 ## Protect, Drill, Recover
 
@@ -46,7 +76,13 @@ RMAN tag, command files, and logs.
 Automated RMAN protection is currently enabled for:
 
 - Scenario 5: loss of one non-system datafile in a non-CDB or CDB root.
+- Scenario 7: loss of one SYSTEM datafile.
+- Scenario 14: loss of SYSTEM tablespace.
+- Scenario 17: loss of all datafiles.
 - Scenario 30: loss of one non-system PDB datafile.
+- Scenario 32: PDB loss of one SYSTEM datafile.
+- Scenario 39: PDB loss of SYSTEM tablespace.
+- Scenario 41: PDB loss of all datafiles.
 
 Automated recovery helpers are currently enabled for:
 

@@ -98,6 +98,8 @@ CrashSimulator V2 ${VERSION}
 Usage:
   ./${PROGRAM} --discover
   ./${PROGRAM} --list
+  ./${PROGRAM} --menu
+  ./${PROGRAM} --health-check
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -108,6 +110,8 @@ Usage:
 Options:
   --discover              Print detected database topology and exits.
   --list                  List scenario registry and prerequisite gates.
+  --menu                  Start guided terminal menu. This is the default.
+  --health-check          Run a non-destructive SQL health check.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -2260,6 +2264,85 @@ print_runbook_only() {
   print_recovery_runbook "$id"
 }
 
+script_dir() {
+  local source_path="${BASH_SOURCE[0]}"
+  local dir_name
+  dir_name="$(dirname "$source_path")"
+  (cd "$dir_name" >/dev/null 2>&1 && pwd)
+}
+
+write_builtin_health_check_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write health-check SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback on pages 100 lines 220
+column name format a30
+column database_role format a22
+column open_mode format a22
+column cdb format a5
+column instance_name format a20
+column status format a14
+column pdb_name format a30
+column file_name format a120
+
+select name, database_role, open_mode, cdb
+from v$database;
+
+select instance_name, status, database_status, active_state
+from v$instance;
+
+declare
+  l_cdb v$database.cdb%type;
+begin
+  select cdb into l_cdb from v$database;
+  dbms_output.put_line('CDB=' || l_cdb);
+  if l_cdb = 'YES' then
+    for r in (
+      select name, open_mode
+      from v$pdbs
+      where name <> 'PDB$SEED'
+      order by con_id
+    ) loop
+      dbms_output.put_line('PDB ' || r.name || ' open_mode=' || r.open_mode);
+    end loop;
+  end if;
+end;
+/
+
+select count(*) as recover_file_count
+from v$recover_file;
+
+select count(*) as block_corruption_count
+from v$database_block_corruption;
+
+exit
+SQL
+}
+
+run_health_check() {
+  local repo_sql sql_file log_file
+  repo_sql="$(script_dir)/drill_health_check.sql"
+  sql_file="$repo_sql"
+  log_file="${LOG_DIR}/crashsim_health_check_${RUN_ID}.log"
+
+  if [[ ! -f "$sql_file" ]]; then
+    sql_file="${LOG_DIR}/crashsim_health_check_${RUN_ID}.sql"
+    write_builtin_health_check_sql_file "$sql_file"
+  fi
+
+  echo "Running health check"
+  echo "SQL file: ${sql_file}"
+  echo "Log file: ${log_file}"
+  echo
+
+  ensure_sqlplus
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$log_file" ||
+    die "Health check failed: $sql_file (log: $log_file)"
+
+  sed 's/^/  /' "$log_file"
+}
+
 print_recovery_runbook() {
   local id="$1"
 
@@ -3610,6 +3693,14 @@ parse_args() {
         MODE="list"
         shift
         ;;
+      --menu)
+        MODE="menu"
+        shift
+        ;;
+      --health-check)
+        MODE="health"
+        shift
+        ;;
       --runbook)
         [[ "$#" -ge 2 ]] || die "--runbook requires an id"
         MODE="runbook"
@@ -3726,31 +3817,530 @@ parse_args() {
   done
 }
 
-interactive_menu() {
+menu_pause() {
+  local answer
+  echo
+  echo "Press Enter to continue..."
+  read -r answer || true
+}
+
+menu_selected_scenario_label() {
+  if [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]]; then
+    printf "%s - %s" "$SCENARIO_ID" "${SCENARIO_TITLE[$SCENARIO_ID]}"
+  else
+    printf "none"
+  fi
+}
+
+menu_print_header() {
+  echo
+  echo "CrashSimulator V2 ${VERSION}"
+  echo "Database: ${DB_UNIQUE_NAME:-not discovered}  Role: ${DB_ROLE:-unknown}  Open: ${DB_OPEN_MODE:-unknown}  CDB: ${DB_CDB:-unknown}"
+  echo "Instance: ${INSTANCE_NAME:-unknown}  Storage: ${STORAGE_TYPE:-unknown}  Cluster: ${CLUSTER_TYPE:-unknown}"
+  echo
+  echo "Selected scenario: $(menu_selected_scenario_label)"
+  echo "PDB: ${TARGET_PDB:-not set}  Schema: ${TARGET_SCHEMA:-not set}  FILE#: ${TARGET_FILE_NO:-not set}"
+  echo "Manifest: ${MANIFEST_FILE:-not set}"
+  echo "Log dir: ${LOG_DIR}"
+  echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
+  echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
+}
+
+menu_select_scenario() {
+  local answer
+
+  echo
+  list_scenarios
+  echo
+  echo "Enter scenario id to select, or blank to keep current:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+
+  if scenario_exists "$answer"; then
+    SCENARIO_ID="$answer"
+    echo "Selected scenario ${SCENARIO_ID}: ${SCENARIO_TITLE[$SCENARIO_ID]}"
+  else
+    warn "Unknown scenario id: $answer"
+    return "$FAIL"
+  fi
+}
+
+menu_require_scenario() {
+  if [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]]; then
+    return "$SUCCESS"
+  fi
+  menu_select_scenario
+  [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]]
+}
+
+menu_select_pdb() {
+  local answer idx row name con_id open_mode
+
+  discover_environment || true
+  echo
+  if [[ "$DB_CDB" != "YES" ]]; then
+    warn "The discovered database is not a CDB. Leave PDB unset for non-CDB scenarios."
+  elif [[ "${#PDB_ROWS[@]}" -gt 0 ]]; then
+    echo "Available PDBs:"
+    idx=1
+    for row in "${PDB_ROWS[@]}"; do
+      IFS='|' read -r name con_id open_mode <<<"$row"
+      printf "  %2d. %-30s CON_ID=%-5s OPEN_MODE=%s\n" "$idx" "$name" "$con_id" "$open_mode"
+      idx=$((idx + 1))
+    done
+  fi
+
+  echo
+  echo "Enter PDB name or number, c to clear, or blank to keep [${TARGET_PDB:-not set}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      TARGET_PDB=""
+      echo "PDB target cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+
+  if [[ "$answer" =~ ^[0-9]+$ && "${#PDB_ROWS[@]}" -gt 0 && "$answer" -ge 1 && "$answer" -le "${#PDB_ROWS[@]}" ]]; then
+    IFS='|' read -r TARGET_PDB con_id open_mode <<<"${PDB_ROWS[$((answer - 1))]}"
+  else
+    TARGET_PDB="$(normalize_name "$answer")"
+  fi
+  validate_oracle_name "$TARGET_PDB" || {
+    warn "Invalid PDB name: $TARGET_PDB"
+    TARGET_PDB=""
+    return "$FAIL"
+  }
+  echo "PDB target set to ${TARGET_PDB}."
+}
+
+menu_prompt_oracle_name() {
+  local label="$1"
+  local var_name="$2"
+  local current="$3"
+  local answer normalized
+
+  echo "Enter ${label}, c to clear, or blank to keep [${current:-not set}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      printf -v "$var_name" ""
+      echo "${label} cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+  normalized="$(normalize_name "$answer")"
+  validate_oracle_name "$normalized" || {
+    warn "Invalid ${label}: $normalized"
+    return "$FAIL"
+  }
+  printf -v "$var_name" "%s" "$normalized"
+  echo "${label} set to ${normalized}."
+}
+
+menu_prompt_path() {
+  local label="$1"
+  local var_name="$2"
+  local current="$3"
+  local answer
+
+  echo "Enter ${label}, c to clear, or blank to keep [${current:-not set}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      printf -v "$var_name" ""
+      echo "${label} cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+  printf -v "$var_name" "%s" "$answer"
+  echo "${label} set to ${answer}."
+}
+
+menu_prompt_file_no() {
+  local answer
+  echo "Enter FILE#, c to clear, or blank to keep [${TARGET_FILE_NO:-not set}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      TARGET_FILE_NO=""
+      echo "FILE# cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+  [[ "$answer" =~ ^[0-9]+$ ]] || {
+    warn "Invalid FILE#: $answer"
+    return "$FAIL"
+  }
+  TARGET_FILE_NO="$answer"
+  echo "FILE# set to ${TARGET_FILE_NO}."
+}
+
+menu_configure_scenario25() {
+  local answer
+
+  echo
+  echo "Scenario 25 backup-piece guardrails"
+  echo "Current local-only: ${LOCAL_ONLY}"
+  echo "Set local-only? [y/N, blank keeps current]:"
+  read -r answer || return "$FAIL"
+  case "$answer" in
+    y|Y|yes|YES) LOCAL_ONLY=1 ;;
+    n|N|no|NO) LOCAL_ONLY=0 ;;
+  esac
+
+  echo "Enter max targets, c to clear, or blank to keep [${MAX_TARGETS:-not set}]:"
+  read -r answer || return "$FAIL"
+  if [[ -n "$answer" ]]; then
+    case "$answer" in
+      c|C|clear|CLEAR)
+        MAX_TARGETS=""
+        ;;
+      *)
+        [[ "$answer" =~ ^[1-9][0-9]*$ ]] || {
+          warn "Invalid max targets: $answer"
+          return "$FAIL"
+        }
+        MAX_TARGETS="$answer"
+        ;;
+    esac
+  fi
+
+  menu_prompt_path "backup-piece handle" PIECE_HANDLE "$PIECE_HANDLE"
+}
+
+menu_set_password_file_options() {
+  local answer
+
+  echo
+  echo "Password-file recovery options"
+  echo "Enter SYS password for this menu session, c to clear, or blank to keep current:"
+  read -rs answer || return "$FAIL"
+  echo
+  if [[ -n "$answer" ]]; then
+    case "$answer" in
+      c|C|clear|CLEAR)
+        SYS_PASSWORD=""
+        echo "SYS password cleared from this process."
+        ;;
+      *)
+        SYS_PASSWORD="$answer"
+        echo "SYS password stored only in this running process."
+        ;;
+    esac
+  fi
+
+  menu_prompt_path "listener service name" SERVICE_NAME "$SERVICE_NAME"
+  menu_prompt_oracle_name "SYSBACKUP user" SYSBACKUP_USER "$SYSBACKUP_USER"
+}
+
+menu_configure_options() {
+  local answer
+
   while true; do
     echo
-    echo "CrashSimulator V2 ${VERSION}"
-    echo "Database: ${DB_UNIQUE_NAME:-not discovered}  Role: ${DB_ROLE:-unknown}  CDB: ${DB_CDB:-unknown}"
+    echo "Configure Menu Context"
+    echo "  1. Select PDB"
+    echo "  2. Set schema"
+    echo "  3. Set FILE#"
+    echo "  4. Set recovery manifest"
+    echo "  5. Set PFILE path"
+    echo "  6. Scenario 25 backup-piece guardrails"
+    echo "  7. Password-file recovery options"
+    echo "  8. Set log directory"
+    echo "  9. Clear selected scenario and targets"
+    echo "  b. Back"
     echo
-    list_scenarios
-    echo
-    echo "Enter scenario id, d for discovery, q to quit:"
-    local answer
-    read -r answer
+    echo "Choice:"
+    read -r answer || return "$FAIL"
     case "$answer" in
+      1) menu_select_pdb; menu_pause ;;
+      2) menu_prompt_oracle_name "schema" TARGET_SCHEMA "$TARGET_SCHEMA"; menu_pause ;;
+      3) menu_prompt_file_no; menu_pause ;;
+      4)
+        menu_prompt_path "manifest path" MANIFEST_FILE "$MANIFEST_FILE"
+        [[ -n "$MANIFEST_FILE" ]] && MANIFEST_FROM_ARG=1
+        menu_pause
+        ;;
+      5) menu_prompt_path "PFILE path" PFILE_PATH "$PFILE_PATH"; menu_pause ;;
+      6) menu_configure_scenario25; menu_pause ;;
+      7) menu_set_password_file_options; menu_pause ;;
+      8)
+        menu_prompt_path "log directory" LOG_DIR "$LOG_DIR"
+        [[ -n "$LOG_DIR" ]] || LOG_DIR="$(pwd)/crashsimulator_logs"
+        mkdir -p "$LOG_DIR" || die "Unable to create log directory: $LOG_DIR"
+        menu_pause
+        ;;
+      9)
+        SCENARIO_ID=""
+        TARGET_PDB=""
+        TARGET_SCHEMA=""
+        TARGET_FILE_NO=""
+        MANIFEST_FILE=""
+        MANIFEST_FROM_ARG=0
+        PFILE_PATH=""
+        LOCAL_ONLY=0
+        MAX_TARGETS=""
+        PIECE_HANDLE=""
+        echo "Scenario and target context cleared."
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
+menu_latest_manifest() {
+  find "$LOG_DIR" -maxdepth 1 -type f -name '*.manifest' 2>/dev/null | sort | tail -n 1
+}
+
+menu_latest_manifest_for_mode() {
+  local mode_name="$1"
+  local id="$2"
+  find "$LOG_DIR" -maxdepth 1 -type f -name "crashsim_${mode_name}_s${id}_*.manifest" 2>/dev/null | sort | tail -n 1
+}
+
+menu_choose_recovery_manifest() {
+  local latest answer
+
+  if [[ -n "$MANIFEST_FILE" ]]; then
+    return "$SUCCESS"
+  fi
+
+  if [[ -n "$SCENARIO_ID" ]]; then
+    latest="$(menu_latest_manifest_for_mode "scenario" "$SCENARIO_ID")"
+  else
+    latest=""
+  fi
+  [[ -n "$latest" ]] || latest="$(menu_latest_manifest)"
+
+  if [[ -n "$latest" ]]; then
+    echo "Latest manifest: ${latest}"
+    echo "Use this manifest for recovery? [Y/n]"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      n|N|no|NO)
+        ;;
+      *)
+        MANIFEST_FILE="$latest"
+        MANIFEST_FROM_ARG=1
+        return "$SUCCESS"
+        ;;
+    esac
+  fi
+
+  echo "Enter recovery manifest path, or blank to let the recovery helper decide when supported:"
+  read -r answer || return "$FAIL"
+  if [[ -n "$answer" ]]; then
+    MANIFEST_FILE="$answer"
+    MANIFEST_FROM_ARG=1
+  fi
+}
+
+menu_append_common_child_args() {
+  [[ -n "$TARGET_PDB" ]] && MENU_CMD+=("--pdb" "$TARGET_PDB")
+  [[ -n "$TARGET_SCHEMA" ]] && MENU_CMD+=("--schema" "$TARGET_SCHEMA")
+  [[ -n "$TARGET_FILE_NO" ]] && MENU_CMD+=("--file-no" "$TARGET_FILE_NO")
+  [[ -n "$PFILE_PATH" ]] && MENU_CMD+=("--pfile" "$PFILE_PATH")
+  [[ -n "$SERVICE_NAME" ]] && MENU_CMD+=("--service-name" "$SERVICE_NAME")
+  [[ -n "$SYSBACKUP_USER" ]] && MENU_CMD+=("--sysbackup-user" "$SYSBACKUP_USER")
+  [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
+  [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")
+  [[ -n "$PIECE_HANDLE" ]] && MENU_CMD+=("--piece-handle" "$PIECE_HANDLE")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+}
+
+menu_print_child_command() {
+  local arg
+  printf "Running:"
+  for arg in "${MENU_CMD[@]}"; do
+    printf " %q" "$arg"
+  done
+  printf "\n"
+}
+
+menu_run_child_command() {
+  local status
+  menu_print_child_command
+  echo
+  env CRASHSIM_SYS_PASSWORD="$SYS_PASSWORD" "${MENU_CMD[@]}"
+  status=$?
+  echo
+  if [[ "$status" -eq 0 ]]; then
+    echo "Command completed successfully."
+  else
+    warn "Command exited with status ${status}."
+  fi
+  return "$status"
+}
+
+menu_run_child_action() {
+  local action="$1"
+  local run_mode="$2"
+  local latest status
+
+  menu_require_scenario || {
+    warn "No scenario selected."
+    return "$FAIL"
+  }
+
+  MENU_CMD=("$0")
+  case "$action" in
+    scenario)
+      MENU_CMD+=("--scenario" "$SCENARIO_ID")
+      ;;
+    protect)
+      MENU_CMD+=("--protect" "$SCENARIO_ID")
+      ;;
+    recover)
+      menu_choose_recovery_manifest
+      MENU_CMD+=("--recover" "$SCENARIO_ID")
+      [[ -n "$MANIFEST_FILE" ]] && MENU_CMD+=("--manifest" "$MANIFEST_FILE")
+      ;;
+    *)
+      warn "Unknown action: $action"
+      return "$FAIL"
+      ;;
+  esac
+
+  menu_append_common_child_args
+  case "$run_mode" in
+    execute) MENU_CMD+=("--execute") ;;
+    dry-run) MENU_CMD+=("--dry-run") ;;
+    *) warn "Unknown run mode: $run_mode"; return "$FAIL" ;;
+  esac
+
+  menu_run_child_command
+  status=$?
+
+  if [[ "$action" == "scenario" && "$status" -eq 0 ]]; then
+    latest="$(menu_latest_manifest_for_mode "scenario" "$SCENARIO_ID")"
+    if [[ -n "$latest" ]]; then
+      MANIFEST_FILE="$latest"
+      MANIFEST_FROM_ARG=1
+      echo "Current recovery manifest set to: ${MANIFEST_FILE}"
+      echo "For destructive recovery, make sure this is the executed scenario manifest, not only a dry-run manifest."
+    fi
+  fi
+
+  return "$status"
+}
+
+menu_run_health_check() {
+  MENU_CMD=("$0" "--health-check")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_show_recent_artifacts() {
+  echo
+  echo "Recent files in ${LOG_DIR}:"
+  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' \) 2>/dev/null |
+    sort |
+    tail -40 |
+    sed 's/^/  /'
+}
+
+interactive_menu() {
+  local answer
+
+  while true; do
+    menu_print_header
+    echo
+    echo "Guided Workflow"
+    echo "  1. Discover or refresh database topology"
+    echo "  2. Select scenario"
+    echo "  3. List all scenarios"
+    echo "  4. Show recovery runbook for selected scenario"
+    echo "  5. Dry-run selected scenario"
+    echo "  6. Dry-run protection for selected scenario"
+    echo "  7. Execute protection for selected scenario"
+    echo "  8. Execute selected scenario"
+    echo "  9. Dry-run recovery for selected scenario"
+    echo " 10. Execute recovery for selected scenario"
+    echo " 11. Run health check / validation"
+    echo " 12. Configure targets and options"
+    echo " 13. Show recent manifests and logs"
+    echo "  q. Quit"
+    echo
+    echo "Choice:"
+    read -r answer || break
+
+    case "$answer" in
+      1|d|D)
+        discover_environment || true
+        print_discovery
+        menu_pause
+        ;;
+      2|s|S)
+        menu_select_scenario
+        menu_pause
+        ;;
+      3|l|L)
+        list_scenarios
+        menu_pause
+        ;;
+      4|r|R)
+        if menu_require_scenario; then
+          print_runbook_only "$SCENARIO_ID"
+        fi
+        menu_pause
+        ;;
+      5)
+        menu_run_child_action "scenario" "dry-run"
+        menu_pause
+        ;;
+      6)
+        menu_run_child_action "protect" "dry-run"
+        menu_pause
+        ;;
+      7)
+        menu_run_child_action "protect" "execute"
+        menu_pause
+        ;;
+      8)
+        menu_run_child_action "scenario" "execute"
+        menu_pause
+        ;;
+      9)
+        menu_run_child_action "recover" "dry-run"
+        menu_pause
+        ;;
+      10)
+        menu_run_child_action "recover" "execute"
+        menu_pause
+        ;;
+      11|h|H)
+        menu_run_health_check
+        menu_pause
+        ;;
+      12|c|C)
+        menu_configure_options
+        ;;
+      13|a|A)
+        menu_show_recent_artifacts
+        menu_pause
+        ;;
       q|Q|0)
         break
         ;;
-      d|D)
-        print_discovery
-        ;;
       *)
-        if scenario_exists "$answer"; then
-          EXECUTE=0
-          run_scenario "$answer"
-        else
-          warn "Unknown scenario id: $answer"
-        fi
+        warn "Unknown menu choice: $answer"
+        menu_pause
         ;;
     esac
   done
@@ -3768,6 +4358,9 @@ main() {
       ;;
     list)
       list_scenarios
+      ;;
+    health)
+      run_health_check
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
