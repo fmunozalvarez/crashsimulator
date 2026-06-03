@@ -563,7 +563,7 @@ record_action_targets() {
     manifest_append "action_${action_no}_target" "$target"
     manifest_append "action_${action_no}_detail" "$detail"
 
-    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* ]]; then
+    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* || "$kind" == "external" ]]; then
       metadata="$(datafile_metadata_for_path "$target" || true)"
       if [[ -n "$metadata" ]]; then
         IFS='|' read -r pdb_name con_id file_no tablespace path <<<"$metadata"
@@ -598,7 +598,13 @@ collect_datafile_plan() {
   for idx in "${!ACTION_KINDS[@]}"; do
     kind="${ACTION_KINDS[$idx]}"
     target="${ACTION_TARGETS[$idx]}"
-    [[ "$kind" == "fs_rename" ]] || continue
+    case "$kind" in
+      fs_rename|external)
+        ;;
+      *)
+        continue
+        ;;
+    esac
 
     metadata="$(datafile_metadata_for_path "$target" || true)"
     if [[ -z "$metadata" ]]; then
@@ -1264,10 +1270,10 @@ register_scenarios() {
   register_scenario "43" "PDB loss of one user table"                        "PDB"        "PDB"        "logical"      "cdb,pdb,primary"   "scenario_pdb_drop_table"    "Requires --pdb."
   register_scenario "44" "PDB loss of one user schema"                       "PDB"        "PDB"        "logical"      "cdb,pdb,primary"   "scenario_pdb_drop_schema"   "Requires --pdb."
   register_scenario "45" "Drop selected PDB including datafiles"             "PDB"        "PDB"        "destructive" "cdb,pdb,primary"   "scenario_drop_pdb"          "Requires --pdb."
-  register_scenario "46" "ASM data disk group unavailable"                   "ASM"        "ASM"        "destructive" "asm"               "scenario_planned"           "Gated for an ASM test environment."
-  register_scenario "47" "OCR loss or restore drill"                         "GI"         "Cluster"    "destructive" "gi"                "scenario_planned"           "Gated for a Grid Infrastructure test environment."
-  register_scenario "48" "Voting disk loss or restore drill"                 "GI"         "Cluster"    "destructive" "gi"                "scenario_planned"           "Gated for a Grid Infrastructure test environment."
-  register_scenario "49" "ASM SPFILE loss"                                   "ASM"        "ASM"        "destructive" "asm"               "scenario_planned"           "Gated for an ASM test environment."
+  register_scenario "46" "ASM data disk group unavailable"                   "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_diskgroup_unavailable" "Plans ASM disk group outage practice; execution requires an ASM-aware handler."
+  register_scenario "47" "OCR loss or restore drill"                         "GI"         "Cluster"    "destructive" "gi"                "scenario_ocr_restore_drill" "Plans OCR backup/restore practice; execution requires root/Grid procedure approval."
+  register_scenario "48" "Voting disk loss or restore drill"                 "GI"         "Cluster"    "destructive" "gi"                "scenario_voting_disk_drill" "Plans voting disk replacement practice; execution requires root/Grid procedure approval."
+  register_scenario "49" "ASM SPFILE loss"                                   "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_spfile_loss"   "Plans ASM SPFILE loss practice; execution requires an ASM-aware handler."
   register_scenario "50" "Standby managed recovery cancelled"                "DataGuard"  "Standby"    "logical"      "standby"           "scenario_standby_apply_cancel" "For physical standby apply practice."
   register_scenario "51" "Primary transport destination deferred"            "DataGuard"  "Primary"    "logical"      "primary,dg"        "scenario_primary_transport_defer" "Defers the first remote archive destination."
   register_scenario "52" "Data Guard broker configuration unavailable"       "DataGuard"  "DG"         "logical"      "dg"                "scenario_planned"           "Gated for a broker-enabled DG environment."
@@ -1465,7 +1471,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|14|16|17|18|19|20|21|23|24|25|26|30|31|32|39|41|59) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|14|16|17|18|19|20|21|23|24|25|26|30|31|32|39|41|55|59) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2259,6 +2265,102 @@ recover_rman_backup_piece_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+srvctl_database_is_running() {
+  local output_file="$1"
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  srvctl status database -d "$DB_UNIQUE_NAME" >"$output_file" 2>&1 || return "$FAIL"
+  grep -Eq 'is running|is online|Instance .* is running' "$output_file"
+}
+
+srvctl_service_is_running() {
+  local output_file="$1"
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  srvctl status service -d "$DB_UNIQUE_NAME" >"$output_file" 2>&1 || return "$FAIL"
+  grep -Eq 'is running|is online|running on instance' "$output_file"
+}
+
+recover_srvctl_database_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  CURRENT_SCENARIO_ID="$id"
+
+  if [[ -n "$DB_UNIQUE_NAME" ]] && ! validate_oracle_name "$DB_UNIQUE_NAME"; then
+    DB_UNIQUE_NAME=""
+  fi
+  if [[ -z "$DB_UNIQUE_NAME" && -n "${ORACLE_UNQNAME:-}" ]]; then
+    DB_UNIQUE_NAME="$ORACLE_UNQNAME"
+  fi
+  if [[ -z "$DB_UNIQUE_NAME" ]] && command -v srvctl >/dev/null 2>&1; then
+    local srvctl_dbs
+    mapfile -t srvctl_dbs < <(srvctl config database 2>/dev/null | trim_blank_lines)
+    if [[ "${#srvctl_dbs[@]}" -eq 1 ]]; then
+      DB_UNIQUE_NAME="${srvctl_dbs[0]}"
+    fi
+  fi
+  if [[ -z "$INSTANCE_NAME" && -n "${ORACLE_SID:-}" ]]; then
+    INSTANCE_NAME="$ORACLE_SID"
+  fi
+  if [[ -z "$CLUSTER_TYPE" || "$CLUSTER_TYPE" == "UNKNOWN" ]]; then
+    CLUSTER_TYPE="GI_SINGLE"
+  fi
+  [[ -n "$DB_UNIQUE_NAME" ]] ||
+    die "Scenario 55 recovery requires DB_UNIQUE_NAME. Set ORACLE_UNQNAME or run with --sqlplus-logon against an open database."
+
+  if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
+    init_manifest "recover" "$id"
+  elif [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  fi
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Database resource: ${DB_UNIQUE_NAME}"
+  echo "Instance: ${INSTANCE_NAME}"
+  echo "Cluster type: ${CLUSTER_TYPE}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would run srvctl status database -d ${DB_UNIQUE_NAME}"
+    echo "DRY-RUN: would run srvctl start database -d ${DB_UNIQUE_NAME} if the database is not running"
+    echo "DRY-RUN: would run srvctl start service -d ${DB_UNIQUE_NAME} if services are not running"
+    echo "DRY-RUN: would validate database/PDB health with SQL*Plus"
+    return "$SUCCESS"
+  fi
+
+  local db_status_file service_status_file
+  db_status_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_srvctl_database_status.log"
+  service_status_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_srvctl_service_status.log"
+  manifest_append "recover_srvctl_database_status_log" "$db_status_file"
+  manifest_append "recover_srvctl_service_status_log" "$service_status_file"
+
+  if srvctl_database_is_running "$db_status_file"; then
+    echo "Database resource is already running."
+  else
+    echo "srvctl start database -d ${DB_UNIQUE_NAME}"
+    srvctl start database -d "$DB_UNIQUE_NAME" ||
+      die "Unable to start database resource ${DB_UNIQUE_NAME}"
+  fi
+
+  if srvctl_service_is_running "$service_status_file"; then
+    echo "Database services are already running."
+  else
+    echo "srvctl start service -d ${DB_UNIQUE_NAME}"
+    srvctl start service -d "$DB_UNIQUE_NAME" ||
+      warn "srvctl start service reported a non-zero status; continuing to SQL health validation."
+  fi
+
+  ensure_database_open
+  run_health_check
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 recover_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
@@ -2289,6 +2391,9 @@ recover_scenario() {
       ;;
     26)
       recover_spfile_scenario "$id"
+      ;;
+    55)
+      recover_srvctl_database_scenario "$id"
       ;;
     59)
       recover_archivelog_scenario "$id"
@@ -2662,6 +2767,9 @@ execute_actions() {
   echo "Planned actions:"
   print_actions
   echo
+  if [[ "$PLANNING_ONLY" -eq 1 ]]; then
+    return "$SUCCESS"
+  fi
   if [[ "$PLANNING_ONLY" -eq 0 ]]; then
     record_action_targets
   fi
@@ -2706,6 +2814,9 @@ execute_actions() {
         ;;
       srvctl_abort_instance)
         perform_srvctl_abort_instance "$target"
+        ;;
+      srvctl_abort_database)
+        perform_srvctl_abort_database
         ;;
       external)
         die "External target requires a provider-specific handler and was not executed: $target"
@@ -2765,6 +2876,13 @@ perform_srvctl_abort_instance() {
   srvctl stop instance -d "$DB_UNIQUE_NAME" -i "$instance" -o abort
 }
 
+perform_srvctl_abort_database() {
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  echo "srvctl stop database -d $DB_UNIQUE_NAME -o abort"
+  srvctl stop database -d "$DB_UNIQUE_NAME" -o abort
+}
+
 discover_pmon_spid() {
   local output_file="$WORK_DIR/pmon_spid.out"
   sql_query "$output_file" "
@@ -2778,6 +2896,10 @@ where b.name = 'PMON'
 }
 
 abort_target_instance() {
+  if [[ "$PLANNING_ONLY" -eq 1 ]]; then
+    return "$SUCCESS"
+  fi
+
   if [[ "$EXECUTE" -eq 0 ]]; then
     info "DRY-RUN: would abort target instance ${INSTANCE_NAME}"
     return "$SUCCESS"
@@ -3675,6 +3797,126 @@ drop pluggable database ${pdb} including datafiles;
   execute_actions
 }
 
+print_optional_tool_output() {
+  local title="$1"
+  shift
+  echo
+  echo "${title}:"
+  if "$@" 2>&1 | sed 's/^/  /'; then
+    return "$SUCCESS"
+  fi
+  warn "Unable to collect ${title}."
+}
+
+detect_asm_sid_from_process() {
+  pgrep -af 'asm_pmon_' 2>/dev/null |
+    awk -F'asm_pmon_' 'NF > 1 {print $2; exit}'
+}
+
+run_asmcmd_with_grid_env() {
+  local asmcmd_bin asm_home asm_sid
+  asmcmd_bin="$(command -v asmcmd 2>/dev/null || true)"
+  [[ -n "$asmcmd_bin" ]] || return "$FAIL"
+  asm_home="$(cd "$(dirname "$asmcmd_bin")/.." >/dev/null 2>&1 && pwd)"
+  [[ -n "$asm_home" ]] || return "$FAIL"
+  asm_sid="${CRASHSIM_ASM_SID:-}"
+  [[ -n "$asm_sid" ]] || asm_sid="$(detect_asm_sid_from_process || true)"
+  [[ -n "$asm_sid" ]] || asm_sid="+ASM"
+  env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+}
+
+scenario_asm_diskgroup_unavailable() {
+  reset_actions
+  local dg_file row dg_name dg_state dg_type dg_total dg_free target_dg
+  echo "ASM disk group planning helper"
+  dg_file="$WORK_DIR/asm_diskgroups.lst"
+  sql_query "$dg_file" "
+select name || '|' || state || '|' || type || '|' || total_mb || '|' || free_mb
+from v\$asm_diskgroup
+order by name;
+"
+  mapfile -t TARGET_ROWS < <(trim_blank_lines <"$dg_file")
+  if [[ "${#TARGET_ROWS[@]}" -eq 0 ]]; then
+    warn "No ASM disk groups were visible from V\$ASM_DISKGROUP."
+    target_dg="+ASM_DISKGROUP"
+  else
+    echo
+    echo "ASM disk groups visible to the database:"
+    for row in "${TARGET_ROWS[@]}"; do
+      IFS='|' read -r dg_name dg_state dg_type dg_total dg_free <<<"$row"
+      printf "  %-12s state=%-12s type=%-8s total_mb=%-10s free_mb=%s\n" \
+        "$dg_name" "$dg_state" "$dg_type" "$dg_total" "$dg_free"
+      if [[ "$dg_name" == "DATA" ]]; then
+        target_dg="+${dg_name}"
+      fi
+    done
+    if [[ -z "$target_dg" ]]; then
+      IFS='|' read -r dg_name dg_state dg_type dg_total dg_free <<<"${TARGET_ROWS[0]}"
+      target_dg="+${dg_name}"
+    fi
+  fi
+  add_action "external" "$target_dg" "ASM disk group outage requires explicit ASM-aware fault injection and restore/rebalance steps"
+  execute_actions
+}
+
+scenario_ocr_restore_drill() {
+  reset_actions
+  echo "OCR restore planning helper"
+  if command -v ocrcheck >/dev/null 2>&1; then
+    print_optional_tool_output "ocrcheck" ocrcheck
+  else
+    warn "ocrcheck not found in PATH."
+  fi
+  if command -v ocrconfig >/dev/null 2>&1; then
+    print_optional_tool_output "ocrconfig -showbackup" ocrconfig -showbackup
+  else
+    warn "ocrconfig not found in PATH."
+  fi
+  add_action "external" "OCR" "OCR restore practice must use a root/Grid procedure, verified OCR backups, and CRS validation"
+  execute_actions
+}
+
+scenario_voting_disk_drill() {
+  reset_actions
+  echo "Voting disk planning helper"
+  if command -v crsctl >/dev/null 2>&1; then
+    print_optional_tool_output "crsctl query css votedisk" crsctl query css votedisk
+  else
+    warn "crsctl not found in PATH."
+  fi
+  add_action "external" "VOTING_DISK" "Voting disk replacement practice must use a root/Grid procedure and cluster membership validation"
+  execute_actions
+}
+
+scenario_asm_spfile_loss() {
+  reset_actions
+  local asm_spfile="" asm_config_file
+  echo "ASM SPFILE planning helper"
+  if command -v srvctl >/dev/null 2>&1; then
+    asm_config_file="$WORK_DIR/srvctl_config_asm.out"
+    if srvctl config asm >"$asm_config_file" 2>&1; then
+      echo
+      echo "srvctl config asm:"
+      sed 's/^/  /' "$asm_config_file"
+    else
+      warn "Unable to collect srvctl config asm."
+    fi
+  fi
+  if command -v asmcmd >/dev/null 2>&1; then
+    asm_spfile="$(run_asmcmd_with_grid_env spget 2>/dev/null | trim_blank_lines | head -n 1 || true)"
+    if [[ -n "$asm_spfile" ]]; then
+      print_optional_tool_output "asmcmd spget" run_asmcmd_with_grid_env spget
+    else
+      warn "asmcmd spget was not available from the current OS user; use the Grid owner if ASM SPFILE path discovery is required."
+    fi
+  else
+    warn "asmcmd not found in PATH."
+  fi
+  [[ -n "$asm_spfile" ]] || asm_spfile="+ASM_SPFILE"
+  add_action "external" "$asm_spfile" "ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation"
+  execute_actions
+}
+
 scenario_standby_apply_cancel() {
   reset_actions
   add_action "sql" "alter database recover managed standby database cancel;" "cancel managed standby recovery"
@@ -3703,7 +3945,14 @@ where rownum = 1;
 
 scenario_rac_abort_instance() {
   reset_actions
-  add_action "srvctl_abort_instance" "$INSTANCE_NAME" "abort current RAC instance"
+  case "$CLUSTER_TYPE" in
+    GI_SINGLE)
+      add_action "srvctl_abort_database" "$DB_UNIQUE_NAME" "abort GI-managed single-instance database"
+      ;;
+    *)
+      add_action "srvctl_abort_instance" "$INSTANCE_NAME" "abort current RAC instance"
+      ;;
+  esac
   execute_actions
 }
 

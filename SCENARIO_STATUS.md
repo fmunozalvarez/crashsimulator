@@ -1,8 +1,11 @@
 # CrashSimulator Scenario Status
 
-Snapshot date: 2026-06-03
+Snapshot date: 2026-06-04
 
-This status reflects the first OCI Base DB Service validation environment:
+This status reflects the first OCI Base DB Service validation environment and
+the initial RAC One Node/GI/ASM preparation environment.
+
+First OCI Base DB Service validation environment:
 
 - Oracle Database 19.31 Enterprise Edition
 - CDB `CRASHDB` with PDB `CRASHPDB`
@@ -90,20 +93,40 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `45`: drop selected PDB including datafiles
 - `50`: standby managed recovery cancelled
 - `51`: primary transport destination deferred
-- `55`: RAC abort one instance
 - `57`: listener config unavailable
 - `58`: TDE wallet or keystore unavailable
 
 Re-run `seed_crashsim_lab.sql` before table, schema, or index-loss scenarios.
 
+## Initial RAC/GI/ASM Validation
+
+The RAC One Node/GI/ASM environment uses Oracle Database 19.31, CDB
+`CRASHDB`, PDB `CRASHPDB`, DB unique name `crashdb_test2`, GI-managed
+single-database topology detected as `GI_SINGLE`, and ASM disk groups `DATA`
+and `RECO`.
+
+- `55`: dry-run, execute, manual `srvctl start database` recovery, automated
+  `--recover 55 --execute` validation, and post-drill health check completed.
+- `30`, `7`, `32`, and `41`: kept in dry-run/protect-only mode. Scenario
+  target selection correctly marks ASM datafiles as `external`, while
+  `--protect` resolves FILE# metadata for RMAN protection planning.
+- `46`: ASM disk-group planning helper implemented and dry-run validated.
+- `47`: OCR planning helper implemented and dry-run validated with `ocrcheck`
+  and OCR backup listing evidence.
+- `48`: voting-disk planning helper implemented and dry-run validated.
+- `49`: ASM SPFILE planning helper implemented and dry-run validated, with
+  `srvctl config asm` evidence and a warning when `asmcmd spget` is not
+  available from the current OS user.
+
+Destructive ASM/GI execution for `30`, `7`, `32`, `41`, `46`, `47`, `48`, and
+`49` remains blocked until explicit ASM-aware crash-injection and recovery
+handlers are added.
+
 ## Registered Placeholders Needing Implementation
 
-These scenarios are registered and gated, but still use the placeholder handler:
+These scenarios are registered and gated, but still need purpose-built
+implementation before destructive validation:
 
-- `46`: ASM data disk group unavailable
-- `47`: OCR loss or restore drill
-- `48`: voting disk loss or restore drill
-- `49`: ASM SPFILE loss
 - `52`: Data Guard broker configuration unavailable
 - `53`: Active Data Guard read-only session pressure
 - `54`: snapshot standby conversion practice
@@ -119,7 +142,8 @@ and push back to GitHub.
 Recommended next validation coverage:
 
 - Multiplexed redo logs for scenarios `3` and `18`
-- ASM/Grid Infrastructure for scenarios `46`, `47`, `48`, and `49`
-- RAC for scenarios `55` and `56`
+- ASM-aware destructive/recovery helpers for scenarios `30`, `7`, `32`, `41`,
+  `46`, `47`, `48`, and `49`
+- RAC service relocation/failure validation for scenario `56`
 - Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
 - Logical recovery scenarios after re-seeding lab objects: `11`, `36`, `43`, and `44`

@@ -30,9 +30,21 @@ Report timestamp: 2026-06-04
 - Ran `--health-check` successfully.
 - Ran dry-runs for:
   - Scenario `30`: PDB non-system datafile target selection
-  - Scenario `46`: ASM placeholder gate
-  - Scenario `47`: GI placeholder gate
+  - Scenario `46`: ASM disk-group planning helper
+  - Scenario `47`: OCR planning helper
   - Scenario `55`: GI-managed instance abort target selection
+- Re-ran scenario `55` after patching GI-managed single-database behavior:
+  - Initial `srvctl stop instance -d crashdb_test2 -i crashdb -o abort` failed
+    safely with `PRCD-1035` because the resource is not a cluster database.
+  - Patched scenario `55` on `GI_SINGLE` to use
+    `srvctl stop database -d crashdb_test2 -o abort`.
+  - Executed the corrected scenario; database and service stopped under
+    Clusterware control.
+  - Recovered manually with `srvctl start database -d crashdb_test2`.
+  - Validated the `--recover 55 --execute` helper against the recovered state.
+- Ran ASM datafile scenarios `30`, `7`, `32`, and `41` in dry-run/protect-only
+  mode. No ASM datafile crash injection was executed.
+- Ran scenario-helper dry-runs for `46`, `47`, `48`, and `49`.
 
 ## Health Check Result
 
@@ -41,6 +53,8 @@ Report timestamp: 2026-06-04
 - `V$RECOVER_FILE`: no rows
 - `V$DATABASE_BLOCK_CORRUPTION`: no rows
 - USERS datafiles are ASM files under `+DATA`
+- Post-scenario-55 validation: `srvctl status database` and
+  `srvctl status service` showed the database instance and PDB service running.
 
 ## Framework Fixes From Prep
 
@@ -53,14 +67,33 @@ Report timestamp: 2026-06-04
 - ASM targets are now shown as provider-specific `external` actions instead of
   misleading filesystem rename/corruption actions.
 - Manifests now include `cluster_type` and `gi_managed`.
+- Scenario `55` now distinguishes RAC parallel instance abort from
+  GI-managed single-database abort. `GI_SINGLE` plans
+  `srvctl_abort_database crashdb_test2`.
+- `--recover 55` now performs `srvctl` database/service status checks, starts
+  the database/services when needed, and finishes with framework health
+  validation.
+- Scenario helpers for `46`, `47`, `48`, and `49` now collect non-destructive
+  ASM/GI evidence and emit external plans:
+  - `46`: ASM disk groups from `V$ASM_DISKGROUP`
+  - `47`: `ocrcheck` and OCR backup listing
+  - `48`: `crsctl query css votedisk`
+  - `49`: `srvctl config asm` and optional `asmcmd spget`
+- RMAN protection planning now collects FILE# metadata from ASM/external
+  datafile targets. Example: scenario `41` on `CRASHPDB` planned datafiles
+  `8,9,10,12` while still refusing destructive ASM file injection.
+- Target harvesting for `--protect` no longer prints the later scenario abort
+  step.
 
 ## Readiness Notes
 
-- Scenario `55` is the first realistic HA drill candidate in this environment:
-  it dry-runs to `srvctl_abort_instance crashdb`.
-- Datafile scenarios such as `30` correctly identify ASM targets, but should not
-  be executed until an ASM-aware crash-injection helper is implemented.
-- ASM/GI scenarios `46`, `47`, `48`, and `49` remain registered placeholders and
-  need implementation before destructive execution.
+- Scenario `55` is validated for this `GI_SINGLE` environment using
+  database-level `srvctl` abort/restart behavior.
+- Datafile scenarios `30`, `7`, `32`, and `41` correctly identify ASM targets
+  and can plan RMAN protection by FILE#. They should not be destructively
+  executed until an ASM-aware crash-injection helper is implemented.
+- ASM/GI scenarios `46`, `47`, `48`, and `49` now have non-destructive planning
+  helpers, but still need explicit root/Grid/ASM recovery procedures before
+  destructive execution.
 - Continue with dry-run, protect where available, execute, recover, health check,
   and post-drill backup discipline for every scenario.

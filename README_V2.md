@@ -73,6 +73,10 @@ the RMAN restore/recover command file. Both modes write a manifest containing
 the scenario id, target PDB/container, file number, tablespace, datafile path,
 RMAN tag, command files, and logs.
 
+On ASM storage, datafile crash injection is kept as a provider-specific
+`external` action until an ASM-aware helper exists, but `--protect` still
+resolves FILE# metadata and can plan or run RMAN protection for those targets.
+
 Automated RMAN protection is currently enabled for:
 
 - Scenario 5: loss of one non-system datafile in a non-CDB or CDB root.
@@ -103,6 +107,8 @@ Automated recovery helpers are currently enabled for:
   crosscheck, backup-set validation, and final scenario backup cleanup.
 - Scenario 26: SPFILE recovery from `--pfile` or the scenario backup, followed
   by RMAN `validate spfile`.
+- Scenario 55: GI/RAC instance or GI-managed single-database restart validation
+  with `srvctl`, service status checks, and health validation.
 - Scenario 59: archived-log crosscheck, restore from the scenario backup,
   validation, and final backup cleanup.
 
@@ -179,18 +185,24 @@ For automated lab runs only:
 - ASM paths are identified as provider-specific targets; filesystem rename or
   corruption actions are refused until an ASM-aware crash-injection handler is
   implemented for that scenario.
+- ASM/GI scenarios 46, 47, 48, and 49 include non-destructive planning helpers
+  for disk groups, OCR, voting disks, and ASM SPFILE evidence collection.
 - Filesystem actions refuse ASM-style `+DATA/...` paths.
 - Instance abort targets the discovered/current instance instead of every PMON
   on the host.
+- GI-managed single-database abort drills use `srvctl stop database -o abort`
+  and recovery checks use `srvctl status/start database` plus service checks.
 - Fixed `/tmp/*.tmp` files are replaced with a private `mktemp` work directory.
 
 ## Current Status
 
 The framework has been validated in the first OCI Base DB Service lab for a
 subset of control-file, redo, datafile, tempfile, password-file, SPFILE,
-backup-piece, PDB, and archived-log scenarios. See `SCENARIO_STATUS.md` for the
-current validation matrix, known environment gaps, and the next RAC, ASM, Data
-Guard, and Active Data Guard validation targets.
+backup-piece, PDB, and archived-log scenarios, and initial RAC One Node/GI/ASM
+validation has started with scenario 55 and ASM dry-run/protection planning.
+See `SCENARIO_STATUS.md` for the current validation matrix, known environment
+gaps, and the next RAC, ASM, Data Guard, and Active Data Guard validation
+targets.
 
 Start each new environment with `--discover`, then dry-run target selection,
 run `--protect` where available, execute only after backups and recovery
