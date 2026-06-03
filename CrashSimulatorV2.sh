@@ -65,6 +65,7 @@ FRA_PATH=""
 PASSWORD_FILE_PATH=""
 CLUSTER_TYPE="UNKNOWN"
 STORAGE_TYPE="UNKNOWN"
+GI_MANAGED=0
 DISCOVERED=0
 
 declare -a PDB_ROWS=()
@@ -464,6 +465,8 @@ init_manifest() {
   manifest_append "db_unique_name" "${DB_UNIQUE_NAME:-unknown}"
   manifest_append "db_role" "${DB_ROLE:-unknown}"
   manifest_append "db_cdb" "${DB_CDB:-unknown}"
+  manifest_append "cluster_type" "${CLUSTER_TYPE:-unknown}"
+  manifest_append "gi_managed" "${GI_MANAGED:-0}"
   manifest_append "storage_type" "${STORAGE_TYPE:-unknown}"
   manifest_append "target_pdb" "${TARGET_PDB:-}"
   manifest_append "target_schema" "${TARGET_SCHEMA:-}"
@@ -1041,20 +1044,48 @@ order by name;
   done < <(trim_blank_lines <"$params_file")
 
   if command -v srvctl >/dev/null 2>&1; then
-    PASSWORD_FILE_PATH="$(srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null |
-      awk -F': ' '/^Password file:/ {print $2; exit}')"
-    local srvctl_type
-    srvctl_type="$(srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null |
-      awk -F': ' '/^Type:/ {print $2; exit}')"
-    if [[ -n "$srvctl_type" ]]; then
-      CLUSTER_TYPE="$srvctl_type"
-    elif [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
-      CLUSTER_TYPE="RAC"
+    local srvctl_config srvctl_type
+    srvctl_config="$(srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
+    if [[ -n "$srvctl_config" ]]; then
+      GI_MANAGED=1
+      PASSWORD_FILE_PATH="$(printf "%s\n" "$srvctl_config" |
+        awk -F': ' '/^Password file:/ {print $2; exit}')"
+      srvctl_type="$(printf "%s\n" "$srvctl_config" |
+        awk -F': ' '/^Type:/ {print $2; exit}' |
+        tr '[:lower:]' '[:upper:]' |
+        tr -cd '[:alnum:]_')"
     else
-      CLUSTER_TYPE="SINGLE"
+      srvctl_type=""
     fi
+
+    case "$srvctl_type" in
+      RAC|RACONE|RACONENODE|RAC_ONE_NODE)
+        CLUSTER_TYPE="$srvctl_type"
+        ;;
+      SINGLE)
+        if command -v crsctl >/dev/null 2>&1; then
+          CLUSTER_TYPE="GI_SINGLE"
+        else
+          CLUSTER_TYPE="SINGLE"
+        fi
+        ;;
+      "")
+        if [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
+          CLUSTER_TYPE="RAC"
+        elif [[ "$GI_MANAGED" -eq 1 || -x "${ORACLE_HOME:-}/bin/srvctl" ]]; then
+          CLUSTER_TYPE="GI_SINGLE"
+        else
+          CLUSTER_TYPE="SINGLE"
+        fi
+        ;;
+      *)
+        CLUSTER_TYPE="$srvctl_type"
+        ;;
+    esac
   elif [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
     CLUSTER_TYPE="RAC"
+  elif command -v crsctl >/dev/null 2>&1; then
+    CLUSTER_TYPE="GI_SINGLE"
   else
     CLUSTER_TYPE="SINGLE"
   fi
@@ -1078,11 +1109,20 @@ order by con_id;
 detect_storage_type() {
   local file="$WORK_DIR/storage.env"
   sql_query "$file" "
-select file_name from dba_data_files where rownum <= 20
+select name from v\$datafile where rownum <= 50
 union all
-select name from v\$controlfile where rownum <= 5
+select name from v\$tempfile where rownum <= 50
+union all
+select name from v\$controlfile where rownum <= 10
+union all
+select value
+from v\$parameter
+where name in ('spfile','db_recovery_file_dest')
+  and value is not null
 "
-  if trim_blank_lines <"$file" | grep -q '^[+]'; then
+  if [[ "$SPFILE_PATH" == +* || "$FRA_PATH" == +* ]]; then
+    STORAGE_TYPE="ASM"
+  elif trim_blank_lines <"$file" | grep -Eq '^[[:space:]]*[+]'; then
     STORAGE_TYPE="ASM"
   else
     STORAGE_TYPE="FILESYSTEM"
@@ -1138,6 +1178,7 @@ CrashSimulator V2 discovery
   Thread:            ${INSTANCE_THREAD}
   RAC parallel:      ${INSTANCE_PARALLEL}
   Cluster type:      ${CLUSTER_TYPE}
+  GI managed:        ${GI_MANAGED}
   Storage type:      ${STORAGE_TYPE}
   SPFILE:            ${SPFILE_PATH:-not detected}
   Password file:     ${PASSWORD_FILE_PATH:-not detected}
@@ -1300,7 +1341,12 @@ check_requirements() {
         select_pdb_if_needed
         ;;
       rac)
-        [[ "$INSTANCE_PARALLEL" == "YES" || "$CLUSTER_TYPE" == "RAC" ]] || die "Scenario $id requires RAC."
+        [[ "$INSTANCE_PARALLEL" == "YES" ||
+           "$CLUSTER_TYPE" == "RAC" ||
+           "$CLUSTER_TYPE" == "RACONE" ||
+           "$CLUSTER_TYPE" == "RACONENODE" ||
+           "$CLUSTER_TYPE" == "RAC_ONE_NODE" ||
+           "$CLUSTER_TYPE" == "GI_SINGLE" ]] || die "Scenario $id requires RAC, RAC One Node, or a GI-managed database."
         ;;
       asm)
         [[ "$STORAGE_TYPE" == "ASM" ]] || die "Scenario $id requires ASM storage."
@@ -2620,10 +2666,25 @@ execute_actions() {
     record_action_targets
   fi
 
+  local has_external=0
+  local external_idx
+  for external_idx in "${!ACTION_KINDS[@]}"; do
+    if [[ "${ACTION_KINDS[$external_idx]}" == "external" ]]; then
+      has_external=1
+      break
+    fi
+  done
+
   if [[ "$EXECUTE" -eq 0 ]]; then
+    if [[ "$has_external" -eq 1 ]]; then
+      info "DRY-RUN complete. One or more targets require a provider-specific handler before execution."
+      return "$SUCCESS"
+    fi
     info "DRY-RUN complete. Re-run with --execute to perform these actions."
     return "$SUCCESS"
   fi
+  [[ "$has_external" -eq 0 ]] ||
+    die "One or more planned targets require a provider-specific handler and cannot be executed safely yet."
 
   local kind target detail idx
   for idx in "${!ACTION_KINDS[@]}"; do
@@ -2748,7 +2809,11 @@ query_targets() {
 add_fs_rename_targets() {
   local row
   for row in "${TARGET_ROWS[@]}"; do
-    add_action "fs_rename" "$row"
+    if [[ "$row" == +* ]]; then
+      add_action "external" "$row" "ASM path requires ASM-aware crash injection; filesystem rename is not valid"
+    else
+      add_action "fs_rename" "$row"
+    fi
   done
 }
 
@@ -2756,7 +2821,11 @@ add_fs_corrupt_targets() {
   local kind="$1"
   local row
   for row in "${TARGET_ROWS[@]}"; do
-    add_action "$kind" "$row"
+    if [[ "$row" == +* ]]; then
+      add_action "external" "$row" "ASM path requires ASM-aware corruption handling; filesystem dd is not valid"
+    else
+      add_action "$kind" "$row"
+    fi
   done
 }
 

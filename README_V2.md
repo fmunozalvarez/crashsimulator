@@ -173,8 +173,12 @@ For automated lab runs only:
   target discovery is unavailable.
 - Instance abort uses `V$BGPROCESS`/`V$PROCESS` PMON SPID discovery before
   falling back to OS process matching.
-- RAC, Data Guard, ASM, and Grid Infrastructure scenarios are registered but
-  gated by discovered topology.
+- RAC, Data Guard, ASM, and Grid Infrastructure scenarios are registered and
+  gated by discovered topology. GI-managed single-instance/RAC One Node-style
+  databases are reported separately from plain standalone databases.
+- ASM paths are identified as provider-specific targets; filesystem rename or
+  corruption actions are refused until an ASM-aware crash-injection handler is
+  implemented for that scenario.
 - Filesystem actions refuse ASM-style `+DATA/...` paths.
 - Instance abort targets the discovered/current instance instead of every PMON
   on the host.
