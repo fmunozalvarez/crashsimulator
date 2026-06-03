@@ -1,0 +1,16 @@
+run {
+  sql "alter system archive log current";
+  backup as compressed backupset datafile 12
+    format '/u03/app/oracle/fast_recovery_area/CRASHDB_TEST/crashsim_drill/protect_s30_df12_%U.bkp'
+    tag 'CRASHSIM_S30_PROTECT';
+  backup as compressed backupset datafile 7
+    format '/u03/app/oracle/fast_recovery_area/CRASHDB_TEST/crashsim_drill/protect_s05_df7_%U.bkp'
+    tag 'CRASHSIM_S05_PROTECT';
+  backup current controlfile
+    format '/u03/app/oracle/fast_recovery_area/CRASHDB_TEST/crashsim_drill/protect_controlfile_%U.bkp'
+    tag 'CRASHSIM_CONTROL_PROTECT';
+}
+
+list backup tag 'CRASHSIM_S30_PROTECT';
+list backup tag 'CRASHSIM_S05_PROTECT';
+list backup tag 'CRASHSIM_CONTROL_PROTECT';

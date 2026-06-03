@@ -1,0 +1,4 @@
+restore database validate;
+validate datafile 7;
+validate datafile 12;
+list failure;

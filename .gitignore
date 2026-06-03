@@ -1,0 +1,14 @@
+.DS_Store
+*.key
+*.log
+*.manifest
+*.out
+*.tmp
+*.trc
+*.trace
+*.aud
+*.crashsim.bak
+
+crashsim_logs/
+crashsimulator_logs/
+tmp/

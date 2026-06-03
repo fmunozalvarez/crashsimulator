@@ -1,0 +1,6 @@
+startup mount;
+restore datafile 12;
+recover datafile 12;
+sql "alter database open";
+# Run drill_open_pdbs_if_needed.sql after RMAN completes.
+list failure;

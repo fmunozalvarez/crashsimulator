@@ -1,0 +1,14 @@
+run {
+  sql "alter system archive log current";
+  backup as compressed backupset database
+    tag 'CRASHSIM_POSTDRILL_FULL';
+  sql "alter system archive log current";
+  backup as compressed backupset archivelog all not backed up 1 times
+    tag 'CRASHSIM_POSTDRILL_ARCH';
+  backup current controlfile
+    tag 'CRASHSIM_POSTDRILL_CONTROL';
+}
+
+list backup tag 'CRASHSIM_POSTDRILL_FULL';
+list backup tag 'CRASHSIM_POSTDRILL_ARCH';
+list backup tag 'CRASHSIM_POSTDRILL_CONTROL';
