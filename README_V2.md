@@ -1,5 +1,11 @@
 # CrashSimulator V2
 
+CrashSimulator is an open-source resilience validation platform for Oracle
+Database environments. By orchestrating controlled failures and recovery
+scenarios, it helps organizations continuously verify recoverability, strengthen
+operational readiness, validate HA/DR architectures, and demonstrate compliance
+with recovery objectives and regulatory requirements.
+
 CrashSimulator V2 is a safer, single-script rewrite of the original
 CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
