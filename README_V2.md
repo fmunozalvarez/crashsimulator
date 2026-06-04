@@ -11,6 +11,54 @@ CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
 
+## Documentation
+
+For end-user guidance, terminology, safety practices, feature descriptions, and
+the full scenario catalog, read:
+
+- `README.md` for the short project entry point.
+- `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
+- `SCENARIO_STATUS.md` for current validation status and known gaps.
+
+## Install From A ZIP File
+
+If you download CrashSimulator as a GitHub ZIP file, copy the ZIP to the target
+Oracle database host and unzip it:
+
+```bash
+unzip crashsimulator-main.zip
+cd crashsimulator-main
+chmod +x CrashSimulatorV2.sh
+```
+
+Run it as the Oracle software owner, or as an OS user that can connect locally
+as SYSDBA. Set the Oracle environment before starting:
+
+```bash
+sudo su - oracle
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
+export ORACLE_SID=orcl
+export PATH=$ORACLE_HOME/bin:$PATH
+cd /path/to/crashsimulator-main
+```
+
+CrashSimulator V2 requires Bash 4 or later, SQL*Plus, RMAN, and the normal
+Oracle environment for the target database. Grid Infrastructure commands such as
+`srvctl`, `crsctl`, `ocrcheck`, and `asmcmd` are used only for RAC/GI/ASM
+scenarios and reports when available.
+
+Validate the downloaded copy with safe commands first:
+
+```bash
+./CrashSimulatorV2.sh --help
+./CrashSimulatorV2.sh --discover
+./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --menu
+```
+
+`--dry-run` is the default. Destructive scenarios require `--execute` and an
+interactive confirmation token.
+
 ## First Run
 
 Run from the database host as an OS user that can connect locally as SYSDBA:
