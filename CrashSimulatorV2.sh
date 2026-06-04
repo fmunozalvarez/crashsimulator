@@ -106,6 +106,7 @@ Usage:
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --scenario <id> [--pdb <pdb_name>] [--dry-run]
   ./${PROGRAM} --scenario <id> [--pdb <pdb_name>] --execute [--yes]
+  ./${PROGRAM} --random-scenario [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM}
 
 Options:
@@ -117,6 +118,8 @@ Options:
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
   --scenario <id>         Run or dry-run a scenario by id.
+  --random-scenario       Pick and run a random topology-compatible scenario.
+  --aleatory-scenario     Alias for --random-scenario.
   --pdb <name>            Select target PDB for PDB-scoped scenarios.
   --schema <owner>        Select target schema for logical object scenarios.
   --file-no <n>           File number to recover when DB discovery is unavailable.
@@ -1365,6 +1368,127 @@ check_requirements() {
         ;;
     esac
   done
+}
+
+scenario_is_topology_compatible() {
+  local id="$1"
+  local requires="${SCENARIO_REQUIRES[$id]}"
+  local handler="${SCENARIO_HANDLER[$id]}"
+  local req
+  local -a reqs
+
+  scenario_exists "$id" || return "$FAIL"
+  [[ "$handler" != "scenario_planned" ]] || return "$FAIL"
+  case "$id" in
+    25)
+      [[ -n "$PIECE_HANDLE" || ( "$LOCAL_ONLY" == "1" && -n "$MAX_TARGETS" ) ]] || return "$FAIL"
+      ;;
+  esac
+
+  IFS=',' read -ra reqs <<<"$requires"
+  for req in "${reqs[@]}"; do
+    case "$req" in
+      any|"") ;;
+      primary)
+        [[ "$DB_ROLE" == "PRIMARY" ]] || return "$FAIL"
+        ;;
+      standby)
+        [[ "$DB_ROLE" == *"STANDBY"* ]] || return "$FAIL"
+        ;;
+      dg)
+        has_data_guard || return "$FAIL"
+        ;;
+      cdb)
+        [[ "$DB_CDB" == "YES" ]] || return "$FAIL"
+        ;;
+      pdb)
+        [[ "$DB_CDB" == "YES" ]] || return "$FAIL"
+        [[ -n "$TARGET_PDB" || "${#PDB_ROWS[@]}" -eq 1 ]] || return "$FAIL"
+        ;;
+      rac)
+        [[ "$INSTANCE_PARALLEL" == "YES" ||
+           "$CLUSTER_TYPE" == "RAC" ||
+           "$CLUSTER_TYPE" == "RACONE" ||
+           "$CLUSTER_TYPE" == "RACONENODE" ||
+           "$CLUSTER_TYPE" == "RAC_ONE_NODE" ||
+           "$CLUSTER_TYPE" == "GI_SINGLE" ]] || return "$FAIL"
+        ;;
+      asm)
+        [[ "$STORAGE_TYPE" == "ASM" ]] || return "$FAIL"
+        ;;
+      gi)
+        command -v crsctl >/dev/null 2>&1 || return "$FAIL"
+        ;;
+      *)
+        return "$FAIL"
+        ;;
+    esac
+  done
+}
+
+scenario_can_plan_randomly() {
+  local id="$1"
+  (
+    EXECUTE=0
+    ASSUME_YES=1
+    PLANNING_ONLY=1
+    MANIFEST_FILE=""
+    MANIFEST_FROM_ARG=0
+    CURRENT_SCENARIO_ID="$id"
+    check_requirements "$id"
+    plan_scenario_actions "$id"
+  ) >/dev/null 2>&1
+}
+
+select_random_scenario() {
+  discover_environment
+
+  local candidates=()
+  local all_candidates=()
+  local id candidate_count index selected=""
+  for id in "${SCENARIO_IDS[@]}"; do
+    if scenario_is_topology_compatible "$id"; then
+      candidates+=("$id")
+    fi
+  done
+  all_candidates=("${candidates[@]}")
+
+  candidate_count="${#candidates[@]}"
+  [[ "$candidate_count" -gt 0 ]] ||
+    die "No topology-compatible implemented scenarios were found for this environment."
+
+  while [[ "${#candidates[@]}" -gt 0 ]]; do
+    index=$((RANDOM % ${#candidates[@]}))
+    id="${candidates[$index]}"
+    candidates=("${candidates[@]:0:$index}" "${candidates[@]:$((index + 1))}")
+    if scenario_can_plan_randomly "$id"; then
+      selected="$id"
+      break
+    fi
+  done
+
+  [[ -n "$selected" ]] ||
+    die "No topology-compatible scenarios could plan usable targets in this environment."
+
+  SCENARIO_ID="$selected"
+
+  echo "Aleatory scenario selected from ${candidate_count} topology-compatible scenarios after target planning checks:"
+  echo "  ${SCENARIO_ID}: ${SCENARIO_TITLE[$SCENARIO_ID]}"
+  echo "Topology: role=${DB_ROLE:-unknown}, cdb=${DB_CDB:-unknown}, storage=${STORAGE_TYPE:-unknown}, cluster=${CLUSTER_TYPE:-unknown}"
+  if [[ -n "$TARGET_PDB" ]]; then
+    echo "PDB target context: ${TARGET_PDB}"
+  elif [[ "${SCENARIO_REQUIRES[$SCENARIO_ID]}" == *pdb* && "${#PDB_ROWS[@]}" -eq 1 ]]; then
+    echo "PDB target context: only available PDB will be selected by requirement checks"
+  fi
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    echo "Candidate IDs: ${all_candidates[*]}"
+  fi
+  echo
+}
+
+run_random_scenario() {
+  select_random_scenario
+  run_scenario "$SCENARIO_ID"
 }
 
 has_data_guard() {
@@ -4179,6 +4303,11 @@ parse_args() {
         SCENARIO_ID="$2"
         shift 2
         ;;
+      --random-scenario|--aleatory-scenario)
+        MODE="random"
+        SCENARIO_ID=""
+        shift
+        ;;
       --pdb)
         [[ "$#" -ge 2 ]] || die "--pdb requires a PDB name"
         TARGET_PDB="$2"
@@ -4692,6 +4821,12 @@ menu_run_child_action() {
   return "$status"
 }
 
+menu_run_random_scenario() {
+  local run_mode="$1"
+  select_random_scenario || return "$FAIL"
+  menu_run_child_action "scenario" "$run_mode"
+}
+
 menu_run_health_check() {
   MENU_CMD=("$0" "--health-check")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
@@ -4729,6 +4864,8 @@ interactive_menu() {
     echo " 11. Run health check / validation"
     echo " 12. Configure targets and options"
     echo " 13. Show recent manifests and logs"
+    echo " 14. Dry-run aleatory scenario for this topology"
+    echo " 15. Execute aleatory scenario for this topology"
     echo "  q. Quit"
     echo
     echo "Choice:"
@@ -4789,6 +4926,14 @@ interactive_menu() {
         menu_show_recent_artifacts
         menu_pause
         ;;
+      14)
+        menu_run_random_scenario "dry-run"
+        menu_pause
+        ;;
+      15)
+        menu_run_random_scenario "execute"
+        menu_pause
+        ;;
       q|Q|0)
         break
         ;;
@@ -4823,6 +4968,9 @@ main() {
     scenario)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
       run_scenario "$SCENARIO_ID"
+      ;;
+    random)
+      run_random_scenario
       ;;
     protect)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

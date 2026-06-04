@@ -17,6 +17,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
+./CrashSimulatorV2.sh --random-scenario --dry-run
 ./CrashSimulatorV2.sh --recover 30 --pdb crashpdb --file-no 12 --dry-run
 ./CrashSimulatorV2.sh --scenario 43 --pdb crashpdb --schema crashsim_table_lab --dry-run
 ```
@@ -48,6 +49,7 @@ drive from a single screen:
 - dry-run a scenario
 - dry-run or execute RMAN protection when supported
 - execute a scenario with the existing typed confirmation token
+- dry-run or execute an aleatory scenario selected from the discovered topology
 - dry-run or execute recovery from a manifest
 - run the non-destructive health check
 - view recent manifests and logs
@@ -55,6 +57,22 @@ drive from a single screen:
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the
 same typed confirmation, such as `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
+
+## Aleatory Scenario
+
+Use `--random-scenario` or its alias `--aleatory-scenario` to let the framework
+discover the database topology and choose one implemented, topology-compatible
+scenario at random:
+
+```bash
+./CrashSimulatorV2.sh --random-scenario --dry-run
+./CrashSimulatorV2.sh --aleatory-scenario --execute
+```
+
+Random execution still uses the selected scenario's normal typed confirmation
+token, recovery-runbook hints, target discovery, and destructive-action gates.
+Scenario 25 is included in the random pool only when its local backup-piece
+guardrails are set with `--piece-handle` or `--local-only --max-targets <n>`.
 
 ## Protect, Drill, Recover
 
