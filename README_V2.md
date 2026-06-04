@@ -68,6 +68,8 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb crashpdb
+./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
@@ -102,6 +104,8 @@ drive from a single screen:
 - discover or refresh database topology
 - select a scenario
 - configure PDB, schema, FILE#, manifest, PFILE, log directory, and scenario 25 guards
+- validate whether the selected scenario or full scenario registry is runnable
+  in the current topology, with blocker reasons
 - show recovery-runbook hints
 - dry-run a scenario
 - dry-run or execute RMAN protection when supported
@@ -116,6 +120,46 @@ drive from a single screen:
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the
 same typed confirmation, such as `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
+
+## Scenario Readiness Validation
+
+Use `--validate-scenario <id>` to check whether a scenario can be run now in the
+current database topology:
+
+```bash
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb crashpdb
+./CrashSimulatorV2.sh --validate 25 --local-only --max-targets 1
+```
+
+The validation process runs the same requirement gates and target-selection logic
+used by dry-run/execution, but in non-destructive planning mode. If a scenario
+cannot run, the tool prints a clear message such as:
+
+- required topology is missing, for example no CDB, PDB, Data Guard, ASM, GI, or RAC
+- the requested PDB does not exist
+- no suitable target exists, such as no read-only tablespace or no multiplexed
+  redo member
+- the selected target is an ASM/provider-specific file and the scenario does not
+  yet have a safe ASM-aware execution helper
+- scenario 25 backup-piece guardrails are missing
+- the scenario is registered as a future placeholder but does not yet have a
+  runnable handler
+
+Use `--validate-all-scenarios` to produce a runnable/not-runnable matrix for the
+current topology:
+
+```bash
+./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
+```
+
+Scenario execution now runs the same validation first. A blocked `--execute`
+run stops before confirmation or destructive code and prints why it is not
+possible to run at that moment. Some blockers are reported as dry-run planning
+only, such as ASM/provider-specific targets or broad scenario 25 backup-piece
+selection; those scenarios may still show planning evidence in `--dry-run`, but
+execution remains blocked until the reason is resolved. Aleatory scenario
+selection also uses this validation so random drills select only runnable
+scenarios.
 
 ## Configuration Report
 

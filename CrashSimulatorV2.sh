@@ -102,6 +102,10 @@ declare -A SCENARIO_HANDLER=()
 declare -A SCENARIO_NOTES=()
 declare -A MAA_EVIDENCE=()
 
+SCENARIO_VALIDATION_STATUS=""
+SCENARIO_VALIDATION_REASON=""
+SCENARIO_VALIDATION_OUTPUT=""
+
 usage() {
   cat <<USAGE
 CrashSimulator V2 ${VERSION}
@@ -113,6 +117,8 @@ Usage:
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --maa-report
+  ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
+  ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -133,6 +139,11 @@ Options:
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
   --deep-validate         With --config-report, run heavier RMAN restore/database validation.
+  --validate-scenario <id>
+                          Validate whether one scenario can run now and explain blockers.
+  --validate <id>         Alias for --validate-scenario.
+  --validate-all-scenarios
+                          Validate every registered scenario for this topology.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -1346,11 +1357,33 @@ scenario_exists() {
   [[ -n "${SCENARIO_TITLE[$id]:-}" ]]
 }
 
+pdb_exists() {
+  local pdb="$1"
+  local row name con_id open_mode
+  for row in "${PDB_ROWS[@]}"; do
+    IFS='|' read -r name con_id open_mode <<<"$row"
+    if [[ "$name" == "$pdb" ]]; then
+      return "$SUCCESS"
+    fi
+  done
+  return "$FAIL"
+}
+
+pdb_list_for_message() {
+  local row name con_id open_mode
+  for row in "${PDB_ROWS[@]}"; do
+    IFS='|' read -r name con_id open_mode <<<"$row"
+    printf "%s " "$name"
+  done
+}
+
 select_pdb_if_needed() {
   if [[ "$DB_CDB" != "YES" ]]; then
     return "$FAIL"
   fi
   if [[ -n "$TARGET_PDB" ]]; then
+    pdb_exists "$TARGET_PDB" ||
+      die "PDB ${TARGET_PDB} was not found in this CDB. Available PDBs: $(pdb_list_for_message)"
     return "$SUCCESS"
   fi
   if [[ "${#PDB_ROWS[@]}" -eq 1 ]]; then
@@ -1465,16 +1498,7 @@ scenario_is_topology_compatible() {
 
 scenario_can_plan_randomly() {
   local id="$1"
-  (
-    EXECUTE=0
-    ASSUME_YES=1
-    PLANNING_ONLY=1
-    MANIFEST_FILE=""
-    MANIFEST_FROM_ARG=0
-    CURRENT_SCENARIO_ID="$id"
-    check_requirements "$id"
-    plan_scenario_actions "$id"
-  ) >/dev/null 2>&1
+  validate_scenario_can_run "$id" >/dev/null 2>&1
 }
 
 select_random_scenario() {
@@ -1572,6 +1596,20 @@ run_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
 
+  if validate_scenario_can_run "$id"; then
+    echo "Validation: RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+    echo
+  else
+    echo "Validation: NOT RUNNABLE"
+    echo "Scenario ${id} is not possible to run at this moment."
+    echo "Reason: ${SCENARIO_VALIDATION_REASON}"
+    if [[ "$EXECUTE" -eq 1 || "$SCENARIO_VALIDATION_STATUS" != "PLAN_ONLY" ]]; then
+      return "$FAIL"
+    fi
+    echo "Continuing with dry-run planning only; execution will remain blocked until the validation blocker is resolved."
+    echo
+  fi
+
   check_requirements "$id"
   CURRENT_SCENARIO_ID="$id"
   RENAME_COUNT=0
@@ -1650,6 +1688,211 @@ plan_scenario_actions() {
   "$handler" "$id"
   EXECUTE="$old_execute"
   PLANNING_ONLY="$old_planning"
+}
+
+validation_reason_from_output() {
+  local output="$1"
+  local reason
+  reason="$(printf "%s\n" "$output" | awk '
+    /^[[:space:]]*$/ {next}
+    {last=$0}
+    END {print last}
+  ')"
+  reason="${reason#ERROR: }"
+  reason="${reason#WARN: }"
+  [[ -n "$reason" ]] || reason="Scenario target validation did not produce a runnable target."
+  printf "%s" "$reason"
+}
+
+validation_single_line() {
+  tr '\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//'
+}
+
+validation_external_reason() {
+  local output="$1"
+  local line detail
+  line="$(printf "%s\n" "$output" | grep -E '^[[:space:]]*[0-9]+\. external[[:space:]]+' | head -n 1 || true)"
+  [[ -n "$line" ]] || return "$FAIL"
+  detail="$(printf "%s" "$line" | sed -E 's/^[[:space:]]*[0-9]+\. external[[:space:]]+//')"
+  printf "Selected target requires a provider-specific or manual handler before safe execution: %s" "$detail"
+}
+
+validation_missing_fs_target_reason() {
+  local output="$1"
+  local target
+  while IFS= read -r target; do
+    target="${target%% (*}"
+    if [[ -n "$target" && "$target" == /* && ! -e "$target" ]]; then
+      printf "Selected filesystem target does not exist or is not visible to this OS user: %s" "$target"
+      return "$SUCCESS"
+    fi
+  done < <(printf "%s\n" "$output" |
+    sed -nE 's/^[[:space:]]*[0-9]+\. (fs_rename|fs_corrupt_header|fs_corrupt_body)[[:space:]]+(.+)$/\2/p')
+  return "$FAIL"
+}
+
+validation_missing_tool_reason() {
+  local output="$1"
+  if printf "%s\n" "$output" | grep -Eq '^[[:space:]]*[0-9]+\. srvctl_'; then
+    if ! command -v srvctl >/dev/null 2>&1; then
+      printf "Selected action requires srvctl, but srvctl was not found in PATH."
+      return "$SUCCESS"
+    fi
+  fi
+  return "$FAIL"
+}
+
+validation_guardrail_reason() {
+  local id="$1"
+  case "$id" in
+    25)
+      if [[ -z "$PIECE_HANDLE" ]]; then
+        if [[ "$LOCAL_ONLY" != "1" || -z "$MAX_TARGETS" ]]; then
+          printf "Scenario 25 can see local and object-storage backup handles; execution requires --piece-handle or --local-only --max-targets <n>."
+          return "$SUCCESS"
+        fi
+      fi
+      ;;
+  esac
+  return "$FAIL"
+}
+
+validate_scenario_can_run() {
+  local id="$1"
+  local req_output req_status plan_output plan_status reason
+
+  SCENARIO_VALIDATION_STATUS="NOT_RUNNABLE"
+  SCENARIO_VALIDATION_REASON=""
+  SCENARIO_VALIDATION_OUTPUT=""
+
+  if ! scenario_exists "$id"; then
+    SCENARIO_VALIDATION_REASON="Unknown scenario id: $id"
+    return "$FAIL"
+  fi
+
+  req_output="$( (check_requirements "$id") 2>&1 )"
+  req_status=$?
+  if [[ "$req_status" -ne 0 ]]; then
+    SCENARIO_VALIDATION_OUTPUT="$req_output"
+    SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$req_output")"
+    return "$FAIL"
+  fi
+
+  if [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]]; then
+    SCENARIO_VALIDATION_REASON="Scenario $id is registered as a placeholder for ${SCENARIO_SCOPE[$id]} testing, but a runnable handler is not implemented yet."
+    return "$FAIL"
+  fi
+
+  if reason="$(validation_guardrail_reason "$id")"; then
+    SCENARIO_VALIDATION_STATUS="PLAN_ONLY"
+    SCENARIO_VALIDATION_REASON="$reason"
+    return "$FAIL"
+  fi
+
+  plan_output="$( (
+    EXECUTE=0
+    ASSUME_YES=1
+    PLANNING_ONLY=1
+    MANIFEST_FILE=""
+    MANIFEST_FROM_ARG=0
+    CURRENT_SCENARIO_ID="$id"
+    RENAME_COUNT=0
+    reset_actions
+    plan_scenario_actions "$id"
+  ) 2>&1)"
+  plan_status=$?
+  SCENARIO_VALIDATION_OUTPUT="$plan_output"
+  if [[ "$plan_status" -ne 0 ]]; then
+    SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$plan_output")"
+    return "$FAIL"
+  fi
+
+  if reason="$(validation_external_reason "$plan_output")"; then
+    SCENARIO_VALIDATION_STATUS="PLAN_ONLY"
+    SCENARIO_VALIDATION_REASON="$reason"
+    return "$FAIL"
+  fi
+
+  if reason="$(validation_missing_fs_target_reason "$plan_output")"; then
+    SCENARIO_VALIDATION_REASON="$reason"
+    return "$FAIL"
+  fi
+
+  if reason="$(validation_missing_tool_reason "$plan_output")"; then
+    SCENARIO_VALIDATION_REASON="$reason"
+    return "$FAIL"
+  fi
+
+  SCENARIO_VALIDATION_STATUS="RUNNABLE"
+  SCENARIO_VALIDATION_REASON="Requirements passed and target selection produced executable actions."
+  return "$SUCCESS"
+}
+
+print_scenario_validation() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+
+  echo "Scenario readiness validation"
+  echo "Scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Group: ${SCENARIO_GROUP[$id]}"
+  echo "Scope: ${SCENARIO_SCOPE[$id]}"
+  echo "Impact: ${SCENARIO_IMPACT[$id]}"
+  echo "Requires: ${SCENARIO_REQUIRES[$id]}"
+  echo
+
+  if validate_scenario_can_run "$id"; then
+    echo "Result: RUNNABLE"
+    echo "Reason: ${SCENARIO_VALIDATION_REASON}"
+    if [[ "$VERBOSE" -eq 1 && -n "$SCENARIO_VALIDATION_OUTPUT" ]]; then
+      echo
+      echo "Validation planning output:"
+      printf "%s\n" "$SCENARIO_VALIDATION_OUTPUT"
+    fi
+    return "$SUCCESS"
+  fi
+
+  if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+    echo "Result: NOT RUNNABLE (dry-run planning only)"
+  else
+    echo "Result: NOT RUNNABLE"
+  fi
+  echo "Scenario ${id} is not possible to run at this moment."
+  echo "Reason: ${SCENARIO_VALIDATION_REASON}"
+  if [[ "$VERBOSE" -eq 1 && -n "$SCENARIO_VALIDATION_OUTPUT" ]]; then
+    echo
+    echo "Validation planning output:"
+    printf "%s\n" "$SCENARIO_VALIDATION_OUTPUT"
+  fi
+  return "$FAIL"
+}
+
+validate_all_scenarios() {
+  local id status reason runnable_count=0 blocked_count=0
+
+  discover_environment
+
+  printf "%-4s %-12s %s\n" "ID" "Status" "Reason"
+  printf "%-4s %-12s %s\n" "--" "------" "------"
+  for id in "${SCENARIO_IDS[@]}"; do
+    if validate_scenario_can_run "$id"; then
+      status="RUNNABLE"
+      reason="$SCENARIO_VALIDATION_REASON"
+      runnable_count=$((runnable_count + 1))
+    else
+      if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+        status="PLAN-ONLY"
+      else
+        status="NOT-RUNNABLE"
+      fi
+      reason="$SCENARIO_VALIDATION_REASON"
+      blocked_count=$((blocked_count + 1))
+    fi
+    reason="$(printf "%s" "$reason" | validation_single_line)"
+    printf "%-4s %-12s %s\n" "$id" "$status" "$reason"
+  done
+  echo
+  echo "Runnable scenarios: ${runnable_count}"
+  echo "Not runnable at this moment: ${blocked_count}"
 }
 
 write_protect_rman_file() {
@@ -4686,10 +4929,26 @@ order by df.file_id;
 
 scenario_drop_indexes() {
   reset_actions
-  local owner_filter=""
+  local owner_filter="and 1 = 1"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and i.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
+  query_targets "$WORK_DIR/drop_indexes.lst" "
+select owner || '.' || index_name
+from (
+  select i.owner, i.index_name
+  from dba_indexes i
+  join dba_users u on u.username = i.owner
+  where i.uniqueness = 'NONUNIQUE'
+    and i.owner not in ('SYS','SYSTEM')
+    and u.oracle_maintained = 'N'
+    ${owner_filter}
+  order by i.owner, i.index_name
+)
+where rownum <= 20;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] ||
+    die "No non-unique user index candidate was found. Re-run seed_crashsim_lab.sql or use --schema for a lab schema."
   local sql_text="
 begin
   for rec in (
@@ -4707,7 +4966,7 @@ begin
 end;
 /
 "
-  add_action "sql" "$sql_text" "drop non-unique indexes"
+  add_action "sql" "$sql_text" "drop non-unique indexes (${#TARGET_ROWS[@]} candidates)"
   execute_actions
 }
 
@@ -5041,10 +5300,30 @@ order by df.file_id;
 scenario_pdb_drop_indexes() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter=""
+  local owner_filter="and 1 = 1"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and i.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
+  local target_file="$WORK_DIR/pdb_drop_indexes.lst"
+  sql_query "$target_file" "
+alter session set container = ${pdb};
+select owner || '.' || index_name
+from (
+  select i.owner, i.index_name
+  from dba_indexes i
+  join dba_users u on u.username = i.owner
+  where i.uniqueness = 'NONUNIQUE'
+    and i.owner not in ('SYS','SYSTEM')
+    and u.oracle_maintained = 'N'
+    ${owner_filter}
+  order by i.owner, i.index_name
+)
+where rownum <= 20;
+alter session set container = CDB\$ROOT;
+"
+  load_rows "$target_file"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] ||
+    die "No PDB non-unique user index candidate was found. Re-run seed_crashsim_lab.sql or use --schema for a lab schema."
   local sql_text="
 alter session set container = ${pdb};
 begin
@@ -5064,7 +5343,7 @@ end;
 /
 alter session set container = CDB\$ROOT;
 "
-  add_action "sql" "$sql_text" "drop PDB non-unique indexes"
+  add_action "sql" "$sql_text" "drop PDB non-unique indexes (${#TARGET_ROWS[@]} candidates)"
   execute_actions
 }
 
@@ -5148,7 +5427,7 @@ scenario_pdb_file_header_corrupt() {
 scenario_pdb_drop_table() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter=""
+  local owner_filter="and 1 = 1"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and t.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -5190,7 +5469,7 @@ alter session set container = CDB\$ROOT;
 scenario_pdb_drop_schema() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter=""
+  local owner_filter="and 1 = 1"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and username = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -5452,6 +5731,18 @@ scenario_asm_spfile_loss() {
 
 scenario_standby_apply_cancel() {
   reset_actions
+  query_targets "$WORK_DIR/standby_apply_process.lst" "
+select process || '|' || status
+from (
+  select process, status
+  from v\$managed_standby
+  where process like 'MRP%'
+  order by process
+)
+where rownum = 1;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] ||
+    die "No managed standby recovery process was detected. Start apply before running scenario 50."
   add_action "sql" "alter database recover managed standby database cancel;" "cancel managed standby recovery"
   execute_actions
 }
@@ -5562,6 +5853,17 @@ parse_args() {
         ;;
       --deep-validate)
         REPORT_DEEP_VALIDATE=1
+        shift
+        ;;
+      --validate-scenario|--validate|--check-scenario)
+        [[ "$#" -ge 2 ]] || die "$1 requires an id"
+        MODE="validate"
+        SCENARIO_ID="$2"
+        shift 2
+        ;;
+      --validate-all-scenarios|--validate-scenarios|--check-scenarios)
+        MODE="validate_all"
+        SCENARIO_ID=""
         shift
         ;;
       --runbook)
@@ -6155,6 +6457,23 @@ menu_run_child_action() {
   return "$status"
 }
 
+menu_run_validate_scenario() {
+  menu_require_scenario || {
+    warn "No scenario selected."
+    return "$FAIL"
+  }
+
+  MENU_CMD=("$0" "--validate-scenario" "$SCENARIO_ID")
+  menu_append_common_child_args
+  menu_run_child_command
+}
+
+menu_run_validate_all_scenarios() {
+  MENU_CMD=("$0" "--validate-all-scenarios")
+  menu_append_common_child_args
+  menu_run_child_command
+}
+
 menu_run_random_scenario() {
   local run_mode="$1"
   select_random_scenario || return "$FAIL"
@@ -6269,6 +6588,7 @@ interactive_menu() {
     echo "  2. Select scenario"
     echo "  3. List all scenarios"
     echo "  4. Show recovery runbook for selected scenario"
+    echo "  v. Validate selected scenario readiness"
     echo "  5. Dry-run selected scenario"
     echo "  6. Dry-run protection for selected scenario"
     echo "  7. Execute protection for selected scenario"
@@ -6281,6 +6601,7 @@ interactive_menu() {
     echo " 14. Dry-run aleatory scenario for this topology"
     echo " 15. Execute aleatory scenario for this topology"
     echo " 16. Reports"
+    echo " 17. Validate all scenarios for this topology"
     echo "  q. Quit"
     echo
     echo "Choice:"
@@ -6304,6 +6625,10 @@ interactive_menu() {
         if menu_require_scenario; then
           print_runbook_only "$SCENARIO_ID"
         fi
+        menu_pause
+        ;;
+      v|V)
+        menu_run_validate_scenario
         menu_pause
         ;;
       5)
@@ -6352,6 +6677,10 @@ interactive_menu() {
       16|p|P)
         menu_reports
         ;;
+      17)
+        menu_run_validate_all_scenarios
+        menu_pause
+        ;;
       q|Q|0)
         break
         ;;
@@ -6384,6 +6713,13 @@ main() {
       ;;
     maa_report)
       run_maa_report
+      ;;
+    validate)
+      [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
+      print_scenario_validation "$SCENARIO_ID"
+      ;;
+    validate_all)
+      validate_all_scenarios
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

@@ -49,13 +49,14 @@ Recommended safety rule: every scenario should follow this sequence:
 1. Discover the environment.
 2. List and understand the scenario.
 3. Show the recovery runbook.
-4. Dry-run the scenario.
-5. Run `--protect` when available.
-6. Execute the scenario only after backups and recovery steps are confirmed.
-7. Recover using the manifest from the executed scenario.
-8. Validate the database, PDB, services, corruption views, RMAN restore/validate
+4. Validate whether the scenario can run in the current topology.
+5. Dry-run the scenario.
+6. Run `--protect` when available.
+7. Execute the scenario only after backups and recovery steps are confirmed.
+8. Recover using the manifest from the executed scenario.
+9. Validate the database, PDB, services, corruption views, RMAN restore/validate
    evidence, and application checks.
-9. Take a fresh post-drill backup after meaningful recovery work.
+10. Take a fresh post-drill backup after meaningful recovery work.
 
 ## Important Terms
 
@@ -195,6 +196,7 @@ cd /path/to/crashsimulator-main
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
 ```
 
@@ -218,6 +220,8 @@ ls CrashSimulatorV2.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
+./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --config-report --deep-validate
 ./CrashSimulatorV2.sh --maa-report
@@ -243,6 +247,7 @@ The menu provides options to:
 - Discover or refresh database topology.
 - Select a scenario.
 - List all scenarios.
+- Validate whether the selected scenario can run now.
 - Show recovery runbook hints.
 - Dry-run a scenario.
 - Dry-run or execute protection.
@@ -253,6 +258,7 @@ The menu provides options to:
   recovery, RMAN catalog, and scenario 25 guardrails.
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
+- Validate all scenarios for the detected topology.
 - Generate configuration and MAA readiness reports.
 
 The menu calls the same script in CLI mode, so menu usage and command-line
@@ -275,6 +281,54 @@ scenario name. The current registry contains 60 scenarios.
 
 `--dry-run` prints target selection and planned action without changing files or
 database state. It is the default mode.
+
+### Scenario Readiness Validation
+
+`--validate-scenario <id>` checks whether one scenario can run at this moment.
+It uses the same topology gates and target-selection logic as execution, but in
+non-destructive planning mode.
+
+Example:
+
+```bash
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
+./CrashSimulatorV2.sh --validate 25 --local-only --max-targets 1
+```
+
+If the scenario is runnable, the result is `RUNNABLE`. If it is not executable
+but can still show useful dry-run planning evidence, the result is
+`NOT RUNNABLE (dry-run planning only)`. Otherwise the tool prints:
+
+```text
+Scenario <id> is not possible to run at this moment.
+Reason: <specific blocker>
+```
+
+Common blockers include:
+
+- The database is not in the required role, such as primary or standby.
+- The target topology is missing, such as CDB/PDB, ASM, GI, RAC, or Data Guard.
+- The requested PDB does not exist.
+- No suitable target exists, such as no read-only tablespace, no index-only
+  tablespace, no non-unique index, no local backup piece, or no archived log.
+- The selected file is in ASM or provider-managed storage and the scenario does
+  not yet have a safe ASM-aware execution helper.
+- Scenario 25 guardrails are missing.
+- The scenario is registered as a future placeholder but no runnable handler is
+  implemented yet.
+
+Use `--validate-all-scenarios` to produce a full runnable/not-runnable matrix:
+
+```bash
+./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
+```
+
+Scenario execution runs this readiness validation before confirmation or
+destructive code. A blocked `--execute` run stops immediately. Some blocked
+scenarios can still continue in `--dry-run` so users can see planning evidence,
+for example ASM/GI provider-specific targets or broad scenario 25 backup-piece
+selection. Aleatory scenario selection also uses readiness validation, so random
+drills choose only scenarios that are runnable in the current topology.
 
 ### Runbook Hints
 
@@ -575,6 +629,7 @@ Example for a supported PDB datafile scenario:
 ```bash
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --protect 30 --pdb CRASHPDB --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb CRASHPDB --dry-run
 ./CrashSimulatorV2.sh --protect 30 --pdb CRASHPDB --execute

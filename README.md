@@ -45,6 +45,7 @@ Validate the download and start safely:
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
 ```
 
@@ -56,6 +57,7 @@ interactive confirmation token.
 ```bash
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
