@@ -246,6 +246,12 @@ For automated lab runs only:
   assumption.
 - Logical object scenarios can be constrained with `--schema` or
   `CRASHSIM_SCHEMA` so lab runs do not target arbitrary application objects.
+- `seed_crashsim_lab.sql` reseeds controlled PDB lab users, table/schema/index
+  targets, plus read-only and index-only PDB tablespaces for safer target
+  selection practice.
+- SQL*Plus script execution is isolated from parent shell stdin; repository SQL
+  helper scripts also end with `exit` so automation wrappers do not continue
+  inside SQL*Plus after a script completes.
 - Drill manifests connect crash injection to recovery: target path, FILE#,
   container/PDB, tablespace, backup tag, renamed file path, RMAN command file,
   and recovery log locations are recorded.

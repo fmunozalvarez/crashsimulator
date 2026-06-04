@@ -5,6 +5,21 @@ alter session set container = crashpdb;
 
 begin
   for rec in (
+    select tablespace_name, status
+    from dba_tablespaces
+    where tablespace_name in (
+      'CRASHSIM_RO_TBS',
+      'CRASHSIM_INDEX_TBS'
+    )
+  ) loop
+    if rec.status = 'READ ONLY' then
+      execute immediate 'alter tablespace ' || rec.tablespace_name || ' read write';
+    end if;
+    execute immediate 'drop tablespace ' || rec.tablespace_name ||
+      ' including contents and datafiles';
+  end loop;
+
+  for rec in (
     select username
     from dba_users
     where username in (
@@ -57,11 +72,25 @@ create table crashsim_index_lab.index_target (
 
 insert into crashsim_index_lab.index_target
 select level, 'L' || mod(level, 5), 'index-loss-row-' || level
-from dual
-connect by level <= 50;
+  from dual
+  connect by level <= 50;
 
 create index crashsim_index_lab.index_target_lookup_ix
   on crashsim_index_lab.index_target (lookup_value);
+
+create tablespace crashsim_ro_tbs
+  datafile size 16m autoextend on next 16m maxsize 128m;
+
+alter tablespace crashsim_ro_tbs read only;
+
+create tablespace crashsim_index_tbs
+  datafile size 16m autoextend on next 16m maxsize 128m;
+
+alter user crashsim_index_lab quota unlimited on crashsim_index_tbs;
+
+create index crashsim_index_lab.index_target_payload_ix
+  on crashsim_index_lab.index_target (payload)
+  tablespace crashsim_index_tbs;
 
 commit;
 
@@ -75,4 +104,11 @@ from dba_indexes
 where owner like 'CRASHSIM\_%' escape '\'
 order by owner, index_name;
 
+select tablespace_name, contents, status
+from dba_tablespaces
+where tablespace_name like 'CRASHSIM\_%' escape '\'
+order by tablespace_name;
+
 alter session set container = cdb$root;
+
+exit

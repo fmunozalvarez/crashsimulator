@@ -16,9 +16,17 @@ where owner like 'CRASHSIM\_%' escape '\'
 order by owner, table_name;
 
 prompt === CRASHSIM indexes ===
-select owner, index_name, uniqueness
+select owner, index_name, uniqueness, tablespace_name
 from dba_indexes
 where owner like 'CRASHSIM\_%' escape '\'
 order by owner, index_name;
 
+prompt === CRASHSIM tablespaces ===
+select tablespace_name, contents, status
+from dba_tablespaces
+where tablespace_name like 'CRASHSIM\_%' escape '\'
+order by tablespace_name;
+
 alter session set container = cdb$root;
+
+exit

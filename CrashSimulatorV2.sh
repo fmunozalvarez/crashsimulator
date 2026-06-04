@@ -666,7 +666,7 @@ run_sql_script_file() {
   fi
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$script_file" >"$log_file" ||
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$script_file" >"$log_file" </dev/null ||
     die "SQL*Plus script failed: $script_file (log: $log_file)"
 }
 

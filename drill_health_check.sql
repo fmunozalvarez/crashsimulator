@@ -36,3 +36,5 @@ order by df.con_id, vf.file#;
 
 prompt === Block corruption view ===
 select * from v$database_block_corruption order by file#, block#;
+
+exit

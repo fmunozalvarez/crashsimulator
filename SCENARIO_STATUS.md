@@ -70,33 +70,27 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `8`: loss of one UNDO datafile
 - `9`: loss of a read-only tablespace
 - `10`: loss of an index-only tablespace
-- `11`: drop non-unique indexes outside Oracle schemas
 - `12`: loss of a non-system tablespace
 - `13`: loss of a temporary tablespace
 - `14`: loss of SYSTEM tablespace
 - `15`: loss of UNDO tablespace
 - `22`: datafile header corruption
-- `27`: loss of SQL*Net config files
 - `28`: loss of ORACLE_HOME
 - `29`: loss of FRA destination
 - `33`: PDB loss of one UNDO datafile
 - `34`: PDB loss of read-only tablespace
 - `35`: PDB loss of index-only tablespace
-- `36`: PDB drop non-unique indexes
 - `37`: PDB loss of non-system tablespace
 - `38`: PDB loss of temporary tablespace
 - `39`: PDB loss of SYSTEM tablespace
 - `40`: PDB loss of UNDO tablespace
 - `42`: PDB SYSTEM file header corruption
-- `43`: PDB loss of one user table
-- `44`: PDB loss of one user schema
-- `45`: drop selected PDB including datafiles
 - `50`: standby managed recovery cancelled
 - `51`: primary transport destination deferred
-- `57`: listener config unavailable
 - `58`: TDE wallet or keystore unavailable
 
-Re-run `seed_crashsim_lab.sql` before table, schema, or index-loss scenarios.
+Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
+tablespace, or index-only tablespace scenarios.
 
 ## Initial RAC/GI/ASM Validation
 
@@ -133,6 +127,37 @@ and `RECO`.
 - `60`: RMAN recovery catalog lab created in `CRASHPDB`, target database
   registered, scenario dry-run and execute completed, catalog resync validated,
   and `NOCATALOG` fallback restore-preview checks completed.
+- Logical lab reseeding was expanded to include controlled PDB read-only and
+  index-only tablespaces: `CRASHSIM_RO_TBS` and `CRASHSIM_INDEX_TBS`.
+- `11`: executed safely against `CRASHPDB` by using
+  `ORACLE_PDB_SID=CRASHPDB` plus `--schema CRASHSIM_INDEX_LAB`; non-unique
+  index loss was validated and the lab objects were reseeded.
+- `36`: executed against `CRASHPDB` with `--schema CRASHSIM_INDEX_LAB`;
+  non-unique index loss was validated and reseeded.
+- `43`: executed against `CRASHPDB` with `--schema CRASHSIM_TABLE_LAB`; table
+  loss was validated and reseeded.
+- `44`: executed against `CRASHPDB` with `--schema CRASHSIM_SCHEMA_LAB`; schema
+  loss was validated and reseeded.
+- `27` and `57`: executed against Oracle Home `network/admin` SQL*Net files,
+  restored from `.crashsim.bak` copies, and validated with listener status plus
+  local SQL*Plus verification. The active listener parameter file is in the Grid
+  home, so these scenarios exercised the Oracle Home client/network config path.
+- `45`: executed against disposable PDB `CRASHSIM_DROP_PDB` only; the PDB was
+  dropped including datafiles and validated absent while `CRASHPDB` remained
+  open read write.
+- `33`, `34`, `35`, `37`, `38`, `39`, `40`, and `42`: dry-run target selection
+  validated in `CRASHPDB`. Destructive execution remains blocked until the
+  framework has ASM-aware injection and scenario-specific recovery helpers for
+  these PDB datafile/tablespace variants.
+- `8`, `12`, `13`, `14`, `15`, `22`, `28`, `29`, and `58`: dry-run target
+  selection validated. ASM datafile/FRA targets remained provider-specific, and
+  ORACLE_HOME/TDE wallet execution was intentionally not performed without a
+  dedicated restore helper and backup evidence.
+- `9` and `10`: no valid CDB-root read-only or index-only tablespace target was
+  present in this RAC/GI/ASM lab.
+- A post-drill targeted RMAN backup captured `CRASHPDB` datafiles `31` and `32`
+  for the new logical lab tablespaces, plus the current control file and SPFILE,
+  and resynced the recovery catalog.
 
 Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
 lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
@@ -149,7 +174,8 @@ Final RAC/GI/ASM validation showed:
 - Clusterware database resource `ONLINE/STABLE`
 - PDB service running
 - No remaining `.crashsim.bak` artifacts
-- Post-drill database, control-file, and SPFILE backups completed
+- Post-drill database, control-file, SPFILE, and logical-lab datafile backups
+  completed
 
 ## Registered Placeholders Needing Implementation
 
@@ -173,4 +199,7 @@ Recommended next validation coverage:
 - Redundant GI lab coverage for destructive scenarios `46`, `47`, `48`, and `49`
 - RAC service relocation/failure validation for scenario `56`
 - Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
-- Logical recovery scenarios after re-seeding lab objects: `11`, `36`, `43`, and `44`
+- ASM-aware destructive/recovery helpers for remaining PDB and root
+  datafile/tablespace scenarios: `8`, `12`, `13`, `15`, `22`, `33`, `34`,
+  `35`, `37`, `38`, `40`, and `42`
+- Controlled CDB-root read-only/index-only targets for scenarios `9` and `10`
