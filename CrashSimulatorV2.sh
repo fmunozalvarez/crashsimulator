@@ -31,6 +31,7 @@ TEMPFILE_SIZE="${CRASHSIM_TEMPFILE_SIZE:-100m}"
 LOCAL_ONLY="${CRASHSIM_LOCAL_ONLY:-0}"
 MAX_TARGETS="${CRASHSIM_MAX_TARGETS:-}"
 PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
+REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
 WORK_DIR=""
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
@@ -101,6 +102,7 @@ Usage:
   ./${PROGRAM} --list
   ./${PROGRAM} --menu
   ./${PROGRAM} --health-check
+  ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -114,6 +116,10 @@ Options:
   --list                  List scenario registry and prerequisite gates.
   --menu                  Start guided terminal menu. This is the default.
   --health-check          Run a non-destructive SQL health check.
+  --config-report         Generate a full target database/PDB configuration report.
+  --configuration-report  Alias for --config-report.
+  --report                Alias for --config-report.
+  --deep-validate         With --config-report, run heavier RMAN restore/database validation.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -151,6 +157,7 @@ Environment:
   CRASHSIM_LOCAL_ONLY           Set to 1 to target local filesystem pieces only.
   CRASHSIM_MAX_TARGETS          Limit selected targets.
   CRASHSIM_PIECE_HANDLE         Exact RMAN backup-piece handle for scenario 25.
+  CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
   CRASHSIM_MANIFEST             Default manifest path.
   CRASHSIM_LOG_DIR              Default log directory.
   CRASHSIM_SQLPLUS_LOGON        Default SQL*Plus logon string.
@@ -237,6 +244,7 @@ normalize_targets() {
   fi
   validate_tempfile_size "$TEMPFILE_SIZE" || die "Invalid tempfile size: $TEMPFILE_SIZE"
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
+  REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
   if [[ -n "$MAX_TARGETS" && ! "$MAX_TARGETS" =~ ^[1-9][0-9]*$ ]]; then
     die "Invalid max targets value: $MAX_TARGETS"
   fi
@@ -2754,6 +2762,602 @@ run_health_check() {
   sed 's/^/  /' "$log_file"
 }
 
+append_report_section() {
+  local report_file="$1"
+  local title="$2"
+  {
+    printf "\n## %s\n\n" "$title"
+  } >>"$report_file"
+}
+
+append_report_text() {
+  local report_file="$1"
+  shift
+  printf "%s\n" "$*" >>"$report_file"
+}
+
+append_report_command() {
+  local report_file="$1"
+  local title="$2"
+  shift 2
+  local status
+
+  append_report_section "$report_file" "$title"
+  {
+    printf "Command:"
+    printf " %q" "$@"
+    printf "\n\n"
+    printf '```text\n'
+  } >>"$report_file"
+  "$@" >>"$report_file" 2>&1
+  status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf "\n[command exited with status %s]\n" "$status" >>"$report_file"
+  fi
+  printf '```\n' >>"$report_file"
+}
+
+append_report_file() {
+  local report_file="$1"
+  local title="$2"
+  local path="$3"
+
+  append_report_section "$report_file" "$title"
+  if [[ -f "$path" ]]; then
+    {
+      printf 'File: `%s`\n\n' "$path"
+      printf '```text\n'
+      sed 's/\r$//' "$path"
+      printf '```\n'
+    } >>"$report_file"
+  else
+    printf 'File not found: `%s`\n' "$path" >>"$report_file"
+  fi
+}
+
+append_report_environment() {
+  local report_file="$1"
+
+  append_report_section "$report_file" "Operating System And Oracle Environment"
+  {
+    printf "Command: env | sort with secret redaction\n\n"
+    printf '```text\n'
+    env | sort | awk -F= '
+      BEGIN {
+        secret_pattern = "(PASS|PASSWORD|TOKEN|SECRET|CREDENTIAL|AUTH|PRIVATE.*KEY|ACCESS.*KEY|KEY_FILE)"
+      }
+      {
+        key = $1
+        upper_key = toupper(key)
+        if (upper_key ~ secret_pattern) {
+          print key "=<redacted>"
+        } else {
+          print
+        }
+      }
+    '
+    printf '```\n'
+  } >>"$report_file"
+}
+
+append_network_config_files() {
+  local report_file="$1"
+  local net_dirs=()
+  local dir file lsnrctl_bin lsnrctl_home found
+
+  if [[ -n "${TNS_ADMIN:-}" ]]; then
+    net_dirs+=("$TNS_ADMIN")
+  fi
+  if [[ -n "${ORACLE_HOME:-}" ]]; then
+    net_dirs+=("${ORACLE_HOME}/network/admin")
+  fi
+  lsnrctl_bin="$(command -v lsnrctl 2>/dev/null || true)"
+  if [[ -n "$lsnrctl_bin" ]]; then
+    lsnrctl_home="$(cd "$(dirname "$lsnrctl_bin")/.." >/dev/null 2>&1 && pwd || true)"
+    [[ -n "$lsnrctl_home" ]] && net_dirs+=("${lsnrctl_home}/network/admin")
+  fi
+
+  local unique_dirs=()
+  for dir in "${net_dirs[@]}"; do
+    [[ -n "$dir" ]] || continue
+    found=0
+    local existing
+    for existing in "${unique_dirs[@]}"; do
+      [[ "$existing" == "$dir" ]] && found=1 && break
+    done
+    [[ "$found" -eq 1 ]] || unique_dirs+=("$dir")
+  done
+
+  for dir in "${unique_dirs[@]}"; do
+    for file in listener.ora tnsnames.ora sqlnet.ora; do
+      append_report_file "$report_file" "Network config: ${dir}/${file}" "${dir}/${file}"
+    done
+  done
+}
+
+write_config_report_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write configuration report SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 500 lines 260 trimspool on tab off verify off feedback on
+set numwidth 20
+column name format a34
+column value format a120
+column display_value format a120
+column file_name format a150
+column member format a150
+column destination format a120
+column error format a120
+column handle format a120
+column path format a150
+column pdb_name format a30
+column tablespace_name format a30
+column parameter_name format a42
+column start_time format a20
+column end_time format a20
+column completion_time format a20
+
+prompt # SQL Evidence
+prompt
+prompt ## Database Identity
+select name, db_unique_name, dbid, platform_name, database_role, open_mode,
+       cdb, log_mode, force_logging, flashback_on, protection_mode,
+       switchover_status
+from v$database;
+
+prompt ## Instance Identity
+select instance_name, host_name, version, status, database_status, active_state,
+       parallel, thread#, archiver, to_char(startup_time, 'YYYY-MM-DD HH24:MI:SS') startup_time
+from v$instance;
+
+prompt ## Database Version
+select banner_full from v$version where banner_full like 'Oracle Database%';
+
+prompt ## Key Paths And Parameters
+select name, display_value
+from v$parameter
+where name in (
+  'spfile',
+  'control_files',
+  'db_name',
+  'db_unique_name',
+  'db_recovery_file_dest',
+  'db_recovery_file_dest_size',
+  'db_create_file_dest',
+  'db_create_online_log_dest_1',
+  'db_create_online_log_dest_2',
+  'diagnostic_dest',
+  'audit_file_dest',
+  'compatible',
+  'cluster_database',
+  'remote_login_passwordfile',
+  'enable_pluggable_database',
+  'local_undo_enabled',
+  'wallet_root',
+  'tde_configuration'
+)
+order by name;
+
+prompt ## Non-Default Database Parameters
+select name parameter_name, type, isdefault, ismodified, issys_modifiable, ispdb_modifiable, display_value
+from v$parameter
+where isdefault = 'FALSE'
+order by name;
+
+prompt ## Diagnostic And Trace Locations
+select name, value from v$diag_info order by name;
+
+prompt ## Control Files
+select name from v$controlfile order by name;
+
+prompt ## Redo Log Groups
+select l.group#, l.thread#, l.sequence#, round(l.bytes/1024/1024,2) size_mb,
+       l.blocksize, l.members, l.archived, l.status
+from v$log l
+order by l.thread#, l.group#;
+
+prompt ## Redo Log Members
+select lf.group#, l.thread#, l.status, lf.type, lf.is_recovery_dest_file, lf.member
+from v$logfile lf
+join v$log l on l.group# = lf.group#
+order by lf.group#, lf.member;
+
+prompt ## Database Size Summary
+select 'DATAFILES' component, count(*) file_count, round(sum(bytes)/1024/1024/1024,2) size_gb
+from v$datafile
+union all
+select 'TEMPFILES' component, count(*) file_count, round(nvl(sum(bytes),0)/1024/1024/1024,2) size_gb
+from v$tempfile
+union all
+select 'ONLINE REDO' component, count(*) file_count, round(nvl(sum(bytes),0)/1024/1024/1024,2) size_gb
+from v$log;
+
+prompt ## SYSTEM And UNDO Datafiles
+select df.file#, ts.name tablespace_name,
+       case when ts.name = 'SYSTEM' then 'SYSTEM'
+            when ts.name like 'UNDO%' then 'UNDO'
+            else 'OTHER'
+       end tablespace_class,
+       round(df.bytes/1024/1024,2) size_mb,
+       df.status, df.enabled, df.name file_name
+from v$datafile df
+join v$tablespace ts on ts.ts# = df.ts# and ts.con_id = df.con_id
+where ts.name = 'SYSTEM'
+   or ts.name like 'UNDO%'
+order by df.con_id, df.file#;
+
+prompt ## Temporary Files
+select tf.file#, ts.name tablespace_name, round(tf.bytes/1024/1024,2) size_mb,
+       tf.status, tf.enabled, tf.name file_name
+from v$tempfile tf
+join v$tablespace ts on ts.ts# = tf.ts# and ts.con_id = tf.con_id
+order by tf.con_id, tf.file#;
+
+prompt ## FRA Destination And Usage
+select name, round(space_limit/1024/1024/1024,2) space_limit_gb,
+       round(space_used/1024/1024/1024,2) space_used_gb,
+       round(space_reclaimable/1024/1024/1024,2) space_reclaimable_gb,
+       number_of_files
+from v$recovery_file_dest;
+
+prompt ## FRA Usage By File Type
+select file_type, percent_space_used, percent_space_reclaimable, number_of_files
+from v$flash_recovery_area_usage
+order by file_type;
+
+prompt ## RMAN Configuration
+select name, value from v$rman_configuration order by name;
+
+prompt ## Recent RMAN Backup Jobs
+select *
+from (
+  select session_key, input_type, status,
+         to_char(start_time, 'YYYY-MM-DD HH24:MI:SS') start_time,
+         to_char(end_time, 'YYYY-MM-DD HH24:MI:SS') end_time,
+         elapsed_seconds, output_device_type, input_bytes_display, output_bytes_display
+  from v$rman_backup_job_details
+  order by start_time desc
+)
+where rownum <= 40;
+
+prompt ## Backup Set Summary
+select *
+from (
+  select recid backup_set_recid, set_stamp, set_count, backup_type,
+         incremental_level, controlfile_included, pieces piece_count,
+         to_char(start_time, 'YYYY-MM-DD HH24:MI:SS') start_time,
+         to_char(completion_time, 'YYYY-MM-DD HH24:MI:SS') completion_time
+  from v$backup_set
+  order by completion_time desc
+)
+where rownum <= 60;
+
+prompt ## Observed Backup Methodology From RMAN History
+select nvl(input_type, 'UNKNOWN') input_type, status, count(*) job_count,
+       to_char(min(start_time), 'YYYY-MM-DD HH24:MI:SS') first_observed,
+       to_char(max(start_time), 'YYYY-MM-DD HH24:MI:SS') last_observed
+from v$rman_backup_job_details
+where start_time >= sysdate - 60
+group by input_type, status
+order by input_type, status;
+
+prompt ## Datafile Backup Coverage
+select df.file#, df.name file_name,
+       to_char(max(bdf.completion_time), 'YYYY-MM-DD HH24:MI:SS') last_backup_time,
+       case when max(bdf.completion_time) is null then 'NO BACKUP IN CONTROL FILE METADATA'
+            else 'BACKUP METADATA FOUND'
+       end backup_status
+from v$datafile df
+left join v$backup_datafile bdf on bdf.file# = df.file#
+group by df.file#, df.name
+order by df.file#;
+
+prompt ## Backup Piece Status
+select status, device_type, count(*) piece_count,
+       to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS') latest_completion
+from v$backup_piece
+group by status, device_type
+order by status, device_type;
+
+prompt ## Recoverability Indicators
+select file#, checkpoint_change#, to_char(checkpoint_time, 'YYYY-MM-DD HH24:MI:SS') checkpoint_time,
+       unrecoverable_change#, to_char(unrecoverable_time, 'YYYY-MM-DD HH24:MI:SS') unrecoverable_time,
+       name
+from v$datafile
+order by file#;
+
+prompt ## Files Requiring Media Recovery
+select * from v$recover_file order by file#;
+
+prompt ## Database Block Corruption
+select * from v$database_block_corruption order by file#, block#;
+
+prompt ## Copy Corruption
+select * from v$copy_corruption order by file#, block#;
+
+prompt ## Backup Corruption
+select * from v$backup_corruption order by file#, block#;
+
+prompt ## Restore Points
+select name, scn, time, database_incarnation#, guarantee_flashback_database, storage_size
+from v$restore_point
+order by time desc;
+
+prompt ## Data Guard Role And FSFO Columns
+select database_role, protection_mode, protection_level, switchover_status,
+       fs_failover_status, fs_failover_current_target,
+       fs_failover_threshold, fs_failover_observer_present
+from v$database;
+
+prompt ## Data Guard Destinations
+select dest_id, status, target, destination, db_unique_name, valid_now, error
+from v$archive_dest
+where destination is not null
+order by dest_id;
+
+prompt ## Archive Gaps
+select * from v$archive_gap;
+
+prompt ## Data Guard Stats
+select name, value, unit, time_computed, datum_time
+from v$dataguard_stats
+order by name;
+
+prompt ## TDE Wallet Status
+select * from v$encryption_wallet;
+
+prompt ## Encrypted Tablespaces
+select tablespace_name, encrypted
+from dba_tablespaces
+where encrypted = 'YES'
+order by tablespace_name;
+
+prompt ## Encrypted Columns
+select owner, table_name, count(*) encrypted_column_count
+from dba_encrypted_columns
+group by owner, table_name
+order by owner, table_name;
+SQL
+
+  if [[ "$DB_CDB" == "YES" ]]; then
+    cat >>"$sql_file" <<'SQL' || die "Unable to write CDB report SQL file: $sql_file"
+
+prompt ## PDB State And Size
+select p.name pdb_name, p.con_id, p.open_mode, p.restricted,
+       round(p.total_size/1024/1024/1024,2) total_size_gb,
+       to_char(p.open_time, 'YYYY-MM-DD HH24:MI:SS') open_time
+from v$pdbs p
+order by p.con_id;
+
+prompt ## Datafile Count And Size By Container
+select c.name pdb_name, c.con_id, count(df.file#) datafile_count,
+       round(nvl(sum(df.bytes),0)/1024/1024/1024,2) datafile_gb,
+       round(nvl(tf.temp_bytes,0)/1024/1024/1024,2) tempfile_gb
+from v$containers c
+left join v$datafile df on df.con_id = c.con_id
+left join (
+  select con_id, sum(bytes) temp_bytes
+  from v$tempfile
+  group by con_id
+) tf on tf.con_id = c.con_id
+group by c.name, c.con_id, tf.temp_bytes
+order by c.con_id;
+
+prompt ## Tablespaces By Container
+select p.name pdb_name, t.tablespace_name, t.contents, t.status, t.bigfile,
+       t.logging, t.extent_management, t.allocation_type, t.segment_space_management,
+       round(nvl(df.bytes,0)/1024/1024,2) data_mb,
+       round(nvl(tf.bytes,0)/1024/1024,2) temp_mb
+from cdb_tablespaces t
+join v$containers p on p.con_id = t.con_id
+left join (
+  select con_id, tablespace_name, sum(bytes) bytes
+  from cdb_data_files
+  group by con_id, tablespace_name
+) df on df.con_id = t.con_id and df.tablespace_name = t.tablespace_name
+left join (
+  select con_id, tablespace_name, sum(bytes) bytes
+  from cdb_temp_files
+  group by con_id, tablespace_name
+) tf on tf.con_id = t.con_id and tf.tablespace_name = t.tablespace_name
+order by p.con_id, t.tablespace_name;
+
+prompt ## Datafiles By Container
+select p.name pdb_name, df.file_id, df.tablespace_name,
+       round(df.bytes/1024/1024,2) size_mb, df.status, df.online_status,
+       df.autoextensible, df.file_name
+from cdb_data_files df
+join v$containers p on p.con_id = df.con_id
+order by p.con_id, df.file_id;
+
+prompt ## Tempfiles By Container
+select p.name pdb_name, tf.file_id, tf.tablespace_name,
+       round(tf.bytes/1024/1024,2) size_mb, tf.status, tf.autoextensible, tf.file_name
+from cdb_temp_files tf
+join v$containers p on p.con_id = tf.con_id
+order by p.con_id, tf.file_id;
+
+prompt ## Encrypted Tablespaces By Container
+select p.name pdb_name, t.tablespace_name, t.encrypted
+from cdb_tablespaces t
+join v$containers p on p.con_id = t.con_id
+where t.encrypted = 'YES'
+order by p.con_id, t.tablespace_name;
+SQL
+  else
+    cat >>"$sql_file" <<'SQL' || die "Unable to write non-CDB report SQL file: $sql_file"
+
+prompt ## Tablespaces
+select t.tablespace_name, t.contents, t.status, t.bigfile, t.logging,
+       t.extent_management, t.allocation_type, t.segment_space_management,
+       round(nvl(df.bytes,0)/1024/1024,2) data_mb,
+       round(nvl(tf.bytes,0)/1024/1024,2) temp_mb
+from dba_tablespaces t
+left join (
+  select tablespace_name, sum(bytes) bytes
+  from dba_data_files
+  group by tablespace_name
+) df on df.tablespace_name = t.tablespace_name
+left join (
+  select tablespace_name, sum(bytes) bytes
+  from dba_temp_files
+  group by tablespace_name
+) tf on tf.tablespace_name = t.tablespace_name
+order by t.tablespace_name;
+
+prompt ## Datafiles
+select file_id, tablespace_name, round(bytes/1024/1024,2) size_mb,
+       status, online_status, autoextensible, file_name
+from dba_data_files
+order by file_id;
+
+prompt ## Tempfiles
+select file_id, tablespace_name, round(bytes/1024/1024,2) size_mb,
+       status, autoextensible, file_name
+from dba_temp_files
+order by file_id;
+SQL
+  fi
+
+  cat >>"$sql_file" <<'SQL' || die "Unable to finish report SQL file: $sql_file"
+
+exit
+SQL
+}
+
+run_configuration_report() {
+  discover_environment
+  ensure_sqlplus
+
+  local report_file sql_file generated_at grid_home crsctl_bin asm_sid
+  local rman_show_file rman_preview_file rman_restore_validate_file rman_db_validate_file
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}.md"
+  sql_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}.sql"
+  rman_show_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}_show_all.rman"
+  rman_preview_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}_restore_preview.rman"
+  rman_restore_validate_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}_restore_validate.rman"
+  rman_db_validate_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}_database_validate.rman"
+  write_config_report_sql_file "$sql_file"
+
+  {
+    printf "# CrashSimulator Target Database Configuration Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Database: `%s`\n' "${DB_NAME:-unknown}"
+    printf -- '- DB unique name: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Instance/SID: `%s`\n' "${INSTANCE_NAME:-${ORACLE_SID:-unknown}}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "${DB_ROLE:-unknown}" "${DB_OPEN_MODE:-unknown}"
+    printf -- '- CDB: `%s`\n' "${DB_CDB:-unknown}"
+    printf -- '- Storage: `%s`\n' "${STORAGE_TYPE:-unknown}"
+    printf -- '- Cluster type: `%s`\n' "${CLUSTER_TYPE:-unknown}"
+    printf -- '- Oracle home: `%s`\n' "${ORACLE_HOME:-unknown}"
+    printf -- '- Deep RMAN validation: `%s`\n' "$([[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && printf enabled || printf disabled)"
+    printf -- '- SQL evidence file: `%s`\n' "$sql_file"
+    printf "\n"
+    printf "Backup and recoverability notes: this report includes RMAN metadata, backup coverage by datafile, corruption views, and an RMAN restore preview. External schedulers or OCI backup policies may need separate inspection when they are not visible in target database RMAN history.\n"
+  } >"$report_file" || die "Unable to write report file: $report_file"
+
+  append_report_command "$report_file" "SQL Database, PDB, Storage, Backup, TDE, Data Guard, And Corruption Evidence" \
+    "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file"
+
+  append_report_section "$report_file" "RMAN Catalog And Restore Preview"
+  {
+    printf 'The report invokes RMAN with `target /` only. If the output says it is using the target control file, no recovery catalog was used by this report session. This does not prove that an external scheduler never uses a catalog; it reports what is detectable from the target host/session.\n\n'
+  } >>"$report_file"
+  ensure_rman
+  {
+    printf "show all;\n"
+    printf "exit\n"
+  } >"$rman_show_file" || die "Unable to write RMAN report file: $rman_show_file"
+  {
+    printf "restore database preview summary;\n"
+    printf "exit\n"
+  } >"$rman_preview_file" || die "Unable to write RMAN report file: $rman_preview_file"
+  append_report_command "$report_file" "RMAN SHOW ALL" "$RMAN_BIN" target / cmdfile="$rman_show_file"
+  append_report_command "$report_file" "RMAN RESTORE DATABASE PREVIEW SUMMARY" "$RMAN_BIN" target / cmdfile="$rman_preview_file"
+  if [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]]; then
+    {
+      printf "restore database validate;\n"
+      printf "exit\n"
+    } >"$rman_restore_validate_file" || die "Unable to write RMAN report file: $rman_restore_validate_file"
+    {
+      printf "validate database check logical;\n"
+      printf "exit\n"
+    } >"$rman_db_validate_file" || die "Unable to write RMAN report file: $rman_db_validate_file"
+    append_report_command "$report_file" "RMAN RESTORE DATABASE VALIDATE" "$RMAN_BIN" target / cmdfile="$rman_restore_validate_file"
+    append_report_command "$report_file" "RMAN VALIDATE DATABASE CHECK LOGICAL" "$RMAN_BIN" target / cmdfile="$rman_db_validate_file"
+  else
+    append_report_section "$report_file" "Deep RMAN Validation"
+    append_report_text "$report_file" 'Skipped by default. Re-run with `--deep-validate` or set `CRASHSIM_REPORT_DEEP_VALIDATE=1` to run RMAN restore/database validation. Those checks are read-only but can be I/O intensive.'
+  fi
+
+  append_report_environment "$report_file"
+  append_report_command "$report_file" "Host Kernel And Identity" uname -a
+  append_report_command "$report_file" "ORACLE_HOME Directory" bash -lc "ls -ld '${ORACLE_HOME:-}' 2>&1; du -sh '${ORACLE_HOME:-}' 2>&1"
+  if [[ -n "${ORACLE_HOME:-}" && -x "${ORACLE_HOME}/OPatch/opatch" ]]; then
+    append_report_command "$report_file" "OPatch LSPatches" "${ORACLE_HOME}/OPatch/opatch" lspatches
+  fi
+
+  if command -v lsnrctl >/dev/null 2>&1; then
+    append_report_command "$report_file" "Listener Status" lsnrctl status
+    append_report_command "$report_file" "Listener Services" lsnrctl services
+  else
+    append_report_section "$report_file" "Listener Status"
+    append_report_text "$report_file" "lsnrctl was not found in PATH."
+  fi
+  append_network_config_files "$report_file"
+
+  if command -v srvctl >/dev/null 2>&1; then
+    if [[ -n "$DB_UNIQUE_NAME" ]]; then
+      append_report_command "$report_file" "srvctl config database" srvctl config database -d "$DB_UNIQUE_NAME"
+      append_report_command "$report_file" "srvctl status database" srvctl status database -d "$DB_UNIQUE_NAME"
+      append_report_command "$report_file" "srvctl config services" srvctl config service -d "$DB_UNIQUE_NAME"
+      append_report_command "$report_file" "srvctl status services" srvctl status service -d "$DB_UNIQUE_NAME"
+    fi
+    append_report_command "$report_file" "srvctl config asm" srvctl config asm
+    append_report_command "$report_file" "srvctl status asm" srvctl status asm
+  fi
+
+  if command -v crsctl >/dev/null 2>&1; then
+    append_report_command "$report_file" "Grid Infrastructure CRS Check" crsctl check crs
+    append_report_command "$report_file" "Grid Infrastructure Resource Status" crsctl stat res -t
+    append_report_command "$report_file" "Voting Disk Status" crsctl query css votedisk
+  fi
+  if command -v ocrcheck >/dev/null 2>&1; then
+    append_report_command "$report_file" "OCR Check" ocrcheck
+  fi
+  if command -v ocrconfig >/dev/null 2>&1; then
+    append_report_command "$report_file" "OCR Backups" ocrconfig -showbackup
+  fi
+
+  crsctl_bin="$(command -v crsctl 2>/dev/null || true)"
+  if [[ -n "$crsctl_bin" ]]; then
+    grid_home="$(cd "$(dirname "$crsctl_bin")/.." >/dev/null 2>&1 && pwd || true)"
+    if [[ -n "$grid_home" && -x "${grid_home}/bin/asmcmd" ]]; then
+      asm_sid="${CRASHSIM_ASM_SID:-}"
+      [[ -n "$asm_sid" ]] || asm_sid="$(detect_asm_sid_from_process || true)"
+      [[ -n "$asm_sid" ]] || asm_sid="+ASM"
+      append_report_command "$report_file" "ASM Disk Groups" env ORACLE_HOME="$grid_home" ORACLE_SID="$asm_sid" PATH="${grid_home}/bin:${PATH}" "${grid_home}/bin/asmcmd" lsdg
+      append_report_command "$report_file" "ASM SPFILE" env ORACLE_HOME="$grid_home" ORACLE_SID="$asm_sid" PATH="${grid_home}/bin:${PATH}" "${grid_home}/bin/asmcmd" spget
+    fi
+  elif command -v asmcmd >/dev/null 2>&1; then
+    append_report_command "$report_file" "ASM Disk Groups" run_asmcmd_with_grid_env lsdg
+    append_report_command "$report_file" "ASM SPFILE" run_asmcmd_with_grid_env spget
+  fi
+
+  if command -v dgmgrl >/dev/null 2>&1; then
+    append_report_command "$report_file" "Data Guard Broker Configuration" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
+  else
+    append_report_section "$report_file" "Data Guard Broker Configuration"
+    append_report_text "$report_file" "dgmgrl was not found in PATH. SQL Data Guard/FSFO evidence is still included above."
+  fi
+
+  echo "Configuration report generated: ${report_file}"
+}
+
 print_recovery_runbook() {
   local id="$1"
 
@@ -4279,6 +4883,14 @@ parse_args() {
         MODE="health"
         shift
         ;;
+      --config-report|--configuration-report|--report)
+        MODE="report"
+        shift
+        ;;
+      --deep-validate)
+        REPORT_DEEP_VALIDATE=1
+        shift
+        ;;
       --runbook)
         [[ "$#" -ge 2 ]] || die "--runbook requires an id"
         MODE="runbook"
@@ -4425,6 +5037,7 @@ menu_print_header() {
   echo "PDB: ${TARGET_PDB:-not set}  Schema: ${TARGET_SCHEMA:-not set}  FILE#: ${TARGET_FILE_NO:-not set}"
   echo "Manifest: ${MANIFEST_FILE:-not set}"
   echo "Log dir: ${LOG_DIR}"
+  echo "Report deep validation: ${REPORT_DEEP_VALIDATE}"
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
 }
@@ -4835,10 +5448,53 @@ menu_run_health_check() {
   menu_run_child_command
 }
 
+menu_run_configuration_report() {
+  MENU_CMD=("$0" "--config-report")
+  [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_reports() {
+  local answer
+
+  while true; do
+    echo
+    echo "Reports"
+    echo "  1. Generate target configuration report"
+    echo "  2. Generate target configuration report with deep RMAN validation"
+    echo "  b. Back"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1)
+        REPORT_DEEP_VALIDATE=0
+        menu_run_configuration_report
+        menu_pause
+        ;;
+      2)
+        REPORT_DEEP_VALIDATE=1
+        menu_run_configuration_report
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown reports choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
 menu_show_recent_artifacts() {
   echo
   echo "Recent files in ${LOG_DIR}:"
-  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' \) 2>/dev/null |
+  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' \) 2>/dev/null |
     sort |
     tail -40 |
     sed 's/^/  /'
@@ -4866,6 +5522,7 @@ interactive_menu() {
     echo " 13. Show recent manifests and logs"
     echo " 14. Dry-run aleatory scenario for this topology"
     echo " 15. Execute aleatory scenario for this topology"
+    echo " 16. Reports"
     echo "  q. Quit"
     echo
     echo "Choice:"
@@ -4934,6 +5591,9 @@ interactive_menu() {
         menu_run_random_scenario "execute"
         menu_pause
         ;;
+      16|p|P)
+        menu_reports
+        ;;
       q|Q|0)
         break
         ;;
@@ -4960,6 +5620,9 @@ main() {
       ;;
     health)
       run_health_check
+      ;;
+    report)
+      run_configuration_report
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

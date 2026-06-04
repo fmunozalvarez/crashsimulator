@@ -14,6 +14,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
@@ -52,11 +53,32 @@ drive from a single screen:
 - dry-run or execute an aleatory scenario selected from the discovered topology
 - dry-run or execute recovery from a manifest
 - run the non-destructive health check
+- generate target configuration/recoverability reports
 - view recent manifests and logs
 
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the
 same typed confirmation, such as `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
+
+## Configuration Report
+
+Use `--config-report` to generate a Markdown report under
+`./crashsimulator_logs` with the current target database/PDB configuration:
+
+```bash
+./CrashSimulatorV2.sh --config-report
+./CrashSimulatorV2.sh --config-report --deep-validate
+```
+
+The report includes database and PDB identity, CDB/non-CDB posture, redo groups
+and members, control files, datafile/tempfile counts and sizes, SYSTEM/UNDO/temp
+file details, tablespaces, FRA location and usage, non-default parameters,
+ORACLE_HOME evidence, listener status and network config files, RMAN
+configuration/history/backup coverage, restore preview, corruption views, TDE,
+Data Guard/FSFO evidence, and GI/ASM/OCR/voting-disk status when those tools are
+available. The default report uses RMAN metadata and `restore database preview
+summary`; `--deep-validate` adds read-only but I/O-intensive RMAN
+`restore database validate` and `validate database check logical` checks.
 
 ## Aleatory Scenario
 
