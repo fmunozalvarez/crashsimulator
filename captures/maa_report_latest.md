@@ -1,0 +1,120 @@
+# CrashSimulator Oracle MAA Readiness Report
+
+- Generated UTC: `2026-06-04T04:00:43Z`
+- Host: `crashserver2`
+- OS user: `oracle`
+- Application context: `CrashSimulatorLab`
+- Database: `CRASHDB`
+- DB unique name: `crashdb_test2`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- CDB: `YES`
+- Cluster type: `GI_SINGLE`
+- Storage type: `ASM`
+- Detected MAA posture: `Bronze`
+- Readiness status: `Baseline checks passed`
+- Raw SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_maa_report_20260604_040035.evidence`
+
+This report is a best-effort posture assessment, not an Oracle certification. It maps observable database, Grid Infrastructure, backup, Data Guard, and security evidence to the MAA reference architecture model and highlights gaps that should be validated with timed drills.
+
+
+## Detected MAA Level
+
+| Field | Value |
+| --- | --- |
+| Detected posture | `Bronze` |
+| Basis | Single-instance, Oracle Restart, or no RAC/Data Guard/GoldenGate topology was detected. |
+| Baseline readiness | `Baseline checks passed` |
+| Detection confidence | Medium: based on target-host SQL/GI evidence; application failover behavior and external schedulers require confirmation. |
+
+## MAA Reference Model Used
+
+| MAA level | Observable capabilities used by this report |
+| --- | --- |
+| Bronze | Single-instance or Oracle Restart style database with ARCHIVELOG, RMAN backup/recovery evidence, corruption checks, and basic restart/restore readiness. |
+| Silver | Bronze plus RAC or RAC One Node style local HA; Application Continuity evidence is checked when dictionary columns are available. |
+| Gold | Silver/Bronze plus Data Guard or Active Data Guard evidence for disaster recovery and low/zero data-loss posture. |
+| Platinum | Gold plus GoldenGate/advanced replication or sharding-style evidence for near-zero or zero application outage patterns. |
+| Diamond | Next-generation 26ai-or-later/Exadata/GoldenGate active-active pattern; this report can only flag partial evidence and requires manual confirmation. |
+
+## Evidence Summary
+
+| Area | Evidence |
+| --- | --- |
+| Database | Role `PRIMARY`, open mode `READ WRITE`, log mode `ARCHIVELOG`, force logging `YES`, flashback `NO` |
+| Local HA | Cluster `GI_SINGLE`, cluster_database `FALSE`, instance parallel `NO`, GI managed `1`, storage `ASM` |
+| Backup | Recent successful jobs 7d `35`, failed jobs 7d `2`, last success `2026-06-04 03:29:54`, datafiles without backup metadata `0`, devices `SBT_TAPE,UNKNOWN` |
+| Data Guard | Remote standby destinations `0`, valid destinations `0`, FSFO `DISABLED`, observer `UNKNOWN`, transport lag `UNKNOWN`, apply lag `UNKNOWN` |
+| Storage/config | Control files `1`, redo min members `2`, redo groups with <2 members `0`, FRA configured `YES`, FRA used `.44%` |
+| Security | Wallet open rows `3`, wallet not-open rows `0`, encrypted tablespaces `5`, TDE config `keystore_configuration=FILE` |
+| Application continuity / replication | AC-style services `0`, capture processes `0`, apply processes `0` |
+
+## Best-Practice Checks
+
+| Status | Area | Check | Evidence | Recommendation |
+| --- | --- | --- | --- | --- |
+| `OK` | Recoverability | ARCHIVELOG enabled | LOG_MODE=ARCHIVELOG | Keep validating archived-log backup, restore, and gap handling. |
+| `OK` | Data protection | FORCE LOGGING enabled | FORCE_LOGGING=YES | Keep FORCE LOGGING enabled for Data Guard/readiness unless an exception is explicitly approved. |
+| `OK` | Backup | Recent complete RMAN backup coverage | jobs_7d=35, no_backup_files=0 | Continue scheduled restore preview/validate drills and retain off-host copies. |
+| `WARN` | Backup | No recent failed RMAN jobs | failed_jobs_7d=2 | Review failed RMAN jobs and confirm they do not represent missing required backup windows. |
+| `OK` | Health | No media recovery or block corruption rows | recover_file=0, block_corruption=0 | Keep periodic validation and corruption monitoring. |
+| `WARN` | Recovery | Flashback Database enabled | FLASHBACK_ON=NO | Consider Flashback Database for faster logical-error and failed-change recovery where storage allows. |
+| `GAP` | Disaster recovery | Data Guard topology detected | role=PRIMARY, standby_dests=0 | Gold or higher MAA posture needs Data Guard/Active Data Guard or equivalent DR architecture. |
+| `INFO` | Disaster recovery | Fast-Start Failover evidence | FSFO=DISABLED, observer=UNKNOWN | For strict RTO/RPO, evaluate FSFO with appropriate protection mode and observer design. |
+| `INFO` | Local HA | RAC/RAC One Node evidence | cluster=GI_SINGLE, cluster_database=FALSE | Silver or higher local HA normally requires RAC or RAC One Node plus service failover design. |
+| `INFO` | Application continuity | AC-style service metadata | services=0 | For Silver/Platinum readiness, review services, drivers, FAN/ONS, TAC/AC, and request boundaries. |
+| `WARN` | File redundancy | Control file and redo multiplexing | control_files=1, redo_min_members=2, redo_under2=0 | Multiplex control files and redo members across independent storage failure domains. |
+| `OK` | Security | TDE wallet open for encrypted data | wallet_open=3, encrypted_tbs=5 | Keep wallet backups synchronized across RAC/Data Guard sites. |
+
+## SLA / RTO / RPO Planning Context
+
+| Requirement | Supplied value |
+| --- | --- |
+| Application | `CrashSimulatorLab` |
+| Local unplanned RTO | `less than 1 minute` |
+| Local unplanned RPO | `zero` |
+| Disaster/site RTO | `less than 1 hour` |
+| Disaster/site RPO | `zero` |
+| Planned maintenance RTO | `near zero` |
+| Planned maintenance RPO | `not supplied` |
+
+Preliminary recommendation hint: Supplied objectives appear very aggressive. Expect at least Gold for site protection, and Platinum/Diamond patterns when application-visible downtime must approach zero.
+
+## Suggested CrashSimulator Validation Coverage
+
+| Objective | Suggested drills |
+| --- | --- |
+| Bronze backup/restart readiness | Health check, config report, scenarios `5`, `6`, `25`, `26`, `59`, and timed restore-preview/validate runs. |
+| Silver local HA readiness | Service/instance relocation or restart drills such as `55` and `56`, plus client FAN/ONS/Application Continuity validation. |
+| Gold DR readiness | Data Guard transport/apply, switchover/failover, FSFO, archive gap, and standby recovery drills such as `50`, `51`, `52`, `59`. |
+| Platinum/Diamond application continuity | GoldenGate/active-active or sharding failover, conflict handling, zero-downtime planned maintenance, and application transaction replay tests. |
+
+## References
+
+- Oracle MAA Reference Architectures Overview: https://docs.oracle.com/en/database/oracle/oracle-database/26/haiad/maa_overview.html
+- Oracle HA requirements, RTO/RPO, and MAA architecture mapping: https://docs.oracle.com/en/database/oracle/oracle-database/19/haovw/ha-requirements-architecture.html
+- User RTO/RPO planning reference: https://oraclemaa.com/from-downtime-to-data-loss-getting-rto-and-rpo-right-for-high-availability-and-disaster-recovery
+
+## Raw MAA Evidence
+
+Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_maa_report_20260604_040035.evidence`
+
+```text
+CSIM_MAA|db_name|CRASHDB
+CSIM_MAA|db_unique_name|crashdb_test2
+CSIM_MAA|db_role|PRIMARY
+CSIM_MAA|open_mode|READ WRITE
+CSIM_MAA|cdb|YES
+CSIM_MAA|log_mode|ARCHIVELOG
+CSIM_MAA|force_logging|YES
+CSIM_MAA|flashback_on|NO
+CSIM_MAA|protection_mode|MAXIMUM PERFORMANCE
+CSIM_MAA|protection_level|MAXIMUM PERFORMANCE
+CSIM_MAA|switchover_status|NOT ALLOWED
+CSIM_MAA|fsfo_status|DISABLED
+CSIM_MAA|fsfo_target|NONE
+CSIM_MAA|fsfo_threshold|0
+CSIM_MAA|fsfo_observer_present|UNKNOWN
+CSIM_MAA|dbid|1274772603
+CSIM_MAA|platform_name|Linux x86 64-bit
+CSIM_MAA|instance_name|crashdb
+CSIM_MAA|host_name|crashserver2

@@ -1,0 +1,77 @@
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_test2  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb  Storage: ASM  Cluster: GI_SINGLE
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+
+Guided Workflow
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+  9. Dry-run recovery for selected scenario
+ 10. Execute recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run aleatory scenario for this topology
+ 15. Execute aleatory scenario for this topology
+ 16. Reports
+  q. Quit
+
+Choice:
+
+Reports
+  1. Generate target configuration report
+  2. Generate target configuration report with deep RMAN validation
+  3. Generate Oracle MAA readiness report
+  4. Set MAA / SLA planning context
+  b. Back
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_test2  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb  Storage: ASM  Cluster: GI_SINGLE
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+
+Guided Workflow
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+  9. Dry-run recovery for selected scenario
+ 10. Execute recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run aleatory scenario for this topology
+ 15. Execute aleatory scenario for this topology
+ 16. Reports
+  q. Quit
+
+Choice:
