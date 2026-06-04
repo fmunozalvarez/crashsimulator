@@ -1,0 +1,36 @@
+Aleatory scenario selected from 52 topology-compatible scenarios after target planning checks:
+  15: Loss of UNDO tablespace
+Topology: role=PRIMARY, cdb=YES, storage=ASM, cluster=GI_SINGLE
+PDB target context: CRASHPDB
+
+Scenario 15: Loss of UNDO tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all files in one UNDO tablespace.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s15_20260604_014524.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. external       +DATA/CRASHDB_TEST2/DATAFILE/undotbs1.259.1234929357 (ASM path requires ASM-aware crash injection; filesystem rename is not valid)
+
+DRY-RUN complete. One or more targets require a provider-specific handler before execution.
+DRY-RUN: would abort target instance crashdb

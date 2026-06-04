@@ -11,4 +11,5 @@
 
 crashsim_logs/
 crashsimulator_logs/
+captures/html/
 tmp/
