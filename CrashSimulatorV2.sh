@@ -32,6 +32,7 @@ LOCAL_ONLY="${CRASHSIM_LOCAL_ONLY:-0}"
 MAX_TARGETS="${CRASHSIM_MAX_TARGETS:-}"
 PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
 REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
+RMAN_CATALOG_CONNECT="${CRASHSIM_RMAN_CATALOG:-}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
 WORK_DIR=""
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
@@ -137,6 +138,7 @@ Options:
   --local-only            Scenario 25: target local filesystem backup pieces only.
   --max-targets <n>       Limit selected targets. Strongly recommended for scenario 25.
   --piece-handle <handle> Scenario 25: target one exact RMAN backup-piece handle.
+  --rman-catalog <str>   RMAN recovery catalog connect string for catalog drills.
   --dry-run               Plan only. This is the default.
   --execute               Execute destructive actions after confirmation.
   --yes                   Skip interactive confirmation. Use only in labs.
@@ -158,6 +160,7 @@ Environment:
   CRASHSIM_MAX_TARGETS          Limit selected targets.
   CRASHSIM_PIECE_HANDLE         Exact RMAN backup-piece handle for scenario 25.
   CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
+  CRASHSIM_RMAN_CATALOG         RMAN recovery catalog connect string.
   CRASHSIM_MANIFEST             Default manifest path.
   CRASHSIM_LOG_DIR              Default log directory.
   CRASHSIM_SQLPLUS_LOGON        Default SQL*Plus logon string.
@@ -1295,7 +1298,7 @@ register_scenarios() {
   register_scenario "57" "Listener config unavailable"                       "Network"    "CDB/non-CDB" "destructive" "any"               "scenario_sqlnet"            "Alias for network file loss."
   register_scenario "58" "TDE wallet or keystore unavailable"                "Security"   "CDB/non-CDB" "destructive" "primary"           "scenario_tde_wallet"        "Renames detected wallet root if configured."
   register_scenario "59" "Missing archived redo log"                         "Backup"     "CDB/non-CDB" "destructive" "primary"           "scenario_archivelog_loss"   "Targets one archived log known to the control file."
-  register_scenario "60" "Recovery catalog unavailable"                      "Backup"     "External"   "logical"      "any"               "scenario_planned"           "Usually simulated outside the target database."
+  register_scenario "60" "Recovery catalog unavailable"                      "Backup"     "External"   "logical"      "any"               "scenario_recovery_catalog_unavailable" "Validates catalog connectivity and NOCATALOG fallback behavior."
 }
 
 list_scenarios() {
@@ -4661,6 +4664,100 @@ drop pluggable database ${pdb} including datafiles;
   execute_actions
 }
 
+redact_rman_catalog_connect() {
+  local value="$1"
+  if [[ -z "$value" ]]; then
+    printf "not configured"
+    return "$SUCCESS"
+  fi
+  printf "%s" "$value" | sed -E 's#([^/@[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#'
+}
+
+write_recovery_catalog_check_rman() {
+  local cmd_file="$1"
+  cat >"$cmd_file" <<RMAN || die "Unable to write recovery catalog RMAN file: $cmd_file"
+connect catalog ${RMAN_CATALOG_CONNECT}
+resync catalog;
+list incarnation;
+report schema;
+exit
+RMAN
+  chmod 600 "$cmd_file" 2>/dev/null || true
+}
+
+write_recovery_catalog_fallback_rman() {
+  local cmd_file="$1"
+  cat >"$cmd_file" <<'RMAN' || die "Unable to write NOCATALOG fallback RMAN file: $cmd_file"
+list incarnation;
+report schema;
+list backup summary;
+restore database preview summary;
+exit
+RMAN
+  chmod 600 "$cmd_file" 2>/dev/null || true
+}
+
+print_redacted_rman_log() {
+  local log_file="$1"
+  sed -E 's#(connect catalog [^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#Ig' "$log_file"
+}
+
+scenario_recovery_catalog_unavailable() {
+  reset_actions
+  local redacted catalog_cmd catalog_log fallback_cmd fallback_log
+  redacted="$(redact_rman_catalog_connect "$RMAN_CATALOG_CONNECT")"
+  catalog_cmd="${LOG_DIR}/crashsim_s60_${RUN_ID}_catalog_check.rman"
+  catalog_log="${LOG_DIR}/crashsim_s60_${RUN_ID}_catalog_check.log"
+  fallback_cmd="${LOG_DIR}/crashsim_s60_${RUN_ID}_nocatalog_fallback.rman"
+  fallback_log="${LOG_DIR}/crashsim_s60_${RUN_ID}_nocatalog_fallback.log"
+
+  echo "Recovery catalog drill"
+  echo "Catalog connect string: ${redacted}"
+  echo "Purpose: validate catalog resync/reporting, then validate target-control-file NOCATALOG fallback."
+  echo
+
+  manifest_append "rman_catalog_configured" "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)"
+  manifest_append "rman_catalog_connect_redacted" "$redacted"
+  manifest_append "rman_catalog_check_cmdfile" "$catalog_cmd"
+  manifest_append "rman_catalog_check_log" "$catalog_log"
+  manifest_append "rman_nocatalog_fallback_cmdfile" "$fallback_cmd"
+  manifest_append "rman_nocatalog_fallback_log" "$fallback_log"
+
+  if [[ -z "$RMAN_CATALOG_CONNECT" ]]; then
+    echo "No recovery catalog connect string was supplied."
+    echo "Set --rman-catalog or CRASHSIM_RMAN_CATALOG to validate the catalog phase."
+    if [[ "$EXECUTE" -eq 0 ]]; then
+      echo "DRY-RUN: would still validate NOCATALOG fallback against the target control file."
+      return "$SUCCESS"
+    fi
+    ensure_rman
+    write_recovery_catalog_fallback_rman "$fallback_cmd"
+    "$RMAN_BIN" target / cmdfile="$fallback_cmd" log="$fallback_log" ||
+      die "RMAN NOCATALOG fallback validation failed: $fallback_log"
+    cat "$fallback_log"
+    return "$SUCCESS"
+  fi
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would run RMAN target / with catalog connect string ${redacted}"
+    echo "DRY-RUN: would run resync catalog, list incarnation, and report schema."
+    echo "DRY-RUN: would run RMAN target / without catalog for fallback list/report/restore preview."
+    return "$SUCCESS"
+  fi
+
+  ensure_rman
+  write_recovery_catalog_check_rman "$catalog_cmd"
+  write_recovery_catalog_fallback_rman "$fallback_cmd"
+
+  "$RMAN_BIN" target / cmdfile="$catalog_cmd" log="$catalog_log" ||
+    die "RMAN recovery catalog validation failed: $catalog_log"
+  print_redacted_rman_log "$catalog_log"
+
+  "$RMAN_BIN" target / cmdfile="$fallback_cmd" log="$fallback_log" ||
+    die "RMAN NOCATALOG fallback validation failed: $fallback_log"
+  cat "$fallback_log"
+}
+
 print_optional_tool_output() {
   local title="$1"
   shift
@@ -4975,6 +5072,11 @@ parse_args() {
         PIECE_HANDLE="$2"
         shift 2
         ;;
+      --rman-catalog)
+        [[ "$#" -ge 2 ]] || die "--rman-catalog requires a recovery catalog connect string"
+        RMAN_CATALOG_CONNECT="$2"
+        shift 2
+        ;;
       --dry-run)
         EXECUTE=0
         shift
@@ -5039,6 +5141,7 @@ menu_print_header() {
   echo "Log dir: ${LOG_DIR}"
   echo "Report deep validation: ${REPORT_DEEP_VALIDATE}"
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
+  echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
 }
 
@@ -5248,7 +5351,8 @@ menu_configure_options() {
     echo "  6. Scenario 25 backup-piece guardrails"
     echo "  7. Password-file recovery options"
     echo "  8. Set log directory"
-    echo "  9. Clear selected scenario and targets"
+    echo "  9. Set RMAN recovery catalog"
+    echo " 10. Clear selected scenario and targets"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -5272,6 +5376,10 @@ menu_configure_options() {
         menu_pause
         ;;
       9)
+        menu_prompt_path "RMAN recovery catalog connect string" RMAN_CATALOG_CONNECT "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not-set)"
+        menu_pause
+        ;;
+      10)
         SCENARIO_ID=""
         TARGET_PDB=""
         TARGET_SCHEMA=""
@@ -5282,6 +5390,7 @@ menu_configure_options() {
         LOCAL_ONLY=0
         MAX_TARGETS=""
         PIECE_HANDLE=""
+        RMAN_CATALOG_CONNECT=""
         echo "Scenario and target context cleared."
         menu_pause
         ;;
@@ -5353,6 +5462,7 @@ menu_append_common_child_args() {
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
   [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")
   [[ -n "$PIECE_HANDLE" ]] && MENU_CMD+=("--piece-handle" "$PIECE_HANDLE")
+  [[ -n "$RMAN_CATALOG_CONNECT" ]] && MENU_CMD+=("--rman-catalog" "$RMAN_CATALOG_CONNECT")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")

@@ -130,6 +130,9 @@ and `RECO`.
 - `48`: voting-disk planning helper implemented and dry-run validated.
 - `49`: ASM SPFILE planning helper implemented and dry-run validated, with
   `srvctl config asm` evidence. An ASM SPFILE backup was created in `+RECO`.
+- `60`: RMAN recovery catalog lab created in `CRASHPDB`, target database
+  registered, scenario dry-run and execute completed, catalog resync validated,
+  and `NOCATALOG` fallback restore-preview checks completed.
 
 Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
 lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
@@ -157,7 +160,6 @@ implementation before destructive validation:
 - `53`: Active Data Guard read-only session pressure
 - `54`: snapshot standby conversion practice
 - `56`: RAC service relocation failure practice
-- `60`: recovery catalog unavailable
 
 ## Next Validation Environments
 

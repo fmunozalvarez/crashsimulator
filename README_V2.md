@@ -26,6 +26,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --random-scenario --dry-run
 ./CrashSimulatorV2.sh --recover 30 --pdb crashpdb --file-no 12 --dry-run
+./CrashSimulatorV2.sh --scenario 60 --rman-catalog "$CRASHSIM_RMAN_CATALOG" --dry-run
 ./CrashSimulatorV2.sh --scenario 43 --pdb crashpdb --schema crashsim_table_lab --dry-run
 ```
 
@@ -200,6 +201,27 @@ For an exact local FRA piece:
 Destructive execution of scenario 25 requires either `--piece-handle` or
 `--local-only --max-targets <n>`. If a selected handle is not a local filesystem
 path, execution is refused.
+
+## Recovery Catalog Drill
+
+Scenario 60 validates RMAN recovery-catalog connectivity and the operational
+fallback to target-control-file metadata when the catalog is unavailable:
+
+```bash
+export CRASHSIM_RMAN_CATALOG='rman_catalog_user/password@//host:1521/service'
+./CrashSimulatorV2.sh --scenario 60 --dry-run
+./CrashSimulatorV2.sh --scenario 60 --execute
+./CrashSimulatorV2.sh --scenario 60 --rman-catalog "$CRASHSIM_RMAN_CATALOG" --execute
+```
+
+The drill first connects to the target and catalog, runs `resync catalog`, lists
+incarnations, and reports schema metadata. It then validates a `NOCATALOG`
+fallback with incarnation, schema, backup summary, and restore-preview checks.
+Catalog passwords are redacted from printed RMAN logs.
+
+For lab convenience, a catalog can be created in a PDB on the same target CDB.
+For production and production-like DR testing, keep the RMAN recovery catalog in
+an independent database so a target loss does not also remove catalog metadata.
 
 ## Executing A Scenario
 
