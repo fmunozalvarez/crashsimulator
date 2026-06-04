@@ -107,20 +107,46 @@ and `RECO`.
 
 - `55`: dry-run, execute, manual `srvctl start database` recovery, automated
   `--recover 55 --execute` validation, and post-drill health check completed.
-- `30`, `7`, `32`, and `41`: kept in dry-run/protect-only mode. Scenario
-  target selection correctly marks ASM datafiles as `external`, while
-  `--protect` resolves FILE# metadata for RMAN protection planning.
+- Redo groups were multiplexed by adding one `+DATA` member to each group while
+  retaining the original `+RECO` members.
+- `18`: inactive multiplexed redo member removed from ASM as `grid`, recovered
+  with the ASM redo recovery helper, and validated.
+- `3`: current redo member target selected and recovery helper dry-run
+  validated. Destructive injection was not forced because ASM refused removal of
+  the current file with ORA-15028 and Oracle refused logical drop with ORA-01609.
+- `30`: protected FILE# `12`, removed the PDB USERS datafile from ASM, restored
+  and recovered it, and reopened `CRASHPDB`.
+- `32`: protected FILE# `8`, removed the PDB SYSTEM datafile from ASM, restored
+  and recovered it, and reopened `CRASHPDB`.
+- `41`: protected FILE# list `8,9,10,12`, removed all `CRASHPDB` datafiles from
+  ASM, restored and recovered the list, reopened `CRASHPDB`, and restarted the
+  PDB service.
+- `7`: protected FILE# `1`, stopped the GI-managed database, removed the root
+  SYSTEM datafile from ASM, restored and recovered in mount mode, and validated
+  Clusterware/service state.
 - `46`: ASM disk-group planning helper implemented and dry-run validated.
 - `47`: OCR planning helper implemented and dry-run validated with `ocrcheck`
-  and OCR backup listing evidence.
+  and OCR backup listing evidence. A manual OCR backup was also created.
 - `48`: voting-disk planning helper implemented and dry-run validated.
 - `49`: ASM SPFILE planning helper implemented and dry-run validated, with
-  `srvctl config asm` evidence and a warning when `asmcmd spget` is not
-  available from the current OS user.
+  `srvctl config asm` evidence. An ASM SPFILE backup was created in `+RECO`.
 
-Destructive ASM/GI execution for `30`, `7`, `32`, `41`, `46`, `47`, `48`, and
-`49` remains blocked until explicit ASM-aware crash-injection and recovery
-handlers are added.
+Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
+lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
+uses `EXTERN` redundancy. Use a purpose-built redundant GI lab before removing
+OCR/voting/ASM SPFILE resources.
+
+Final RAC/GI/ASM validation showed:
+
+- Database open read write
+- PDB `CRASHPDB` open read write
+- `V$RECOVER_FILE` count `0`
+- `V$DATABASE_BLOCK_CORRUPTION` count `0`
+- Redo groups `1`, `2`, and `3` each have two members
+- Clusterware database resource `ONLINE/STABLE`
+- PDB service running
+- No remaining `.crashsim.bak` artifacts
+- Post-drill database, control-file, and SPFILE backups completed
 
 ## Registered Placeholders Needing Implementation
 
@@ -141,9 +167,8 @@ and push back to GitHub.
 
 Recommended next validation coverage:
 
-- Multiplexed redo logs for scenarios `3` and `18`
-- ASM-aware destructive/recovery helpers for scenarios `30`, `7`, `32`, `41`,
-  `46`, `47`, `48`, and `49`
+- True storage-level current-redo fault injection for scenario `3`
+- Redundant GI lab coverage for destructive scenarios `46`, `47`, `48`, and `49`
 - RAC service relocation/failure validation for scenario `56`
 - Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
 - Logical recovery scenarios after re-seeding lab objects: `11`, `36`, `43`, and `44`

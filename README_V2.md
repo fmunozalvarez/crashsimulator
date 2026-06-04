@@ -97,7 +97,9 @@ Automated recovery helpers are currently enabled for:
   current tempfiles first because OMF may auto-create replacements on startup.
 - Scenario 3, 4, 18, 19, 20, 21, and 24: redo member restore from scenario
   backup copies, database open validation, redo metadata checks, forced log
-  switch, and backup cleanup.
+  switch, and backup cleanup. ASM redo manifests can also drive drop/add-member
+  recovery when the missing member is an ASM file and no filesystem backup pair
+  exists.
 - Scenario 7, 14, 17, 32, 39, and 41: RMAN restore/recover for SYSTEM and
   all-datafile drills using FILE# metadata captured in the scenario manifest.
 - Scenario 16: password-file recreation, optional SYSBACKUP re-grant, and remote
@@ -115,6 +117,10 @@ Automated recovery helpers are currently enabled for:
 For scenario 30, recovery creates a SQL*Plus post-step that opens the target PDB
 only when it is not already open, avoiding the ORA-65019 issue observed during
 manual recovery.
+
+For PDB-scoped datafile recoveries on CDB/ASM environments, the recovery helper
+restores and recovers FILE# targets while the CDB remains open and the target
+PDB is closed, then opens the PDB and runs validation where applicable.
 
 Scenario recovery uses the executed scenario manifest:
 
@@ -187,6 +193,8 @@ For automated lab runs only:
   implemented for that scenario.
 - ASM/GI scenarios 46, 47, 48, and 49 include non-destructive planning helpers
   for disk groups, OCR, voting disks, and ASM SPFILE evidence collection.
+- Destructive OCR/voting/ASM disk-group drills should be refused in labs where
+  OCR or the only voting disk lives in an `EXTERN` redundancy disk group.
 - Filesystem actions refuse ASM-style `+DATA/...` paths.
 - Instance abort targets the discovered/current instance instead of every PMON
   on the host.

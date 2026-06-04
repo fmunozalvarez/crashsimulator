@@ -1585,6 +1585,18 @@ write_recover_datafile_list_rman_file() {
   manifest_append "recover_rman_cmdfile" "$cmd_file"
 }
 
+write_recover_pdb_datafile_rman_file() {
+  local file_list="$1"
+  local cmd_file="$2"
+
+  {
+    printf "restore datafile %s;\n" "$file_list"
+    printf "recover datafile %s;\n" "$file_list"
+  } >"$cmd_file" || die "Unable to write RMAN PDB datafile recovery file: $cmd_file"
+
+  manifest_append "recover_rman_cmdfile" "$cmd_file"
+}
+
 write_validate_datafile_list_rman_file() {
   local file_list="$1"
   local cmd_file="$2"
@@ -1637,6 +1649,65 @@ write_redo_validation_rman_file() {
   } >"$cmd_file" || die "Unable to write redo RMAN validation file: $cmd_file"
 }
 
+redo_replacement_diskgroup() {
+  local member="$1"
+  case "$member" in
+    +DATA/*|+DATA) printf "+DATA" ;;
+    +RECO/*|+RECO) printf "+RECO" ;;
+    +*)
+      printf "%s" "$member" | awk -F/ '{print $1}'
+      ;;
+    *)
+      return "$FAIL"
+      ;;
+  esac
+}
+
+write_asm_redo_recovery_sql_file() {
+  local group_no="$1"
+  local missing_member="$2"
+  local diskgroup="$3"
+  local sql_file="$4"
+  local missing_literal diskgroup_literal
+  missing_literal="$(sql_quote "$missing_member")"
+  diskgroup_literal="$(sql_quote "$diskgroup")"
+
+  cat >"$sql_file" <<SQL || die "Unable to write ASM redo recovery SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback on pages 100 lines 220
+alter system switch logfile;
+alter system switch logfile;
+alter system checkpoint;
+declare
+  l_member varchar2(512) := ${missing_literal};
+  l_count number;
+begin
+  select count(*)
+    into l_count
+    from v\$logfile
+   where member = l_member;
+
+  if l_count > 0 then
+    execute immediate 'alter database drop logfile member ''' ||
+      replace(l_member, '''', '''''') || '''';
+  else
+    dbms_output.put_line('Redo member is already absent from control-file metadata: ' || l_member);
+  end if;
+end;
+/
+alter database add logfile member ${diskgroup_literal} to group ${group_no};
+alter system switch logfile;
+select l.group#, l.thread#, l.sequence#, l.status, l.archived, count(lf.member) members
+from v\$log l join v\$logfile lf on lf.group# = l.group#
+group by l.group#, l.thread#, l.sequence#, l.status, l.archived
+order by l.thread#, l.group#;
+select lf.group#, l.status, lf.member
+from v\$logfile lf join v\$log l on l.group# = lf.group#
+order by lf.group#, lf.member;
+exit
+SQL
+}
+
 write_pdb_open_sql_file() {
   local pdb_name="$1"
   local sql_file="$2"
@@ -1669,14 +1740,39 @@ load_manifest_datafile_numbers() {
   RECOVER_FILE_NOS=()
 
   local idx file_no count seen
-  count="$(manifest_get "planned_action_count" || true)"
-  [[ "$count" =~ ^[0-9]+$ ]] || count=0
+  local key_prefix count_key
 
-  idx=1
-  while [[ "$idx" -le "$count" ]]; do
-    file_no="$(manifest_get "action_${idx}_file_no" || true)"
+  for key_prefix in action target; do
+    case "$key_prefix" in
+      action) count_key="planned_action_count" ;;
+      target) count_key="target_count" ;;
+    esac
+    count="$(manifest_get "$count_key" || true)"
+    [[ "$count" =~ ^[0-9]+$ ]] || count=0
+
+    idx=1
+    while [[ "$idx" -le "$count" ]]; do
+      file_no="$(manifest_get "${key_prefix}_${idx}_file_no" || true)"
+      if [[ -n "$file_no" ]]; then
+        [[ "$file_no" =~ ^[0-9]+$ ]] || die "Manifest has invalid FILE# for ${key_prefix}_${idx}: $file_no"
+        seen=0
+        local existing
+        for existing in "${RECOVER_FILE_NOS[@]}"; do
+          if [[ "$existing" == "$file_no" ]]; then
+            seen=1
+            break
+          fi
+        done
+        [[ "$seen" -eq 1 ]] || RECOVER_FILE_NOS+=("$file_no")
+      fi
+      idx=$((idx + 1))
+    done
+  done
+
+  if [[ "${#RECOVER_FILE_NOS[@]}" -eq 0 ]]; then
+    file_no="$(manifest_first_value "recover_file_no" "target_1_file_no" "action_1_file_no" || true)"
     if [[ -n "$file_no" ]]; then
-      [[ "$file_no" =~ ^[0-9]+$ ]] || die "Manifest has invalid FILE# for action_${idx}: $file_no"
+      [[ "$file_no" =~ ^[0-9]+$ ]] || die "Manifest has invalid FILE#: $file_no"
       seen=0
       local existing
       for existing in "${RECOVER_FILE_NOS[@]}"; do
@@ -1687,8 +1783,7 @@ load_manifest_datafile_numbers() {
       done
       [[ "$seen" -eq 1 ]] || RECOVER_FILE_NOS+=("$file_no")
     fi
-    idx=$((idx + 1))
-  done
+  fi
 
   [[ "${#RECOVER_FILE_NOS[@]}" -gt 0 ]] || return "$FAIL"
 }
@@ -1764,7 +1859,11 @@ recover_datafile_scenario() {
   local cmd_file log_file sql_file sql_log
   cmd_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}.rman"
   log_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}.log"
-  write_recover_rman_file "$id" "$file_no" "$cmd_file"
+  if scenario_uses_pdb_recovery "$id"; then
+    write_recover_pdb_datafile_rman_file "$file_no" "$cmd_file"
+  else
+    write_recover_rman_file "$id" "$file_no" "$cmd_file"
+  fi
   manifest_append "recover_file_no" "$file_no"
   manifest_append "recover_rman_log" "$log_file"
 
@@ -1821,7 +1920,11 @@ recover_datafile_list_scenario() {
 
   cmd_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_datafiles.rman"
   log_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_datafiles.log"
-  write_recover_datafile_list_rman_file "$file_list" "$cmd_file"
+  if scenario_uses_pdb_recovery "$id"; then
+    write_recover_pdb_datafile_rman_file "$file_list" "$cmd_file"
+  else
+    write_recover_datafile_list_rman_file "$file_list" "$cmd_file"
+  fi
   manifest_append "recover_rman_log" "$log_file"
 
   validate_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_datafiles.rman"
@@ -1906,17 +2009,40 @@ recover_redo_scenario() {
   scenario_exists "$id" || die "Unknown scenario id: $id"
   require_manifest
 
-  local sql_file sql_log rman_file rman_log
-  load_manifest_restore_pairs ||
-    die "Manifest is missing redo restore paths. Use a manifest from an executed scenario run."
+  local sql_file sql_log rman_file rman_log restore_pair_mode asm_redo_mode
+  local redo_group redo_member redo_diskgroup
+  restore_pair_mode=0
+  asm_redo_mode=0
+  if load_manifest_restore_pairs; then
+    restore_pair_mode=1
+  else
+    redo_group="$(manifest_first_value "action_1_redo_group" "action_1_redo_group_no" || true)"
+    redo_member="$(manifest_first_value "action_1_redo_member" "action_1_target" || true)"
+    if [[ -n "$redo_group" && "$redo_group" =~ ^[0-9]+$ && "$redo_member" == +* ]]; then
+      redo_diskgroup="$(redo_replacement_diskgroup "$redo_member" || true)"
+      [[ -n "$redo_diskgroup" ]] || die "Unable to derive ASM disk group from redo member: $redo_member"
+      asm_redo_mode=1
+    else
+      die "Manifest is missing redo restore paths or ASM redo metadata. Use a manifest from an executed scenario run."
+    fi
+  fi
 
   manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_redo.sql"
   sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_redo.log"
-  write_redo_validation_sql_file "$sql_file"
-  manifest_append "recover_redo_validate_sqlfile" "$sql_file"
-  manifest_append "recover_redo_validate_log" "$sql_log"
+  if [[ "$asm_redo_mode" -eq 1 ]]; then
+    write_asm_redo_recovery_sql_file "$redo_group" "$redo_member" "$redo_diskgroup" "$sql_file"
+    manifest_append "recover_redo_asm_sqlfile" "$sql_file"
+    manifest_append "recover_redo_asm_log" "$sql_log"
+    manifest_append "recover_redo_group" "$redo_group"
+    manifest_append "recover_redo_missing_member" "$redo_member"
+    manifest_append "recover_redo_replacement_diskgroup" "$redo_diskgroup"
+  else
+    write_redo_validation_sql_file "$sql_file"
+    manifest_append "recover_redo_validate_sqlfile" "$sql_file"
+    manifest_append "recover_redo_validate_log" "$sql_log"
+  fi
 
   rman_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_database.rman"
   rman_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_database.log"
@@ -1926,19 +2052,29 @@ recover_redo_scenario() {
 
   echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
   echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
-  echo "Redo member restore count: ${#RESTORE_ORIGINALS[@]}"
+  if [[ "$asm_redo_mode" -eq 1 ]]; then
+    echo "ASM redo group: ${redo_group}"
+    echo "Missing member: ${redo_member}"
+    echo "Replacement disk group: ${redo_diskgroup}"
+  else
+    echo "Redo member restore count: ${#RESTORE_ORIGINALS[@]}"
+  fi
   echo "Manifest: ${MANIFEST_FILE}"
   echo
   print_recovery_runbook "$id"
   echo
 
   confirm_mode_execution "RECOVER" "$id"
-  copy_restore_pairs_to_originals
+  if [[ "$restore_pair_mode" -eq 1 ]]; then
+    copy_restore_pairs_to_originals
+  fi
   force_database_open
   run_sql_script_file "$sql_file" "$sql_log"
   run_rman_cmdfile "$rman_file" "$rman_log"
 
-  safe_remove_restore_backups
+  if [[ "$restore_pair_mode" -eq 1 ]]; then
+    safe_remove_restore_backups
+  fi
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
