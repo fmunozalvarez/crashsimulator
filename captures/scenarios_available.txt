@@ -1,0 +1,62 @@
+ID   Group        Scope         Impact       Scenario
+--   -----        -----         ------       --------
+1    Core         CDB/non-CDB   destructive  Loss of one control file
+2    Core         CDB/non-CDB   destructive  Loss of all control files
+3    Core         CDB/non-CDB   destructive  Loss of one member from current redo group
+4    Core         CDB/non-CDB   destructive  Loss of all members from current redo group
+5    Core         CDB/non-CDB   destructive  Loss of one non-system datafile
+6    Core         CDB/non-CDB   destructive  Loss of one temporary file
+7    Core         CDB/non-CDB   destructive  Loss of one SYSTEM datafile
+8    Core         CDB/non-CDB   destructive  Loss of one UNDO datafile
+9    Core         CDB/non-CDB   destructive  Loss of a read-only tablespace
+10   Core         CDB/non-CDB   destructive  Loss of an index-only tablespace
+11   Logical      CDB/non-CDB   logical      Drop non-unique indexes outside Oracle schemas
+12   Core         CDB/non-CDB   destructive  Loss of a non-system tablespace
+13   Core         CDB/non-CDB   destructive  Loss of a temporary tablespace
+14   Core         CDB/non-CDB   destructive  Loss of SYSTEM tablespace
+15   Core         CDB/non-CDB   destructive  Loss of UNDO tablespace
+16   Config       CDB/non-CDB   destructive  Loss of password file
+17   Core         CDB/non-CDB   destructive  Loss of all datafiles
+18   Core         CDB/non-CDB   destructive  Loss of one member from multiplexed redo group
+19   Core         CDB/non-CDB   destructive  Loss of all inactive redo groups
+20   Core         CDB/non-CDB   destructive  Loss of all active redo groups
+21   Core         CDB/non-CDB   destructive  Loss of all current redo group members
+22   Corrupt      CDB/non-CDB   destructive  Datafile header corruption
+23   Corrupt      CDB/non-CDB   destructive  Control file corruption
+24   Corrupt      CDB/non-CDB   destructive  Redo log corruption
+25   Backup       CDB/non-CDB   destructive  Loss of RMAN backup pieces
+26   Config       CDB/non-CDB   destructive  Loss of SPFILE
+27   Config       CDB/non-CDB   destructive  Loss of SQL*Net config files
+28   Config       CDB/non-CDB   destructive  Loss of ORACLE_HOME
+29   Backup       CDB/non-CDB   destructive  Loss of FRA destination
+30   PDB          PDB           destructive  PDB loss of one non-system datafile
+31   PDB          PDB           destructive  PDB loss of one temporary file
+32   PDB          PDB           destructive  PDB loss of one SYSTEM datafile
+33   PDB          PDB           destructive  PDB loss of one UNDO datafile
+34   PDB          PDB           destructive  PDB loss of read-only tablespace
+35   PDB          PDB           destructive  PDB loss of index-only tablespace
+36   PDB          PDB           logical      PDB drop non-unique indexes
+37   PDB          PDB           destructive  PDB loss of non-system tablespace
+38   PDB          PDB           destructive  PDB loss of temporary tablespace
+39   PDB          PDB           destructive  PDB loss of SYSTEM tablespace
+40   PDB          PDB           destructive  PDB loss of UNDO tablespace
+41   PDB          PDB           destructive  PDB loss of all datafiles
+42   PDB          PDB           destructive  PDB SYSTEM file header corruption
+43   PDB          PDB           logical      PDB loss of one user table
+44   PDB          PDB           logical      PDB loss of one user schema
+45   PDB          PDB           destructive  Drop selected PDB including datafiles
+46   ASM          ASM           destructive  ASM data disk group unavailable
+47   GI           Cluster       destructive  OCR loss or restore drill
+48   GI           Cluster       destructive  Voting disk loss or restore drill
+49   ASM          ASM           destructive  ASM SPFILE loss
+50   DataGuard    Standby       logical      Standby managed recovery cancelled
+51   DataGuard    Primary       logical      Primary transport destination deferred
+52   DataGuard    DG            logical      Data Guard broker configuration unavailable
+53   ADG          Standby       logical      Active Data Guard read-only session pressure
+54   DataGuard    Standby       logical      Snapshot standby conversion practice
+55   RAC          RAC           destructive  RAC abort one instance
+56   RAC          RAC           logical      RAC service relocation failure practice
+57   Network      CDB/non-CDB   destructive  Listener config unavailable
+58   Security     CDB/non-CDB   destructive  TDE wallet or keystore unavailable
+59   Backup       CDB/non-CDB   destructive  Missing archived redo log
+60   Backup       External      logical      Recovery catalog unavailable
