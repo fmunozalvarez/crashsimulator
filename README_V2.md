@@ -21,6 +21,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --health-check
 ./CrashSimulatorV2.sh --config-report
+./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
@@ -61,6 +62,7 @@ drive from a single screen:
 - dry-run or execute recovery from a manifest
 - run the non-destructive health check
 - generate target configuration/recoverability reports
+- generate Oracle MAA readiness and SLA planning reports
 - view recent manifests and logs
 
 Menu actions re-run the same script in CLI mode, so automation and manual usage
@@ -86,6 +88,28 @@ Data Guard/FSFO evidence, and GI/ASM/OCR/voting-disk status when those tools are
 available. The default report uses RMAN metadata and `restore database preview
 summary`; `--deep-validate` adds read-only but I/O-intensive RMAN
 `restore database validate` and `validate database check logical` checks.
+
+## MAA Readiness Report
+
+Use `--maa-report` to generate an Oracle MAA posture and best-practice report:
+
+```bash
+./CrashSimulatorV2.sh --maa-report
+./CrashSimulatorV2.sh --maa-report --maa-app-name payroll --maa-local-rto "less than 1 minute" --maa-dr-rpo "zero"
+```
+
+The report detects the current MAA posture as a best-effort mapping to Bronze,
+Silver, Gold, Platinum, or Diamond from observable evidence such as RAC/RAC One
+Node, Data Guard/Active Data Guard, FSFO, RMAN backup coverage, ARCHIVELOG,
+FORCE LOGGING, Flashback Database, redo/control-file redundancy, FRA, TDE, and
+GoldenGate-style dictionary evidence where available. It also records SLA/RTO/RPO
+planning context so a future recommendation engine can compare application
+objectives with the detected HA/DR capabilities.
+
+This is a readiness assessment, not an Oracle certification. It uses Oracle MAA
+reference architecture concepts and the RTO/RPO planning model from
+`oraclemaa.com` as report references, then points to CrashSimulator drills that
+can prove or disprove the expected recovery behavior.
 
 ## Aleatory Scenario
 

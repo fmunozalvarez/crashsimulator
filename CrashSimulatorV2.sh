@@ -33,6 +33,13 @@ MAX_TARGETS="${CRASHSIM_MAX_TARGETS:-}"
 PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
 REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
 RMAN_CATALOG_CONNECT="${CRASHSIM_RMAN_CATALOG:-}"
+MAA_APP_NAME="${CRASHSIM_MAA_APP_NAME:-}"
+MAA_LOCAL_RTO="${CRASHSIM_MAA_LOCAL_RTO:-}"
+MAA_LOCAL_RPO="${CRASHSIM_MAA_LOCAL_RPO:-}"
+MAA_DR_RTO="${CRASHSIM_MAA_DR_RTO:-}"
+MAA_DR_RPO="${CRASHSIM_MAA_DR_RPO:-}"
+MAA_PLANNED_RTO="${CRASHSIM_MAA_PLANNED_RTO:-}"
+MAA_PLANNED_RPO="${CRASHSIM_MAA_PLANNED_RPO:-}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
 WORK_DIR=""
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
@@ -93,6 +100,7 @@ declare -A SCENARIO_IMPACT=()
 declare -A SCENARIO_REQUIRES=()
 declare -A SCENARIO_HANDLER=()
 declare -A SCENARIO_NOTES=()
+declare -A MAA_EVIDENCE=()
 
 usage() {
   cat <<USAGE
@@ -104,6 +112,7 @@ Usage:
   ./${PROGRAM} --menu
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
+  ./${PROGRAM} --maa-report
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -120,6 +129,9 @@ Options:
   --config-report         Generate a full target database/PDB configuration report.
   --configuration-report  Alias for --config-report.
   --report                Alias for --config-report.
+  --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
+  --maa-assessment        Alias for --maa-report.
+  --maa-readiness         Alias for --maa-report.
   --deep-validate         With --config-report, run heavier RMAN restore/database validation.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
@@ -139,6 +151,13 @@ Options:
   --max-targets <n>       Limit selected targets. Strongly recommended for scenario 25.
   --piece-handle <handle> Scenario 25: target one exact RMAN backup-piece handle.
   --rman-catalog <str>   RMAN recovery catalog connect string for catalog drills.
+  --maa-app-name <name>   Optional application name for MAA/SLA planning context.
+  --maa-local-rto <value> Optional local unplanned-outage RTO objective.
+  --maa-local-rpo <value> Optional local unplanned-outage RPO objective.
+  --maa-dr-rto <value>    Optional disaster/site-outage RTO objective.
+  --maa-dr-rpo <value>    Optional disaster/site-outage RPO objective.
+  --maa-planned-rto <val> Optional planned-maintenance RTO objective.
+  --maa-planned-rpo <val> Optional planned-maintenance RPO objective.
   --dry-run               Plan only. This is the default.
   --execute               Execute destructive actions after confirmation.
   --yes                   Skip interactive confirmation. Use only in labs.
@@ -161,6 +180,13 @@ Environment:
   CRASHSIM_PIECE_HANDLE         Exact RMAN backup-piece handle for scenario 25.
   CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
   CRASHSIM_RMAN_CATALOG         RMAN recovery catalog connect string.
+  CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
+  CRASHSIM_MAA_LOCAL_RTO        Local unplanned-outage RTO objective.
+  CRASHSIM_MAA_LOCAL_RPO        Local unplanned-outage RPO objective.
+  CRASHSIM_MAA_DR_RTO           Disaster/site-outage RTO objective.
+  CRASHSIM_MAA_DR_RPO           Disaster/site-outage RPO objective.
+  CRASHSIM_MAA_PLANNED_RTO      Planned-maintenance RTO objective.
+  CRASHSIM_MAA_PLANNED_RPO      Planned-maintenance RPO objective.
   CRASHSIM_MANIFEST             Default manifest path.
   CRASHSIM_LOG_DIR              Default log directory.
   CRASHSIM_SQLPLUS_LOGON        Default SQL*Plus logon string.
@@ -2759,7 +2785,7 @@ run_health_check() {
   echo
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$log_file" ||
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$log_file" </dev/null ||
     die "Health check failed: $sql_file (log: $log_file)"
 
   sed 's/^/  /' "$log_file"
@@ -2777,6 +2803,552 @@ append_report_text() {
   local report_file="$1"
   shift
   printf "%s\n" "$*" >>"$report_file"
+}
+
+md_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//|/\\|}"
+  printf "%s" "$value"
+}
+
+write_maa_assessment_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write MAA assessment SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 0 lines 32767 trimspool on tab off verify off feedback off heading off
+set serveroutput on size unlimited
+
+select 'CSIM_MAA|db_name|' || name from v$database;
+select 'CSIM_MAA|db_unique_name|' || db_unique_name from v$database;
+select 'CSIM_MAA|db_role|' || database_role from v$database;
+select 'CSIM_MAA|open_mode|' || open_mode from v$database;
+select 'CSIM_MAA|cdb|' || cdb from v$database;
+select 'CSIM_MAA|log_mode|' || log_mode from v$database;
+select 'CSIM_MAA|force_logging|' || force_logging from v$database;
+select 'CSIM_MAA|flashback_on|' || flashback_on from v$database;
+select 'CSIM_MAA|protection_mode|' || protection_mode from v$database;
+select 'CSIM_MAA|protection_level|' || protection_level from v$database;
+select 'CSIM_MAA|switchover_status|' || switchover_status from v$database;
+select 'CSIM_MAA|fsfo_status|' || nvl(fs_failover_status, 'UNKNOWN') from v$database;
+select 'CSIM_MAA|fsfo_target|' || nvl(fs_failover_current_target, 'NONE') from v$database;
+select 'CSIM_MAA|fsfo_threshold|' || nvl(to_char(fs_failover_threshold), 'UNKNOWN') from v$database;
+select 'CSIM_MAA|fsfo_observer_present|' || nvl(fs_failover_observer_present, 'UNKNOWN') from v$database;
+select 'CSIM_MAA|dbid|' || dbid from v$database;
+select 'CSIM_MAA|platform_name|' || platform_name from v$database;
+
+select 'CSIM_MAA|instance_name|' || instance_name from v$instance;
+select 'CSIM_MAA|host_name|' || host_name from v$instance;
+select 'CSIM_MAA|version|' || version from v$instance;
+select 'CSIM_MAA|version_major|' || regexp_substr(version, '^[0-9]+') from v$instance;
+select 'CSIM_MAA|instance_status|' || status from v$instance;
+select 'CSIM_MAA|instance_parallel|' || parallel from v$instance;
+select 'CSIM_MAA|instance_thread|' || thread# from v$instance;
+
+select 'CSIM_MAA|cluster_database|' || nvl(max(value), 'UNKNOWN')
+from v$parameter
+where name = 'cluster_database';
+select 'CSIM_MAA|remote_login_passwordfile|' || nvl(max(value), 'UNKNOWN')
+from v$parameter
+where name = 'remote_login_passwordfile';
+select 'CSIM_MAA|db_recovery_file_dest|' || nvl(max(value), 'NONE')
+from v$parameter
+where name = 'db_recovery_file_dest';
+select 'CSIM_MAA|db_recovery_file_dest_size|' || nvl(max(display_value), 'UNKNOWN')
+from v$parameter
+where name = 'db_recovery_file_dest_size';
+select 'CSIM_MAA|local_undo_enabled|' || nvl(max(value), 'UNKNOWN')
+from v$parameter
+where name = 'local_undo_enabled';
+select 'CSIM_MAA|wallet_root|' || nvl(max(value), 'NONE')
+from v$parameter
+where name = 'wallet_root';
+select 'CSIM_MAA|tde_configuration|' || nvl(max(value), 'NONE')
+from v$parameter
+where name = 'tde_configuration';
+select 'CSIM_MAA|archive_lag_target|' || nvl(max(value), 'UNKNOWN')
+from v$parameter
+where name = 'archive_lag_target';
+
+select 'CSIM_MAA|control_file_count|' || count(*) from v$controlfile;
+select 'CSIM_MAA|redo_group_count|' || count(*) from v$log;
+select 'CSIM_MAA|redo_min_members|' || nvl(min(members), 0) from v$log;
+select 'CSIM_MAA|redo_groups_less_than_two_members|' || count(*) from v$log where members < 2;
+select 'CSIM_MAA|recover_file_count|' || count(*) from v$recover_file;
+select 'CSIM_MAA|block_corruption_count|' || count(*) from v$database_block_corruption;
+select 'CSIM_MAA|copy_corruption_count|' || count(*) from v$copy_corruption;
+select 'CSIM_MAA|backup_corruption_count|' || count(*) from v$backup_corruption;
+select 'CSIM_MAA|guaranteed_restore_point_count|' || count(*)
+from v$restore_point
+where guarantee_flashback_database = 'YES';
+
+select 'CSIM_MAA|fra_configured|' ||
+       case when count(*) > 0 and max(space_limit) > 0 then 'YES' else 'NO' end
+from v$recovery_file_dest;
+select 'CSIM_MAA|fra_used_pct|' ||
+       nvl(to_char(round(max(space_used) / nullif(max(space_limit), 0) * 100, 2)), 'UNKNOWN')
+from v$recovery_file_dest;
+select 'CSIM_MAA|fra_reclaimable_pct|' ||
+       nvl(to_char(round(max(space_reclaimable) / nullif(max(space_limit), 0) * 100, 2)), 'UNKNOWN')
+from v$recovery_file_dest;
+
+select 'CSIM_MAA|recent_successful_backup_jobs_7d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 7
+  and status like 'COMPLETED%';
+select 'CSIM_MAA|recent_failed_backup_jobs_7d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 7
+  and status not like 'COMPLETED%';
+select 'CSIM_MAA|last_successful_backup_time|' ||
+       nvl(to_char(max(end_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$rman_backup_job_details
+where status like 'COMPLETED%';
+select 'CSIM_MAA|last_successful_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(end_time)) * 24, 1)), 'UNKNOWN')
+from v$rman_backup_job_details
+where status like 'COMPLETED%';
+select 'CSIM_MAA|backup_device_types|' ||
+       nvl((
+         select listagg(output_device_type, ',') within group (order by output_device_type)
+         from (
+           select distinct nvl(output_device_type, 'UNKNOWN') output_device_type
+           from v$rman_backup_job_details
+           where start_time >= sysdate - 30
+         )
+       ), 'NONE')
+from dual;
+select 'CSIM_MAA|datafiles_without_backup_metadata|' || count(*)
+from (
+  select df.file#
+  from v$datafile df
+  left join v$backup_datafile bdf on bdf.file# = df.file#
+  group by df.file#
+  having max(bdf.completion_time) is null
+);
+
+select 'CSIM_MAA|remote_standby_dest_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and status <> 'INACTIVE';
+select 'CSIM_MAA|valid_remote_standby_dest_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and status = 'VALID';
+select 'CSIM_MAA|standby_dest_error_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and error is not null;
+select 'CSIM_MAA|archive_gap_count|' || count(*) from v$archive_gap;
+select 'CSIM_MAA|dataguard_stats_count|' || count(*) from v$dataguard_stats;
+select 'CSIM_MAA|dataguard_transport_lag|' ||
+       nvl(max(case when name = 'transport lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+select 'CSIM_MAA|dataguard_apply_lag|' ||
+       nvl(max(case when name = 'apply lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+
+select 'CSIM_MAA|tde_wallet_open_count|' || count(*)
+from v$encryption_wallet
+where status = 'OPEN';
+select 'CSIM_MAA|tde_wallet_not_open_count|' || count(*)
+from v$encryption_wallet
+where status <> 'OPEN';
+select 'CSIM_MAA|encrypted_tablespace_count|' || count(*)
+from dba_tablespaces
+where encrypted = 'YES';
+
+select 'CSIM_MAA|pdb_count|' ||
+       case when (select cdb from v$database) = 'YES'
+            then (select count(*) from v$pdbs where name <> 'PDB$SEED')
+            else 0
+       end
+from dual;
+select 'CSIM_MAA|pdb_not_open_rw_count|' ||
+       case when (select cdb from v$database) = 'YES'
+            then (select count(*) from v$pdbs where name <> 'PDB$SEED' and open_mode <> 'READ WRITE')
+            else 0
+       end
+from dual;
+
+declare
+  l_count number;
+begin
+  begin
+    execute immediate q'[select count(*) from dba_services where failover_type in ('TRANSACTION','AUTO') or commit_outcome = 'YES']'
+      into l_count;
+  exception
+    when others then
+      l_count := -1;
+  end;
+  dbms_output.put_line('CSIM_MAA|application_continuity_service_count|' || l_count);
+
+  begin
+    execute immediate 'select count(*) from dba_capture' into l_count;
+  exception
+    when others then
+      l_count := -1;
+  end;
+  dbms_output.put_line('CSIM_MAA|capture_process_count|' || l_count);
+
+  begin
+    execute immediate 'select count(*) from dba_apply' into l_count;
+  exception
+    when others then
+      l_count := -1;
+  end;
+  dbms_output.put_line('CSIM_MAA|apply_process_count|' || l_count);
+end;
+/
+
+exit
+SQL
+}
+
+parse_maa_evidence_file() {
+  local evidence_file="$1"
+  local prefix key value
+
+  MAA_EVIDENCE=()
+  while IFS='|' read -r prefix key value; do
+    [[ "$prefix" == "CSIM_MAA" && -n "$key" ]] || continue
+    MAA_EVIDENCE["$key"]="${value:-}"
+  done <"$evidence_file"
+}
+
+maa_value() {
+  local key="$1"
+  local default_value="${2:-UNKNOWN}"
+  local value="${MAA_EVIDENCE[$key]:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  else
+    printf "%s" "$default_value"
+  fi
+}
+
+maa_positive() {
+  local key="$1"
+  local value
+  value="$(maa_value "$key" "0")"
+  [[ "$value" =~ ^[0-9]+$ && "$value" -gt 0 ]]
+}
+
+maa_zero() {
+  local key="$1"
+  local value
+  value="$(maa_value "$key" "0")"
+  [[ "$value" =~ ^[0-9]+$ && "$value" -eq 0 ]]
+}
+
+maa_append_check() {
+  local report_file="$1"
+  local status="$2"
+  local area="$3"
+  local check_name="$4"
+  local evidence="$5"
+  local recommendation="$6"
+
+  printf '| `%s` | %s | %s | %s | %s |\n' \
+    "$(md_escape "$status")" \
+    "$(md_escape "$area")" \
+    "$(md_escape "$check_name")" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+maa_sla_hint() {
+  local local_rto local_rpo dr_rto dr_rpo planned_rto combined
+  local_rto="$(printf "%s" "$MAA_LOCAL_RTO" | tr '[:upper:]' '[:lower:]')"
+  local_rpo="$(printf "%s" "$MAA_LOCAL_RPO" | tr '[:upper:]' '[:lower:]')"
+  dr_rto="$(printf "%s" "$MAA_DR_RTO" | tr '[:upper:]' '[:lower:]')"
+  dr_rpo="$(printf "%s" "$MAA_DR_RPO" | tr '[:upper:]' '[:lower:]')"
+  planned_rto="$(printf "%s" "$MAA_PLANNED_RTO" | tr '[:upper:]' '[:lower:]')"
+  combined="${local_rto} ${local_rpo} ${dr_rto} ${dr_rpo} ${planned_rto}"
+
+  if [[ -z "${combined// }" ]]; then
+    printf "No SLA objectives supplied yet. Provide CRASHSIM_MAA_* values or --maa-* options in a future run to compare target objectives against detected posture."
+  elif [[ "$combined" =~ zero|near.zero|seconds|sub.minute|subminute ]]; then
+    printf "Supplied objectives appear very aggressive. Expect at least Gold for site protection, and Platinum/Diamond patterns when application-visible downtime must approach zero."
+  elif [[ "$combined" =~ minute|min|hour ]]; then
+    printf "Supplied objectives suggest Silver may cover local instance/server events, while Gold is normally required for low-RTO/low-RPO disaster recovery."
+  else
+    printf "Supplied objectives may be compatible with Bronze or Silver if backup/restore testing proves the required recovery windows. Validate with timed CrashSimulator drills."
+  fi
+}
+
+run_maa_report() {
+  discover_environment
+  ensure_sqlplus
+
+  local report_file sql_file evidence_file generated_at
+  local detected_level detected_reason readiness_status sla_hint
+  local has_silver=0 has_gold=0 has_platinum=0 has_diamond=0 baseline_gap=0
+  local version_major app_continuity capture_count apply_count
+
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.md"
+  sql_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.sql"
+  evidence_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.evidence"
+  write_maa_assessment_sql_file "$sql_file"
+
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "MAA assessment SQL failed: $sql_file (evidence: $evidence_file)"
+  parse_maa_evidence_file "$evidence_file"
+
+  case "$CLUSTER_TYPE" in
+    RAC|RACONE|RACONENODE|RAC_ONE_NODE)
+      has_silver=1
+      ;;
+  esac
+  if [[ "$(maa_value cluster_database FALSE)" == "TRUE" || "$(maa_value instance_parallel NO)" == "YES" ]]; then
+    has_silver=1
+  fi
+  if [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" ]] || maa_positive remote_standby_dest_count; then
+    has_gold=1
+  fi
+  capture_count="$(maa_value capture_process_count 0)"
+  apply_count="$(maa_value apply_process_count 0)"
+  app_continuity="$(maa_value application_continuity_service_count 0)"
+  if [[ "$has_gold" -eq 1 && "$capture_count" =~ ^[0-9]+$ && "$apply_count" =~ ^[0-9]+$ &&
+        ( "$capture_count" -gt 0 || "$apply_count" -gt 0 ) ]]; then
+    has_platinum=1
+  fi
+  version_major="$(maa_value version_major 0)"
+  if [[ "$has_platinum" -eq 1 && "$version_major" =~ ^[0-9]+$ && "$version_major" -ge 26 ]]; then
+    has_diamond=1
+  fi
+
+  detected_level="Bronze"
+  detected_reason="Single-instance, Oracle Restart, or no RAC/Data Guard/GoldenGate topology was detected."
+  if [[ "$has_silver" -eq 1 ]]; then
+    detected_level="Silver"
+    detected_reason="RAC or RAC One Node style topology was detected."
+  fi
+  if [[ "$has_gold" -eq 1 ]]; then
+    detected_level="Gold"
+    detected_reason="Data Guard standby role or remote standby transport destination was detected."
+  fi
+  if [[ "$has_platinum" -eq 1 ]]; then
+    detected_level="Platinum"
+    detected_reason="Data Guard plus GoldenGate/replication dictionary evidence was detected."
+  fi
+  if [[ "$has_diamond" -eq 1 ]]; then
+    detected_level="Diamond"
+    detected_reason="26ai-or-later plus Platinum-style replication evidence was detected. Exadata and active/active details still require manual confirmation."
+  fi
+
+  [[ "$(maa_value log_mode UNKNOWN)" == "ARCHIVELOG" ]] || baseline_gap=1
+  [[ "$(maa_value force_logging UNKNOWN)" == "YES" ]] || baseline_gap=1
+  maa_positive recent_successful_backup_jobs_7d || baseline_gap=1
+  maa_zero datafiles_without_backup_metadata || baseline_gap=1
+  maa_zero recover_file_count || baseline_gap=1
+  maa_zero block_corruption_count || baseline_gap=1
+
+  readiness_status="Baseline checks passed"
+  [[ "$baseline_gap" -eq 0 ]] || readiness_status="Baseline gaps detected"
+  sla_hint="$(maa_sla_hint)"
+
+  {
+    printf "# CrashSimulator Oracle MAA Readiness Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Application context: `%s`\n' "${MAA_APP_NAME:-not supplied}"
+    printf -- '- Database: `%s`\n' "$(maa_value db_name "$DB_NAME")"
+    printf -- '- DB unique name: `%s`\n' "$(maa_value db_unique_name "$DB_UNIQUE_NAME")"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(maa_value db_role "$DB_ROLE")" "$(maa_value open_mode "$DB_OPEN_MODE")"
+    printf -- '- CDB: `%s`\n' "$(maa_value cdb "$DB_CDB")"
+    printf -- '- Cluster type: `%s`\n' "$CLUSTER_TYPE"
+    printf -- '- Storage type: `%s`\n' "$STORAGE_TYPE"
+    printf -- '- Detected MAA posture: `%s`\n' "$detected_level"
+    printf -- '- Readiness status: `%s`\n' "$readiness_status"
+    printf -- '- Raw SQL evidence file: `%s`\n' "$evidence_file"
+    printf "\n"
+    printf "This report is a best-effort posture assessment, not an Oracle certification. It maps observable database, Grid Infrastructure, backup, Data Guard, and security evidence to the MAA reference architecture model and highlights gaps that should be validated with timed drills.\n\n"
+  } >"$report_file" || die "Unable to write MAA report file: $report_file"
+
+  append_report_section "$report_file" "Detected MAA Level"
+  {
+    printf '| Field | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Detected posture | `%s` |\n' "$(md_escape "$detected_level")"
+    printf '| Basis | %s |\n' "$(md_escape "$detected_reason")"
+    printf '| Baseline readiness | `%s` |\n' "$(md_escape "$readiness_status")"
+    printf '| Detection confidence | %s |\n' "$(md_escape "Medium: based on target-host SQL/GI evidence; application failover behavior and external schedulers require confirmation.")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "MAA Reference Model Used"
+  {
+    printf '| MAA level | Observable capabilities used by this report |\n'
+    printf '| --- | --- |\n'
+    printf '| Bronze | Single-instance or Oracle Restart style database with ARCHIVELOG, RMAN backup/recovery evidence, corruption checks, and basic restart/restore readiness. |\n'
+    printf '| Silver | Bronze plus RAC or RAC One Node style local HA; Application Continuity evidence is checked when dictionary columns are available. |\n'
+    printf '| Gold | Silver/Bronze plus Data Guard or Active Data Guard evidence for disaster recovery and low/zero data-loss posture. |\n'
+    printf '| Platinum | Gold plus GoldenGate/advanced replication or sharding-style evidence for near-zero or zero application outage patterns. |\n'
+    printf '| Diamond | Next-generation 26ai-or-later/Exadata/GoldenGate active-active pattern; this report can only flag partial evidence and requires manual confirmation. |\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Evidence Summary"
+  {
+    printf '| Area | Evidence |\n'
+    printf '| --- | --- |\n'
+    printf '| Database | Role `%s`, open mode `%s`, log mode `%s`, force logging `%s`, flashback `%s` |\n' \
+      "$(md_escape "$(maa_value db_role)")" "$(md_escape "$(maa_value open_mode)")" \
+      "$(md_escape "$(maa_value log_mode)")" "$(md_escape "$(maa_value force_logging)")" \
+      "$(md_escape "$(maa_value flashback_on)")"
+    printf '| Local HA | Cluster `%s`, cluster_database `%s`, instance parallel `%s`, GI managed `%s`, storage `%s` |\n' \
+      "$(md_escape "$CLUSTER_TYPE")" "$(md_escape "$(maa_value cluster_database)")" \
+      "$(md_escape "$(maa_value instance_parallel)")" "$(md_escape "$GI_MANAGED")" "$(md_escape "$STORAGE_TYPE")"
+    printf '| Backup | Recent successful jobs 7d `%s`, failed jobs 7d `%s`, last success `%s`, datafiles without backup metadata `%s`, devices `%s` |\n' \
+      "$(md_escape "$(maa_value recent_successful_backup_jobs_7d)")" \
+      "$(md_escape "$(maa_value recent_failed_backup_jobs_7d)")" \
+      "$(md_escape "$(maa_value last_successful_backup_time)")" \
+      "$(md_escape "$(maa_value datafiles_without_backup_metadata)")" \
+      "$(md_escape "$(maa_value backup_device_types)")"
+    printf '| Data Guard | Remote standby destinations `%s`, valid destinations `%s`, FSFO `%s`, observer `%s`, transport lag `%s`, apply lag `%s` |\n' \
+      "$(md_escape "$(maa_value remote_standby_dest_count)")" \
+      "$(md_escape "$(maa_value valid_remote_standby_dest_count)")" \
+      "$(md_escape "$(maa_value fsfo_status)")" "$(md_escape "$(maa_value fsfo_observer_present)")" \
+      "$(md_escape "$(maa_value dataguard_transport_lag)")" "$(md_escape "$(maa_value dataguard_apply_lag)")"
+    printf '| Storage/config | Control files `%s`, redo min members `%s`, redo groups with <2 members `%s`, FRA configured `%s`, FRA used `%s%%` |\n' \
+      "$(md_escape "$(maa_value control_file_count)")" "$(md_escape "$(maa_value redo_min_members)")" \
+      "$(md_escape "$(maa_value redo_groups_less_than_two_members)")" \
+      "$(md_escape "$(maa_value fra_configured)")" "$(md_escape "$(maa_value fra_used_pct)")"
+    printf '| Security | Wallet open rows `%s`, wallet not-open rows `%s`, encrypted tablespaces `%s`, TDE config `%s` |\n' \
+      "$(md_escape "$(maa_value tde_wallet_open_count)")" \
+      "$(md_escape "$(maa_value tde_wallet_not_open_count)")" \
+      "$(md_escape "$(maa_value encrypted_tablespace_count)")" \
+      "$(md_escape "$(maa_value tde_configuration)")"
+    printf '| Application continuity / replication | AC-style services `%s`, capture processes `%s`, apply processes `%s` |\n' \
+      "$(md_escape "$app_continuity")" "$(md_escape "$capture_count")" "$(md_escape "$apply_count")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Best-Practice Checks"
+  {
+    printf '| Status | Area | Check | Evidence | Recommendation |\n'
+    printf '| --- | --- | --- | --- | --- |\n'
+  } >>"$report_file"
+
+  if [[ "$(maa_value log_mode UNKNOWN)" == "ARCHIVELOG" ]]; then
+    maa_append_check "$report_file" "OK" "Recoverability" "ARCHIVELOG enabled" "LOG_MODE=$(maa_value log_mode)" "Keep validating archived-log backup, restore, and gap handling."
+  else
+    maa_append_check "$report_file" "GAP" "Recoverability" "ARCHIVELOG enabled" "LOG_MODE=$(maa_value log_mode)" "Enable ARCHIVELOG before expecting meaningful point-in-time or DR recovery."
+  fi
+  if [[ "$(maa_value force_logging UNKNOWN)" == "YES" ]]; then
+    maa_append_check "$report_file" "OK" "Data protection" "FORCE LOGGING enabled" "FORCE_LOGGING=$(maa_value force_logging)" "Keep FORCE LOGGING enabled for Data Guard/readiness unless an exception is explicitly approved."
+  else
+    maa_append_check "$report_file" "WARN" "Data protection" "FORCE LOGGING enabled" "FORCE_LOGGING=$(maa_value force_logging)" "Enable FORCE LOGGING before Data Guard or strict RPO validation."
+  fi
+  if maa_positive recent_successful_backup_jobs_7d && maa_zero datafiles_without_backup_metadata; then
+    maa_append_check "$report_file" "OK" "Backup" "Recent complete RMAN backup coverage" "jobs_7d=$(maa_value recent_successful_backup_jobs_7d), no_backup_files=$(maa_value datafiles_without_backup_metadata)" "Continue scheduled restore preview/validate drills and retain off-host copies."
+  else
+    maa_append_check "$report_file" "GAP" "Backup" "Recent complete RMAN backup coverage" "jobs_7d=$(maa_value recent_successful_backup_jobs_7d), no_backup_files=$(maa_value datafiles_without_backup_metadata)" "Fix backup coverage before destructive drills; run RMAN backup, preview, and validate."
+  fi
+  if maa_zero recent_failed_backup_jobs_7d; then
+    maa_append_check "$report_file" "OK" "Backup" "No recent failed RMAN jobs" "failed_jobs_7d=$(maa_value recent_failed_backup_jobs_7d)" "Continue monitoring failed backup jobs and alerting."
+  else
+    maa_append_check "$report_file" "WARN" "Backup" "No recent failed RMAN jobs" "failed_jobs_7d=$(maa_value recent_failed_backup_jobs_7d)" "Review failed RMAN jobs and confirm they do not represent missing required backup windows."
+  fi
+  if maa_zero recover_file_count && maa_zero block_corruption_count; then
+    maa_append_check "$report_file" "OK" "Health" "No media recovery or block corruption rows" "recover_file=$(maa_value recover_file_count), block_corruption=$(maa_value block_corruption_count)" "Keep periodic validation and corruption monitoring."
+  else
+    maa_append_check "$report_file" "GAP" "Health" "No media recovery or block corruption rows" "recover_file=$(maa_value recover_file_count), block_corruption=$(maa_value block_corruption_count)" "Resolve recovery/corruption rows before measuring MAA readiness."
+  fi
+  if [[ "$(maa_value flashback_on UNKNOWN)" == "YES" ]]; then
+    maa_append_check "$report_file" "OK" "Recovery" "Flashback Database enabled" "FLASHBACK_ON=$(maa_value flashback_on)" "Use guaranteed restore points deliberately for risky changes and validate retention."
+  else
+    maa_append_check "$report_file" "WARN" "Recovery" "Flashback Database enabled" "FLASHBACK_ON=$(maa_value flashback_on)" "Consider Flashback Database for faster logical-error and failed-change recovery where storage allows."
+  fi
+  if maa_positive remote_standby_dest_count || [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" ]]; then
+    maa_append_check "$report_file" "OK" "Disaster recovery" "Data Guard topology detected" "role=$(maa_value db_role), standby_dests=$(maa_value remote_standby_dest_count), valid=$(maa_value valid_remote_standby_dest_count)" "Validate switchover/failover, FSFO, transport/apply lag, and application reconnection."
+  else
+    maa_append_check "$report_file" "GAP" "Disaster recovery" "Data Guard topology detected" "role=$(maa_value db_role), standby_dests=$(maa_value remote_standby_dest_count)" "Gold or higher MAA posture needs Data Guard/Active Data Guard or equivalent DR architecture."
+  fi
+  if [[ "$(maa_value fsfo_status UNKNOWN)" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED ]] || [[ "$(maa_value fsfo_observer_present UNKNOWN)" == "YES" ]]; then
+    maa_append_check "$report_file" "OK" "Disaster recovery" "Fast-Start Failover evidence" "FSFO=$(maa_value fsfo_status), observer=$(maa_value fsfo_observer_present)" "Keep testing observer placement and failover/failback runbooks."
+  else
+    maa_append_check "$report_file" "INFO" "Disaster recovery" "Fast-Start Failover evidence" "FSFO=$(maa_value fsfo_status), observer=$(maa_value fsfo_observer_present)" "For strict RTO/RPO, evaluate FSFO with appropriate protection mode and observer design."
+  fi
+  if [[ "$has_silver" -eq 1 ]]; then
+    maa_append_check "$report_file" "OK" "Local HA" "RAC/RAC One Node evidence" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database), parallel=$(maa_value instance_parallel)" "Validate service placement, FAN/ONS, Application Continuity, and rolling maintenance drills."
+  else
+    maa_append_check "$report_file" "INFO" "Local HA" "RAC/RAC One Node evidence" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database)" "Silver or higher local HA normally requires RAC or RAC One Node plus service failover design."
+  fi
+  if [[ "$app_continuity" =~ ^[0-9]+$ && "$app_continuity" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "Application continuity" "AC-style service metadata" "services=$(maa_value application_continuity_service_count)" "Validate replay safety with application teams and planned/unplanned failover drills."
+  else
+    maa_append_check "$report_file" "INFO" "Application continuity" "AC-style service metadata" "services=$(maa_value application_continuity_service_count)" "For Silver/Platinum readiness, review services, drivers, FAN/ONS, TAC/AC, and request boundaries."
+  fi
+  if [[ "$(maa_value redo_min_members 0)" =~ ^[0-9]+$ && "$(maa_value redo_min_members 0)" -ge 2 && "$(maa_value control_file_count 0)" =~ ^[0-9]+$ && "$(maa_value control_file_count 0)" -ge 2 ]]; then
+    maa_append_check "$report_file" "OK" "File redundancy" "Control file and redo multiplexing" "control_files=$(maa_value control_file_count), redo_min_members=$(maa_value redo_min_members)" "Keep members separated across failure domains where possible."
+  else
+    maa_append_check "$report_file" "WARN" "File redundancy" "Control file and redo multiplexing" "control_files=$(maa_value control_file_count), redo_min_members=$(maa_value redo_min_members), redo_under2=$(maa_value redo_groups_less_than_two_members)" "Multiplex control files and redo members across independent storage failure domains."
+  fi
+  if [[ "$(maa_value tde_wallet_not_open_count 0)" == "0" && "$(maa_value encrypted_tablespace_count 0)" != "0" ]]; then
+    maa_append_check "$report_file" "OK" "Security" "TDE wallet open for encrypted data" "wallet_open=$(maa_value tde_wallet_open_count), encrypted_tbs=$(maa_value encrypted_tablespace_count)" "Keep wallet backups synchronized across RAC/Data Guard sites."
+  elif [[ "$(maa_value encrypted_tablespace_count 0)" == "0" ]]; then
+    maa_append_check "$report_file" "INFO" "Security" "TDE wallet open for encrypted data" "encrypted_tbs=0" "Confirm whether encryption is required by policy, compliance, or cloud-service defaults."
+  else
+    maa_append_check "$report_file" "GAP" "Security" "TDE wallet open for encrypted data" "wallet_not_open=$(maa_value tde_wallet_not_open_count), encrypted_tbs=$(maa_value encrypted_tablespace_count)" "Open/repair keystore state and validate encrypted tablespace and backup access."
+  fi
+
+  append_report_section "$report_file" "SLA / RTO / RPO Planning Context"
+  {
+    printf '| Requirement | Supplied value |\n'
+    printf '| --- | --- |\n'
+    printf '| Application | `%s` |\n' "$(md_escape "${MAA_APP_NAME:-not supplied}")"
+    printf '| Local unplanned RTO | `%s` |\n' "$(md_escape "${MAA_LOCAL_RTO:-not supplied}")"
+    printf '| Local unplanned RPO | `%s` |\n' "$(md_escape "${MAA_LOCAL_RPO:-not supplied}")"
+    printf '| Disaster/site RTO | `%s` |\n' "$(md_escape "${MAA_DR_RTO:-not supplied}")"
+    printf '| Disaster/site RPO | `%s` |\n' "$(md_escape "${MAA_DR_RPO:-not supplied}")"
+    printf '| Planned maintenance RTO | `%s` |\n' "$(md_escape "${MAA_PLANNED_RTO:-not supplied}")"
+    printf '| Planned maintenance RPO | `%s` |\n\n' "$(md_escape "${MAA_PLANNED_RPO:-not supplied}")"
+    printf "Preliminary recommendation hint: %s\n" "$sla_hint"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Suggested CrashSimulator Validation Coverage"
+  {
+    printf '| Objective | Suggested drills |\n'
+    printf '| --- | --- |\n'
+    printf '| Bronze backup/restart readiness | Health check, config report, scenarios `5`, `6`, `25`, `26`, `59`, and timed restore-preview/validate runs. |\n'
+    printf '| Silver local HA readiness | Service/instance relocation or restart drills such as `55` and `56`, plus client FAN/ONS/Application Continuity validation. |\n'
+    printf '| Gold DR readiness | Data Guard transport/apply, switchover/failover, FSFO, archive gap, and standby recovery drills such as `50`, `51`, `52`, `59`. |\n'
+    printf '| Platinum/Diamond application continuity | GoldenGate/active-active or sharding failover, conflict handling, zero-downtime planned maintenance, and application transaction replay tests. |\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "References"
+  {
+    printf -- '- Oracle MAA Reference Architectures Overview: https://docs.oracle.com/en/database/oracle/oracle-database/26/haiad/maa_overview.html\n'
+    printf -- '- Oracle HA requirements, RTO/RPO, and MAA architecture mapping: https://docs.oracle.com/en/database/oracle/oracle-database/19/haovw/ha-requirements-architecture.html\n'
+    printf -- '- User RTO/RPO planning reference: https://oraclemaa.com/from-downtime-to-data-loss-getting-rto-and-rpo-right-for-high-availability-and-disaster-recovery\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw MAA Evidence"
+  {
+    printf 'Evidence file: `%s`\n\n' "$evidence_file"
+    printf '```text\n'
+    sed -n '/^CSIM_MAA|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+
+  if command -v dgmgrl >/dev/null 2>&1; then
+    append_report_command "$report_file" "Data Guard Broker Evidence" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
+  else
+    append_report_section "$report_file" "Data Guard Broker Evidence"
+    append_report_text "$report_file" "dgmgrl was not found in PATH."
+  fi
+  if command -v srvctl >/dev/null 2>&1 && [[ -n "$DB_UNIQUE_NAME" ]]; then
+    append_report_command "$report_file" "srvctl Database And Service Evidence" bash -lc "srvctl config database -d '${DB_UNIQUE_NAME}' 2>&1; srvctl status database -d '${DB_UNIQUE_NAME}' 2>&1; srvctl config service -d '${DB_UNIQUE_NAME}' 2>&1; srvctl status service -d '${DB_UNIQUE_NAME}' 2>&1"
+  fi
+
+  echo "MAA readiness report generated: ${report_file}"
+  echo "Detected MAA posture: ${detected_level}"
+  echo "Readiness status: ${readiness_status}"
 }
 
 append_report_command() {
@@ -4984,6 +5556,10 @@ parse_args() {
         MODE="report"
         shift
         ;;
+      --maa-report|--maa-assessment|--maa-readiness)
+        MODE="maa_report"
+        shift
+        ;;
       --deep-validate)
         REPORT_DEEP_VALIDATE=1
         shift
@@ -5075,6 +5651,41 @@ parse_args() {
       --rman-catalog)
         [[ "$#" -ge 2 ]] || die "--rman-catalog requires a recovery catalog connect string"
         RMAN_CATALOG_CONNECT="$2"
+        shift 2
+        ;;
+      --maa-app-name)
+        [[ "$#" -ge 2 ]] || die "--maa-app-name requires a value"
+        MAA_APP_NAME="$2"
+        shift 2
+        ;;
+      --maa-local-rto)
+        [[ "$#" -ge 2 ]] || die "--maa-local-rto requires a value"
+        MAA_LOCAL_RTO="$2"
+        shift 2
+        ;;
+      --maa-local-rpo)
+        [[ "$#" -ge 2 ]] || die "--maa-local-rpo requires a value"
+        MAA_LOCAL_RPO="$2"
+        shift 2
+        ;;
+      --maa-dr-rto)
+        [[ "$#" -ge 2 ]] || die "--maa-dr-rto requires a value"
+        MAA_DR_RTO="$2"
+        shift 2
+        ;;
+      --maa-dr-rpo)
+        [[ "$#" -ge 2 ]] || die "--maa-dr-rpo requires a value"
+        MAA_DR_RPO="$2"
+        shift 2
+        ;;
+      --maa-planned-rto)
+        [[ "$#" -ge 2 ]] || die "--maa-planned-rto requires a value"
+        MAA_PLANNED_RTO="$2"
+        shift 2
+        ;;
+      --maa-planned-rpo)
+        [[ "$#" -ge 2 ]] || die "--maa-planned-rpo requires a value"
+        MAA_PLANNED_RPO="$2"
         shift 2
         ;;
       --dry-run)
@@ -5567,6 +6178,33 @@ menu_run_configuration_report() {
   menu_run_child_command
 }
 
+menu_run_maa_report() {
+  MENU_CMD=("$0" "--maa-report")
+  [[ -n "$MAA_APP_NAME" ]] && MENU_CMD+=("--maa-app-name" "$MAA_APP_NAME")
+  [[ -n "$MAA_LOCAL_RTO" ]] && MENU_CMD+=("--maa-local-rto" "$MAA_LOCAL_RTO")
+  [[ -n "$MAA_LOCAL_RPO" ]] && MENU_CMD+=("--maa-local-rpo" "$MAA_LOCAL_RPO")
+  [[ -n "$MAA_DR_RTO" ]] && MENU_CMD+=("--maa-dr-rto" "$MAA_DR_RTO")
+  [[ -n "$MAA_DR_RPO" ]] && MENU_CMD+=("--maa-dr-rpo" "$MAA_DR_RPO")
+  [[ -n "$MAA_PLANNED_RTO" ]] && MENU_CMD+=("--maa-planned-rto" "$MAA_PLANNED_RTO")
+  [[ -n "$MAA_PLANNED_RPO" ]] && MENU_CMD+=("--maa-planned-rpo" "$MAA_PLANNED_RPO")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_configure_maa_context() {
+  echo
+  echo "MAA / SLA planning context"
+  menu_prompt_path "application name" MAA_APP_NAME "$MAA_APP_NAME"
+  menu_prompt_path "local unplanned-outage RTO" MAA_LOCAL_RTO "$MAA_LOCAL_RTO"
+  menu_prompt_path "local unplanned-outage RPO" MAA_LOCAL_RPO "$MAA_LOCAL_RPO"
+  menu_prompt_path "disaster/site-outage RTO" MAA_DR_RTO "$MAA_DR_RTO"
+  menu_prompt_path "disaster/site-outage RPO" MAA_DR_RPO "$MAA_DR_RPO"
+  menu_prompt_path "planned-maintenance RTO" MAA_PLANNED_RTO "$MAA_PLANNED_RTO"
+  menu_prompt_path "planned-maintenance RPO" MAA_PLANNED_RPO "$MAA_PLANNED_RPO"
+}
+
 menu_reports() {
   local answer
 
@@ -5575,6 +6213,8 @@ menu_reports() {
     echo "Reports"
     echo "  1. Generate target configuration report"
     echo "  2. Generate target configuration report with deep RMAN validation"
+    echo "  3. Generate Oracle MAA readiness report"
+    echo "  4. Set MAA / SLA planning context"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -5588,6 +6228,14 @@ menu_reports() {
       2)
         REPORT_DEEP_VALIDATE=1
         menu_run_configuration_report
+        menu_pause
+        ;;
+      3)
+        menu_run_maa_report
+        menu_pause
+        ;;
+      4)
+        menu_configure_maa_context
         menu_pause
         ;;
       b|B|q|Q)
@@ -5733,6 +6381,9 @@ main() {
       ;;
     report)
       run_configuration_report
+      ;;
+    maa_report)
+      run_maa_report
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

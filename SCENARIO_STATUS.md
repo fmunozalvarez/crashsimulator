@@ -158,6 +158,11 @@ and `RECO`.
 - A post-drill targeted RMAN backup captured `CRASHPDB` datafiles `31` and `32`
   for the new logical lab tablespaces, plus the current control file and SPFILE,
   and resynced the recovery catalog.
+- `--maa-report`: Oracle MAA readiness reporting implemented and validated on
+  the RAC/GI/ASM lab. The report detected a Bronze MAA posture for the current
+  GI-managed single-database environment, with baseline backup/recoverability
+  checks passing and expected gaps for Gold-or-higher posture because no Data
+  Guard, FSFO, or standby topology is configured.
 
 Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
 lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
