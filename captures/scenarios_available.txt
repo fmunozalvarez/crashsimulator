@@ -1,3 +1,4 @@
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_065935_181691
 ID   Group        Scope         Impact       Scenario
 --   -----        -----         ------       --------
 1    Core         CDB/non-CDB   destructive  Loss of one control file
@@ -60,3 +61,4 @@ ID   Group        Scope         Impact       Scenario
 58   Security     CDB/non-CDB   destructive  TDE wallet or keystore unavailable
 59   Backup       CDB/non-CDB   destructive  Missing archived redo log
 60   Backup       External      logical      Recovery catalog unavailable
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_065935_181691
