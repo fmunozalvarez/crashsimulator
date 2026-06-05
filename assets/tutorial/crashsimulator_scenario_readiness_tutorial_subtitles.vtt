@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+Validate the target environment against the full scenario registry before choosing any destructive drill.
+
+2
+00:00:07.000 --> 00:00:15.000
+Run as the Oracle software owner and set the database environment exactly as you would for a real drill.
+
+3
+00:00:15.000 --> 00:00:24.000
+Create the topology-versus-scenario report and request HTML for easy review and sharing.
+
+4
+00:00:24.000 --> 00:00:33.000
+Confirm that CrashSimulator detected the same topology you intend to test.
+
+5
+00:00:33.000 --> 00:00:43.000
+Use the report buckets to decide what can be executed, what should stay dry-run only, and what needs topology work.
+
+6
+00:00:43.000 --> 00:00:52.000
+Before execution, run a single scenario validation so the latest target context is checked again.
+
+7
+00:00:52.000 --> 00:01:01.000
+Use the Review Center shortcuts to reopen the latest readiness report as text or HTML without remembering the file name.
+
+8
+00:01:01.000 --> 00:01:10.000
+The Guided Workflow exposes the same report for operators who prefer prompts and menu guardrails.
+
+9
+00:01:10.000 --> 00:01:19.000
+When a user selects a scenario, the menu now reports readiness immediately before dry-run or execution.
+
+10
+00:01:19.000 --> 00:01:28.000
+Finish by choosing a runnable scenario, then dry-run, protect, execute, recover, and validate with retained evidence.

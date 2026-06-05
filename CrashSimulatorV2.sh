@@ -148,6 +148,7 @@ Usage:
   ./${PROGRAM} --maa-report
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
+  ./${PROGRAM} --scenario-readiness-report [--pdb <pdb_name>] [--schema <owner>] [--html]
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -194,6 +195,8 @@ Options:
   --validate <id>         Alias for --validate-scenario.
   --validate-all-scenarios
                           Validate every registered scenario for this topology.
+  --scenario-readiness-report
+                          Generate a topology-aware scenario availability report.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -2472,6 +2475,159 @@ validate_all_scenarios() {
   echo "Not runnable at this moment: ${blocked_count}"
 }
 
+scenario_readiness_append_rows() {
+  local report_file="$1"
+  local empty_message="$2"
+  shift 2
+  local row
+
+  if [[ "$#" -eq 0 ]]; then
+    printf "%s\n" "$empty_message" >>"$report_file"
+    return "$SUCCESS"
+  fi
+
+  printf "| ID | Group | Scope | Impact | Scenario | Reason |\n" >>"$report_file"
+  printf "| --- | --- | --- | --- | --- | --- |\n" >>"$report_file"
+  for row in "$@"; do
+    printf "%s\n" "$row" >>"$report_file"
+  done
+}
+
+generate_scenario_readiness_report() {
+  local id status reason row name con_id open_mode
+  local runnable_count=0 plan_only_count=0 not_runnable_count=0 total_count=0
+  local report_file latest_file
+  local -a runnable_rows=()
+  local -a plan_only_rows=()
+  local -a not_runnable_rows=()
+
+  discover_environment
+
+  for id in "${SCENARIO_IDS[@]}"; do
+    total_count=$((total_count + 1))
+    if validate_scenario_can_run "$id"; then
+      status="RUNNABLE"
+      reason="$SCENARIO_VALIDATION_REASON"
+      runnable_count=$((runnable_count + 1))
+    else
+      if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+        status="PLAN-ONLY"
+        plan_only_count=$((plan_only_count + 1))
+      else
+        status="NOT-RUNNABLE"
+        not_runnable_count=$((not_runnable_count + 1))
+      fi
+      reason="$SCENARIO_VALIDATION_REASON"
+    fi
+
+    reason="$(printf "%s" "$reason" | validation_single_line)"
+    row="| \`${id}\` | $(md_escape "${SCENARIO_GROUP[$id]}") | $(md_escape "${SCENARIO_SCOPE[$id]}") | $(md_escape "${SCENARIO_IMPACT[$id]}") | $(md_escape "${SCENARIO_TITLE[$id]}") | $(md_escape "$reason") |"
+    case "$status" in
+      RUNNABLE) runnable_rows+=("$row") ;;
+      PLAN-ONLY) plan_only_rows+=("$row") ;;
+      *) not_runnable_rows+=("$row") ;;
+    esac
+  done
+
+  report_file="${LOG_DIR}/crashsim_scenario_readiness_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_scenario_readiness_latest.md"
+
+  {
+    printf "# CrashSimulator Scenario Readiness Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf -- '- Log directory: `%s`\n' "$LOG_DIR"
+    printf -- '- Target PDB context: `%s`\n' "${TARGET_PDB:-not set}"
+    printf -- '- Target schema context: `%s`\n' "${TARGET_SCHEMA:-not set}"
+    printf -- '- Target FILE# context: `%s`\n' "${TARGET_FILE_NO:-not set}"
+    printf "\nThis report validates the discovered target environment against the CrashSimulator scenario registry. The same requirement checks, topology gates, target selection, and execution guardrails are used by scenario execution, so unavailable scenarios are blocked before destructive code runs.\n"
+
+    printf "\n## Current Topology\n\n"
+    printf "| Signal | Value |\n"
+    printf "| --- | --- |\n"
+    printf "| Host | %s |\n" "$(md_escape "${HOST_NAME:-unknown}")"
+    printf "| OS user | %s |\n" "$(md_escape "$(id -un)")"
+    printf "| Oracle home | %s |\n" "$(md_escape "${ORACLE_HOME:-unknown}")"
+    printf "| SQL*Plus | %s |\n" "$(md_escape "${SQLPLUS_BIN:-unknown}")"
+    printf "| Database name | %s |\n" "$(md_escape "${DB_NAME:-unknown}")"
+    printf "| DB unique name | %s |\n" "$(md_escape "${DB_UNIQUE_NAME:-unknown}")"
+    printf "| Database role | %s |\n" "$(md_escape "${DB_ROLE:-unknown}")"
+    printf "| Open mode | %s |\n" "$(md_escape "${DB_OPEN_MODE:-unknown}")"
+    printf "| CDB | %s |\n" "$(md_escape "${DB_CDB:-unknown}")"
+    printf "| Instance | %s |\n" "$(md_escape "${INSTANCE_NAME:-unknown}")"
+    printf "| Thread | %s |\n" "$(md_escape "${INSTANCE_THREAD:-unknown}")"
+    printf "| RAC parallel | %s |\n" "$(md_escape "${INSTANCE_PARALLEL:-unknown}")"
+    printf "| Cluster type | %s |\n" "$(md_escape "${CLUSTER_TYPE:-unknown}")"
+    printf "| GI managed | %s |\n" "$(md_escape "${GI_MANAGED:-0}")"
+    printf "| Storage type | %s |\n" "$(md_escape "${STORAGE_TYPE:-unknown}")"
+    printf "| Protection mode | %s |\n" "$(md_escape "${DB_PROTECTION_MODE:-unknown}")"
+    printf "| Switchover status | %s |\n" "$(md_escape "${DB_SWITCHOVER_STATUS:-unknown}")"
+    printf "| SPFILE | %s |\n" "$(md_escape "${SPFILE_PATH:-not detected}")"
+    printf "| Password file | %s |\n" "$(md_escape "${PASSWORD_FILE_PATH:-not detected}")"
+    printf "| FRA | %s |\n" "$(md_escape "${FRA_PATH:-not configured}")"
+
+    if [[ "$DB_CDB" == "YES" ]]; then
+      printf "\n## PDBs\n\n"
+      if [[ "${#PDB_ROWS[@]}" -eq 0 ]]; then
+        printf "No user PDBs were discovered.\n"
+      else
+        printf "| PDB | CON_ID | Open mode |\n"
+        printf "| --- | --- | --- |\n"
+        for row in "${PDB_ROWS[@]}"; do
+          IFS='|' read -r name con_id open_mode <<<"$row"
+          printf "| %s | %s | %s |\n" "$(md_escape "$name")" "$(md_escape "$con_id")" "$(md_escape "$open_mode")"
+        done
+      fi
+    fi
+
+    printf "\n## Readiness Summary\n\n"
+    printf "| Status | Count | Meaning |\n"
+    printf "| --- | ---: | --- |\n"
+    printf "| RUNNABLE | %s | Scenario can be selected for dry-run and, when requested, execution. |\n" "$runnable_count"
+    printf "| PLAN-ONLY | %s | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |\n" "$plan_only_count"
+    printf "| NOT-RUNNABLE | %s | Scenario is not available in the current topology or target context. |\n" "$not_runnable_count"
+    printf "| TOTAL | %s | Registered scenarios evaluated. |\n" "$total_count"
+  } >"$report_file" || die "Unable to write scenario readiness report: $report_file"
+
+  append_report_section "$report_file" "Runnable Scenarios"
+  scenario_readiness_append_rows "$report_file" "No scenarios are runnable in the current target context." "${runnable_rows[@]}"
+
+  append_report_section "$report_file" "Dry-Run Planning Only"
+  scenario_readiness_append_rows "$report_file" "No scenarios are limited to dry-run planning only." "${plan_only_rows[@]}"
+
+  append_report_section "$report_file" "Not Runnable Now"
+  scenario_readiness_append_rows "$report_file" "No scenarios are blocked by topology or target context." "${not_runnable_rows[@]}"
+
+  append_report_section "$report_file" "How CrashSimulator Uses This Result"
+  {
+    printf -- '- `--scenario <id> --execute`, `--protect <id> --execute`, and aleatory scenario execution run readiness validation before confirmation or destructive actions.\n'
+    printf -- '- Guided Workflow scenario selection now shows the selected scenario readiness status immediately.\n'
+    printf -- '- Use only `RUNNABLE` scenarios for execution drills. Review `PLAN-ONLY` and `NOT-RUNNABLE` reasons before changing topology, targets, or helper coverage.\n'
+    printf -- '- Re-run this report after changing database topology, adding PDBs, multiplexing redo/control files, configuring Data Guard, adding ASM/GI lab disks, reseeding logical objects, or taking fresh backups.\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Recommended Next Commands"
+  {
+    printf '```bash\n'
+    printf './%s --validate-scenario <id> --pdb %s\n' "$PROGRAM" "${TARGET_PDB:-<pdb_name>}"
+    printf './%s --scenario <id> --pdb %s --dry-run\n' "$PROGRAM" "${TARGET_PDB:-<pdb_name>}"
+    printf './%s --runbook <id> --pdb %s\n' "$PROGRAM" "${TARGET_PDB:-<pdb_name>}"
+    printf './%s --health-check --pdb %s\n' "$PROGRAM" "${TARGET_PDB:-<pdb_name>}"
+    printf '```\n'
+  } >>"$report_file"
+
+  cp "$report_file" "$latest_file" || die "Unable to update latest scenario readiness report: $latest_file"
+
+  echo "Scenario readiness report generated: ${report_file}"
+  echo "Latest scenario readiness report: ${latest_file}"
+  echo
+  cat "$report_file"
+  maybe_render_html "$report_file"
+  if [[ "$HTML_OUTPUT" -eq 1 ]]; then
+    render_artifact_html "$latest_file"
+  fi
+}
+
 write_protect_rman_file() {
   local id="$1"
   local cmd_file="$2"
@@ -3869,6 +4025,13 @@ find_latest_artifact() {
     backup|backup-report|recoverability)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_backup_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
+    scenario-readiness|readiness|scenario-availability|topology-scenarios)
+      if [[ -f "${LOG_DIR}/crashsim_scenario_readiness_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_scenario_readiness_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_readiness_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
     maa|maa-report)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_maa_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
@@ -3976,13 +4139,14 @@ review_append_file_list() {
 }
 
 generate_review_index() {
-  local report_file latest_topology latest_config latest_backup latest_maa latest_health latest_review
+  local report_file latest_topology latest_config latest_backup latest_readiness latest_maa latest_health latest_review
   local manifest audit_dir metadata command status started mode
 
   report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
   latest_topology="$(find_latest_artifact topology 2>/dev/null || true)"
   latest_config="$(find_latest_artifact config 2>/dev/null || true)"
   latest_backup="$(find_latest_artifact backup 2>/dev/null || true)"
+  latest_readiness="$(find_latest_artifact scenario-readiness 2>/dev/null || true)"
   latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
   latest_health="$(find_latest_artifact health 2>/dev/null || true)"
 
@@ -4001,6 +4165,7 @@ generate_review_index() {
     fi
     [[ -n "$latest_config" ]] && printf -- '- Latest configuration report: `%s`\n' "$latest_config"
     [[ -n "$latest_backup" ]] && printf -- '- Latest backup/recoverability report: `%s`\n' "$latest_backup"
+    [[ -n "$latest_readiness" ]] && printf -- '- Latest scenario readiness report: `%s`\n' "$latest_readiness"
     [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
     [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
 
@@ -4018,6 +4183,7 @@ generate_review_index() {
   review_append_file_list "$report_file" "Health Checks" 20 -name 'crashsim_health_check_*.log'
   review_append_file_list "$report_file" "Configuration Reports" 20 -name 'crashsim_config_report_*.md'
   review_append_file_list "$report_file" "Backup Strategy / Recoverability Reports" 20 -name 'crashsim_backup_report_*.md'
+  review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
   review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
@@ -4045,6 +4211,7 @@ generate_review_index() {
   {
     printf "\n## Access Shortcuts\n\n"
     printf -- '- Show latest topology: `./%s --review-topology`\n' "$PROGRAM"
+    printf -- '- Show latest scenario readiness report: `./%s --show-artifact latest:scenario-readiness`\n' "$PROGRAM"
     printf -- '- Show latest health check: `./%s --show-artifact latest:health`\n' "$PROGRAM"
     printf -- '- Generate HTML for latest review index: `./%s --render-html latest:review`\n' "$PROGRAM"
     printf -- '- Generate HTML for a specific artifact: `./%s --render-html /path/to/artifact`\n' "$PROGRAM"
@@ -8140,6 +8307,11 @@ parse_args() {
         SCENARIO_ID=""
         shift
         ;;
+      --scenario-readiness-report|--topology-scenario-report|--environment-scenario-report|--scenario-availability-report|--validate-environment-scenarios)
+        MODE="scenario_readiness_report"
+        SCENARIO_ID=""
+        shift
+        ;;
       --runbook)
         [[ "$#" -ge 2 ]] || die "--runbook requires an id"
         MODE="runbook"
@@ -8371,6 +8543,16 @@ menu_select_scenario() {
   if scenario_exists "$answer"; then
     SCENARIO_ID="$answer"
     echo "Selected scenario ${SCENARIO_ID}: ${SCENARIO_TITLE[$SCENARIO_ID]}"
+    if validate_scenario_can_run "$SCENARIO_ID"; then
+      echo "Readiness: RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+    elif [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+      echo "Readiness: PLAN-ONLY - ${SCENARIO_VALIDATION_REASON}"
+      echo "Execution remains blocked until the guardrail is resolved."
+    else
+      echo "Readiness: NOT RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+      echo "This scenario cannot be executed in the current topology or target context."
+    fi
+    echo "Use menu option 17 to generate the full topology-versus-scenario readiness report."
   else
     warn "Unknown scenario id: $answer"
     return "$FAIL"
@@ -8852,6 +9034,13 @@ menu_run_validate_all_scenarios() {
   menu_run_child_command
 }
 
+menu_run_scenario_readiness_report() {
+  MENU_CMD=("$0" "--scenario-readiness-report")
+  menu_append_common_child_args
+  MENU_CMD+=("--html")
+  menu_run_child_command
+}
+
 menu_run_random_scenario() {
   local run_mode="$1"
   select_random_scenario || return "$FAIL"
@@ -8968,7 +9157,7 @@ menu_prompt_artifact_reference() {
   local answer
 
   echo "Enter artifact path or latest:<kind> reference."
-  echo "Kinds: topology, config, backup, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Kinds: topology, config, backup, scenario-readiness, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
   echo "Blank uses latest:any:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || answer="latest:any"
@@ -9210,7 +9399,7 @@ interactive_menu() {
     echo " 13. Show recent manifests and logs"
     echo " 14. Dry-run random/aleatory scenario for this topology"
     echo " 16. Reports"
-    echo " 17. Validate all scenarios for this topology"
+    echo " 17. Generate scenario readiness report for this topology"
     echo " 18. Audit / retention settings"
     echo " 19. Review collected topology, logs, reports, and history"
     echo
@@ -9295,7 +9484,7 @@ interactive_menu() {
         menu_reports
         ;;
       17)
-        menu_run_validate_all_scenarios
+        menu_run_scenario_readiness_report
         menu_pause
         ;;
       18)
@@ -9370,6 +9559,9 @@ main() {
       ;;
     validate_all)
       validate_all_scenarios
+      ;;
+    scenario_readiness_report)
+      generate_scenario_readiness_report
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

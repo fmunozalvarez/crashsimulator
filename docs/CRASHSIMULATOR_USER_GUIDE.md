@@ -196,6 +196,7 @@ cd /path/to/crashsimulator-main
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
 ```
@@ -220,6 +221,7 @@ ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh seed_crashsim_lab.sql ver
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
@@ -262,7 +264,7 @@ The menu provides options to:
   recovery, RMAN catalog, and scenario 25 guardrails.
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
-- Validate all scenarios for the detected topology.
+- Generate a scenario readiness report for the detected topology.
 - Generate configuration, backup strategy/recoverability, and MAA readiness
   reports.
 - Configure audit retention, show audit status, and purge old audit records.
@@ -337,6 +339,22 @@ Use `--validate-all-scenarios` to produce a full runnable/not-runnable matrix:
 ```bash
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ```
+
+Use `--scenario-readiness-report` when you want a saved report for planning,
+evidence, or team review:
+
+```bash
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
+./CrashSimulatorV2.sh --show-artifact latest:scenario-readiness --html
+```
+
+The report records the current topology signals, PDB context, and every
+registered scenario grouped as `RUNNABLE`, `PLAN-ONLY`, or `NOT-RUNNABLE`.
+It writes `crashsim_scenario_readiness_<run_id>.md`, updates
+`crashsim_scenario_readiness_latest.md`, and optionally creates HTML. Guided
+Workflow option 17 generates the same report. Scenario selection in the Guided
+Workflow also performs the single-scenario readiness check immediately, so users
+can see whether a selected scenario is executable before dry-run or execution.
 
 Scenario execution runs this readiness validation before confirmation or
 destructive code. A blocked `--execute` run stops immediately. Some blocked
@@ -523,9 +541,9 @@ The Guided Workflow menu includes a Review Center option with choices to:
 not replace the existing `.log`, `.md`, `.txt`, `.rman`, `.sql`, or `.manifest`
 files. Use `--render-html <path>` to convert one known artifact, or
 `--render-html latest:<kind>` to convert the latest artifact of a type.
-Supported shortcuts include `topology`, `config`, `backup`, `maa`, `health`,
-`scenario`, `protect`, `recover`, `runbook`, `baseline`, `review`, `audit`, and
-`latest`.
+Supported shortcuts include `topology`, `config`, `backup`,
+`scenario-readiness`, `maa`, `health`, `scenario`, `protect`, `recover`,
+`runbook`, `baseline`, `review`, `audit`, and `latest`.
 
 ### MAA Readiness Report
 

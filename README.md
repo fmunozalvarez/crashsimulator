@@ -8,8 +8,8 @@ with recovery objectives and regulatory requirements.
 
 CrashSimulator V2 is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
-helpers, topology-aware random scenario selection, configuration reports, and
-Oracle MAA readiness reporting. It can also review previously collected
+helpers, topology-aware random scenario selection, scenario readiness reporting,
+configuration reports, and Oracle MAA readiness reporting. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
@@ -20,6 +20,7 @@ For the full end-user documentation, read:
 - [CLI setup and scenario tutorial video](assets/tutorial/crashsimulator_cli_tutorial.mp4)
 - [Guided Workflow scenario tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial.mp4)
 - [Audit retention tutorial video](assets/tutorial/crashsimulator_audit_retention_tutorial.mp4)
+- [Scenario readiness tutorial video](assets/tutorial/crashsimulator_scenario_readiness_tutorial.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
@@ -53,6 +54,7 @@ Validate the download and start safely:
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
 ```
@@ -74,6 +76,7 @@ and WebVTT subtitle sidecars for CLI and Guided Workflow menu modes.
 ```bash
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --health-check
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --backup-report

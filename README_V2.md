@@ -107,8 +107,8 @@ drive from a single screen:
 - discover or refresh database topology
 - select a scenario
 - configure PDB, schema, FILE#, manifest, PFILE, log directory, and scenario 25 guards
-- validate whether the selected scenario or full scenario registry is runnable
-  in the current topology, with blocker reasons
+- validate whether the selected scenario is runnable and generate a full
+  topology-versus-scenario readiness report with blocker reasons
 - show recovery-runbook hints
 - dry-run a scenario
 - dry-run or execute RMAN protection when supported
@@ -156,8 +156,8 @@ review, and artifact commands to create an additional `.html` file next to the
 normal text, Markdown, RMAN, or log output. The original report/log format is
 kept unchanged. `--render-html <path|latest:kind>` can convert an existing
 artifact later. Supported `latest:<kind>` shortcuts include `topology`,
-`config`, `backup`, `maa`, `health`, `scenario`, `protect`, `recover`,
-`runbook`, `baseline`, `review`, `audit`, and `latest`.
+`config`, `backup`, `scenario-readiness`, `maa`, `health`, `scenario`,
+`protect`, `recover`, `runbook`, `baseline`, `review`, `audit`, and `latest`.
 
 ## Scenario Readiness Validation
 
@@ -188,6 +188,17 @@ current topology:
 
 ```bash
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
+```
+
+Use `--scenario-readiness-report` for the persistent report version. It records
+the current topology, evaluates every registered scenario, separates
+`RUNNABLE`, `PLAN-ONLY`, and `NOT-RUNNABLE` scenarios, writes
+`crashsim_scenario_readiness_<run_id>.md`, updates
+`crashsim_scenario_readiness_latest.md`, and can render HTML:
+
+```bash
+./CrashSimulatorV2.sh --scenario-readiness-report --pdb crashpdb --html
+./CrashSimulatorV2.sh --show-artifact latest:scenario-readiness --html
 ```
 
 Scenario execution now runs the same validation first. A blocked `--execute`
