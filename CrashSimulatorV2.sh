@@ -5639,7 +5639,7 @@ run_asmcmd_with_grid_env() {
 
 scenario_asm_diskgroup_unavailable() {
   reset_actions
-  local dg_file row dg_name dg_state dg_type dg_total dg_free target_dg
+  local dg_file row dg_name dg_state dg_type dg_total dg_free target_dg=""
   echo "ASM disk group planning helper"
   dg_file="$WORK_DIR/asm_diskgroups.lst"
   sql_query "$dg_file" "
