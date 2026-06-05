@@ -357,16 +357,21 @@ def draw_terminal(draw: ImageDraw.ImageDraw, scene: Scene, t: float) -> None:
     shown = 0
     line_y = y + 100
     line_height = 38
+    cursor_x = x + 46
+    cursor_y = line_y
     for line in scene.lines:
         remaining = chars_to_show - shown
         visible_count = max(0, min(len(line), remaining))
         visible = line[:visible_count]
         shown += len(line) + 1
         draw.text((x + 46, line_y), visible, font=FONT_TERMINAL, fill=line_color(line))
+        if visible:
+            cursor_x = x + 46 + text_width(draw, visible, FONT_TERMINAL) + 4
+            cursor_y = line_y
         line_y += line_height
 
     if int(t * 2) % 2 == 0 and chars_to_show >= total_chars:
-        draw.rectangle((x + 46, line_y - line_height + 8, x + 62, line_y - line_height + 36), fill=rgba("#34d399"))
+        draw.rectangle((cursor_x, cursor_y + 8, cursor_x + 16, cursor_y + 36), fill=rgba("#34d399"))
 
 
 def draw_subtitle(draw: ImageDraw.ImageDraw, scene: Scene) -> None:
@@ -439,27 +444,30 @@ def write_subtitles() -> None:
 
 def write_readme() -> None:
     README_PATH.write_text(
-        """# CrashSimulator CLI Tutorial Video
+        """# CrashSimulator Tutorial Videos
 
 Generated assets:
 
-- `crashsimulator_cli_tutorial.mp4`: short 1080p CLI tutorial with burned-in subtitles.
-- `crashsimulator_cli_tutorial_subtitles.vtt`: WebVTT subtitle sidecar.
+- `crashsimulator_cli_tutorial.mp4`: short 1080p CLI setup and scenario tutorial with burned-in subtitles.
+- `crashsimulator_cli_tutorial_subtitles.vtt`: CLI tutorial WebVTT subtitle sidecar.
+- `crashsimulator_guided_workflow_tutorial.mp4`: short 1080p Guided Workflow menu scenario tutorial with burned-in subtitles.
+- `crashsimulator_guided_workflow_tutorial_subtitles.vtt`: Guided Workflow tutorial WebVTT subtitle sidecar.
+- `crashsimulator_audit_retention_tutorial.mp4`: short 1080p audit retention tutorial for CLI and Guided Workflow menu modes with burned-in subtitles.
+- `crashsimulator_audit_retention_tutorial_subtitles.vtt`: audit retention tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
 ```bash
 python3 -m pip install pillow imageio imageio-ffmpeg
 python3 tools/render_cli_tutorial_video.py
+python3 tools/render_guided_workflow_tutorial_video.py
+python3 tools/render_audit_retention_tutorial_video.py
 ```
 
-The tutorial demonstrates the normal CLI flow:
-
-1. Install CrashSimulator from the ZIP/repository.
-2. Set the Oracle software owner environment.
-3. Discover the database topology and run health checks.
-4. Validate a scenario and review the dry-run plan.
-5. Protect the target, execute the drill, recover from the manifest, and validate the outcome.
+The tutorial set demonstrates direct CLI execution, the menu-driven
+best-practice scenario workflow, and audit-retention operations. The audit
+tutorial covers configuring retention, checking audit status, dry-running
+purge, executing purge with confirmation, and reviewing retained evidence.
 """,
         encoding="utf-8",
     )

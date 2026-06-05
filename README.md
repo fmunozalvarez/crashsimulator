@@ -19,6 +19,7 @@ For the full end-user documentation, read:
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
 - [CLI setup and scenario tutorial video](assets/tutorial/crashsimulator_cli_tutorial.mp4)
 - [Guided Workflow scenario tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial.mp4)
+- [Audit retention tutorial video](assets/tutorial/crashsimulator_audit_retention_tutorial.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
@@ -64,7 +65,7 @@ and redacts RMAN catalog/SYS password values from command echoes.
 
 ## Tutorial Videos
 
-Short setup and full scenario walkthrough videos are available in
+Short setup, full scenario walkthrough, and audit-retention videos are available in
 [assets/tutorial](assets/tutorial/README.md). They include burned-in subtitles
 and WebVTT subtitle sidecars for CLI and Guided Workflow menu modes.
 

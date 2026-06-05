@@ -200,6 +200,8 @@ Generated assets:
 - `crashsimulator_cli_tutorial_subtitles.vtt`: CLI tutorial WebVTT subtitle sidecar.
 - `crashsimulator_guided_workflow_tutorial.mp4`: short 1080p Guided Workflow menu scenario tutorial with burned-in subtitles.
 - `crashsimulator_guided_workflow_tutorial_subtitles.vtt`: Guided Workflow tutorial WebVTT subtitle sidecar.
+- `crashsimulator_audit_retention_tutorial.mp4`: short 1080p audit retention tutorial for CLI and Guided Workflow menu modes with burned-in subtitles.
+- `crashsimulator_audit_retention_tutorial_subtitles.vtt`: audit retention tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
@@ -207,12 +209,13 @@ Regenerate from the repository root with:
 python3 -m pip install pillow imageio imageio-ffmpeg
 python3 tools/render_cli_tutorial_video.py
 python3 tools/render_guided_workflow_tutorial_video.py
+python3 tools/render_audit_retention_tutorial_video.py
 ```
 
-The CLI tutorial demonstrates direct command execution. The Guided Workflow
-tutorial demonstrates the menu-driven best-practice path: discover, health
-check, report, validate, dry-run, protect, execute, recover, validate, and keep
-evidence for audit and training.
+The tutorial set demonstrates direct CLI execution, the menu-driven
+best-practice scenario workflow, and audit-retention operations. The audit
+tutorial covers configuring retention, checking audit status, dry-running
+purge, executing purge with confirmation, and reviewing retained evidence.
 """,
         encoding="utf-8",
     )

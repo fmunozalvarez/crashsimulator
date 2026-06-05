@@ -1,0 +1,45 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial shows how to configure audit retention, review status, and purge old audit records safely.
+
+2
+00:00:07.000 --> 00:00:15.000
+Configure audit retention from the CLI with a deliberate retention window and a durable audit directory.
+
+3
+00:00:15.000 --> 00:00:23.000
+Use audit status before and after drills to confirm the active policy, directory, usage, and purge candidates.
+
+4
+00:00:23.000 --> 00:00:31.000
+Always dry-run the purge first so operators can review exactly which audit folders would be removed.
+
+5
+00:00:31.000 --> 00:00:39.000
+Execute only after approval. CrashSimulator asks for a confirmation token before removing audit folders.
+
+6
+00:00:39.000 --> 00:00:47.000
+After purge, show audit status again and keep the purge output as evidence for compliance and training.
+
+7
+00:00:47.000 --> 00:00:55.000
+The same audit lifecycle is available in the Guided Workflow menu for operators who prefer prompts.
+
+8
+00:00:55.000 --> 00:01:03.000
+In the Audit menu, enable retention, set retention days, and choose the audit directory.
+
+9
+00:01:03.000 --> 00:01:11.000
+Use the menu status option to confirm the retained settings before running or purging audit records.
+
+10
+00:01:11.000 --> 00:01:20.000
+From the Guided Workflow menu, choose dry-run purge first and review the selected folders before execution.
+
+11
+00:01:20.000 --> 00:01:30.000
+Execute the menu purge only after approval, then review audit status and collected artifacts.
