@@ -224,6 +224,8 @@ ls CrashSimulatorV2.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --config-report --deep-validate
+./CrashSimulatorV2.sh --backup-report
+./CrashSimulatorV2.sh --backup-report --deep-validate
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --protect 30 --pdb CRASHPDB --dry-run
@@ -259,7 +261,8 @@ The menu provides options to:
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Validate all scenarios for the detected topology.
-- Generate configuration and MAA readiness reports.
+- Generate configuration, backup strategy/recoverability, and MAA readiness
+  reports.
 
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
@@ -383,6 +386,31 @@ available.
 
 `--deep-validate` adds heavier RMAN validation and should be scheduled when I/O
 load is acceptable.
+
+### Backup Strategy And Recoverability Report
+
+`--backup-report` generates a focused backup report using the target control-file
+RMAN repository and, when configured, an RMAN recovery catalog. It reports backup
+coverage by datafile, Level 0/Level 1 cadence, archived redo backup cadence,
+backup piece status, failed jobs, FRA pressure, files needing recovery,
+corruption views, restore preview, need-backup/obsolete reports, and
+recommendations against backup/recovery best practices.
+
+The report estimates backup-only RPO from archived redo backup age and unbacked
+archived redo. It estimates possible RTO from visible database size, backup
+method, backup age, and observed backup job durations. These are planning
+estimates only; real RTO/RPO must be proven with timed restore, recovery, and
+application validation drills.
+
+```bash
+./CrashSimulatorV2.sh --backup-report
+./CrashSimulatorV2.sh --backup-report --deep-validate
+CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh --backup-report
+```
+
+`--deep-validate` adds read-only but I/O-intensive RMAN checks:
+`RESTORE DATABASE VALIDATE`, `RESTORE ARCHIVELOG ALL VALIDATE`, and
+`VALIDATE DATABASE CHECK LOGICAL`.
 
 ### MAA Readiness Report
 

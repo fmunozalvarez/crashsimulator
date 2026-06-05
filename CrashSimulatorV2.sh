@@ -101,6 +101,7 @@ declare -A SCENARIO_REQUIRES=()
 declare -A SCENARIO_HANDLER=()
 declare -A SCENARIO_NOTES=()
 declare -A MAA_EVIDENCE=()
+declare -A BACKUP_EVIDENCE=()
 
 SCENARIO_VALIDATION_STATUS=""
 SCENARIO_VALIDATION_REASON=""
@@ -116,6 +117,7 @@ Usage:
   ./${PROGRAM} --menu
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
+  ./${PROGRAM} --backup-report [--deep-validate]
   ./${PROGRAM} --maa-report
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
@@ -135,6 +137,9 @@ Options:
   --config-report         Generate a full target database/PDB configuration report.
   --configuration-report  Alias for --config-report.
   --report                Alias for --config-report.
+  --backup-report         Generate backup strategy, recoverability, RTO/RPO report.
+  --backup-assessment     Alias for --backup-report.
+  --recoverability-report Alias for --backup-report.
   --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
@@ -3693,6 +3698,912 @@ append_network_config_files() {
   done
 }
 
+write_backup_report_evidence_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write backup report evidence SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 0 lines 32767 trimspool on tab off verify off feedback off heading off
+
+select 'CSIM_BKP|db_name|' || name from v$database;
+select 'CSIM_BKP|db_unique_name|' || db_unique_name from v$database;
+select 'CSIM_BKP|dbid|' || dbid from v$database;
+select 'CSIM_BKP|database_role|' || database_role from v$database;
+select 'CSIM_BKP|open_mode|' || open_mode from v$database;
+select 'CSIM_BKP|cdb|' || cdb from v$database;
+select 'CSIM_BKP|log_mode|' || log_mode from v$database;
+select 'CSIM_BKP|force_logging|' || force_logging from v$database;
+select 'CSIM_BKP|flashback_on|' || flashback_on from v$database;
+select 'CSIM_BKP|platform_name|' || platform_name from v$database;
+
+select 'CSIM_BKP|control_file_record_keep_time|' || nvl(max(display_value), 'UNKNOWN')
+from v$parameter
+where name = 'control_file_record_keep_time';
+select 'CSIM_BKP|archive_lag_target|' || nvl(max(display_value), 'UNKNOWN')
+from v$parameter
+where name = 'archive_lag_target';
+select 'CSIM_BKP|db_recovery_file_dest|' || nvl(max(value), 'NONE')
+from v$parameter
+where name = 'db_recovery_file_dest';
+
+select 'CSIM_BKP|rman_retention_policy|' ||
+       nvl(max(case when name = 'RETENTION POLICY' then value end), 'DEFAULT')
+from v$rman_configuration;
+select 'CSIM_BKP|rman_controlfile_autobackup|' ||
+       nvl(max(case when name = 'CONTROLFILE AUTOBACKUP' then value end), 'DEFAULT/OFF')
+from v$rman_configuration;
+select 'CSIM_BKP|rman_backup_optimization|' ||
+       nvl(max(case when name = 'BACKUP OPTIMIZATION' then value end), 'DEFAULT/OFF')
+from v$rman_configuration;
+select 'CSIM_BKP|rman_encryption|' ||
+       nvl(max(case when name = 'ENCRYPTION FOR DATABASE' then value end), 'DEFAULT')
+from v$rman_configuration;
+select 'CSIM_BKP|rman_compression|' ||
+       nvl(max(case when name = 'COMPRESSION ALGORITHM' then value end), 'DEFAULT')
+from v$rman_configuration;
+select 'CSIM_BKP|rman_channel_config_count|' ||
+       count(*)
+from v$rman_configuration
+where name like 'CHANNEL%';
+
+select 'CSIM_BKP|datafile_count|' || count(*) from v$datafile;
+select 'CSIM_BKP|tempfile_count|' || count(*) from v$tempfile;
+select 'CSIM_BKP|database_size_gb|' || round(sum(bytes)/1024/1024/1024, 2)
+from v$datafile;
+select 'CSIM_BKP|datafile_copy_count|' || count(*) from v$datafile_copy;
+
+select 'CSIM_BKP|datafiles_without_backup_metadata|' || count(*)
+from (
+  select df.file#
+  from v$datafile df
+  left join v$backup_datafile bdf on bdf.file# = df.file#
+  group by df.file#
+  having max(bdf.completion_time) is null
+);
+select 'CSIM_BKP|oldest_datafile_backup_time|' ||
+       nvl(to_char(min(last_backup_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from (
+  select df.file#, max(bdf.completion_time) last_backup_time
+  from v$datafile df
+  left join v$backup_datafile bdf on bdf.file# = df.file#
+  group by df.file#
+);
+select 'CSIM_BKP|last_datafile_backup_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_datafile;
+select 'CSIM_BKP|last_datafile_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$backup_datafile;
+select 'CSIM_BKP|last_level0_backup_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_datafile
+where incremental_level = 0;
+select 'CSIM_BKP|last_level0_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$backup_datafile
+where incremental_level = 0;
+select 'CSIM_BKP|last_level1_backup_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_datafile
+where incremental_level = 1;
+select 'CSIM_BKP|last_level1_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$backup_datafile
+where incremental_level = 1;
+
+select 'CSIM_BKP|level0_count_30d|' || count(*)
+from (
+  select distinct set_stamp, set_count
+  from v$backup_datafile
+  where incremental_level = 0
+    and completion_time >= sysdate - 30
+);
+select 'CSIM_BKP|level1_count_30d|' || count(*)
+from (
+  select distinct set_stamp, set_count
+  from v$backup_datafile
+  where incremental_level = 1
+    and completion_time >= sysdate - 30
+);
+select 'CSIM_BKP|level0_avg_gap_hours|' ||
+       nvl(to_char(round(avg((completion_time - prev_time) * 24), 1)), 'UNKNOWN')
+from (
+  select completion_time,
+         lag(completion_time) over (order by completion_time) prev_time
+  from (
+    select distinct completion_time
+    from v$backup_datafile
+    where incremental_level = 0
+      and completion_time >= sysdate - 90
+  )
+)
+where prev_time is not null;
+select 'CSIM_BKP|level1_avg_gap_hours|' ||
+       nvl(to_char(round(avg((completion_time - prev_time) * 24), 1)), 'UNKNOWN')
+from (
+  select completion_time,
+         lag(completion_time) over (order by completion_time) prev_time
+  from (
+    select distinct completion_time
+    from v$backup_datafile
+    where incremental_level = 1
+      and completion_time >= sysdate - 90
+  )
+)
+where prev_time is not null;
+
+select 'CSIM_BKP|successful_jobs_7d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 7
+  and status like 'COMPLETED%';
+select 'CSIM_BKP|failed_jobs_7d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 7
+  and status not like 'COMPLETED%';
+select 'CSIM_BKP|successful_jobs_30d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 30
+  and status like 'COMPLETED%';
+select 'CSIM_BKP|failed_jobs_30d|' || count(*)
+from v$rman_backup_job_details
+where start_time >= sysdate - 30
+  and status not like 'COMPLETED%';
+select 'CSIM_BKP|last_successful_job_time|' ||
+       nvl(to_char(max(end_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$rman_backup_job_details
+where status like 'COMPLETED%';
+select 'CSIM_BKP|last_successful_job_age_hours|' ||
+       nvl(to_char(round((sysdate - max(end_time)) * 24, 1)), 'UNKNOWN')
+from v$rman_backup_job_details
+where status like 'COMPLETED%';
+select 'CSIM_BKP|backup_device_types|' ||
+       nvl((
+         select listagg(output_device_type, ',') within group (order by output_device_type)
+         from (
+           select distinct nvl(output_device_type, 'UNKNOWN') output_device_type
+           from v$rman_backup_job_details
+           where start_time >= sysdate - 30
+         )
+       ), 'NONE')
+from dual;
+select 'CSIM_BKP|avg_successful_job_elapsed_minutes_30d|' ||
+       nvl(to_char(round(avg(elapsed_seconds) / 60, 1)), 'UNKNOWN')
+from v$rman_backup_job_details
+where start_time >= sysdate - 30
+  and status like 'COMPLETED%';
+select 'CSIM_BKP|max_successful_job_elapsed_minutes_30d|' ||
+       nvl(to_char(round(max(elapsed_seconds) / 60, 1)), 'UNKNOWN')
+from v$rman_backup_job_details
+where start_time >= sysdate - 30
+  and status like 'COMPLETED%';
+
+select 'CSIM_BKP|archivelog_backup_sets_30d|' || count(*)
+from v$backup_set
+where backup_type = 'L'
+  and completion_time >= sysdate - 30;
+select 'CSIM_BKP|last_archivelog_backup_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_set
+where backup_type = 'L';
+select 'CSIM_BKP|last_archivelog_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$backup_set
+where backup_type = 'L';
+select 'CSIM_BKP|archivelog_backup_avg_gap_hours|' ||
+       nvl(to_char(round(avg((completion_time - prev_time) * 24), 1)), 'UNKNOWN')
+from (
+  select completion_time,
+         lag(completion_time) over (order by completion_time) prev_time
+  from (
+    select distinct completion_time
+    from v$backup_set
+    where backup_type = 'L'
+      and completion_time >= sysdate - 90
+  )
+)
+where prev_time is not null;
+select 'CSIM_BKP|archivelogs_known_7d|' || count(*)
+from v$archived_log
+where completion_time >= sysdate - 7
+  and name is not null
+  and nvl(deleted, 'NO') = 'NO';
+select 'CSIM_BKP|archivelogs_not_backed_7d|' || count(*)
+from v$archived_log
+where completion_time >= sysdate - 7
+  and name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) = 0;
+select 'CSIM_BKP|oldest_unbacked_archivelog_time|' ||
+       nvl(to_char(min(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) = 0;
+select 'CSIM_BKP|oldest_unbacked_archivelog_age_hours|' ||
+       nvl(to_char(round((sysdate - min(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) = 0;
+select 'CSIM_BKP|latest_archivelog_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO';
+
+select 'CSIM_BKP|controlfile_backup_count_30d|' || count(*)
+from v$backup_set
+where controlfile_included = 'YES'
+  and completion_time >= sysdate - 30;
+select 'CSIM_BKP|last_controlfile_backup_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_set
+where controlfile_included = 'YES';
+select 'CSIM_BKP|last_controlfile_backup_age_hours|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
+from v$backup_set
+where controlfile_included = 'YES';
+
+select 'CSIM_BKP|backup_piece_available_count|' || count(*)
+from v$backup_piece
+where status = 'A';
+select 'CSIM_BKP|backup_piece_expired_count|' || count(*)
+from v$backup_piece
+where status = 'X';
+select 'CSIM_BKP|backup_piece_deleted_count|' || count(*)
+from v$backup_piece
+where status = 'D';
+select 'CSIM_BKP|backup_piece_unavailable_count|' || count(*)
+from v$backup_piece
+where status not in ('A', 'D', 'X');
+select 'CSIM_BKP|latest_backup_piece_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$backup_piece;
+select 'CSIM_BKP|backup_piece_device_types|' ||
+       nvl((
+         select listagg(device_type, ',') within group (order by device_type)
+         from (
+           select distinct nvl(device_type, 'UNKNOWN') device_type
+           from v$backup_piece
+           where completion_time >= sysdate - 30
+         )
+       ), 'NONE')
+from dual;
+
+select 'CSIM_BKP|recover_file_count|' || count(*) from v$recover_file;
+select 'CSIM_BKP|block_corruption_count|' || count(*) from v$database_block_corruption;
+select 'CSIM_BKP|copy_corruption_count|' || count(*) from v$copy_corruption;
+select 'CSIM_BKP|backup_corruption_count|' || count(*) from v$backup_corruption;
+
+select 'CSIM_BKP|fra_configured|' ||
+       case when count(*) > 0 and max(space_limit) > 0 then 'YES' else 'NO' end
+from v$recovery_file_dest;
+select 'CSIM_BKP|fra_used_pct|' ||
+       nvl(to_char(round(max(space_used) / nullif(max(space_limit), 0) * 100, 2)), 'UNKNOWN')
+from v$recovery_file_dest;
+select 'CSIM_BKP|fra_reclaimable_pct|' ||
+       nvl(to_char(round(max(space_reclaimable) / nullif(max(space_limit), 0) * 100, 2)), 'UNKNOWN')
+from v$recovery_file_dest;
+
+select 'CSIM_BKP|remote_standby_dest_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and status <> 'INACTIVE';
+select 'CSIM_BKP|valid_remote_standby_dest_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and status = 'VALID';
+select 'CSIM_BKP|standby_dest_error_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and error is not null;
+select 'CSIM_BKP|archive_gap_count|' || count(*) from v$archive_gap;
+select 'CSIM_BKP|dataguard_transport_lag|' ||
+       nvl(max(case when name = 'transport lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+select 'CSIM_BKP|dataguard_apply_lag|' ||
+       nvl(max(case when name = 'apply lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+
+exit
+SQL
+}
+
+write_backup_report_detail_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write backup report detail SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 500 lines 260 trimspool on tab off verify off feedback on
+set numwidth 20
+column name format a38
+column value format a120
+column input_type format a24
+column status format a24
+column start_time format a20
+column end_time format a20
+column completion_time format a20
+column file_name format a150
+column handle format a150
+column device_type format a18
+column backup_status format a34
+column backup_class format a22
+column start_day format a10
+
+prompt # Backup SQL Evidence
+prompt
+prompt ## Database Backup Context
+select name, db_unique_name, database_role, open_mode, cdb, log_mode,
+       force_logging, flashback_on
+from v$database;
+
+prompt ## RMAN Configuration
+select name, value from v$rman_configuration order by name;
+
+prompt ## RMAN Job History - Last 60 Jobs
+select *
+from (
+  select session_key, input_type, status,
+         to_char(start_time, 'YYYY-MM-DD HH24:MI:SS') start_time,
+         to_char(end_time, 'YYYY-MM-DD HH24:MI:SS') end_time,
+         round(elapsed_seconds / 60, 1) elapsed_minutes,
+         output_device_type, input_bytes_display, output_bytes_display
+  from v$rman_backup_job_details
+  order by start_time desc
+)
+where rownum <= 60;
+
+prompt ## Observed Job Cadence By Type, Day, And Hour
+select nvl(input_type, 'UNKNOWN') input_type,
+       to_char(start_time, 'DY', 'NLS_DATE_LANGUAGE=English') start_day,
+       to_char(start_time, 'HH24') start_hour,
+       count(*) job_count,
+       to_char(min(start_time), 'YYYY-MM-DD HH24:MI:SS') first_observed,
+       to_char(max(start_time), 'YYYY-MM-DD HH24:MI:SS') last_observed
+from v$rman_backup_job_details
+where start_time >= sysdate - 60
+group by nvl(input_type, 'UNKNOWN'),
+         to_char(start_time, 'DY', 'NLS_DATE_LANGUAGE=English'),
+         to_char(start_time, 'HH24')
+order by input_type, job_count desc, start_day, start_hour;
+
+prompt ## Datafile Backup Coverage
+select df.file#, df.name file_name,
+       to_char(max(bdf.completion_time), 'YYYY-MM-DD HH24:MI:SS') last_backup_time,
+       min(bdf.incremental_level) keep (dense_rank last order by bdf.completion_time nulls first) last_incremental_level,
+       case when max(bdf.completion_time) is null then 'NO BACKUP IN CONTROL FILE METADATA'
+            else 'BACKUP METADATA FOUND'
+       end backup_status
+from v$datafile df
+left join v$backup_datafile bdf on bdf.file# = df.file#
+group by df.file#, df.name
+order by df.file#;
+
+prompt ## Datafile Backup Levels - Last 90 Days
+select case when incremental_level is null then 'FULL/NON-INCREMENTAL'
+            else 'LEVEL ' || to_char(incremental_level)
+       end backup_class,
+       count(*) backed_file_entries,
+       to_char(min(completion_time), 'YYYY-MM-DD HH24:MI:SS') first_observed,
+       to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS') last_observed
+from v$backup_datafile
+where completion_time >= sysdate - 90
+group by incremental_level
+order by backup_class;
+
+prompt ## Backup Piece Status
+select status, device_type, count(*) piece_count,
+       to_char(min(completion_time), 'YYYY-MM-DD HH24:MI:SS') oldest_completion,
+       to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS') latest_completion
+from v$backup_piece
+group by status, device_type
+order by status, device_type;
+
+prompt ## Recent Backup Pieces
+select *
+from (
+  select recid, stamp, status, device_type,
+         to_char(completion_time, 'YYYY-MM-DD HH24:MI:SS') completion_time,
+         round(bytes/1024/1024/1024, 2) size_gb,
+         compressed, handle
+  from v$backup_piece
+  order by completion_time desc nulls last
+)
+where rownum <= 80;
+
+prompt ## Archived Redo Backup Coverage - Last 7 Days
+select thread#, sequence#,
+       to_char(first_time, 'YYYY-MM-DD HH24:MI:SS') first_time,
+       to_char(completion_time, 'YYYY-MM-DD HH24:MI:SS') completion_time,
+       deleted, backup_count, name
+from v$archived_log
+where completion_time >= sysdate - 7
+  and name is not null
+order by thread#, sequence#;
+
+prompt ## Unbacked Archived Redo Logs
+select thread#, sequence#,
+       to_char(first_time, 'YYYY-MM-DD HH24:MI:SS') first_time,
+       to_char(completion_time, 'YYYY-MM-DD HH24:MI:SS') completion_time,
+       deleted, backup_count, name
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) = 0
+order by completion_time;
+
+prompt ## Backup Corruption Views
+select 'V$DATABASE_BLOCK_CORRUPTION' source_name, count(*) row_count from v$database_block_corruption
+union all
+select 'V$COPY_CORRUPTION' source_name, count(*) row_count from v$copy_corruption
+union all
+select 'V$BACKUP_CORRUPTION' source_name, count(*) row_count from v$backup_corruption;
+
+prompt ## Files Requiring Media Recovery
+select * from v$recover_file order by file#;
+
+prompt ## FRA Usage
+select name, round(space_limit/1024/1024/1024,2) space_limit_gb,
+       round(space_used/1024/1024/1024,2) space_used_gb,
+       round(space_reclaimable/1024/1024/1024,2) space_reclaimable_gb,
+       number_of_files
+from v$recovery_file_dest;
+
+prompt ## FRA Usage By File Type
+select file_type, percent_space_used, percent_space_reclaimable, number_of_files
+from v$flash_recovery_area_usage
+order by file_type;
+
+prompt ## Data Guard / RPO Adjacent Evidence
+select dest_id, status, target, destination, db_unique_name, valid_now, error
+from v$archive_dest
+where destination is not null
+order by dest_id;
+
+select name, value, unit, time_computed, datum_time
+from v$dataguard_stats
+order by name;
+
+exit
+SQL
+}
+
+parse_backup_evidence_file() {
+  local evidence_file="$1"
+  local prefix key value
+
+  BACKUP_EVIDENCE=()
+  while IFS='|' read -r prefix key value; do
+    [[ "$prefix" == "CSIM_BKP" && -n "$key" ]] || continue
+    BACKUP_EVIDENCE["$key"]="${value:-}"
+  done <"$evidence_file"
+}
+
+backup_value() {
+  local key="$1"
+  local default_value="${2:-UNKNOWN}"
+  local value="${BACKUP_EVIDENCE[$key]:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  else
+    printf "%s" "$default_value"
+  fi
+}
+
+backup_is_number() {
+  [[ "$1" =~ ^([0-9]+([.][0-9]+)?|[.][0-9]+)$ ]]
+}
+
+backup_display_number() {
+  local value="$1"
+  if [[ "$value" == .* ]]; then
+    printf "0%s" "$value"
+  else
+    printf "%s" "$value"
+  fi
+}
+
+backup_display_value() {
+  local value="$1"
+  if backup_is_number "$value"; then
+    backup_display_number "$value"
+  else
+    printf "%s" "$value"
+  fi
+}
+
+backup_num_gt() {
+  backup_is_number "$1" && backup_is_number "$2" &&
+    awk -v a="$1" -v b="$2" 'BEGIN { exit (a > b) ? 0 : 1 }'
+}
+
+backup_num_le() {
+  backup_is_number "$1" && backup_is_number "$2" &&
+    awk -v a="$1" -v b="$2" 'BEGIN { exit (a <= b) ? 0 : 1 }'
+}
+
+backup_cadence_label() {
+  local hours="$1"
+  if ! backup_is_number "$hours"; then
+    printf "not enough history"
+  elif backup_num_le "$hours" "2"; then
+    printf "roughly hourly or better"
+  elif backup_num_le "$hours" "8"; then
+    printf "several times per day"
+  elif backup_num_le "$hours" "30"; then
+    printf "roughly daily"
+  elif backup_num_le "$hours" "190"; then
+    printf "roughly weekly"
+  else
+    printf "less frequent than weekly"
+  fi
+}
+
+backup_detect_strategy() {
+  local level0 level1 arch copies
+  level0="$(backup_value level0_count_30d 0)"
+  level1="$(backup_value level1_count_30d 0)"
+  arch="$(backup_value archivelog_backup_sets_30d 0)"
+  copies="$(backup_value datafile_copy_count 0)"
+
+  if [[ "$level0" =~ ^[0-9]+$ && "$level1" =~ ^[0-9]+$ && "$level0" -gt 0 && "$level1" -gt 0 ]]; then
+    printf "Level 0 plus Level 1 incremental strategy observed"
+  elif [[ "$level0" =~ ^[0-9]+$ && "$level0" -gt 0 ]]; then
+    printf "Level 0/full datafile backup strategy observed"
+  elif [[ "$copies" =~ ^[0-9]+$ && "$copies" -gt 0 ]]; then
+    printf "Datafile image copy metadata observed"
+  else
+    printf "No complete datafile backup strategy is visible in RMAN metadata"
+  fi
+
+  if [[ "$arch" =~ ^[0-9]+$ && "$arch" -gt 0 ]]; then
+    printf " with archived redo backups"
+  else
+    printf " without visible archived redo backup history"
+  fi
+}
+
+backup_estimated_rpo() {
+  local log_mode arch_age unbacked_age arch_sets dg_count
+  local arch_age_display unbacked_age_display
+  log_mode="$(backup_value log_mode UNKNOWN)"
+  arch_age="$(backup_value last_archivelog_backup_age_hours UNKNOWN)"
+  unbacked_age="$(backup_value oldest_unbacked_archivelog_age_hours UNKNOWN)"
+  arch_sets="$(backup_value archivelog_backup_sets_30d 0)"
+  dg_count="$(backup_value valid_remote_standby_dest_count 0)"
+
+  if [[ "$log_mode" != "ARCHIVELOG" ]]; then
+    printf "Backup-only RPO is at risk: NOARCHIVELOG mode generally limits recovery to the last whole backup."
+  elif [[ "$arch_sets" =~ ^[0-9]+$ && "$arch_sets" -eq 0 ]]; then
+    printf "Backup-only RPO is not proven: no archived redo backup sets were observed in the last 30 days. Local archived logs may reduce data loss only if the local FRA/storage survives."
+  elif backup_is_number "$arch_age"; then
+    arch_age_display="$(backup_display_number "$arch_age")"
+    printf "Backup-only RPO is approximately the age of the latest archived redo backup, currently about %s hours; actual data loss can be lower if required archived logs and online redo survive locally." "$arch_age_display"
+  else
+    printf "Backup-only RPO could not be estimated from visible archived redo backup metadata."
+  fi
+
+  if backup_is_number "$unbacked_age"; then
+    unbacked_age_display="$(backup_display_number "$unbacked_age")"
+    printf " Oldest currently unbacked archived redo is about %s hours old." "$unbacked_age_display"
+  fi
+  if [[ "$dg_count" =~ ^[0-9]+$ && "$dg_count" -gt 0 ]]; then
+    printf " Valid Data Guard destinations are visible and may provide a lower HA/DR RPO than backup-only recovery; validate transport/apply lag separately."
+  fi
+}
+
+backup_estimated_rto() {
+  local missing level0_age level1_age db_gb avg_job max_job copies
+  missing="$(backup_value datafiles_without_backup_metadata 0)"
+  level0_age="$(backup_value last_level0_backup_age_hours UNKNOWN)"
+  level1_age="$(backup_value last_level1_backup_age_hours UNKNOWN)"
+  db_gb="$(backup_value database_size_gb UNKNOWN)"
+  avg_job="$(backup_value avg_successful_job_elapsed_minutes_30d UNKNOWN)"
+  max_job="$(backup_value max_successful_job_elapsed_minutes_30d UNKNOWN)"
+  copies="$(backup_value datafile_copy_count 0)"
+
+  if [[ "$missing" =~ ^[0-9]+$ && "$missing" -gt 0 ]]; then
+    printf "RTO is not safely estimable because %s datafile(s) have no visible backup metadata." "$missing"
+    return
+  fi
+
+  if [[ "$level0_age" == "UNKNOWN" ]]; then
+    printf "RTO is not safely estimable because no Level 0/full datafile backup is visible."
+    return
+  fi
+
+  if [[ "$copies" =~ ^[0-9]+$ && "$copies" -gt 0 ]]; then
+    printf "Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced."
+  else
+    printf "Potential RTO is likely hours for full database restore/recovery unless timed drills prove otherwise."
+  fi
+  printf " Visible database size is %s GB." "$db_gb"
+  printf " Latest Level 0/full backup age is %s hours." "$(backup_display_number "$level0_age")"
+  if backup_is_number "$level1_age"; then
+    printf " Latest Level 1 incremental backup age is %s hours, so recovery must restore/roll forward backups and apply redo after that point." "$(backup_display_number "$level1_age")"
+  fi
+  if backup_is_number "$avg_job" || backup_is_number "$max_job"; then
+    printf " Recent successful backup job duration averages %s minutes and maxes at %s minutes; restore time can differ and must be measured." "$(backup_display_number "$avg_job")" "$(backup_display_number "$max_job")"
+  fi
+}
+
+backup_append_check() {
+  local report_file="$1"
+  local status="$2"
+  local area="$3"
+  local check_name="$4"
+  local evidence="$5"
+  local recommendation="$6"
+
+  printf '| `%s` | %s | %s | %s | %s |\n' \
+    "$(md_escape "$status")" \
+    "$(md_escape "$area")" \
+    "$(md_escape "$check_name")" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+write_backup_report_rman_repository_file() {
+  local cmd_file="$1"
+
+  {
+    [[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "connect catalog %s\n" "$RMAN_CATALOG_CONNECT"
+    printf "show all;\n"
+    printf "list backup summary;\n"
+    printf "list backup of database summary;\n"
+    printf "list backup of archivelog all summary;\n"
+    printf "list expired backup summary;\n"
+    printf "list expired archivelog all;\n"
+    printf "report schema;\n"
+    printf "report need backup;\n"
+    printf "report obsolete;\n"
+    printf "restore database preview summary;\n"
+    printf "exit;\n"
+  } >"$cmd_file" || die "Unable to write RMAN repository report file: $cmd_file"
+  chmod 600 "$cmd_file" 2>/dev/null || true
+}
+
+write_backup_report_rman_validate_file() {
+  local cmd_file="$1"
+
+  {
+    [[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "connect catalog %s\n" "$RMAN_CATALOG_CONNECT"
+    printf "restore database validate;\n"
+    printf "restore archivelog all validate;\n"
+    printf "validate database check logical;\n"
+    printf "exit;\n"
+  } >"$cmd_file" || die "Unable to write RMAN validation report file: $cmd_file"
+  chmod 600 "$cmd_file" 2>/dev/null || true
+}
+
+append_report_rman_cmdfile() {
+  local report_file="$1"
+  local title="$2"
+  local cmd_file="$3"
+  local log_file="$4"
+  local status
+
+  append_report_section "$report_file" "$title"
+  {
+    printf 'Repository source requested: `%s`\n\n' "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "recovery catalog plus target control file" || printf "target control file")"
+    printf 'Command: `%s target / cmdfile=%s log=%s`\n\n' "$(basename "$RMAN_BIN")" "$cmd_file" "$log_file"
+    printf '```text\n'
+  } >>"$report_file"
+
+  "$RMAN_BIN" target / cmdfile="$cmd_file" log="$log_file" >/dev/null 2>&1
+  status=$?
+  if [[ -f "$log_file" ]]; then
+    print_redacted_rman_log "$log_file" >>"$report_file"
+  else
+    printf "RMAN log file was not created: %s\n" "$log_file" >>"$report_file"
+  fi
+  if [[ "$status" -ne 0 ]]; then
+    printf "\n[command exited with status %s]\n" "$status" >>"$report_file"
+  fi
+  printf '```\n' >>"$report_file"
+  return "$status"
+}
+
+run_backup_report() {
+  discover_environment
+  ensure_sqlplus
+  ensure_rman
+
+  local report_file evidence_sql evidence_file detail_sql generated_at rman_cmd_dir
+  local rman_repo_file rman_repo_log rman_validate_file rman_validate_log
+  local repo_status=0 validate_status=0
+  local strategy rpo_hint rto_hint level0_gap level1_gap arch_gap
+  local missing failed7 failed30 expired unavailable deleted recover_files corruptions fra_used
+  local controlfile_auto retention catalog_redacted
+
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_backup_report_${RUN_ID}.md"
+  evidence_sql="${LOG_DIR}/crashsim_backup_report_${RUN_ID}_evidence.sql"
+  evidence_file="${LOG_DIR}/crashsim_backup_report_${RUN_ID}.evidence"
+  detail_sql="${LOG_DIR}/crashsim_backup_report_${RUN_ID}_detail.sql"
+  rman_cmd_dir="$LOG_DIR"
+  [[ -n "$RMAN_CATALOG_CONNECT" ]] && rman_cmd_dir="$WORK_DIR"
+  rman_repo_file="${rman_cmd_dir}/crashsim_backup_report_${RUN_ID}_repository.rman"
+  rman_repo_log="${LOG_DIR}/crashsim_backup_report_${RUN_ID}_repository.log"
+  rman_validate_file="${rman_cmd_dir}/crashsim_backup_report_${RUN_ID}_validate.rman"
+  rman_validate_log="${LOG_DIR}/crashsim_backup_report_${RUN_ID}_validate.log"
+
+  write_backup_report_evidence_sql_file "$evidence_sql"
+  write_backup_report_detail_sql_file "$detail_sql"
+
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$evidence_sql" >"$evidence_file" </dev/null ||
+    die "Backup evidence SQL failed: $evidence_sql (evidence: $evidence_file)"
+  parse_backup_evidence_file "$evidence_file"
+
+  strategy="$(backup_detect_strategy)"
+  rpo_hint="$(backup_estimated_rpo)"
+  rto_hint="$(backup_estimated_rto)"
+  level0_gap="$(backup_cadence_label "$(backup_value level0_avg_gap_hours UNKNOWN)")"
+  level1_gap="$(backup_cadence_label "$(backup_value level1_avg_gap_hours UNKNOWN)")"
+  arch_gap="$(backup_cadence_label "$(backup_value archivelog_backup_avg_gap_hours UNKNOWN)")"
+  catalog_redacted="$(redact_rman_catalog_connect "$RMAN_CATALOG_CONNECT")"
+
+  {
+    printf "# CrashSimulator Backup Strategy And Recoverability Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Database: `%s`\n' "$(backup_value db_name "$DB_NAME")"
+    printf -- '- DB unique name: `%s`\n' "$(backup_value db_unique_name "$DB_UNIQUE_NAME")"
+    printf -- '- DBID: `%s`\n' "$(backup_value dbid UNKNOWN)"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(backup_value database_role "$DB_ROLE")" "$(backup_value open_mode "$DB_OPEN_MODE")"
+    printf -- '- CDB: `%s`\n' "$(backup_value cdb "$DB_CDB")"
+    printf -- '- Storage: `%s`\n' "$STORAGE_TYPE"
+    printf -- '- Cluster type: `%s`\n' "$CLUSTER_TYPE"
+    printf -- '- Deep RMAN validation: `%s`\n' "$([[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && printf enabled || printf disabled)"
+    printf -- '- RMAN repository source requested: `%s`\n' "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "recovery catalog plus target control file" || printf "target control file")"
+    [[ -n "$RMAN_CATALOG_CONNECT" ]] && printf -- '- RMAN catalog connect: `%s`\n' "$catalog_redacted"
+    printf -- '- SQL evidence file: `%s`\n' "$evidence_file"
+    printf "\n"
+    printf "This report estimates recoverability from current database/RMAN metadata and optional RMAN validation output. RTO/RPO values are planning estimates, not guarantees; prove them with timed restore, recovery, and application validation drills.\n"
+  } >"$report_file" || die "Unable to write backup report file: $report_file"
+
+  append_report_section "$report_file" "Executive Summary"
+  {
+    printf '| Field | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Strategy detected | %s |\n' "$(md_escape "$strategy")"
+    printf '| Level 0/full cadence | %s; last backup `%s`, age `%s` hours |\n' \
+      "$(md_escape "$level0_gap")" "$(md_escape "$(backup_value last_level0_backup_time NONE)")" "$(md_escape "$(backup_display_value "$(backup_value last_level0_backup_age_hours UNKNOWN)")")"
+    printf '| Level 1 incremental cadence | %s; last backup `%s`, age `%s` hours |\n' \
+      "$(md_escape "$level1_gap")" "$(md_escape "$(backup_value last_level1_backup_time NONE)")" "$(md_escape "$(backup_display_value "$(backup_value last_level1_backup_age_hours UNKNOWN)")")"
+    printf '| Archived redo backup cadence | %s; last backup `%s`, age `%s` hours |\n' \
+      "$(md_escape "$arch_gap")" "$(md_escape "$(backup_value last_archivelog_backup_time NONE)")" "$(md_escape "$(backup_display_value "$(backup_value last_archivelog_backup_age_hours UNKNOWN)")")"
+    printf '| Visible database size | `%s` GB across `%s` datafiles |\n' "$(md_escape "$(backup_value database_size_gb UNKNOWN)")" "$(md_escape "$(backup_value datafile_count UNKNOWN)")"
+    printf '| Backup device types | `%s` |\n' "$(md_escape "$(backup_value backup_device_types NONE)")"
+    printf '| Backup piece device types | `%s` |\n' "$(md_escape "$(backup_value backup_piece_device_types NONE)")"
+    printf '| Backup-only RPO estimate | %s |\n' "$(md_escape "$rpo_hint")"
+    printf '| Backup/recovery RTO estimate | %s |\n' "$(md_escape "$rto_hint")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Backup Health Checks"
+  {
+    printf '| Status | Area | Check | Evidence | Recommendation |\n'
+    printf '| --- | --- | --- | --- | --- |\n'
+  } >>"$report_file"
+
+  missing="$(backup_value datafiles_without_backup_metadata 0)"
+  if [[ "$missing" =~ ^[0-9]+$ && "$missing" -eq 0 ]]; then
+    backup_append_check "$report_file" "OK" "Coverage" "Every datafile has backup metadata" "missing_datafiles=${missing}" "Keep validating restore paths and catalog/control-file metadata retention."
+  else
+    backup_append_check "$report_file" "GAP" "Coverage" "Datafile backup coverage" "missing_datafiles=${missing}" "Run a database backup or investigate files not represented in RMAN metadata before destructive drills."
+  fi
+
+  if backup_is_number "$(backup_value last_level0_backup_age_hours UNKNOWN)" && backup_num_le "$(backup_value last_level0_backup_age_hours UNKNOWN)" "168"; then
+    backup_append_check "$report_file" "OK" "Baseline" "Recent Level 0/full backup" "age_hours=$(backup_display_value "$(backup_value last_level0_backup_age_hours)")" "Keep Level 0/full backups aligned with restore-time objectives."
+  else
+    backup_append_check "$report_file" "WARN" "Baseline" "Recent Level 0/full backup" "age_hours=$(backup_display_value "$(backup_value last_level0_backup_age_hours UNKNOWN)")" "Review Level 0/full backup cadence; weekly or better is common for many RMAN strategies, but tune to SLA and restore throughput."
+  fi
+
+  if [[ "$(backup_value log_mode UNKNOWN)" == "ARCHIVELOG" ]]; then
+    backup_append_check "$report_file" "OK" "Recoverability" "ARCHIVELOG mode" "log_mode=ARCHIVELOG" "Continue backing archived redo frequently enough to meet RPO."
+  else
+    backup_append_check "$report_file" "GAP" "Recoverability" "ARCHIVELOG mode" "log_mode=$(backup_value log_mode UNKNOWN)" "Enable ARCHIVELOG if point-in-time/media recovery is required."
+  fi
+
+  if backup_is_number "$(backup_value last_archivelog_backup_age_hours UNKNOWN)" && backup_num_le "$(backup_value last_archivelog_backup_age_hours UNKNOWN)" "24"; then
+    backup_append_check "$report_file" "OK" "RPO" "Recent archived redo backup" "age_hours=$(backup_display_value "$(backup_value last_archivelog_backup_age_hours)")" "Back up archived redo more frequently than the required backup-only RPO."
+  else
+    backup_append_check "$report_file" "WARN" "RPO" "Recent archived redo backup" "age_hours=$(backup_display_value "$(backup_value last_archivelog_backup_age_hours UNKNOWN)")" "Increase archived-log backup frequency if backup-only RPO must be less than a day."
+  fi
+
+  failed7="$(backup_value failed_jobs_7d 0)"
+  failed30="$(backup_value failed_jobs_30d 0)"
+  if [[ "$failed7" =~ ^[0-9]+$ && "$failed7" -eq 0 ]]; then
+    backup_append_check "$report_file" "OK" "Reliability" "No failed RMAN jobs in last 7 days" "failed_7d=${failed7}, failed_30d=${failed30}" "Keep alerting on failed backup jobs."
+  else
+    backup_append_check "$report_file" "WARN" "Reliability" "Failed RMAN jobs" "failed_7d=${failed7}, failed_30d=${failed30}" "Investigate failed backup jobs and confirm they did not break required backup windows."
+  fi
+
+  expired="$(backup_value backup_piece_expired_count 0)"
+  unavailable="$(backup_value backup_piece_unavailable_count 0)"
+  deleted="$(backup_value backup_piece_deleted_count 0)"
+  if [[ "$expired" =~ ^[0-9]+$ && "$unavailable" =~ ^[0-9]+$ && "$expired" -eq 0 && "$unavailable" -eq 0 ]]; then
+    backup_append_check "$report_file" "OK" "Repository" "Backup piece status" "available=$(backup_value backup_piece_available_count 0), expired=${expired}, unavailable=${unavailable}, deleted=${deleted}" "Schedule periodic CROSSCHECK and cleanup obsolete/expired records."
+  else
+    backup_append_check "$report_file" "WARN" "Repository" "Backup piece status" "available=$(backup_value backup_piece_available_count 0), expired=${expired}, unavailable=${unavailable}, deleted=${deleted}" "Run RMAN CROSSCHECK and resolve expired/unavailable pieces before relying on them."
+  fi
+
+  controlfile_auto="$(backup_value rman_controlfile_autobackup DEFAULT/OFF)"
+  if [[ "$controlfile_auto" == *"ON"* ]]; then
+    backup_append_check "$report_file" "OK" "Control file" "Control file autobackup" "$controlfile_auto" "Keep autobackup enabled and test restore controlfile from autobackup."
+  else
+    backup_append_check "$report_file" "WARN" "Control file" "Control file autobackup" "$controlfile_auto" "Enable CONFIGURE CONTROLFILE AUTOBACKUP ON unless an equivalent control-file/SPFILE backup process exists."
+  fi
+
+  recover_files="$(backup_value recover_file_count 0)"
+  corruptions="$(( $(backup_value block_corruption_count 0) + $(backup_value copy_corruption_count 0) + $(backup_value backup_corruption_count 0) ))"
+  if [[ "$recover_files" =~ ^[0-9]+$ && "$recover_files" -eq 0 && "$corruptions" -eq 0 ]]; then
+    backup_append_check "$report_file" "OK" "Validation" "Recovery/corruption views" "recover_files=${recover_files}, corruption_rows=${corruptions}" "Continue scheduled validation and corruption monitoring."
+  else
+    backup_append_check "$report_file" "GAP" "Validation" "Recovery/corruption views" "recover_files=${recover_files}, corruption_rows=${corruptions}" "Resolve files needing media recovery or corruption rows before further destructive testing."
+  fi
+
+  fra_used="$(backup_value fra_used_pct UNKNOWN)"
+  if backup_is_number "$fra_used" && backup_num_gt "$fra_used" "85"; then
+    backup_append_check "$report_file" "WARN" "FRA" "FRA utilization" "fra_used_pct=${fra_used}" "Increase FRA size or adjust retention/backup deletion to avoid archived-log pressure."
+  else
+    backup_append_check "$report_file" "OK" "FRA" "FRA utilization" "fra_used_pct=${fra_used}" "Keep FRA capacity monitored against archive generation and retention."
+  fi
+
+  retention="$(backup_value rman_retention_policy DEFAULT)"
+  append_report_section "$report_file" "Strategy Interpretation And Recommendations"
+  {
+    printf -- '- Observed strategy: %s.\n' "$strategy"
+    printf -- '- RMAN retention policy: `%s`.\n' "$retention"
+    printf -- '- Control file record keep time: `%s` days. If no catalog is used, keep this long enough to preserve restore history for your retention window.\n' "$(backup_value control_file_record_keep_time UNKNOWN)"
+    printf -- '- Backup repository source: `%s`.\n' "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "Recovery catalog requested; RMAN output below confirms whether it connected successfully." || printf "Target control file only for this report run.")"
+    printf -- '- RTO guidance: %s\n' "$rto_hint"
+    printf -- '- RPO guidance: %s\n' "$rpo_hint"
+    printf -- '- Best-practice direction: run periodic RMAN restore validation, validate selected backups when pieces are suspected missing, keep repository metadata accurate with crosschecks, protect control file/SPFILE backups, and run timed CrashSimulator restore drills to prove actual RTO/RPO.\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "SQL Backup Repository Details"
+  append_report_command "$report_file" "Control-File SQL Backup Evidence" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$detail_sql"
+
+  write_backup_report_rman_repository_file "$rman_repo_file"
+  append_report_rman_cmdfile "$report_file" "RMAN Repository, Restore Preview, Need-Backup, And Obsolete Report" "$rman_repo_file" "$rman_repo_log" || repo_status=$?
+
+  if [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]]; then
+    write_backup_report_rman_validate_file "$rman_validate_file"
+    append_report_rman_cmdfile "$report_file" "RMAN Deep Validation - Restore Database, Archivelogs, And Logical Database Check" "$rman_validate_file" "$rman_validate_log" || validate_status=$?
+  else
+    append_report_section "$report_file" "RMAN Deep Validation"
+    append_report_text "$report_file" 'Skipped by default. Re-run with `--deep-validate` or set `CRASHSIM_REPORT_DEEP_VALIDATE=1` to run `RESTORE DATABASE VALIDATE`, `RESTORE ARCHIVELOG ALL VALIDATE`, and `VALIDATE DATABASE CHECK LOGICAL`. Those checks are read-only but can be I/O intensive, especially for SBT/Object Storage.'
+  fi
+
+  append_report_section "$report_file" "References"
+  {
+    printf -- '- Oracle Database 19c backup and recovery administration: https://docs.oracle.com/en/database/oracle/oracle-database/19/admqs/performing-backup-and-recovery.html\n'
+    printf -- '- Oracle Maximum Availability Architecture overview: https://www.oracle.com/database/technologies/maximum-availability-architecture/\n'
+    printf -- '- CrashSimulator RTO/RPO planning reference: https://oraclemaa.com/from-downtime-to-data-loss-getting-rto-and-rpo-right-for-high-availability-and-disaster-recovery\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw Backup Evidence"
+  {
+    printf 'Evidence file: `%s`\n\n' "$evidence_file"
+    printf '```text\n'
+    sed -n '/^CSIM_BKP|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+
+  echo "Backup strategy and recoverability report generated: ${report_file}"
+  echo "Strategy detected: ${strategy}"
+  echo "RPO estimate: ${rpo_hint}"
+  echo "RTO estimate: ${rto_hint}"
+  if [[ "$repo_status" -ne 0 || "$validate_status" -ne 0 ]]; then
+    warn "One or more RMAN report/validation sections exited with a non-zero status. Review: ${report_file}"
+  fi
+}
+
 write_config_report_sql_file() {
   local sql_file="$1"
 
@@ -5847,6 +6758,10 @@ parse_args() {
         MODE="report"
         shift
         ;;
+      --backup-report|--backup-assessment|--recoverability-report)
+        MODE="backup_report"
+        shift
+        ;;
       --maa-report|--maa-assessment|--maa-readiness)
         MODE="maa_report"
         shift
@@ -6525,6 +7440,15 @@ menu_run_configuration_report() {
   menu_run_child_command
 }
 
+menu_run_backup_report() {
+  MENU_CMD=("$0" "--backup-report")
+  [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
 menu_run_maa_report() {
   MENU_CMD=("$0" "--maa-report")
   [[ -n "$MAA_APP_NAME" ]] && MENU_CMD+=("--maa-app-name" "$MAA_APP_NAME")
@@ -6562,6 +7486,8 @@ menu_reports() {
     echo "  2. Generate target configuration report with deep RMAN validation (read-only, heavier)"
     echo "  3. Generate Oracle MAA readiness report"
     echo "  4. Set MAA / SLA planning context"
+    echo "  5. Generate backup strategy and recoverability report"
+    echo "  6. Generate backup report with deep RMAN validation (read-only, heavier)"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -6583,6 +7509,16 @@ menu_reports() {
         ;;
       4)
         menu_configure_maa_context
+        menu_pause
+        ;;
+      5)
+        REPORT_DEEP_VALIDATE=0
+        menu_run_backup_report
+        menu_pause
+        ;;
+      6)
+        REPORT_DEEP_VALIDATE=1
+        menu_run_backup_report
         menu_pause
         ;;
       b|B|q|Q)
@@ -6742,6 +7678,9 @@ main() {
       ;;
     report)
       run_configuration_report
+      ;;
+    backup_report)
+      run_backup_report
       ;;
     maa_report)
       run_maa_report

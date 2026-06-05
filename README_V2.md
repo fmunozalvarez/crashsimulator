@@ -114,6 +114,7 @@ drive from a single screen:
 - dry-run or execute recovery from a manifest
 - run the non-destructive health check
 - generate target configuration/recoverability reports
+- generate backup strategy and recoverability/RTO/RPO reports
 - generate Oracle MAA readiness and SLA planning reports
 - view recent manifests and logs
 
@@ -184,6 +185,31 @@ Data Guard/FSFO evidence, and GI/ASM/OCR/voting-disk status when those tools are
 available. The default report uses RMAN metadata and `restore database preview
 summary`; `--deep-validate` adds read-only but I/O-intensive RMAN
 `restore database validate` and `validate database check logical` checks.
+
+## Backup Strategy And Recoverability Report
+
+Use `--backup-report` to generate a focused backup strategy and recoverability
+report:
+
+```bash
+./CrashSimulatorV2.sh --backup-report
+./CrashSimulatorV2.sh --backup-report --deep-validate
+CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh --backup-report
+```
+
+The report gathers evidence from the target control-file RMAN repository and,
+when `--rman-catalog` or `CRASHSIM_RMAN_CATALOG` is supplied, from the RMAN
+recovery catalog session as well. It summarizes datafile coverage, Level 0/Level
+1 cadence, archived redo backup cadence, backup piece status, FRA pressure,
+failed jobs, corruption views, files needing recovery, restore preview,
+need-backup/obsolete reports, and optional deep validation.
+
+The RTO/RPO section is an evidence-based estimate. Backup-only RPO is estimated
+mainly from archived redo backup age and unbacked archived redo; RTO is
+estimated from visible database size, backup method, backup age, and observed job
+durations. Actual RTO/RPO still need timed restore/recovery/application drills.
+`--deep-validate` adds read-only but I/O-intensive `RESTORE DATABASE VALIDATE`,
+`RESTORE ARCHIVELOG ALL VALIDATE`, and `VALIDATE DATABASE CHECK LOGICAL`.
 
 ## MAA Readiness Report
 

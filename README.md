@@ -62,6 +62,7 @@ and redacts RMAN catalog/SYS password values from command echoes.
 ./CrashSimulatorV2.sh --health-check
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
+./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --scenario 30 --pdb CRASHPDB --dry-run
