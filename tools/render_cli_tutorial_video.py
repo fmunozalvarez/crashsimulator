@@ -31,6 +31,8 @@ OUT_DIR = REPO_ROOT / "assets" / "tutorial"
 VIDEO_PATH = OUT_DIR / "crashsimulator_cli_tutorial.mp4"
 SUBTITLE_PATH = OUT_DIR / "crashsimulator_cli_tutorial_subtitles.vtt"
 README_PATH = OUT_DIR / "README.md"
+TAGLINE = "Setup, protect, execute, recover, and validate an Oracle Database crash drill from the CLI"
+FOOTER_TEXT = "CrashSimulator | Oracle HA/DR and backup/recovery practice | CLI workflow"
 
 
 @dataclass(frozen=True)
@@ -306,7 +308,7 @@ def draw_header(draw: ImageDraw.ImageDraw, scene: Scene) -> None:
     draw.text((92, 48), scene.title, font=FONT_BOLD, fill=rgba("#f7fbff"))
     draw.text(
         (94, 126),
-        "Setup, protect, execute, recover, and validate an Oracle Database crash drill from the CLI",
+        TAGLINE,
         font=FONT_REGULAR,
         fill=rgba("#f5f9ff", 184),
     )
@@ -387,7 +389,7 @@ def draw_subtitle(draw: ImageDraw.ImageDraw, scene: Scene) -> None:
 def draw_footer(draw: ImageDraw.ImageDraw, t: float) -> None:
     draw.text(
         (94, 1010),
-        "CrashSimulator | Oracle HA/DR and backup/recovery practice | CLI workflow",
+        FOOTER_TEXT,
         font=FONT_FOOTER,
         fill=rgba("#ffffff", 148),
     )

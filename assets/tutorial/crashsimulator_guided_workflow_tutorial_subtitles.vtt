@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+Start from the Guided Workflow menu when you want guardrails, prompts, and a repeatable best-practice flow.
+
+2
+00:00:07.000 --> 00:00:15.000
+Begin by confirming the database topology, role, storage, cluster state, and selected PDB.
+
+3
+00:00:15.000 --> 00:00:23.000
+Run health checks before the drill so the starting state is clean and the evidence has a baseline.
+
+4
+00:00:23.000 --> 00:00:31.000
+Use the menu reports to review backup posture, FRA usage, MAA readiness, and recoverability before choosing a scenario.
+
+5
+00:00:31.000 --> 00:00:40.000
+Choose a scenario and let CrashSimulator verify whether it is runnable in the current topology.
+
+6
+00:00:40.000 --> 00:00:49.000
+Dry-run first. Inspect target selection, expected impact, recovery commands, and rollback evidence before any execution.
+
+7
+00:00:49.000 --> 00:00:58.000
+Run protection from the menu so RMAN captures the exact target and the current control file before the failure.
+
+8
+00:00:58.000 --> 00:01:07.000
+Execute only after the dry-run, runbook, health check, and protection evidence are complete.
+
+9
+00:01:07.000 --> 00:01:16.000
+Use the Guided Workflow recovery option and provide the manifest created during execution.
+
+10
+00:01:16.000 --> 00:01:25.000
+Finish the drill by validating database health and preserving logs, reports, manifests, and HTML evidence.
