@@ -372,9 +372,9 @@ implemented.
 `--recover <id>` uses the executed scenario manifest to plan or run recovery.
 
 Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
-`7`, `8`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`, `21`, `22`,
-`23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`, `35`, `37`, `38`,
-`39`, `40`, `41`, `42`, `55`, `56`, `57`, `58`, and `59`.
+`7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
+`21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
+`35`, `37`, `38`, `39`, `40`, `41`, `42`, `55`, `56`, `57`, `58`, and `59`.
 
 For unsupported scenarios, use `--runbook <id>` and the generated target
 evidence to perform the recovery manually.
@@ -695,8 +695,8 @@ Scope meanings:
 | 6 | Loss of one temporary file | Core | CDB/non-CDB | destructive | Tempfile recreation without media recovery. | Recovery helper available. Usually lower risk. |
 | 7 | Loss of one SYSTEM datafile | Core | CDB/non-CDB | destructive | Mount-mode SYSTEM datafile restore/recover. | Protection and recovery helpers available. High impact. |
 | 8 | Loss of one UNDO datafile | Core | CDB/non-CDB | destructive | UNDO datafile failure and transaction recovery behavior. | Protection and recovery helpers available. ASM targets use `asmcmd rm` plus FILE# restore/recover. |
-| 9 | Loss of a read-only tablespace | Core | CDB/non-CDB | destructive | Restore of read-only tablespace files and backup strategy for read-only data. | Requires a valid read-only tablespace target. |
-| 10 | Loss of an index-only tablespace | Core | CDB/non-CDB | destructive | Rebuild or restore of index-only storage. | Requires an index-only tablespace target. Lab seed helps for PDB variants. |
+| 9 | Loss of a read-only tablespace | Core | CDB/non-CDB | destructive | Restore of read-only tablespace files and backup strategy for read-only data. | Controlled CDB-root target `CRASHSIM_ROOT_RO_TBS` is created by the seed script. Protection and recovery helpers available. |
+| 10 | Loss of an index-only tablespace | Core | CDB/non-CDB | destructive | Rebuild or restore of index-only storage. | Controlled CDB-root target `CRASHSIM_ROOT_INDEX_TBS` is created by the seed script. Protection and recovery helpers available. |
 | 11 | Drop non-unique indexes outside Oracle schemas | Logical | CDB/non-CDB | logical | Rebuilding dropped non-unique indexes from DDL or deployment source. | Use `--schema` to constrain targets. Re-run seed script after testing. |
 | 12 | Loss of a non-system tablespace | Core | CDB/non-CDB | destructive | Tablespace-level restore and recover. | Protection and recovery helpers available for selected FILE# targets. |
 | 13 | Loss of a temporary tablespace | Core | CDB/non-CDB | destructive | Temporary tablespace repair and default temp tablespace validation. | Recovery helper available, including ASM tempfile removal and metadata repair. |

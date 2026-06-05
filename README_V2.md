@@ -353,6 +353,8 @@ Automated RMAN protection is currently enabled for:
 - Scenario 5: loss of one non-system datafile in a non-CDB or CDB root.
 - Scenario 7: loss of one SYSTEM datafile.
 - Scenario 8: loss of one UNDO datafile.
+- Scenario 9: loss of a controlled CDB-root or non-CDB read-only tablespace.
+- Scenario 10: loss of a controlled CDB-root or non-CDB index-only tablespace.
 - Scenario 12: loss of one non-system tablespace.
 - Scenario 14: loss of SYSTEM tablespace.
 - Scenario 15: loss of UNDO tablespace.
@@ -383,9 +385,9 @@ Automated recovery helpers are currently enabled for:
   switch, and backup cleanup. ASM redo manifests can also drive drop/add-member
   recovery when the missing member is an ASM file and no filesystem backup pair
   exists.
-- Scenario 7, 8, 12, 14, 15, 17, 22, 32, 33, 34, 35, 37, 39, 40, 41, and 42:
-  RMAN restore/recover for datafile and tablespace drills using FILE# metadata
-  captured in the scenario manifest.
+- Scenario 7, 8, 9, 10, 12, 14, 15, 17, 22, 32, 33, 34, 35, 37, 39, 40, 41,
+  and 42: RMAN restore/recover for datafile and tablespace drills using FILE#
+  metadata captured in the scenario manifest.
 - Scenario 16: password-file recreation, optional SYSBACKUP re-grant, and remote
   SYSDBA validation. Use `CRASHSIM_SYS_PASSWORD` or `--sys-password`, and
   optionally `--service-name`.
@@ -491,9 +493,10 @@ For automated lab runs only:
   assumption.
 - Logical object scenarios can be constrained with `--schema` or
   `CRASHSIM_SCHEMA` so lab runs do not target arbitrary application objects.
-- `seed_crashsim_lab.sql` reseeds controlled PDB lab users, table/schema/index
-  targets, plus read-only and index-only PDB tablespaces for safer target
-  selection practice.
+- `seed_crashsim_lab.sql` reseeds controlled CDB-root read-only/index-only
+  targets for scenarios 9 and 10, plus PDB lab users, table/schema/index
+  targets, and read-only/index-only PDB tablespaces for safer target selection
+  practice.
 - SQL*Plus script execution is isolated from parent shell stdin; repository SQL
   helper scripts also end with `exit` so automation wrappers do not continue
   inside SQL*Plus after a script completes.

@@ -1,6 +1,101 @@
 whenever sqlerror exit sql.sqlcode
 set echo on feedback on serveroutput on
 
+alter session set container = cdb$root;
+
+begin
+  for rec in (
+    select tablespace_name, status
+    from dba_tablespaces
+    where tablespace_name in (
+      'CRASHSIM_ROOT_RO_TBS',
+      'CRASHSIM_ROOT_INDEX_TBS'
+    )
+  ) loop
+    if rec.status = 'READ ONLY' then
+      execute immediate 'alter tablespace ' || rec.tablespace_name || ' read write';
+    end if;
+  end loop;
+
+  for rec in (
+    select username
+    from dba_users
+    where username = 'C##CRASHSIM_ROOT_LAB'
+  ) loop
+    execute immediate 'drop user ' || rec.username || ' cascade';
+  end loop;
+
+  for rec in (
+    select tablespace_name
+    from dba_tablespaces
+    where tablespace_name in (
+      'CRASHSIM_ROOT_RO_TBS',
+      'CRASHSIM_ROOT_INDEX_TBS'
+    )
+  ) loop
+    execute immediate 'drop tablespace ' || rec.tablespace_name ||
+      ' including contents and datafiles';
+  end loop;
+end;
+/
+
+create tablespace crashsim_root_ro_tbs
+  datafile size 16m autoextend on next 16m maxsize 128m;
+
+create tablespace crashsim_root_index_tbs
+  datafile size 16m autoextend on next 16m maxsize 128m;
+
+create user c##crashsim_root_lab identified by "CrashSimLab##123" container=all;
+grant create session, create table to c##crashsim_root_lab container=current;
+alter user c##crashsim_root_lab quota unlimited on users container=current;
+alter user c##crashsim_root_lab quota unlimited on crashsim_root_ro_tbs container=current;
+alter user c##crashsim_root_lab quota unlimited on crashsim_root_index_tbs container=current;
+
+create table c##crashsim_root_lab.root_readonly_target (
+  id number primary key,
+  payload varchar2(100),
+  created_at timestamp default systimestamp
+) tablespace crashsim_root_ro_tbs;
+
+insert into c##crashsim_root_lab.root_readonly_target (id, payload)
+select level, 'root-readonly-row-' || level
+from dual
+connect by level <= 10;
+
+alter tablespace crashsim_root_ro_tbs read only;
+
+create table c##crashsim_root_lab.root_index_base (
+  id number primary key,
+  lookup_value varchar2(30),
+  payload varchar2(100)
+) tablespace users;
+
+insert into c##crashsim_root_lab.root_index_base
+select level, 'L' || mod(level, 5), 'root-index-row-' || level
+from dual
+connect by level <= 50;
+
+create index c##crashsim_root_lab.root_index_payload_ix
+  on c##crashsim_root_lab.root_index_base (payload)
+  tablespace crashsim_root_index_tbs;
+
+commit;
+
+select owner, table_name, tablespace_name
+from dba_tables
+where owner = 'C##CRASHSIM_ROOT_LAB'
+order by owner, table_name;
+
+select owner, index_name, tablespace_name
+from dba_indexes
+where owner = 'C##CRASHSIM_ROOT_LAB'
+order by owner, index_name;
+
+select tablespace_name, contents, status
+from dba_tablespaces
+where tablespace_name like 'CRASHSIM_ROOT\_%' escape '\'
+order by tablespace_name;
+
 alter session set container = crashpdb;
 
 begin

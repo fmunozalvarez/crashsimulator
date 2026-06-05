@@ -212,6 +212,13 @@ Additional framework improvements and validations completed:
   two-node RAC lab, followed by dry-run scenario manifests and recovery dry-run
   generation. Datafile-based scenarios also produced `--protect` RMAN dry-run
   plans with the expected FILE# lists.
+- `9` and `10`: controlled CDB-root targets were added and reseeded:
+  `CRASHSIM_ROOT_RO_TBS` for read-only tablespace loss and
+  `CRASHSIM_ROOT_INDEX_TBS` for index-only tablespace loss. Scenario target
+  selection now prefers these lab tablespaces when present. Both scenarios were
+  readiness validated on the two-node RAC lab and produced ASM `asmcmd rm`
+  dry-run manifests, `--protect` RMAN dry-run plans, and `--recover` FILE#
+  restore/recover dry-runs for FILE# `25` and FILE# `26`.
 
 Final two-node RAC validation showed:
 
@@ -280,4 +287,5 @@ Recommended next validation coverage:
 - Controlled destructive execution validation for the new ASM-aware root/PDB
   datafile and tempfile helpers: `8`, `12`, `13`, `15`, `22`, `33`, `34`,
   `35`, `37`, `38`, `40`, and `42`
-- Controlled CDB-root read-only/index-only targets for scenarios `9` and `10`
+- Controlled destructive execution validation for CDB-root read-only/index-only
+  scenarios `9` and `10`

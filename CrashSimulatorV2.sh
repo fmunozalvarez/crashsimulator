@@ -2223,7 +2223,7 @@ confirm_mode_execution() {
 supports_file_recovery_automation() {
   local id="$1"
   case "$id" in
-    5|7|8|12|14|15|17|22|30|32|33|34|35|37|39|40|41|42) return "$SUCCESS" ;;
+    5|7|8|9|10|12|14|15|17|22|30|32|33|34|35|37|39|40|41|42) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2231,7 +2231,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|8|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -3629,7 +3629,7 @@ recover_scenario() {
     6|13|31|38)
       recover_tempfile_scenario "$id"
       ;;
-    7|8|12|14|15|17|22|32|33|34|35|37|39|40|41|42)
+    7|8|9|10|12|14|15|17|22|32|33|34|35|37|39|40|41|42)
       recover_datafile_list_scenario "$id"
       ;;
     16)
@@ -6932,7 +6932,14 @@ df.tablespace_name = (
     select tablespace_name
     from dba_tablespaces
     where status = 'READ ONLY'
-    order by tablespace_name
+      and contents = 'PERMANENT'
+      and tablespace_name not in ('SYSTEM','SYSAUX')
+    order by case
+               when tablespace_name = 'CRASHSIM_ROOT_RO_TBS' then 0
+               when tablespace_name like 'CRASHSIM%' then 1
+               else 2
+             end,
+             tablespace_name
   )
   where rownum = 1
 )" ""
@@ -6957,12 +6964,21 @@ table_ts as (
   group by tablespace_name
 ),
 target_ts as (
-  select i.tablespace_name
-  from index_ts i
-  left join table_ts t on t.tablespace_name = i.tablespace_name
-  where t.tablespace_name is null
-    and i.tablespace_name not in ('SYSTEM','SYSAUX')
-    and rownum = 1
+  select tablespace_name
+  from (
+    select i.tablespace_name
+    from index_ts i
+    left join table_ts t on t.tablespace_name = i.tablespace_name
+    where t.tablespace_name is null
+      and i.tablespace_name not in ('SYSTEM','SYSAUX')
+    order by case
+               when i.tablespace_name = 'CRASHSIM_ROOT_INDEX_TBS' then 0
+               when i.tablespace_name like 'CRASHSIM%' then 1
+               else 2
+             end,
+             i.tablespace_name
+  )
+  where rownum = 1
 )
 select df.file_name
 from dba_data_files df
