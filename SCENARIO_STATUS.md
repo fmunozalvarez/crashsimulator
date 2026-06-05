@@ -1,9 +1,9 @@
 # CrashSimulator Scenario Status
 
-Snapshot date: 2026-06-04
+Snapshot date: 2026-06-05
 
 This status reflects the first OCI Base DB Service validation environment and
-the initial RAC One Node/GI/ASM preparation environment.
+the RAC/GI/ASM validation environments, including the current two-node RAC lab.
 
 First OCI Base DB Service validation environment:
 
@@ -87,7 +87,6 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `42`: PDB SYSTEM file header corruption
 - `50`: standby managed recovery cancelled
 - `51`: primary transport destination deferred
-- `58`: TDE wallet or keystore unavailable
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.
@@ -149,10 +148,10 @@ and `RECO`.
   validated in `CRASHPDB`. Destructive execution remains blocked until the
   framework has ASM-aware injection and scenario-specific recovery helpers for
   these PDB datafile/tablespace variants.
-- `8`, `12`, `13`, `14`, `15`, `22`, `28`, `29`, and `58`: dry-run target
+- `8`, `12`, `13`, `14`, `15`, `22`, `28`, and `29`: dry-run target
   selection validated. ASM datafile/FRA targets remained provider-specific, and
-  ORACLE_HOME/TDE wallet execution was intentionally not performed without a
-  dedicated restore helper and backup evidence.
+  ORACLE_HOME execution was intentionally not performed without an external
+  restore/reinstall plan.
 - `9` and `10`: no valid CDB-root read-only or index-only tablespace target was
   present in this RAC/GI/ASM lab.
 - A post-drill targeted RMAN backup captured `CRASHPDB` datafiles `31` and `32`
@@ -163,6 +162,53 @@ and `RECO`.
   GI-managed single-database environment, with baseline backup/recoverability
   checks passing and expected gaps for Gold-or-higher posture because no Data
   Guard, FSFO, or standby topology is configured.
+
+## Two-Node RAC/GI/ASM Follow-Up Validation
+
+The current two-node RAC lab uses Oracle Database 19.31, CDB `CRASHDB`, PDB
+`CRASHPDB`, DB unique name `crashdb`, ASM storage, and a RAC service
+`crashdb_CRASHPDB.paas.oracle.com` running on instances `crashdb1` and
+`crashdb2`.
+
+Additional framework improvements and validations completed:
+
+- `56`: implemented as a RAC service drill. If a singleton service has a
+  running source and idle target, the scenario plans a `srvctl relocate service`
+  action. If the service is already running on all preferred instances, as in
+  this lab, it performs a controlled `srvctl stop service ... -i <instance>` and
+  `srvctl start service ... -i <instance>` cycle. The scenario was dry-run
+  validated, executed against `crashdb_CRASHPDB.paas.oracle.com`, recovered with
+  `--recover 56`, and followed by health validation.
+- `27` and `57`: recovery helper coverage was added for filesystem rename
+  restore pairs. Both scenarios were re-executed against Oracle Home
+  `network/admin` SQL*Net files, restored with `--recover 27` / `--recover 57`,
+  and followed by database/PDB health validation.
+- `58`: recovery helper coverage was added for filesystem or ACFS wallet-root
+  restore pairs. The TDE wallet-root scenario was dry-run checked, executed by
+  renaming `/var/opt/oracle/dbaas_acfs/crashdb/wallet_root`, recovered with
+  `--recover 58`, and followed by database/PDB health validation.
+- `11`, `36`, `43`, and `44`: logical lab objects were reseeded, the scenarios
+  were validated and executed against scoped lab schemas, and
+  `seed_crashsim_lab.sql` was rerun afterward to restore the logical lab
+  objects.
+- `28`: validation now reports `PLAN-ONLY`; ORACLE_HOME loss requires an
+  external restore/reinstall plan and is intentionally manual-only.
+- `45`: validation and execution now require a disposable target PDB whose name
+  starts with `CRASHSIM_`. The framework refuses to drop application PDBs such
+  as `CRASHPDB`.
+
+Final two-node RAC validation showed:
+
+- Database `CRASHDB` open read write
+- PDB `CRASHPDB` open read write
+- `V$RECOVER_FILE` returned no rows
+- `V$DATABASE_BLOCK_CORRUPTION` returned no rows
+- Service `crashdb_CRASHPDB.paas.oracle.com` running on `crashdb1` and
+  `crashdb2`
+- Logical lab users, tables, non-unique indexes, read-only tablespace, and
+  index-only tablespace present after reseed
+- No remaining `.crashsim.bak` artifacts in the exercised SQL*Net or wallet-root
+  paths
 
 Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
 lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
@@ -190,7 +236,6 @@ implementation before destructive validation:
 - `52`: Data Guard broker configuration unavailable
 - `53`: Active Data Guard read-only session pressure
 - `54`: snapshot standby conversion practice
-- `56`: RAC service relocation failure practice
 
 ## Next Validation Environments
 
@@ -202,7 +247,6 @@ Recommended next validation coverage:
 
 - True storage-level current-redo fault injection for scenario `3`
 - Redundant GI lab coverage for destructive scenarios `46`, `47`, `48`, and `49`
-- RAC service relocation/failure validation for scenario `56`
 - Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
 - ASM-aware destructive/recovery helpers for remaining PDB and root
   datafile/tablespace scenarios: `8`, `12`, `13`, `15`, `22`, `33`, `34`,

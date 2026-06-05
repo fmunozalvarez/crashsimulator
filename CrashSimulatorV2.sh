@@ -822,6 +822,25 @@ copy_restore_pairs_to_originals() {
   done
 }
 
+move_restore_pairs_to_originals() {
+  local idx original backup
+  for idx in "${!RESTORE_ORIGINALS[@]}"; do
+    original="${RESTORE_ORIGINALS[$idx]}"
+    backup="${RESTORE_BACKUPS[$idx]}"
+    if [[ "$EXECUTE" -eq 0 ]]; then
+      echo "DRY-RUN: would move $backup back to $original"
+    else
+      [[ -e "$backup" ]] || die "Scenario backup not found: $backup"
+      if [[ -e "$original" ]]; then
+        warn "Original path already exists while restoring ${original}; leaving backup in place: ${backup}"
+        continue
+      fi
+      echo "mv -- $backup $original"
+      mv -- "$backup" "$original" || die "Unable to restore $original from $backup"
+    fi
+  done
+}
+
 safe_remove_restore_backups() {
   local backup
   for backup in "${RESTORE_BACKUPS[@]}"; do
@@ -1682,7 +1701,7 @@ register_scenarios() {
   register_scenario "53" "Active Data Guard read-only session pressure"      "ADG"        "Standby"    "logical"      "standby"           "scenario_planned"           "Gated for Active Data Guard."
   register_scenario "54" "Snapshot standby conversion practice"              "DataGuard"  "Standby"    "logical"      "standby"           "scenario_planned"           "Gated for a DG test environment."
   register_scenario "55" "RAC abort one instance"                            "RAC"        "RAC"        "destructive" "rac"               "scenario_rac_abort_instance" "Uses srvctl where available."
-  register_scenario "56" "RAC service relocation failure practice"           "RAC"        "RAC"        "logical"      "rac"               "scenario_planned"           "Gated for RAC."
+  register_scenario "56" "RAC service relocation failure practice"           "RAC"        "RAC"        "logical"      "rac"               "scenario_rac_service_relocation" "Relocates a singleton service when possible, or stop/start validates an all-instances service."
   register_scenario "57" "Listener config unavailable"                       "Network"    "CDB/non-CDB" "destructive" "any"               "scenario_sqlnet"            "Alias for network file loss."
   register_scenario "58" "TDE wallet or keystore unavailable"                "Security"   "CDB/non-CDB" "destructive" "primary"           "scenario_tde_wallet"        "Renames detected wallet root if configured."
   register_scenario "59" "Missing archived redo log"                         "Backup"     "CDB/non-CDB" "destructive" "primary"           "scenario_archivelog_loss"   "Targets one archived log known to the control file."
@@ -2021,7 +2040,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|14|16|17|18|19|20|21|23|24|25|26|30|31|32|39|41|55|59) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|14|16|17|18|19|20|21|23|24|25|26|27|30|31|32|39|41|55|56|57|58|59) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2096,12 +2115,22 @@ validation_missing_tool_reason() {
 validation_guardrail_reason() {
   local id="$1"
   case "$id" in
+    28)
+      printf "Scenario 28 ORACLE_HOME loss requires an external restore/reinstall plan and is intentionally dry-run/manual only in this framework."
+      return "$SUCCESS"
+      ;;
     25)
       if [[ -z "$PIECE_HANDLE" ]]; then
         if [[ "$LOCAL_ONLY" != "1" || -z "$MAX_TARGETS" ]]; then
           printf "Scenario 25 can see local and object-storage backup handles; execution requires --piece-handle or --local-only --max-targets <n>."
           return "$SUCCESS"
         fi
+      fi
+      ;;
+    45)
+      if [[ -z "$TARGET_PDB" || "$TARGET_PDB" != CRASHSIM_* ]]; then
+        printf "Scenario 45 can only execute against a disposable PDB whose name starts with CRASHSIM_. Current PDB: %s." "${TARGET_PDB:-not set}"
+        return "$SUCCESS"
       fi
       ;;
   esac
@@ -3027,6 +3056,31 @@ recover_spfile_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+recover_fs_rename_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  require_manifest
+
+  load_manifest_restore_pairs ||
+    die "Manifest is missing restore paths. Use a manifest from an executed scenario run."
+
+  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Restore pair count: ${#RESTORE_ORIGINALS[@]}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+  move_restore_pairs_to_originals
+  run_health_check
+  safe_remove_restore_backups
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 recover_archivelog_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
@@ -3252,6 +3306,83 @@ recover_srvctl_database_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+recover_rac_service_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  CURRENT_SCENARIO_ID="$id"
+
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  if [[ -z "$DB_UNIQUE_NAME" && -n "${ORACLE_UNQNAME:-}" ]]; then
+    DB_UNIQUE_NAME="$ORACLE_UNQNAME"
+  fi
+  if [[ -z "$DB_UNIQUE_NAME" && -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
+    DB_UNIQUE_NAME="$(manifest_get "db_unique_name" || true)"
+    [[ "$DB_UNIQUE_NAME" == "unknown" ]] && DB_UNIQUE_NAME=""
+  fi
+  if [[ -z "$DB_UNIQUE_NAME" ]]; then
+    local srvctl_dbs
+    mapfile -t srvctl_dbs < <(srvctl config database 2>/dev/null | trim_blank_lines)
+    if [[ "${#srvctl_dbs[@]}" -eq 1 ]]; then
+      DB_UNIQUE_NAME="${srvctl_dbs[0]}"
+    fi
+  fi
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+
+  local service status_file service_status
+  service="$SERVICE_NAME"
+  if [[ -z "$service" && -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
+    service="$(manifest_first_value "scenario_56_service" "action_1_target" || true)"
+  fi
+  if [[ -z "$service" ]]; then
+    local services_file
+    services_file="$WORK_DIR/recover_s56_services.lst"
+    srvctl config service -d "$DB_UNIQUE_NAME" >"$services_file" 2>&1 ||
+      die "Unable to collect srvctl service configuration for ${DB_UNIQUE_NAME}."
+    service="$(awk -F': ' '/^Service name:/ {print $2; exit}' "$services_file")"
+  fi
+  [[ -n "$service" ]] || die "Scenario 56 recovery could not determine a service. Use --service-name or a scenario manifest."
+
+  if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
+    init_manifest "recover" "$id"
+  elif [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  fi
+
+  status_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_service_status.log"
+  manifest_append "recover_service_name" "$service"
+  manifest_append "recover_service_status_log" "$status_file"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Service: ${service}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would run srvctl status service -d ${DB_UNIQUE_NAME} -s ${service}"
+    echo "DRY-RUN: would run srvctl start service -d ${DB_UNIQUE_NAME} -s ${service} if the service is not running"
+    echo "DRY-RUN: would validate database/PDB health with SQL*Plus"
+    return "$SUCCESS"
+  fi
+
+  service_status="$(srvctl status service -d "$DB_UNIQUE_NAME" -s "$service" 2>&1 | tee "$status_file")" || true
+  if printf "%s\n" "$service_status" | grep -Eq 'is running|running on instance'; then
+    echo "Service ${service} is already running."
+  else
+    echo "srvctl start service -d ${DB_UNIQUE_NAME} -s ${service}"
+    srvctl start service -d "$DB_UNIQUE_NAME" -s "$service" ||
+      die "Unable to start service ${service}."
+    srvctl status service -d "$DB_UNIQUE_NAME" -s "$service" | tee -a "$status_file"
+  fi
+
+  run_health_check
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 recover_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
@@ -3283,8 +3414,14 @@ recover_scenario() {
     26)
       recover_spfile_scenario "$id"
       ;;
+    27|57|58)
+      recover_fs_rename_scenario "$id"
+      ;;
     55)
       recover_srvctl_database_scenario "$id"
+      ;;
+    56)
+      recover_rac_service_scenario "$id"
       ;;
     59)
       recover_archivelog_scenario "$id"
@@ -6102,6 +6239,12 @@ execute_actions() {
       srvctl_abort_database)
         perform_srvctl_abort_database
         ;;
+      srvctl_relocate_service)
+        perform_srvctl_relocate_service "$target" "$detail"
+        ;;
+      srvctl_stop_start_service_instance)
+        perform_srvctl_stop_start_service_instance "$target" "$detail"
+        ;;
       external)
         die "External target requires a provider-specific handler and was not executed: $target"
         ;;
@@ -6165,6 +6308,34 @@ perform_srvctl_abort_database() {
   [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
   echo "srvctl stop database -d $DB_UNIQUE_NAME -o abort"
   srvctl stop database -d "$DB_UNIQUE_NAME" -o abort
+}
+
+perform_srvctl_relocate_service() {
+  local service="$1"
+  local detail="$2"
+  local old_inst new_inst
+  IFS='|' read -r old_inst new_inst <<<"$detail"
+  [[ -n "$service" && -n "$old_inst" && -n "$new_inst" ]] ||
+    die "Service relocation action is missing service/source/target metadata."
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  echo "srvctl relocate service -d $DB_UNIQUE_NAME -s $service -oldinst $old_inst -newinst $new_inst"
+  srvctl relocate service -d "$DB_UNIQUE_NAME" -s "$service" -oldinst "$old_inst" -newinst "$new_inst"
+  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service"
+}
+
+perform_srvctl_stop_start_service_instance() {
+  local service="$1"
+  local instance="$2"
+  [[ -n "$service" && -n "$instance" ]] ||
+    die "Service stop/start action is missing service or instance metadata."
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  echo "srvctl stop service -d $DB_UNIQUE_NAME -s $service -i $instance"
+  srvctl stop service -d "$DB_UNIQUE_NAME" -s "$service" -i "$instance"
+  echo "srvctl start service -d $DB_UNIQUE_NAME -s $service -i $instance"
+  srvctl start service -d "$DB_UNIQUE_NAME" -s "$service" -i "$instance"
+  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service"
 }
 
 discover_pmon_spid() {
@@ -7109,6 +7280,8 @@ scenario_drop_pdb() {
   reset_actions
   local pdb="$TARGET_PDB"
   [[ "$pdb" != "CDB\$ROOT" && "$pdb" != "PDB\$SEED" ]] || die "Refusing to drop protected container: $pdb"
+  [[ "$pdb" == CRASHSIM_* ]] ||
+    die "Refusing to drop non-disposable PDB '${pdb}'. Scenario 45 requires a PDB name starting with CRASHSIM_."
   local sql_text="
 alter pluggable database ${pdb} close immediate instances=all;
 drop pluggable database ${pdb} including datafiles;
@@ -7379,6 +7552,140 @@ scenario_rac_abort_instance() {
       add_action "srvctl_abort_instance" "$INSTANCE_NAME" "abort current RAC instance"
       ;;
   esac
+  execute_actions
+}
+
+csv_contains_value() {
+  local csv="$1"
+  local needle="$2"
+  local item
+  local -a csv_items
+  csv="${csv// /}"
+  IFS=',' read -ra csv_items <<<"$csv"
+  for item in "${csv_items[@]}"; do
+    [[ "$item" == "$needle" ]] && return "$SUCCESS"
+  done
+  return "$FAIL"
+}
+
+first_csv_value() {
+  local csv="$1"
+  local item
+  local -a csv_items
+  csv="${csv// /}"
+  IFS=',' read -ra csv_items <<<"$csv"
+  for item in "${csv_items[@]}"; do
+    if [[ -n "$item" ]]; then
+      printf "%s\n" "$item"
+      return "$SUCCESS"
+    fi
+  done
+  return "$FAIL"
+}
+
+srvctl_database_instances_csv() {
+  local status_file="$1"
+  local instances
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+  srvctl status database -d "$DB_UNIQUE_NAME" >"$status_file" 2>&1 ||
+    die "Unable to collect srvctl database status for ${DB_UNIQUE_NAME}."
+  instances="$(awk '/^Instance / {print $2}' "$status_file" | paste -sd, -)"
+  [[ -n "$instances" ]] || return "$FAIL"
+  printf "%s\n" "$instances"
+}
+
+scenario_rac_service_relocation() {
+  reset_actions
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+
+  local service config_file status_file db_status_file services_file
+  local preferred running db_instances source_inst target_inst candidate
+  local status_line service_count
+  local -a service_candidates
+
+  services_file="$WORK_DIR/srvctl_services.lst"
+  srvctl config service -d "$DB_UNIQUE_NAME" >"$services_file" 2>&1 ||
+    die "Unable to collect srvctl service configuration for ${DB_UNIQUE_NAME}."
+
+  if [[ -n "$SERVICE_NAME" ]]; then
+    service="$SERVICE_NAME"
+  else
+    service="$(awk -F': ' '/^Service name:/ {print $2; exit}' "$services_file")"
+  fi
+  [[ -n "$service" ]] || die "No srvctl-managed database service was found. Create a service before scenario 56."
+
+  service_count="$(awk -F': ' '/^Service name:/ {count++} END {print count+0}' "$services_file")"
+  if [[ -z "$SERVICE_NAME" && "${service_count:-0}" -gt 1 ]]; then
+    warn "Multiple services were found; using first service '${service}'. Use --service-name to choose another service."
+  fi
+
+  config_file="$WORK_DIR/srvctl_service_${service//[^A-Za-z0-9_.-]/_}_config.out"
+  status_file="$WORK_DIR/srvctl_service_${service//[^A-Za-z0-9_.-]/_}_status.out"
+  db_status_file="$WORK_DIR/srvctl_database_status_for_services.out"
+
+  srvctl config service -d "$DB_UNIQUE_NAME" -s "$service" >"$config_file" 2>&1 ||
+    die "Service ${service} was not found in srvctl config for ${DB_UNIQUE_NAME}."
+  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service" >"$status_file" 2>&1 ||
+    die "Unable to collect srvctl service status for ${service}."
+
+  echo "srvctl config service -d ${DB_UNIQUE_NAME} -s ${service}:"
+  sed 's/^/  /' "$config_file"
+  echo
+  echo "srvctl status service -d ${DB_UNIQUE_NAME} -s ${service}:"
+  sed 's/^/  /' "$status_file"
+  echo
+
+  preferred="$(awk -F': ' '/^Preferred instances:/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$config_file")"
+  status_line="$(grep -E '^Service .* is running on instance' "$status_file" | head -n 1 || true)"
+  running="$(printf "%s" "$status_line" | sed -E 's/^.*instance\(s\)[[:space:]]*//; s/[[:space:]]//g')"
+  [[ -n "$running" ]] || die "Service ${service} is not running. Start it before relocation/failure practice."
+
+  db_instances="$(srvctl_database_instances_csv "$db_status_file" || true)"
+  [[ -n "$db_instances" ]] || db_instances="$preferred"
+  [[ -n "$db_instances" ]] || die "Unable to discover RAC database instances for scenario 56."
+
+  source_inst="$(first_csv_value "$running" || true)"
+  [[ -n "$source_inst" ]] || die "Unable to determine source instance for service ${service}."
+
+  target_inst=""
+  IFS=',' read -ra service_candidates <<<"${preferred:-$db_instances}"
+  for candidate in "${service_candidates[@]}"; do
+    candidate="${candidate// /}"
+    [[ -n "$candidate" ]] || continue
+    if ! csv_contains_value "$running" "$candidate"; then
+      target_inst="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$target_inst" ]]; then
+    IFS=',' read -ra service_candidates <<<"$db_instances"
+    for candidate in "${service_candidates[@]}"; do
+      candidate="${candidate// /}"
+      [[ -n "$candidate" ]] || continue
+      if ! csv_contains_value "$running" "$candidate"; then
+        target_inst="$candidate"
+        break
+      fi
+    done
+  fi
+
+  manifest_append "scenario_56_service" "$service"
+  manifest_append "scenario_56_running_instances_before" "$running"
+  manifest_append "scenario_56_preferred_instances" "$preferred"
+  manifest_append "scenario_56_database_instances" "$db_instances"
+
+  if [[ -n "$target_inst" ]]; then
+    manifest_append "scenario_56_mode" "relocate"
+    manifest_append "scenario_56_source_instance" "$source_inst"
+    manifest_append "scenario_56_target_instance" "$target_inst"
+    add_action "srvctl_relocate_service" "$service" "${source_inst}|${target_inst}"
+  else
+    manifest_append "scenario_56_mode" "stop_start_instance"
+    manifest_append "scenario_56_source_instance" "$source_inst"
+    add_action "srvctl_stop_start_service_instance" "$service" "$source_inst"
+  fi
   execute_actions
 }
 

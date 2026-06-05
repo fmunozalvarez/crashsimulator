@@ -712,8 +712,8 @@ Scope meanings:
 | 24 | Redo log corruption | Corrupt | CDB/non-CDB | destructive | Redo corruption detection and recovery decision-making. | Recovery helper available. High risk for active/current redo. |
 | 25 | Loss of RMAN backup pieces | Backup | CDB/non-CDB | destructive | Backup-piece loss, crosscheck, restore from secondary storage, and validate. | Recovery helper available for local filesystem pieces. Use `--local-only --max-targets 1` or `--piece-handle`. |
 | 26 | Loss of SPFILE | Config | CDB/non-CDB | destructive | Recreating SPFILE from PFILE, memory, backup, or metadata. | Recovery helper available. RAC/ASM requires srvctl/ASM metadata validation. |
-| 27 | Loss of SQL*Net config files | Config | CDB/non-CDB | destructive | Restoring `listener.ora`, `tnsnames.ora`, and `sqlnet.ora`. | Also used by scenario 57. Validate local and remote connectivity. |
-| 28 | Loss of ORACLE_HOME | Config | CDB/non-CDB | destructive | Oracle Home restore/reinstall and inventory/network/dbs recovery. | Lab only. Requires a strong external restore plan. |
+| 27 | Loss of SQL*Net config files | Config | CDB/non-CDB | destructive | Restoring `listener.ora`, `tnsnames.ora`, and `sqlnet.ora`. | Recovery helper available for filesystem rename backups. Also used by scenario 57. Validate local and remote connectivity. |
+| 28 | Loss of ORACLE_HOME | Config | CDB/non-CDB | destructive | Oracle Home restore/reinstall and inventory/network/dbs recovery. | Manual-only guardrail. Requires an external restore/reinstall plan. |
 | 29 | Loss of FRA destination | Backup | CDB/non-CDB | destructive | Recreating FRA path, permissions, capacity, and backup/archivelog posture. | Validate RMAN metadata and archived log availability after recovery. |
 | 30 | PDB loss of one non-system datafile | PDB | PDB | destructive | PDB-scoped datafile restore/recover. | Requires `--pdb`. Protection and recovery helpers available. |
 | 31 | PDB loss of one temporary file | PDB | PDB | destructive | PDB tempfile recreation and temp workload validation. | Requires `--pdb`. Recovery helper available. |
@@ -730,7 +730,7 @@ Scope meanings:
 | 42 | PDB SYSTEM file header corruption | PDB | PDB | destructive | PDB SYSTEM datafile header corruption response. | Requires `--pdb`. Use runbook/manual recovery where helper is not validated. |
 | 43 | PDB loss of one user table | PDB | PDB | logical | Table restore through Flashback, Data Pump, table recovery, or application reload. | Requires `--pdb` and preferably a lab schema. Re-run seed after testing. |
 | 44 | PDB loss of one user schema | PDB | PDB | logical | Schema-level recovery through Data Pump or PDB PITR/extract. | Requires `--pdb` and a lab schema. Re-run seed after testing. |
-| 45 | Drop selected PDB including datafiles | PDB | PDB | destructive | Dropped PDB recovery planning and service recreation. | Never target production PDBs. Use a disposable PDB only. |
+| 45 | Drop selected PDB including datafiles | PDB | PDB | destructive | Dropped PDB recovery planning and service recreation. | Guarded to disposable PDB names starting with `CRASHSIM_`. Never target production PDBs. |
 | 46 | ASM data disk group unavailable | ASM | ASM | destructive | ASM disk group outage planning and database impact validation. | Planning helper available. Destructive execution requires a redundant purpose-built ASM lab. |
 | 47 | OCR loss or restore drill | GI | Cluster | destructive | OCR backup, restore, and Clusterware validation. | Planning helper available. Requires root/Grid procedure approval. |
 | 48 | Voting disk loss or restore drill | GI | Cluster | destructive | Voting disk replacement and cluster membership validation. | Planning helper available. Requires redundant GI lab and approval. |
@@ -741,9 +741,9 @@ Scope meanings:
 | 53 | Active Data Guard read-only session pressure | ADG | Standby | logical | Separating read-only workload pressure from apply lag. | Registered placeholder for Active Data Guard. |
 | 54 | Snapshot standby conversion practice | DataGuard | Standby | logical | Snapshot standby conversion and revert practice. | Registered placeholder for Data Guard lab. |
 | 55 | RAC abort one instance | RAC | RAC | destructive | Instance abort, Clusterware restart, services, FAN/TAF/Application Continuity behavior. | Recovery helper available for srvctl-managed database restart validation. |
-| 56 | RAC service relocation failure practice | RAC | RAC | logical | Service relocation/failover and client behavior validation. | Registered placeholder for RAC service testing. |
-| 57 | Listener config unavailable | Network | CDB/non-CDB | destructive | Listener/network configuration recovery. | Alias-style network config drill using SQL*Net file handling. |
-| 58 | TDE wallet or keystore unavailable | Security | CDB/non-CDB | destructive | Wallet restore, keystore open, encrypted tablespace and backup validation. | Requires secure wallet backup and careful handling. |
+| 56 | RAC service relocation failure practice | RAC | RAC | logical | Service relocation/failover and client behavior validation. | Helper available. Relocates singleton services when possible, or stop/start validates all-instances services. |
+| 57 | Listener config unavailable | Network | CDB/non-CDB | destructive | Listener/network configuration recovery. | Recovery helper available for filesystem rename backups. Alias-style network config drill using SQL*Net file handling. |
+| 58 | TDE wallet or keystore unavailable | Security | CDB/non-CDB | destructive | Wallet restore, keystore open, encrypted tablespace and backup validation. | Recovery helper available for filesystem or ACFS wallet-root rename backups. Requires secure wallet backup and careful handling. |
 | 59 | Missing archived redo log | Backup | CDB/non-CDB | destructive | Archived log restore, crosscheck, gap handling, and incomplete recovery decision-making. | Recovery helper available. Useful RPO validation drill. |
 | 60 | Recovery catalog unavailable | Backup | External | logical | RMAN catalog connectivity, resync, and NOCATALOG fallback. | Uses `--rman-catalog` or `CRASHSIM_RMAN_CATALOG` when a catalog is available. |
 

@@ -377,8 +377,15 @@ Automated recovery helpers are currently enabled for:
   crosscheck, backup-set validation, and final scenario backup cleanup.
 - Scenario 26: SPFILE recovery from `--pfile` or the scenario backup, followed
   by RMAN `validate spfile`.
+- Scenario 27 and 57: SQL*Net/listener configuration restore from filesystem
+  rename backups, followed by database/PDB health validation.
 - Scenario 55: GI/RAC instance or GI-managed single-database restart validation
   with `srvctl`, service status checks, and health validation.
+- Scenario 56: RAC service relocation/failure validation. Singleton services
+  can be relocated when an idle target exists; all-instances services are
+  stop/start validated on one instance, with `--recover 56` service validation.
+- Scenario 58: TDE wallet/keystore filesystem or ACFS wallet-root restore from
+  rename backup, followed by database/PDB health validation.
 - Scenario 59: archived-log crosscheck, restore from the scenario backup,
   validation, and final backup cleanup.
 
