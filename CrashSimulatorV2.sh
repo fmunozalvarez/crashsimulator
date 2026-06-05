@@ -33,6 +33,7 @@ MAX_TARGETS="${CRASHSIM_MAX_TARGETS:-}"
 PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
 REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
 RMAN_CATALOG_CONNECT="${CRASHSIM_RMAN_CATALOG:-}"
+BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
 MAA_APP_NAME="${CRASHSIM_MAA_APP_NAME:-}"
 MAA_LOCAL_RTO="${CRASHSIM_MAA_LOCAL_RTO:-}"
 MAA_LOCAL_RPO="${CRASHSIM_MAA_LOCAL_RPO:-}"
@@ -118,6 +119,7 @@ Usage:
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --backup-report [--deep-validate]
+  ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --maa-report
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
@@ -140,10 +142,12 @@ Options:
   --backup-report         Generate backup strategy, recoverability, RTO/RPO report.
   --backup-assessment     Alias for --backup-report.
   --recoverability-report Alias for --backup-report.
+  --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
+  --fresh-baseline-backup Alias for --baseline-backup.
   --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
-  --deep-validate         With --config-report, run heavier RMAN restore/database validation.
+  --deep-validate         With reports, run heavier RMAN restore/database validation.
   --validate-scenario <id>
                           Validate whether one scenario can run now and explain blockers.
   --validate <id>         Alias for --validate-scenario.
@@ -166,7 +170,8 @@ Options:
   --local-only            Scenario 25: target local filesystem backup pieces only.
   --max-targets <n>       Limit selected targets. Strongly recommended for scenario 25.
   --piece-handle <handle> Scenario 25: target one exact RMAN backup-piece handle.
-  --rman-catalog <str>   RMAN recovery catalog connect string for catalog drills.
+  --rman-catalog <str>   RMAN recovery catalog connect string for drills/reports/backups.
+  --backup-tag-prefix <p> RMAN tag prefix for --baseline-backup. Default: CSIM_BASE.
   --maa-app-name <name>   Optional application name for MAA/SLA planning context.
   --maa-local-rto <value> Optional local unplanned-outage RTO objective.
   --maa-local-rpo <value> Optional local unplanned-outage RPO objective.
@@ -196,6 +201,7 @@ Environment:
   CRASHSIM_PIECE_HANDLE         Exact RMAN backup-piece handle for scenario 25.
   CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
   CRASHSIM_RMAN_CATALOG         RMAN recovery catalog connect string.
+  CRASHSIM_BASELINE_TAG_PREFIX  RMAN tag prefix for fresh baseline backups.
   CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
   CRASHSIM_MAA_LOCAL_RTO        Local unplanned-outage RTO objective.
   CRASHSIM_MAA_LOCAL_RPO        Local unplanned-outage RPO objective.
@@ -3037,6 +3043,32 @@ run_health_check() {
     die "Health check failed: $sql_file (log: $log_file)"
 
   sed 's/^/  /' "$log_file"
+}
+
+run_baseline_backup() {
+  local helper status
+  local -a cmd=()
+
+  helper="$(script_dir)/crashsim_run_baseline_backup.sh"
+  [[ -f "$helper" ]] || die "Baseline backup helper not found: $helper"
+
+  if [[ -x "$helper" ]]; then
+    cmd=("$helper")
+  else
+    cmd=(bash "$helper")
+  fi
+
+  cmd+=("--log-dir" "$LOG_DIR")
+  cmd+=("--tag-prefix" "$BASELINE_TAG_PREFIX")
+  [[ "$EXECUTE" -eq 1 ]] && cmd+=("--execute") || cmd+=("--dry-run")
+  [[ "$ASSUME_YES" -eq 1 ]] && cmd+=("--yes")
+  [[ "$VERBOSE" -eq 1 ]] && cmd+=("--verbose")
+
+  env CRASHSIM_RMAN_CATALOG="$RMAN_CATALOG_CONNECT" "${cmd[@]}"
+  status=$?
+  if [[ "$status" -ne 0 ]]; then
+    die "Baseline backup helper failed with status ${status}."
+  fi
 }
 
 append_report_section() {
@@ -6762,6 +6794,10 @@ parse_args() {
         MODE="backup_report"
         shift
         ;;
+      --baseline-backup|--fresh-baseline-backup|--run-baseline-backup)
+        MODE="baseline_backup"
+        shift
+        ;;
       --maa-report|--maa-assessment|--maa-readiness)
         MODE="maa_report"
         shift
@@ -6870,6 +6906,11 @@ parse_args() {
         RMAN_CATALOG_CONNECT="$2"
         shift 2
         ;;
+      --backup-tag-prefix|--baseline-tag-prefix|--tag-prefix)
+        [[ "$#" -ge 2 ]] || die "$1 requires a tag prefix"
+        BASELINE_TAG_PREFIX="$2"
+        shift 2
+        ;;
       --maa-app-name)
         [[ "$#" -ge 2 ]] || die "--maa-app-name requires a value"
         MAA_APP_NAME="$2"
@@ -6968,6 +7009,7 @@ menu_print_header() {
   echo "Manifest: ${MANIFEST_FILE:-not set}"
   echo "Log dir: ${LOG_DIR}"
   echo "Report deep validation: ${REPORT_DEEP_VALIDATE}"
+  echo "Baseline backup tag prefix: ${BASELINE_TAG_PREFIX}"
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
@@ -7198,7 +7240,8 @@ menu_configure_options() {
     echo "  7. Password-file recovery options"
     echo "  8. Set log directory"
     echo "  9. Set RMAN recovery catalog"
-    echo " 10. Clear selected scenario and targets"
+    echo " 10. Set baseline backup tag prefix"
+    echo " 11. Clear selected scenario and targets"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -7226,6 +7269,10 @@ menu_configure_options() {
         menu_pause
         ;;
       10)
+        menu_prompt_path "baseline backup tag prefix" BASELINE_TAG_PREFIX "$BASELINE_TAG_PREFIX"
+        menu_pause
+        ;;
+      11)
         SCENARIO_ID=""
         TARGET_PDB=""
         TARGET_SCHEMA=""
@@ -7237,6 +7284,7 @@ menu_configure_options() {
         MAX_TARGETS=""
         PIECE_HANDLE=""
         RMAN_CATALOG_CONNECT=""
+        BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
         echo "Scenario and target context cleared."
         menu_pause
         ;;
@@ -7449,6 +7497,20 @@ menu_run_backup_report() {
   menu_run_child_command
 }
 
+menu_run_baseline_backup() {
+  local run_mode="$1"
+  MENU_CMD=("$0" "--baseline-backup")
+  [[ -n "$BASELINE_TAG_PREFIX" ]] && MENU_CMD+=("--tag-prefix" "$BASELINE_TAG_PREFIX")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  case "$run_mode" in
+    execute) MENU_CMD+=("--execute") ;;
+    dry-run) MENU_CMD+=("--dry-run") ;;
+    *) warn "Unknown baseline backup mode: $run_mode"; return "$FAIL" ;;
+  esac
+  menu_run_child_command
+}
+
 menu_run_maa_report() {
   MENU_CMD=("$0" "--maa-report")
   [[ -n "$MAA_APP_NAME" ]] && MENU_CMD+=("--maa-app-name" "$MAA_APP_NAME")
@@ -7488,6 +7550,8 @@ menu_reports() {
     echo "  4. Set MAA / SLA planning context"
     echo "  5. Generate backup strategy and recoverability report"
     echo "  6. Generate backup report with deep RMAN validation (read-only, heavier)"
+    echo "  7. Dry-run fresh RMAN baseline backup"
+    echo "  8. Run fresh RMAN baseline backup"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -7519,6 +7583,14 @@ menu_reports() {
       6)
         REPORT_DEEP_VALIDATE=1
         menu_run_backup_report
+        menu_pause
+        ;;
+      7)
+        menu_run_baseline_backup "dry-run"
+        menu_pause
+        ;;
+      8)
+        menu_run_baseline_backup "execute"
         menu_pause
         ;;
       b|B|q|Q)
@@ -7681,6 +7753,9 @@ main() {
       ;;
     backup_report)
       run_backup_report
+      ;;
+    baseline_backup)
+      run_baseline_backup
       ;;
     maa_report)
       run_maa_report

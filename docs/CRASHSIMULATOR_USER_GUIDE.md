@@ -207,7 +207,7 @@ point is to run the commands from the directory containing `CrashSimulatorV2.sh`
 Recommended first checks after unzipping:
 
 ```bash
-ls CrashSimulatorV2.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
+ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --discover
@@ -226,6 +226,7 @@ ls CrashSimulatorV2.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --config-report --deep-validate
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --backup-report --deep-validate
+./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --protect 30 --pdb CRASHPDB --dry-run
@@ -414,6 +415,26 @@ CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh 
 
 Sanitized examples are available under `docs/reference/`, including default
 target-control-file, recovery-catalog-backed, and deep-validation report output.
+
+### Fresh Baseline Backup
+
+`--baseline-backup` runs the official `crashsim_run_baseline_backup.sh` helper
+from the framework. It is intended for post-drill stabilization and for creating
+a known fresh backup baseline before higher-risk scenarios.
+
+Dry-run is the default:
+
+```bash
+./CrashSimulatorV2.sh --baseline-backup --dry-run
+./CrashSimulatorV2.sh --baseline-backup --execute
+CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh --baseline-backup --execute
+```
+
+When executed, the helper creates a forced compressed database backup, backs up
+archived redo not already backed up once, backs up the current control file and
+SPFILE, lists the generated backup tags, and writes RMAN command/log files under
+`crashsimulator_logs`. Use `--backup-tag-prefix` or
+`CRASHSIM_BASELINE_TAG_PREFIX` to change the default `CSIM_BASE` tag prefix.
 
 ### MAA Readiness Report
 

@@ -73,6 +73,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
+./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
@@ -211,6 +212,25 @@ estimated from visible database size, backup method, backup age, and observed jo
 durations. Actual RTO/RPO still need timed restore/recovery/application drills.
 `--deep-validate` adds read-only but I/O-intensive `RESTORE DATABASE VALIDATE`,
 `RESTORE ARCHIVELOG ALL VALIDATE`, and `VALIDATE DATABASE CHECK LOGICAL`.
+
+## Fresh Baseline Backup
+
+Use `--baseline-backup` to create a new RMAN baseline backup before or after
+destructive drills. Dry-run is the default and prints the RMAN plan without
+running a backup:
+
+```bash
+./CrashSimulatorV2.sh --baseline-backup --dry-run
+./CrashSimulatorV2.sh --baseline-backup --execute
+CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh --baseline-backup --execute
+```
+
+The helper script `crashsim_run_baseline_backup.sh` can also be run directly.
+It creates a forced compressed database backup, backs up archived redo not
+already backed up once, backs up the current control file and SPFILE, lists the
+generated tags, and writes the RMAN command/log files under
+`crashsimulator_logs`. The default RMAN tag prefix is `CSIM_BASE`; override it
+with `--backup-tag-prefix` or `CRASHSIM_BASELINE_TAG_PREFIX`.
 
 ## MAA Readiness Report
 
