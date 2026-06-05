@@ -37,6 +37,9 @@ BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
 AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
 AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
+HTML_OUTPUT=0
+HTML_TARGET="${CRASHSIM_HTML_TARGET:-}"
+REVIEW_TARGET="${CRASHSIM_REVIEW_TARGET:-}"
 MAA_APP_NAME="${CRASHSIM_MAA_APP_NAME:-}"
 MAA_LOCAL_RTO="${CRASHSIM_MAA_LOCAL_RTO:-}"
 MAA_LOCAL_RPO="${CRASHSIM_MAA_LOCAL_RPO:-}"
@@ -134,6 +137,10 @@ Usage:
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
+  ./${PROGRAM} --review
+  ./${PROGRAM} --review-topology
+  ./${PROGRAM} --show-artifact <path|latest[:kind]> [--html]
+  ./${PROGRAM} --render-html <path|latest[:kind]>
   ./${PROGRAM} --maa-report
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
@@ -164,6 +171,16 @@ Options:
   --audit-dir <dir>       Audit archive directory. Default: <log-dir>/audit.
   --audit-status          Show audit settings, usage, and purge candidates.
   --purge-audit-logs      Purge audit run folders older than retention policy.
+  --review                Generate and print an index of collected topology,
+                          scenarios, runbooks, dry-runs, protection, health,
+                          backup/config/MAA reports, audit records, and logs.
+  --review-artifacts      Alias for --review.
+  --review-topology       Print the latest collected topology snapshot/report.
+  --show-artifact <path|latest[:kind]>
+                          Print an already collected artifact.
+  --render-html <path|latest[:kind]>
+                          Generate an HTML copy of an artifact.
+  --html                  With reports/show-artifact, also generate HTML output.
   --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
@@ -225,6 +242,8 @@ Environment:
   CRASHSIM_AUDIT_RETAIN         Set to 1/0 or yes/no. Default: 1.
   CRASHSIM_AUDIT_RETENTION_DAYS Days to keep audit run folders. Default: 365.
   CRASHSIM_AUDIT_DIR            Audit archive directory. Default: <log-dir>/audit.
+  CRASHSIM_HTML_TARGET          Default artifact for --render-html.
+  CRASHSIM_REVIEW_TARGET        Default artifact for --show-artifact.
   CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
   CRASHSIM_MAA_LOCAL_RTO        Local unplanned-outage RTO objective.
   CRASHSIM_MAA_LOCAL_RPO        Local unplanned-outage RPO objective.
@@ -1527,11 +1546,15 @@ detect_password_file() {
   done
 }
 
-print_discovery() {
-  discover_environment
-  cat <<DISCOVERY
+write_discovery_text() {
+  local output_file="$1"
+  local row name con_id open_mode
+
+  {
+    cat <<DISCOVERY
 CrashSimulator V2 discovery
   Version:           ${VERSION}
+  Generated UTC:     $(date -u +%Y-%m-%dT%H:%M:%SZ)
   Host:              ${HOST_NAME}
   OS user:           $(id -un)
   Oracle home:       ${ORACLE_HOME:-unknown}
@@ -1555,18 +1578,33 @@ CrashSimulator V2 discovery
   FRA:               ${FRA_PATH:-not configured}
 DISCOVERY
 
-  if [[ "$DB_CDB" == "YES" ]]; then
-    info "  PDBs:"
-    if [[ "${#PDB_ROWS[@]}" -eq 0 ]]; then
-      info "    none found"
-    else
-      local row name con_id open_mode
-      for row in "${PDB_ROWS[@]}"; do
-        IFS='|' read -r name con_id open_mode <<<"$row"
-        info "    ${name} (CON_ID=${con_id}, OPEN_MODE=${open_mode})"
-      done
+    if [[ "$DB_CDB" == "YES" ]]; then
+      printf "  PDBs:\n"
+      if [[ "${#PDB_ROWS[@]}" -eq 0 ]]; then
+        printf "    none found\n"
+      else
+        for row in "${PDB_ROWS[@]}"; do
+          IFS='|' read -r name con_id open_mode <<<"$row"
+          printf "    %s (CON_ID=%s, OPEN_MODE=%s)\n" "$name" "$con_id" "$open_mode"
+        done
+      fi
     fi
-  fi
+  } >"$output_file" || die "Unable to write discovery text: $output_file"
+}
+
+print_discovery() {
+  local topology_file latest_file
+  discover_environment
+
+  topology_file="${LOG_DIR}/crashsim_topology_${RUN_ID}.txt"
+  latest_file="${LOG_DIR}/crashsim_topology_latest.txt"
+  write_discovery_text "$topology_file"
+  cp -p -- "$topology_file" "$latest_file" 2>/dev/null || true
+  cat "$topology_file"
+  echo
+  echo "Topology snapshot: ${topology_file}"
+  echo "Latest topology snapshot: ${latest_file}"
+  maybe_render_html "$topology_file"
 }
 
 register_scenario() {
@@ -3256,16 +3294,26 @@ recover_scenario() {
 
 print_runbook_only() {
   local id="$1"
+  local runbook_file
   scenario_exists "$id" || die "Unknown scenario id: $id"
 
-  echo "Scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Group: ${SCENARIO_GROUP[$id]}"
-  echo "Scope: ${SCENARIO_SCOPE[$id]}"
-  echo "Impact: ${SCENARIO_IMPACT[$id]}"
-  echo "Requires: ${SCENARIO_REQUIRES[$id]}"
-  echo "Notes: ${SCENARIO_NOTES[$id]}"
+  runbook_file="${LOG_DIR}/crashsim_runbook_s${id}_${RUN_ID}.txt"
+  {
+    echo "Scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    echo "Group: ${SCENARIO_GROUP[$id]}"
+    echo "Scope: ${SCENARIO_SCOPE[$id]}"
+    echo "Impact: ${SCENARIO_IMPACT[$id]}"
+    echo "Requires: ${SCENARIO_REQUIRES[$id]}"
+    echo "Notes: ${SCENARIO_NOTES[$id]}"
+    echo "Generated UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    print_recovery_runbook "$id"
+  } >"$runbook_file" || die "Unable to write runbook artifact: $runbook_file"
+
+  cat "$runbook_file"
   echo
-  print_recovery_runbook "$id"
+  echo "Runbook artifact: ${runbook_file}"
+  maybe_render_html "$runbook_file"
 }
 
 script_dir() {
@@ -3345,6 +3393,7 @@ run_health_check() {
     die "Health check failed: $sql_file (log: $log_file)"
 
   sed 's/^/  /' "$log_file"
+  maybe_render_html "$log_file"
 }
 
 run_baseline_backup() {
@@ -3371,6 +3420,311 @@ run_baseline_backup() {
   if [[ "$status" -ne 0 ]]; then
     die "Baseline backup helper failed with status ${status}."
   fi
+  if [[ "$HTML_OUTPUT" -eq 1 ]]; then
+    local baseline_artifact
+    baseline_artifact="$(find_latest_artifact baseline 2>/dev/null || true)"
+    [[ -n "$baseline_artifact" ]] && render_artifact_html "$baseline_artifact"
+  fi
+}
+
+html_escape_stream() {
+  awk '
+    function esc(s) {
+      gsub(/&/, "\\&amp;", s)
+      gsub(/</, "\\&lt;", s)
+      gsub(/>/, "\\&gt;", s)
+      return s
+    }
+    { print esc($0) }
+  '
+}
+
+render_artifact_html() {
+  local input_file="$1"
+  local output_file="${2:-}"
+  local title generated
+
+  [[ -f "$input_file" ]] || die "Artifact not found: $input_file"
+  [[ -n "$output_file" ]] || output_file="${input_file}.html"
+  title="$(basename "$input_file")"
+  generated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  {
+    printf '%s\n' '<!doctype html>'
+    printf '%s\n' '<html lang="en">'
+    printf '%s\n' '<head>'
+    printf '%s\n' '<meta charset="utf-8">'
+    printf '<title>%s</title>\n' "$(printf "%s" "$title" | html_escape_stream)"
+    printf '%s\n' '<style>'
+    printf '%s\n' ':root { color-scheme: light dark; }'
+    printf '%s\n' 'body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }'
+    printf '%s\n' 'main { max-width: 1180px; margin: 0 auto; padding: 28px; }'
+    printf '%s\n' 'header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }'
+    printf '%s\n' 'h1 { font-size: 22px; margin: 0 0 8px; }'
+    printf '%s\n' '.meta { font-size: 13px; color: #596170; line-height: 1.5; }'
+    printf '%s\n' 'pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }'
+    printf '%s\n' '@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }'
+    printf '%s\n' '</style>'
+    printf '%s\n' '</head>'
+    printf '%s\n' '<body><main>'
+    printf '<header><h1>%s</h1><div class="meta">Source: %s<br>Generated UTC: %s</div></header>\n' \
+      "$(printf "%s" "$title" | html_escape_stream)" \
+      "$(printf "%s" "$input_file" | html_escape_stream)" \
+      "$(printf "%s" "$generated" | html_escape_stream)"
+    printf '%s\n' '<pre>'
+    audit_redact_stream <"$input_file" | html_escape_stream
+    printf '%s\n' '</pre>'
+    printf '%s\n' '</main></body></html>'
+  } >"$output_file" || die "Unable to write HTML artifact: $output_file"
+
+  echo "HTML artifact generated: ${output_file}"
+}
+
+maybe_render_html() {
+  local input_file="$1"
+  [[ "$HTML_OUTPUT" -eq 1 ]] || return "$SUCCESS"
+  render_artifact_html "$input_file"
+}
+
+find_latest_artifact() {
+  local kind="${1:-any}"
+  local latest=""
+
+  case "$kind" in
+    topology)
+      if [[ -f "${LOG_DIR}/crashsim_topology_latest.txt" ]]; then
+        latest="${LOG_DIR}/crashsim_topology_latest.txt"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_topology_*.txt' 2>/dev/null | sort | tail -n 1)"
+      fi
+      [[ -n "$latest" ]] || latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_config_report_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    config|configuration)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_config_report_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    backup|backup-report|recoverability)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_backup_report_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    maa|maa-report)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_maa_report_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    health)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_health_check_*.log' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    scenario)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_s*.manifest' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    protect|protection)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_protect_s*.manifest' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    recover|recovery)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_recover_s*.manifest' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    runbook)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_runbook_s*.txt' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    baseline)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_baseline_backup_*.rman' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    review)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_review_index_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    audit)
+      audit_effective_dir
+      local audit_dir
+      while IFS= read -r audit_dir; do
+        [[ -n "$AUDIT_RUN_DIR" && "$audit_dir" == "$AUDIT_RUN_DIR" ]] && continue
+        [[ -f "${audit_dir}/exit_status" ]] || continue
+        [[ -f "${audit_dir}/stdout.log" ]] && latest="${audit_dir}/stdout.log"
+      done < <(find "$AUDIT_DIR" -mindepth 2 -maxdepth 2 -type d -name 'crashsim_audit_*' 2>/dev/null | sort)
+      ;;
+    any|latest)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f 2>/dev/null | sort | tail -n 1)"
+      ;;
+    *)
+      return "$FAIL"
+      ;;
+  esac
+
+  [[ -n "$latest" && -f "$latest" ]] || return "$FAIL"
+  printf "%s\n" "$latest"
+}
+
+resolve_artifact_reference() {
+  local ref="$1"
+  local kind
+
+  [[ -n "$ref" ]] || return "$FAIL"
+  case "$ref" in
+    latest)
+      find_latest_artifact "any"
+      ;;
+    latest:*)
+      kind="${ref#latest:}"
+      find_latest_artifact "$kind"
+      ;;
+    *)
+      [[ -f "$ref" ]] || return "$FAIL"
+      printf "%s\n" "$ref"
+      ;;
+  esac
+}
+
+review_manifest_summary() {
+  local manifest="$1"
+  awk -F= '
+    $1 == "mode" {mode=$2}
+    $1 == "scenario_id" {id=$2}
+    $1 == "scenario_title" {title=$2}
+    $1 == "started_at_utc" {started=$2}
+    END {
+      if (mode == "") mode="unknown"
+      if (id == "") id="-"
+      if (title == "") title="-"
+      if (started == "") started="-"
+      printf "%s | %s | %s | %s", mode, id, started, title
+    }
+  ' "$manifest"
+}
+
+review_append_file_list() {
+  local report_file="$1"
+  local title="$2"
+  local limit="$3"
+  shift 3
+  local -a files=()
+  local file
+
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && files+=("$file")
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f "$@" 2>/dev/null | sort | tail -n "$limit")
+
+  {
+    printf "\n## %s\n\n" "$title"
+    if [[ "${#files[@]}" -eq 0 ]]; then
+      printf "No stored artifacts found.\n"
+    else
+      for file in "${files[@]}"; do
+        printf -- '- `%s`\n' "$file"
+      done
+    fi
+  } >>"$report_file"
+}
+
+generate_review_index() {
+  local report_file latest_topology latest_config latest_backup latest_maa latest_health latest_review
+  local manifest audit_dir metadata command status started mode
+
+  report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
+  latest_topology="$(find_latest_artifact topology 2>/dev/null || true)"
+  latest_config="$(find_latest_artifact config 2>/dev/null || true)"
+  latest_backup="$(find_latest_artifact backup 2>/dev/null || true)"
+  latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
+  latest_health="$(find_latest_artifact health 2>/dev/null || true)"
+
+  {
+    printf "# CrashSimulator Review Center\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Log directory: `%s`\n' "$LOG_DIR"
+    printf -- '- Audit directory: `%s`\n' "$AUDIT_DIR"
+    printf "\nThis index lists previously collected CrashSimulator topology snapshots, scenario manifests, runbooks, dry-run/execution audit records, health checks, and reports. It does not reconnect to the database.\n\n"
+
+    printf "## Latest Collected Topology\n\n"
+    if [[ -n "$latest_topology" ]]; then
+      printf -- '- Latest topology artifact: `%s`\n' "$latest_topology"
+    else
+      printf -- '- No cached topology snapshot found. Run `--discover` or `--config-report` to collect one.\n'
+    fi
+    [[ -n "$latest_config" ]] && printf -- '- Latest configuration report: `%s`\n' "$latest_config"
+    [[ -n "$latest_backup" ]] && printf -- '- Latest backup/recoverability report: `%s`\n' "$latest_backup"
+    [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
+    [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
+
+    printf "\n## Scenario / Protection / Recovery Manifests\n\n"
+  } >"$report_file" || die "Unable to write review index: $report_file"
+
+  local manifest_count=0
+  while IFS= read -r manifest; do
+    printf -- '- `%s` - %s\n' "$manifest" "$(review_manifest_summary "$manifest")" >>"$report_file"
+    manifest_count=$((manifest_count + 1))
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f -name '*.manifest' 2>/dev/null | sort | tail -n 40)
+  [[ "$manifest_count" -gt 0 ]] || printf "No stored manifests found.\n" >>"$report_file"
+
+  review_append_file_list "$report_file" "Runbooks" 20 -name 'crashsim_runbook_s*.txt'
+  review_append_file_list "$report_file" "Health Checks" 20 -name 'crashsim_health_check_*.log'
+  review_append_file_list "$report_file" "Configuration Reports" 20 -name 'crashsim_config_report_*.md'
+  review_append_file_list "$report_file" "Backup Strategy / Recoverability Reports" 20 -name 'crashsim_backup_report_*.md'
+  review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
+  review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
+  review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
+
+  {
+    printf "\n## Audit Records\n\n"
+  } >>"$report_file"
+  local audit_count=0
+  audit_effective_dir
+  while IFS= read -r audit_dir; do
+    [[ -n "$AUDIT_RUN_DIR" && "$audit_dir" == "$AUDIT_RUN_DIR" ]] && continue
+    metadata="${audit_dir}/metadata.env"
+    command="${audit_dir}/command.redacted"
+    status="${audit_dir}/exit_status"
+    [[ -f "$status" ]] || continue
+    started="$(awk -F= '$1=="started_at_utc"{print $2}' "$metadata" 2>/dev/null | tail -n 1)"
+    mode="$(awk -F= '$1=="mode"{print $2}' "$metadata" 2>/dev/null | tail -n 1)"
+    printf -- '- `%s` - mode `%s`, started `%s`, exit `%s`\n' \
+      "$audit_dir" "${mode:-unknown}" "${started:-unknown}" "$([[ -f "$status" ]] && cat "$status" || printf unknown)" >>"$report_file"
+    [[ -f "$command" ]] && printf '  Command: `%s`\n' "$(cat "$command")" >>"$report_file"
+    audit_count=$((audit_count + 1))
+  done < <(find "$AUDIT_DIR" -mindepth 2 -maxdepth 2 -type d -name 'crashsim_audit_*' 2>/dev/null | sort | tail -n 30)
+  [[ "$audit_count" -gt 0 ]] || printf "No audit records found.\n" >>"$report_file"
+
+  {
+    printf "\n## Access Shortcuts\n\n"
+    printf -- '- Show latest topology: `./%s --review-topology`\n' "$PROGRAM"
+    printf -- '- Show latest health check: `./%s --show-artifact latest:health`\n' "$PROGRAM"
+    printf -- '- Generate HTML for latest review index: `./%s --render-html latest:review`\n' "$PROGRAM"
+    printf -- '- Generate HTML for a specific artifact: `./%s --render-html /path/to/artifact`\n' "$PROGRAM"
+  } >>"$report_file"
+
+  latest_review="$report_file"
+  echo "Review index generated: ${latest_review}"
+  cat "$latest_review"
+  maybe_render_html "$latest_review"
+}
+
+review_topology() {
+  local topology_file
+  topology_file="$(find_latest_artifact topology 2>/dev/null || true)"
+  if [[ -z "$topology_file" ]]; then
+    echo "No collected topology artifact was found in ${LOG_DIR}."
+    echo "Run --discover or --config-report to collect topology evidence first."
+    return "$FAIL"
+  fi
+  echo "Latest collected topology artifact: ${topology_file}"
+  echo
+  cat "$topology_file"
+  maybe_render_html "$topology_file"
+}
+
+show_artifact() {
+  local ref="$1"
+  local artifact
+
+  artifact="$(resolve_artifact_reference "$ref")" ||
+    die "Artifact not found for reference '${ref}'. Use a path or latest:<kind>."
+  echo "Artifact: ${artifact}"
+  echo
+  cat "$artifact"
+  maybe_render_html "$artifact"
+}
+
+render_html_target() {
+  local ref="$1"
+  local artifact
+
+  artifact="$(resolve_artifact_reference "$ref")" ||
+    die "Artifact not found for reference '${ref}'. Use a path or latest:<kind>."
+  render_artifact_html "$artifact"
 }
 
 append_report_section() {
@@ -3931,6 +4285,7 @@ run_maa_report() {
   echo "MAA readiness report generated: ${report_file}"
   echo "Detected MAA posture: ${detected_level}"
   echo "Readiness status: ${readiness_status}"
+  maybe_render_html "$report_file"
 }
 
 append_report_command() {
@@ -4933,6 +5288,7 @@ run_backup_report() {
   echo "Strategy detected: ${strategy}"
   echo "RPO estimate: ${rpo_hint}"
   echo "RTO estimate: ${rto_hint}"
+  maybe_render_html "$report_file"
   if [[ "$repo_status" -ne 0 || "$validate_status" -ne 0 ]]; then
     warn "One or more RMAN report/validation sections exited with a non-zero status. Review: ${report_file}"
   fi
@@ -5419,6 +5775,7 @@ run_configuration_report() {
   fi
 
   echo "Configuration report generated: ${report_file}"
+  maybe_render_html "$report_file"
 }
 
 print_recovery_runbook() {
@@ -7108,12 +7465,36 @@ parse_args() {
         MODE="audit_purge"
         shift
         ;;
+      --review|--review-artifacts|--history|--activity-history)
+        MODE="review"
+        shift
+        ;;
+      --review-topology|--show-topology-cache|--topology-cache)
+        MODE="review_topology"
+        shift
+        ;;
+      --show-artifact|--view-artifact)
+        [[ "$#" -ge 2 ]] || die "$1 requires an artifact path or latest:<kind>"
+        MODE="show_artifact"
+        REVIEW_TARGET="$2"
+        shift 2
+        ;;
+      --render-html|--html-artifact|--artifact-html)
+        [[ "$#" -ge 2 ]] || die "$1 requires an artifact path or latest:<kind>"
+        MODE="render_html"
+        HTML_TARGET="$2"
+        shift 2
+        ;;
       --maa-report|--maa-assessment|--maa-readiness)
         MODE="maa_report"
         shift
         ;;
       --deep-validate)
         REPORT_DEEP_VALIDATE=1
+        shift
+        ;;
+      --html|--html-output)
+        HTML_OUTPUT=1
         shift
         ;;
       --validate-scenario|--validate|--check-scenario)
@@ -7932,6 +8313,118 @@ menu_run_audit_purge() {
   menu_run_child_command
 }
 
+menu_run_review_index() {
+  local html_mode="$1"
+  MENU_CMD=("$0" "--review")
+  [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_run_review_topology() {
+  local html_mode="$1"
+  MENU_CMD=("$0" "--review-topology")
+  [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_prompt_artifact_reference() {
+  local var_name="$1"
+  local answer
+
+  echo "Enter artifact path or latest:<kind> reference."
+  echo "Kinds: topology, config, backup, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Blank uses latest:any:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || answer="latest:any"
+  printf -v "$var_name" "%s" "$answer"
+}
+
+menu_run_show_artifact() {
+  local html_mode="$1"
+  local ref
+  menu_prompt_artifact_reference ref || return "$FAIL"
+  MENU_CMD=("$0" "--show-artifact" "$ref")
+  [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_run_render_html() {
+  local ref
+  menu_prompt_artifact_reference ref || return "$FAIL"
+  MENU_CMD=("$0" "--render-html" "$ref")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_review_center() {
+  local answer
+
+  while true; do
+    echo
+    echo "Review Center"
+    echo "  1. Show latest collected topology"
+    echo "  2. Generate HTML for latest collected topology"
+    echo "  3. Generate collected activity review index"
+    echo "  4. Generate collected activity review index with HTML"
+    echo "  5. Show artifact as text"
+    echo "  6. Show artifact as text and generate HTML"
+    echo "  7. Generate HTML for artifact"
+    echo "  8. Show recent manifests, logs, reports, and HTML files"
+    echo "  b. Back"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1)
+        menu_run_review_topology "text"
+        menu_pause
+        ;;
+      2)
+        menu_run_review_topology "html"
+        menu_pause
+        ;;
+      3)
+        menu_run_review_index "text"
+        menu_pause
+        ;;
+      4)
+        menu_run_review_index "html"
+        menu_pause
+        ;;
+      5)
+        menu_run_show_artifact "text"
+        menu_pause
+        ;;
+      6)
+        menu_run_show_artifact "html"
+        menu_pause
+        ;;
+      7)
+        menu_run_render_html
+        menu_pause
+        ;;
+      8)
+        menu_show_recent_artifacts
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown review menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
 menu_audit_settings() {
   local answer
 
@@ -8057,7 +8550,7 @@ menu_reports() {
 menu_show_recent_artifacts() {
   echo
   echo "Recent files in ${LOG_DIR}:"
-  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' \) 2>/dev/null |
+  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \) 2>/dev/null |
     sort |
     tail -40 |
     sed 's/^/  /'
@@ -8087,6 +8580,7 @@ interactive_menu() {
     echo " 16. Reports"
     echo " 17. Validate all scenarios for this topology"
     echo " 18. Audit / retention settings"
+    echo " 19. Review collected topology, logs, reports, and history"
     echo
     echo "Execution actions - typed confirmation required"
     echo "  7. Execute protection for selected scenario"
@@ -8175,6 +8669,9 @@ interactive_menu() {
       18)
         menu_audit_settings
         ;;
+      19)
+        menu_review_center
+        ;;
       q|Q|0)
         break
         ;;
@@ -8217,6 +8714,20 @@ main() {
       ;;
     audit_purge)
       purge_audit_logs
+      ;;
+    review)
+      generate_review_index
+      ;;
+    review_topology)
+      review_topology
+      ;;
+    show_artifact)
+      [[ -n "$REVIEW_TARGET" ]] || die "No artifact reference provided."
+      show_artifact "$REVIEW_TARGET"
+      ;;
+    render_html)
+      [[ -n "$HTML_TARGET" ]] || die "No artifact reference provided."
+      render_html_target "$HTML_TARGET"
       ;;
     maa_report)
       run_maa_report

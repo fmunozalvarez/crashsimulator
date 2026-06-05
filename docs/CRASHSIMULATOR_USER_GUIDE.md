@@ -266,6 +266,9 @@ The menu provides options to:
 - Generate configuration, backup strategy/recoverability, and MAA readiness
   reports.
 - Configure audit retention, show audit status, and purge old audit records.
+- Review previously collected topology, runbooks, reports, scenario manifests,
+  health checks, dry-run/execution records, and audit history.
+- Create optional HTML copies of reports and logs for easier viewing.
 
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
@@ -484,6 +487,44 @@ The purge process removes audit run folders older than the configured retention
 period. It is dry-run by default. Execution requires `--execute` and the
 `PURGE-AUDIT-LOGS` confirmation token unless `--yes` is supplied by trusted
 automation.
+
+### Review Center And HTML Output
+
+The Review Center helps users inspect information that CrashSimulator already
+collected. It does not run a new crash scenario and does not need to reconnect to
+the database for the review index. This is useful for operators, auditors, and
+training sessions where users need to revisit topology, scenario plans,
+runbooks, dry-runs, recovery attempts, health checks, reports, and audit
+records.
+
+Common CLI commands:
+
+```bash
+./CrashSimulatorV2.sh --review
+./CrashSimulatorV2.sh --review --html
+./CrashSimulatorV2.sh --review-topology
+./CrashSimulatorV2.sh --show-artifact latest:topology
+./CrashSimulatorV2.sh --show-artifact latest:runbook --html
+./CrashSimulatorV2.sh --render-html latest:backup
+```
+
+The Guided Workflow menu includes a Review Center option with choices to:
+
+- Show the latest collected topology snapshot.
+- Generate HTML for the latest topology snapshot.
+- Build a review index across collected manifests, runbooks, reports, health
+  checks, baseline plans/logs, and audit records.
+- Show a stored artifact as text.
+- Generate an HTML copy of a stored artifact.
+- List recent manifests, logs, reports, and HTML files.
+
+`--html` creates an additional `.html` file next to the normal output. It does
+not replace the existing `.log`, `.md`, `.txt`, `.rman`, `.sql`, or `.manifest`
+files. Use `--render-html <path>` to convert one known artifact, or
+`--render-html latest:<kind>` to convert the latest artifact of a type.
+Supported shortcuts include `topology`, `config`, `backup`, `maa`, `health`,
+`scenario`, `protect`, `recover`, `runbook`, `baseline`, `review`, `audit`, and
+`latest`.
 
 ### MAA Readiness Report
 

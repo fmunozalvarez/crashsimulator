@@ -120,7 +120,10 @@ drive from a single screen:
 - generate backup strategy and recoverability/RTO/RPO reports
 - generate Oracle MAA readiness and SLA planning reports
 - configure audit retention, inspect audit status, and purge old audit records
-- view recent manifests and logs
+- review collected topology, manifests, runbooks, dry-run/execution records,
+  reports, health checks, configuration outputs, and audit history
+- render reports and logs as optional HTML files for easier viewing
+- view recent manifests, logs, reports, and HTML files
 
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the
@@ -129,6 +132,32 @@ The menu separates safe planning actions from confirmation-required execution
 actions. Menu-launched child commands keep sensitive values out of the printed
 command line; RMAN catalog connect strings and SYS passwords are shown only as
 redacted environment values.
+
+## Review Center And HTML Output
+
+CrashSimulator stores generated evidence in the configured log directory and,
+when audit retention is enabled, in the audit archive. The Review Center lets
+users inspect this already collected information without reconnecting to the
+database or rerunning a scenario.
+
+Common CLI commands:
+
+```bash
+./CrashSimulatorV2.sh --review
+./CrashSimulatorV2.sh --review --html
+./CrashSimulatorV2.sh --review-topology
+./CrashSimulatorV2.sh --show-artifact latest:runbook
+./CrashSimulatorV2.sh --show-artifact latest:health --html
+./CrashSimulatorV2.sh --render-html latest:backup
+```
+
+Use `--html` with supported report, health-check, runbook, topology, baseline,
+review, and artifact commands to create an additional `.html` file next to the
+normal text, Markdown, RMAN, or log output. The original report/log format is
+kept unchanged. `--render-html <path|latest:kind>` can convert an existing
+artifact later. Supported `latest:<kind>` shortcuts include `topology`,
+`config`, `backup`, `maa`, `health`, `scenario`, `protect`, `recover`,
+`runbook`, `baseline`, `review`, `audit`, and `latest`.
 
 ## Scenario Readiness Validation
 

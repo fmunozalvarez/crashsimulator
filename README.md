@@ -9,7 +9,10 @@ with recovery objectives and regulatory requirements.
 CrashSimulator V2 is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, configuration reports, and
-Oracle MAA readiness reporting.
+Oracle MAA readiness reporting. It can also review previously collected
+topology, runbooks, health checks, reports, manifests, and audit records from
+the CLI or Guided Workflow menu, with optional HTML rendering for easier
+visualization.
 
 For the full end-user documentation, read:
 
@@ -67,6 +70,8 @@ and redacts RMAN catalog/SYS password values from command echoes.
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
+./CrashSimulatorV2.sh --review
+./CrashSimulatorV2.sh --show-artifact latest:topology --html
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --scenario 30 --pdb CRASHPDB --dry-run
 ```
