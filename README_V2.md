@@ -19,6 +19,7 @@ the full scenario catalog, read:
 - `README.md` for the short project entry point.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
 - `SCENARIO_STATUS.md` for current validation status and known gaps.
+- `docs/reference/README.md` for sanitized report examples.
 
 ## Install From A ZIP File
 

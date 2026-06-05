@@ -16,6 +16,7 @@ For the full end-user documentation, read:
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
+- [Reference report examples](docs/reference/README.md)
 
 ## Install From A ZIP File
 

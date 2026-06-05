@@ -412,6 +412,9 @@ CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh 
 `RESTORE DATABASE VALIDATE`, `RESTORE ARCHIVELOG ALL VALIDATE`, and
 `VALIDATE DATABASE CHECK LOGICAL`.
 
+Sanitized examples are available under `docs/reference/`, including default
+target-control-file, recovery-catalog-backed, and deep-validation report output.
+
 ### MAA Readiness Report
 
 `--maa-report` generates a best-effort Oracle MAA posture report. It maps
