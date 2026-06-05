@@ -202,6 +202,16 @@ Additional framework improvements and validations completed:
   SPFILE backup was created in `+RECOCRASHDB`. Dry-runs completed and remained
   correctly gated for destructive execution where the current storage topology
   is not safe.
+- `8`, `12`, `13`, `15`, `22`, `33`, `34`, `35`, `37`, `38`, `40`, and `42`:
+  ASM-aware destructive and recovery helper coverage was added. Datafile and
+  tablespace scenarios now plan `asmcmd rm`-based ASM file loss actions with
+  FILE# metadata in the manifest; tempfile scenarios plan ASM tempfile removal
+  with multi-tempfile metadata repair; and ASM header-corruption drills use a
+  documented loss-style surrogate that removes the ASM datafile and practices
+  FILE# restore/recover. All listed scenarios were readiness validated on the
+  two-node RAC lab, followed by dry-run scenario manifests and recovery dry-run
+  generation. Datafile-based scenarios also produced `--protect` RMAN dry-run
+  plans with the expected FILE# lists.
 
 Final two-node RAC validation showed:
 
@@ -267,7 +277,7 @@ Recommended next validation coverage:
 - True storage-level current-redo fault injection for scenario `3`
 - Redundant GI lab coverage for destructive scenarios `46`, `47`, `48`, and `49`
 - Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
-- ASM-aware destructive/recovery helpers for remaining PDB and root
-  datafile/tablespace scenarios: `8`, `12`, `13`, `15`, `22`, `33`, `34`,
+- Controlled destructive execution validation for the new ASM-aware root/PDB
+  datafile and tempfile helpers: `8`, `12`, `13`, `15`, `22`, `33`, `34`,
   `35`, `37`, `38`, `40`, and `42`
 - Controlled CDB-root read-only/index-only targets for scenarios `9` and `10`

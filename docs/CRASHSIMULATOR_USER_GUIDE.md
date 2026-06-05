@@ -326,8 +326,8 @@ Common blockers include:
 - The requested PDB does not exist.
 - No suitable target exists, such as no read-only tablespace, no index-only
   tablespace, no non-unique index, no local backup piece, or no archived log.
-- The selected file is in ASM or provider-managed storage and the scenario does
-  not yet have a safe ASM-aware execution helper.
+- The selected file is in ASM or provider-managed storage and that specific
+  scenario still needs a safe ASM-aware or provider-aware execution helper.
 - Scenario 25 guardrails are missing.
 - The scenario is registered as a future placeholder but no runnable handler is
   implemented yet.
@@ -372,8 +372,9 @@ implemented.
 `--recover <id>` uses the executed scenario manifest to plan or run recovery.
 
 Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
-`7`, `14`, `16`, `17`, `18`, `19`, `20`, `21`, `23`, `24`, `25`, `26`, `30`,
-`31`, `32`, `39`, `41`, `55`, and `59`.
+`7`, `8`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`, `21`, `22`,
+`23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`, `35`, `37`, `38`,
+`39`, `40`, `41`, `42`, `55`, `56`, `57`, `58`, and `59`.
 
 For unsupported scenarios, use `--runbook <id>` and the generated target
 evidence to perform the recovery manually.
@@ -693,21 +694,21 @@ Scope meanings:
 | 5 | Loss of one non-system datafile | Core | CDB/non-CDB | destructive | Online or offline datafile restore and recover. | Protection and recovery helpers available. Good early datafile drill. |
 | 6 | Loss of one temporary file | Core | CDB/non-CDB | destructive | Tempfile recreation without media recovery. | Recovery helper available. Usually lower risk. |
 | 7 | Loss of one SYSTEM datafile | Core | CDB/non-CDB | destructive | Mount-mode SYSTEM datafile restore/recover. | Protection and recovery helpers available. High impact. |
-| 8 | Loss of one UNDO datafile | Core | CDB/non-CDB | destructive | UNDO datafile failure and transaction recovery behavior. | Use runbook until scenario-specific recovery is validated in the target topology. |
+| 8 | Loss of one UNDO datafile | Core | CDB/non-CDB | destructive | UNDO datafile failure and transaction recovery behavior. | Protection and recovery helpers available. ASM targets use `asmcmd rm` plus FILE# restore/recover. |
 | 9 | Loss of a read-only tablespace | Core | CDB/non-CDB | destructive | Restore of read-only tablespace files and backup strategy for read-only data. | Requires a valid read-only tablespace target. |
 | 10 | Loss of an index-only tablespace | Core | CDB/non-CDB | destructive | Rebuild or restore of index-only storage. | Requires an index-only tablespace target. Lab seed helps for PDB variants. |
 | 11 | Drop non-unique indexes outside Oracle schemas | Logical | CDB/non-CDB | logical | Rebuilding dropped non-unique indexes from DDL or deployment source. | Use `--schema` to constrain targets. Re-run seed script after testing. |
-| 12 | Loss of a non-system tablespace | Core | CDB/non-CDB | destructive | Tablespace-level restore and recover. | Use runbook or manual RMAN flow where automation is not yet dedicated. |
-| 13 | Loss of a temporary tablespace | Core | CDB/non-CDB | destructive | Temporary tablespace repair and default temp tablespace validation. | Similar concept to tempfile recovery, but at tablespace scope. |
+| 12 | Loss of a non-system tablespace | Core | CDB/non-CDB | destructive | Tablespace-level restore and recover. | Protection and recovery helpers available for selected FILE# targets. |
+| 13 | Loss of a temporary tablespace | Core | CDB/non-CDB | destructive | Temporary tablespace repair and default temp tablespace validation. | Recovery helper available, including ASM tempfile removal and metadata repair. |
 | 14 | Loss of SYSTEM tablespace | Core | CDB/non-CDB | destructive | Full SYSTEM tablespace restore/recover in mount mode. | Protection and recovery helpers available. Very high impact. |
-| 15 | Loss of UNDO tablespace | Core | CDB/non-CDB | destructive | UNDO tablespace restore/recover and database open behavior. | Requires careful planning and validation. |
+| 15 | Loss of UNDO tablespace | Core | CDB/non-CDB | destructive | UNDO tablespace restore/recover and database open behavior. | Protection and recovery helpers available. Requires careful planning and validation. |
 | 16 | Loss of password file | Config | CDB/non-CDB | destructive | Password-file recreation and remote SYSDBA/SYSBACKUP validation. | Recovery helper available. Use `--sys-password` or `CRASHSIM_SYS_PASSWORD`. |
 | 17 | Loss of all datafiles | Core | CDB/non-CDB | destructive | Whole-database restore/recover. | Protection and recovery helpers available. Very high impact. |
 | 18 | Loss of one member from multiplexed redo group | Core | CDB/non-CDB | destructive | Redo multiplexing and restoring/recreating a lost member. | Recovery helper available. Requires a redo group with multiple members. |
 | 19 | Loss of all inactive redo groups | Core | CDB/non-CDB | destructive | Clearing/recreating inactive redo groups and validating log switching. | Recovery helper available. |
 | 20 | Loss of all active redo groups | Core | CDB/non-CDB | destructive | Active redo loss decisions and RPO exposure. | Recovery helper available. High risk. |
 | 21 | Loss of all current redo group members | Core | CDB/non-CDB | destructive | Current redo total loss and incomplete recovery/failover decisions. | Recovery helper available. High risk. |
-| 22 | Datafile header corruption | Corrupt | CDB/non-CDB | destructive | Detecting and recovering a corrupted datafile header. | Filesystem corruption helper refuses ASM paths unless ASM-aware handling exists. |
+| 22 | Datafile header corruption | Corrupt | CDB/non-CDB | destructive | Detecting and recovering a corrupted datafile header. | Filesystem targets use header corruption; ASM targets use a documented loss-style surrogate and FILE# recovery. |
 | 23 | Control file corruption | Corrupt | CDB/non-CDB | destructive | Control file corruption response and restore from clean copy/autobackup. | Recovery helper available. |
 | 24 | Redo log corruption | Corrupt | CDB/non-CDB | destructive | Redo corruption detection and recovery decision-making. | Recovery helper available. High risk for active/current redo. |
 | 25 | Loss of RMAN backup pieces | Backup | CDB/non-CDB | destructive | Backup-piece loss, crosscheck, restore from secondary storage, and validate. | Recovery helper available for local filesystem pieces. Use `--local-only --max-targets 1` or `--piece-handle`. |
@@ -718,16 +719,16 @@ Scope meanings:
 | 30 | PDB loss of one non-system datafile | PDB | PDB | destructive | PDB-scoped datafile restore/recover. | Requires `--pdb`. Protection and recovery helpers available. |
 | 31 | PDB loss of one temporary file | PDB | PDB | destructive | PDB tempfile recreation and temp workload validation. | Requires `--pdb`. Recovery helper available. |
 | 32 | PDB loss of one SYSTEM datafile | PDB | PDB | destructive | PDB SYSTEM datafile restore/recover. | Requires `--pdb`. Protection and recovery helpers available. |
-| 33 | PDB loss of one UNDO datafile | PDB | PDB | destructive | Local undo datafile loss in a PDB. | Requires local undo and `--pdb`. Use runbook until helper coverage is validated. |
-| 34 | PDB loss of read-only tablespace | PDB | PDB | destructive | PDB read-only tablespace restore. | Requires `--pdb` and read-only tablespace target. |
-| 35 | PDB loss of index-only tablespace | PDB | PDB | destructive | PDB index-only storage loss and rebuild/restore decision. | Requires `--pdb` and index-only tablespace target. |
+| 33 | PDB loss of one UNDO datafile | PDB | PDB | destructive | Local undo datafile loss in a PDB. | Requires local undo and `--pdb`. Protection and recovery helpers available. |
+| 34 | PDB loss of read-only tablespace | PDB | PDB | destructive | PDB read-only tablespace restore. | Requires `--pdb` and read-only tablespace target. Protection and recovery helpers available. |
+| 35 | PDB loss of index-only tablespace | PDB | PDB | destructive | PDB index-only storage loss and rebuild/restore decision. | Requires `--pdb` and index-only tablespace target. Protection and recovery helpers available. |
 | 36 | PDB drop non-unique indexes | PDB | PDB | logical | PDB-local index rebuild from DDL/deployment metadata. | Requires `--pdb`. Use `--schema` to target lab schema. |
-| 37 | PDB loss of non-system tablespace | PDB | PDB | destructive | PDB tablespace-level restore/recover. | Requires `--pdb`. |
-| 38 | PDB loss of temporary tablespace | PDB | PDB | destructive | PDB temporary tablespace repair. | Requires `--pdb`. Tempfiles usually need recreation, not media recovery. |
+| 37 | PDB loss of non-system tablespace | PDB | PDB | destructive | PDB tablespace-level restore/recover. | Requires `--pdb`. Protection and recovery helpers available. |
+| 38 | PDB loss of temporary tablespace | PDB | PDB | destructive | PDB temporary tablespace repair. | Requires `--pdb`. Recovery helper available; tempfiles usually need recreation, not media recovery. |
 | 39 | PDB loss of SYSTEM tablespace | PDB | PDB | destructive | PDB SYSTEM tablespace restore/recover. | Requires `--pdb`. Protection and recovery helpers available. |
-| 40 | PDB loss of UNDO tablespace | PDB | PDB | destructive | PDB local undo tablespace recovery. | Requires `--pdb` and local undo design. |
+| 40 | PDB loss of UNDO tablespace | PDB | PDB | destructive | PDB local undo tablespace recovery. | Requires `--pdb` and local undo design. Protection and recovery helpers available. |
 | 41 | PDB loss of all datafiles | PDB | PDB | destructive | Full PDB restore/recover while preserving CDB posture. | Requires `--pdb`. Protection and recovery helpers available. |
-| 42 | PDB SYSTEM file header corruption | PDB | PDB | destructive | PDB SYSTEM datafile header corruption response. | Requires `--pdb`. Use runbook/manual recovery where helper is not validated. |
+| 42 | PDB SYSTEM file header corruption | PDB | PDB | destructive | PDB SYSTEM datafile header corruption response. | Requires `--pdb`. Filesystem targets use header corruption; ASM targets use a documented loss-style surrogate and FILE# recovery. |
 | 43 | PDB loss of one user table | PDB | PDB | logical | Table restore through Flashback, Data Pump, table recovery, or application reload. | Requires `--pdb` and preferably a lab schema. Re-run seed after testing. |
 | 44 | PDB loss of one user schema | PDB | PDB | logical | Schema-level recovery through Data Pump or PDB PITR/extract. | Requires `--pdb` and a lab schema. Re-run seed after testing. |
 | 45 | Drop selected PDB including datafiles | PDB | PDB | destructive | Dropped PDB recovery planning and service recreation. | Guarded to disposable PDB names starting with `CRASHSIM_`. Never target production PDBs. |

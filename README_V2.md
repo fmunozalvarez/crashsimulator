@@ -341,35 +341,51 @@ the RMAN restore/recover command file. Both modes write a manifest containing
 the scenario id, target PDB/container, file number, tablespace, datafile path,
 RMAN tag, command files, and logs.
 
-On ASM storage, datafile crash injection is kept as a provider-specific
-`external` action until an ASM-aware helper exists, but `--protect` still
-resolves FILE# metadata and can plan or run RMAN protection for those targets.
+On ASM storage, supported datafile and tempfile drills use ASM-aware action
+kinds such as `asm_rm`, `asm_tempfile_rm`, and `asm_corrupt_header`. The helper
+uses `asmcmd rm` through the Grid environment for ASM file-loss practice and
+records FILE#/tablespace/container metadata for RMAN recovery. ASM header
+corruption uses a documented loss-style surrogate because filesystem `dd`
+cannot safely target ASM files directly.
 
 Automated RMAN protection is currently enabled for:
 
 - Scenario 5: loss of one non-system datafile in a non-CDB or CDB root.
 - Scenario 7: loss of one SYSTEM datafile.
+- Scenario 8: loss of one UNDO datafile.
+- Scenario 12: loss of one non-system tablespace.
 - Scenario 14: loss of SYSTEM tablespace.
+- Scenario 15: loss of UNDO tablespace.
 - Scenario 17: loss of all datafiles.
+- Scenario 22: datafile header-corruption recovery practice.
 - Scenario 30: loss of one non-system PDB datafile.
 - Scenario 32: PDB loss of one SYSTEM datafile.
+- Scenario 33: PDB loss of one UNDO datafile.
+- Scenario 34: PDB loss of read-only tablespace.
+- Scenario 35: PDB loss of index-only tablespace.
+- Scenario 37: PDB loss of non-system tablespace.
 - Scenario 39: PDB loss of SYSTEM tablespace.
+- Scenario 40: PDB loss of UNDO tablespace.
 - Scenario 41: PDB loss of all datafiles.
+- Scenario 42: PDB SYSTEM file header-corruption recovery practice.
 
 Automated recovery helpers are currently enabled for:
 
 - Scenario 1, 2, and 23: control-file restore from scenario backup copies,
   startup/open validation, RMAN control-file validation, and backup cleanup.
 - Scenario 5 and 30: RMAN datafile restore/recover.
-- Scenario 6 and 31: tempfile metadata repair/replacement. Recovery queries
-  current tempfiles first because OMF may auto-create replacements on startup.
+- Scenario 6, 13, 31, and 38: tempfile metadata repair/replacement. Recovery
+  queries current tempfiles first because OMF may auto-create replacements on
+  startup, and tablespace-wide temp drills can repair multiple tempfile
+  metadata entries.
 - Scenario 3, 4, 18, 19, 20, 21, and 24: redo member restore from scenario
   backup copies, database open validation, redo metadata checks, forced log
   switch, and backup cleanup. ASM redo manifests can also drive drop/add-member
   recovery when the missing member is an ASM file and no filesystem backup pair
   exists.
-- Scenario 7, 14, 17, 32, 39, and 41: RMAN restore/recover for SYSTEM and
-  all-datafile drills using FILE# metadata captured in the scenario manifest.
+- Scenario 7, 8, 12, 14, 15, 17, 22, 32, 33, 34, 35, 37, 39, 40, 41, and 42:
+  RMAN restore/recover for datafile and tablespace drills using FILE# metadata
+  captured in the scenario manifest.
 - Scenario 16: password-file recreation, optional SYSBACKUP re-grant, and remote
   SYSDBA validation. Use `CRASHSIM_SYS_PASSWORD` or `--sys-password`, and
   optionally `--service-name`.
@@ -491,9 +507,8 @@ For automated lab runs only:
 - RAC, Data Guard, ASM, and Grid Infrastructure scenarios are registered and
   gated by discovered topology. GI-managed single-instance/RAC One Node-style
   databases are reported separately from plain standalone databases.
-- ASM paths are identified as provider-specific targets; filesystem rename or
-  corruption actions are refused until an ASM-aware crash-injection handler is
-  implemented for that scenario.
+- ASM paths are identified and routed to ASM-aware helpers where implemented;
+  scenarios without safe ASM handling remain provider-specific or plan-only.
 - ASM/GI scenarios 46, 47, 48, and 49 include non-destructive planning helpers
   for disk groups, OCR, voting disks, and ASM SPFILE evidence collection.
 - Destructive OCR/voting/ASM disk-group drills should be refused in labs where

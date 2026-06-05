@@ -28,6 +28,7 @@ SYS_PASSWORD="${CRASHSIM_SYS_PASSWORD:-}"
 SERVICE_NAME="${CRASHSIM_SERVICE_NAME:-}"
 SYSBACKUP_USER="${CRASHSIM_SYSBACKUP_USER:-C##DBLCMUSER}"
 TEMPFILE_SIZE="${CRASHSIM_TEMPFILE_SIZE:-100m}"
+GRID_USER="${CRASHSIM_GRID_USER:-grid}"
 LOCAL_ONLY="${CRASHSIM_LOCAL_ONLY:-0}"
 MAX_TARGETS="${CRASHSIM_MAX_TARGETS:-}"
 PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
@@ -105,8 +106,11 @@ declare -a PLAN_TARGET_TABLESPACES=()
 declare -a RESTORE_ORIGINALS=()
 declare -a RESTORE_BACKUPS=()
 declare -a RECOVER_FILE_NOS=()
+declare -a RECOVER_TEMPFILE_PATHS=()
 declare -a ORIGINAL_ARGS=("$@")
 RENAME_COUNT=0
+RECOVER_TEMPFILE_TABLESPACE=""
+RECOVER_TEMPFILE_PDB=""
 
 declare -a SCENARIO_IDS=()
 declare -A SCENARIO_TITLE=()
@@ -916,6 +920,48 @@ where vf.name = ${path_literal};
   printf "%s\n" "$line"
 }
 
+tempfile_metadata_for_path() {
+  local path="$1"
+  local file="$WORK_DIR/tempfile_metadata.$(printf "%s" "$path" | cksum | awk '{print $1}').lst"
+  local path_literal
+  path_literal="$(sql_quote "$path")"
+
+  if [[ "$DB_CDB" == "YES" ]]; then
+    sql_query "$file" "
+select c.name || '|' ||
+       vf.con_id || '|' ||
+       vf.file# || '|' ||
+       ts.name || '|' ||
+       vf.name
+from v\$tempfile vf
+join v\$containers c
+  on c.con_id = vf.con_id
+left join v\$tablespace ts
+  on ts.con_id = vf.con_id
+ and ts.ts# = vf.ts#
+where vf.name = ${path_literal};
+"
+  else
+    sql_query "$file" "
+select 'NONCDB' || '|' ||
+       0 || '|' ||
+       vf.file# || '|' ||
+       ts.name || '|' ||
+       vf.name
+from v\$tempfile vf
+left join v\$tablespace ts
+  on ts.ts# = vf.ts#
+where vf.name = ${path_literal};
+"
+  fi
+
+  local line pdb_name con_id file_no tablespace tempfile_name
+  line="$(trim_blank_lines <"$file" | head -n 1)"
+  IFS='|' read -r pdb_name con_id file_no tablespace tempfile_name <<<"$line"
+  [[ -n "$tempfile_name" && "$file_no" =~ ^[0-9]+$ ]] || return "$FAIL"
+  printf "%s\n" "$line"
+}
+
 redo_metadata_for_path() {
   local path="$1"
   local file="$WORK_DIR/redo_metadata.$(printf "%s" "$path" | cksum | awk '{print $1}').lst"
@@ -953,7 +999,7 @@ reset_plan_targets() {
 record_action_targets() {
   [[ -n "$MANIFEST_FILE" ]] || return "$SUCCESS"
 
-  local idx action_no kind target detail metadata pdb_name con_id file_no tablespace path
+  local idx action_no kind target detail metadata tempfile_metadata pdb_name con_id file_no tablespace path
   local redo_metadata group_no thread_no status archived member_type member
   manifest_append "planned_action_count" "${#ACTION_KINDS[@]}"
   action_no=1
@@ -965,7 +1011,7 @@ record_action_targets() {
     manifest_append "action_${action_no}_target" "$target"
     manifest_append "action_${action_no}_detail" "$detail"
 
-    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* || "$kind" == "external" ]]; then
+    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* || "$kind" == asm_* || "$kind" == "external" ]]; then
       metadata="$(datafile_metadata_for_path "$target" || true)"
       if [[ -n "$metadata" ]]; then
         IFS='|' read -r pdb_name con_id file_no tablespace path <<<"$metadata"
@@ -974,6 +1020,16 @@ record_action_targets() {
         manifest_append "action_${action_no}_file_no" "$file_no"
         manifest_append "action_${action_no}_tablespace" "$tablespace"
         manifest_append "action_${action_no}_datafile" "$path"
+      fi
+
+      tempfile_metadata="$(tempfile_metadata_for_path "$target" || true)"
+      if [[ -n "$tempfile_metadata" ]]; then
+        IFS='|' read -r pdb_name con_id file_no tablespace path <<<"$tempfile_metadata"
+        manifest_append "action_${action_no}_pdb_name" "$pdb_name"
+        manifest_append "action_${action_no}_con_id" "$con_id"
+        manifest_append "action_${action_no}_file_no" "$file_no"
+        manifest_append "action_${action_no}_tablespace" "$tablespace"
+        manifest_append "action_${action_no}_tempfile" "$path"
       fi
 
       redo_metadata="$(redo_metadata_for_path "$target" || true)"
@@ -1001,7 +1057,7 @@ collect_datafile_plan() {
     kind="${ACTION_KINDS[$idx]}"
     target="${ACTION_TARGETS[$idx]}"
     case "$kind" in
-      fs_rename|external)
+      fs_rename|fs_corrupt_header|asm_rm|asm_corrupt_header|external)
         ;;
       *)
         continue
@@ -1284,6 +1340,141 @@ where con_id = to_number(sys_context('USERENV', 'CON_ID'))
 order by file#;
 exit
 SQL
+}
+
+load_manifest_tempfile_targets() {
+  RECOVER_TEMPFILE_PATHS=()
+  RECOVER_TEMPFILE_TABLESPACE=""
+  RECOVER_TEMPFILE_PDB=""
+
+  local count idx kind path tablespace pdb_name
+  count="$(manifest_get "planned_action_count" || true)"
+  [[ "$count" =~ ^[0-9]+$ ]] || count=0
+
+  idx=1
+  while [[ "$idx" -le "$count" ]]; do
+    kind="$(manifest_get "action_${idx}_kind" || true)"
+    case "$kind" in
+      fs_rename|asm_tempfile_rm)
+        path="$(manifest_first_value "action_${idx}_tempfile" "action_${idx}_target" || true)"
+        if [[ -n "$path" ]]; then
+          RECOVER_TEMPFILE_PATHS+=("$path")
+          tablespace="$(manifest_get "action_${idx}_tablespace" || true)"
+          pdb_name="$(manifest_get "action_${idx}_pdb_name" || true)"
+          [[ -n "$RECOVER_TEMPFILE_TABLESPACE" || -z "$tablespace" ]] ||
+            RECOVER_TEMPFILE_TABLESPACE="$tablespace"
+          [[ -n "$RECOVER_TEMPFILE_PDB" || -z "$pdb_name" ]] ||
+            RECOVER_TEMPFILE_PDB="$pdb_name"
+        fi
+        ;;
+    esac
+    idx=$((idx + 1))
+  done
+
+  if [[ "${#RECOVER_TEMPFILE_PATHS[@]}" -eq 0 ]]; then
+    local paths original backup
+    if paths="$(manifest_rename_paths 2>/dev/null)"; then
+      IFS='|' read -r original backup <<<"$paths"
+      [[ -n "$original" ]] && RECOVER_TEMPFILE_PATHS+=("$original")
+    fi
+  fi
+
+  [[ "${#RECOVER_TEMPFILE_PATHS[@]}" -gt 0 ]]
+}
+
+write_tempfile_list_recovery_sql_file() {
+  local container_name="$1"
+  local tablespace_name="$2"
+  local sql_file="$3"
+  shift 3
+
+  local container_sql="" tablespace_literal path path_literal
+  if [[ -n "$container_name" && "$container_name" != "CDB\$ROOT" && "$container_name" != "ROOT" && "$container_name" != "NONCDB" ]]; then
+    container_sql="alter session set container = $(sql_identifier "$container_name");"
+  fi
+  tablespace_literal="$(sql_quote "$tablespace_name")"
+
+  {
+    cat <<SQL
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback on
+${container_sql}
+declare
+  l_tempfile_count number := 0;
+  l_temp_tbs varchar2(128) := ${tablespace_literal};
+begin
+  if l_temp_tbs is null then
+    select property_value
+      into l_temp_tbs
+      from database_properties
+     where property_name = 'DEFAULT_TEMP_TABLESPACE';
+  end if;
+
+  dbms_output.put_line('Temporary tablespace selected for repair: ' || l_temp_tbs);
+SQL
+
+    for path in "$@"; do
+      path_literal="$(sql_quote "$path")"
+      cat <<SQL
+  begin
+    dbms_output.put_line('Dropping missing tempfile metadata for ${path}');
+    execute immediate 'alter database tempfile ' || chr(39) || ${path_literal} || chr(39) || ' drop including datafiles';
+  exception
+    when others then
+      if sqlcode in (-1516, -1116, -1110) then
+        dbms_output.put_line('Tempfile metadata was already absent or not usable: ${path}');
+      else
+        raise;
+      end if;
+  end;
+SQL
+    done
+
+    cat <<'SQL'
+
+  select count(*)
+    into l_tempfile_count
+    from v$tempfile tf
+    join v$tablespace ts
+      on ts.con_id = tf.con_id
+     and ts.ts# = tf.ts#
+   where tf.con_id = to_number(sys_context('USERENV', 'CON_ID'))
+     and ts.name = l_temp_tbs;
+
+  dbms_output.put_line('Current tempfile count after metadata repair: ' || l_tempfile_count);
+
+  if l_tempfile_count <= 0 then
+    dbms_output.put_line('Adding replacement tempfile to ' || l_temp_tbs);
+SQL
+    printf "    execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
+    printf "      ' add tempfile size %s autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    cat <<'SQL'
+  end if;
+
+  select count(*)
+    into l_tempfile_count
+    from v$tempfile tf
+    join v$tablespace ts
+      on ts.con_id = tf.con_id
+     and ts.ts# = tf.ts#
+   where tf.con_id = to_number(sys_context('USERENV', 'CON_ID'))
+     and ts.name = l_temp_tbs;
+
+  if l_tempfile_count <= 0 then
+    raise_application_error(-20001, 'Temporary tablespace ' || l_temp_tbs || ' has no tempfiles after recovery.');
+  end if;
+end;
+/
+select tf.file#, tf.status, tf.enabled, ts.name tablespace_name, tf.name
+from v$tempfile tf
+join v$tablespace ts
+  on ts.con_id = tf.con_id
+ and ts.ts# = tf.ts#
+where tf.con_id = to_number(sys_context('USERENV', 'CON_ID'))
+order by ts.name, tf.file#;
+exit
+SQL
+  } >"$sql_file" || die "Unable to write tempfile-list recovery SQL file: $sql_file"
 }
 
 discover_service_name() {
@@ -2032,7 +2223,7 @@ confirm_mode_execution() {
 supports_file_recovery_automation() {
   local id="$1"
   case "$id" in
-    5|7|14|17|30|32|39|41) return "$SUCCESS" ;;
+    5|7|8|12|14|15|17|22|30|32|33|34|35|37|39|40|41|42) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2040,7 +2231,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|14|16|17|18|19|20|21|23|24|25|26|27|30|31|32|39|41|55|56|57|58|59) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|8|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2106,6 +2297,12 @@ validation_missing_tool_reason() {
   if printf "%s\n" "$output" | grep -Eq '^[[:space:]]*[0-9]+\. srvctl_'; then
     if ! command -v srvctl >/dev/null 2>&1; then
       printf "Selected action requires srvctl, but srvctl was not found in PATH."
+      return "$SUCCESS"
+    fi
+  fi
+  if printf "%s\n" "$output" | grep -Eq '^[[:space:]]*[0-9]+\. asm_'; then
+    if ! discover_grid_home_for_tool asmcmd >/dev/null 2>&1; then
+      printf "Selected action requires asmcmd from Grid Infrastructure, but asmcmd was not found."
       return "$SUCCESS"
     fi
   fi
@@ -2300,7 +2497,7 @@ protect_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
   supports_file_recovery_automation "$id" ||
-    die "Automated RMAN protection currently supports datafile scenarios 5, 7, 14, 17, 30, 32, 39, and 41. Use --runbook $id for manual guidance."
+    die "Automated RMAN protection is not registered for scenario ${id}. Use --runbook ${id} for manual guidance."
 
   check_requirements "$id"
   CURRENT_SCENARIO_ID="$id"
@@ -2575,7 +2772,7 @@ load_manifest_datafile_numbers() {
 scenario_uses_pdb_recovery() {
   local id="$1"
   case "$id" in
-    30|32|39|41) return "$SUCCESS" ;;
+    30|32|33|34|35|37|39|40|41|42) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2584,7 +2781,7 @@ recover_datafile_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
   supports_file_recovery_automation "$id" ||
-    die "Automated RMAN recovery currently supports scenarios 5 and 30. Use --runbook $id for manual guidance."
+    die "Automated RMAN recovery is not registered for scenario ${id}. Use --runbook ${id} for manual guidance."
 
   CURRENT_SCENARIO_ID="$id"
 
@@ -2867,15 +3064,29 @@ recover_tempfile_scenario() {
   scenario_exists "$id" || die "Unknown scenario id: $id"
   require_manifest
 
-  local paths original backup pdb_name container_name sql_file sql_log
-  paths="$(manifest_rename_paths)" || die "Manifest is missing scenario rename paths. Use a manifest from an executed scenario run."
-  IFS='|' read -r original backup <<<"$paths"
-  pdb_name="$TARGET_PDB"
-  if [[ "$id" == "31" && -z "$pdb_name" ]]; then
-    pdb_name="$(manifest_first_value "target_pdb" "action_1_pdb_name" || true)"
+  local paths original backup pdb_name container_name sql_file sql_log has_restore_pairs target_tablespace
+  load_manifest_tempfile_targets ||
+    die "Manifest does not contain tempfile target metadata. Use a manifest from a scenario dry-run or executed run."
+  original="${RECOVER_TEMPFILE_PATHS[0]}"
+  backup=""
+  has_restore_pairs=0
+  if load_manifest_restore_pairs; then
+    original="${RESTORE_ORIGINALS[0]}"
+    backup="${RESTORE_BACKUPS[0]}"
+    has_restore_pairs=1
+  elif paths="$(manifest_rename_paths 2>/dev/null)"; then
+    IFS='|' read -r original backup <<<"$paths"
   fi
-  if [[ "$id" == "31" ]]; then
-    [[ -n "$pdb_name" ]] || die "Scenario 31 recovery requires --pdb or a manifest target_pdb."
+
+  pdb_name="$TARGET_PDB"
+  if [[ "$id" == "31" || "$id" == "38" ]]; then
+    if [[ -z "$pdb_name" ]]; then
+      pdb_name="$(manifest_first_value "target_pdb" "action_1_pdb_name" || true)"
+      [[ -n "$pdb_name" ]] || pdb_name="$RECOVER_TEMPFILE_PDB"
+    fi
+  fi
+  if [[ "$id" == "31" || "$id" == "38" ]]; then
+    [[ -n "$pdb_name" ]] || die "Scenario ${id} recovery requires --pdb or a manifest target PDB."
     pdb_name="$(normalize_name "$pdb_name")"
     validate_oracle_name "$pdb_name" || die "Invalid PDB name: $pdb_name"
     TARGET_PDB="$pdb_name"
@@ -2887,12 +3098,19 @@ recover_tempfile_scenario() {
   manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   manifest_append "recover_original_path" "$original"
   manifest_append "recover_backup_path" "$backup"
+  manifest_append "recover_tempfile_count" "${#RECOVER_TEMPFILE_PATHS[@]}"
 
   echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
   echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
   echo "Container: ${container_name}"
-  echo "Original tempfile: ${original}"
-  echo "Scenario backup: ${backup}"
+  echo "Tempfile target count: ${#RECOVER_TEMPFILE_PATHS[@]}"
+  local tempfile_path
+  for tempfile_path in "${RECOVER_TEMPFILE_PATHS[@]}"; do
+    echo "  ${tempfile_path}"
+  done
+  if [[ -n "$backup" ]]; then
+    echo "Scenario backup: ${backup}"
+  fi
   echo "Manifest: ${MANIFEST_FILE}"
   echo
   print_recovery_runbook "$id"
@@ -2903,12 +3121,21 @@ recover_tempfile_scenario() {
 
   sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_tempfile.sql"
   sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_tempfile.log"
-  write_tempfile_recovery_sql_file "$container_name" "$original" "$sql_file"
+  target_tablespace="$RECOVER_TEMPFILE_TABLESPACE"
+  if [[ "${#RECOVER_TEMPFILE_PATHS[@]}" -eq 1 && -z "$target_tablespace" ]]; then
+    write_tempfile_recovery_sql_file "$container_name" "$original" "$sql_file"
+  else
+    write_tempfile_list_recovery_sql_file "$container_name" "$target_tablespace" "$sql_file" "${RECOVER_TEMPFILE_PATHS[@]}"
+  fi
   manifest_append "recover_tempfile_sqlfile" "$sql_file"
   manifest_append "recover_tempfile_log" "$sql_log"
   run_sql_script_file "$sql_file" "$sql_log"
 
-  safe_remove_after_validation "$backup"
+  if [[ "$has_restore_pairs" -eq 1 ]]; then
+    safe_remove_restore_backups
+  elif [[ -n "$backup" ]]; then
+    safe_remove_after_validation "$backup"
+  fi
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
@@ -3399,10 +3626,10 @@ recover_scenario() {
     5|30)
       recover_datafile_scenario "$id"
       ;;
-    6|31)
+    6|13|31|38)
       recover_tempfile_scenario "$id"
       ;;
-    7|14|17|32|39|41)
+    7|8|12|14|15|17|22|32|33|34|35|37|39|40|41|42)
       recover_datafile_list_scenario "$id"
       ;;
     16)
@@ -6230,6 +6457,12 @@ execute_actions() {
       fs_corrupt_body)
         perform_fs_corrupt "$target" 1 30
         ;;
+      asm_rm|asm_tempfile_rm)
+        perform_asm_rm "$target"
+        ;;
+      asm_corrupt_header)
+        perform_asm_rm "$target"
+        ;;
       sql)
         run_sql_action "$detail" "$target"
         ;;
@@ -6253,6 +6486,14 @@ execute_actions() {
         ;;
     esac
   done
+}
+
+perform_asm_rm() {
+  local path="$1"
+  [[ "$path" == +* ]] || die "ASM remove action received a non-ASM path: $path"
+  echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
+  run_asmcmd_with_grid_env rm "$path" ||
+    die "Unable to remove ASM file with asmcmd: $path"
 }
 
 perform_fs_rename() {
@@ -6394,6 +6635,28 @@ add_fs_rename_targets() {
   done
 }
 
+add_datafile_loss_targets() {
+  local row
+  for row in "${TARGET_ROWS[@]}"; do
+    if [[ "$row" == +* ]]; then
+      add_action "asm_rm" "$row" "ASM datafile loss via asmcmd rm"
+    else
+      add_action "fs_rename" "$row"
+    fi
+  done
+}
+
+add_tempfile_loss_targets() {
+  local row
+  for row in "${TARGET_ROWS[@]}"; do
+    if [[ "$row" == +* ]]; then
+      add_action "asm_tempfile_rm" "$row" "ASM tempfile loss via asmcmd rm"
+    else
+      add_action "fs_rename" "$row"
+    fi
+  done
+}
+
 add_fs_corrupt_targets() {
   local kind="$1"
   local row
@@ -6402,6 +6665,17 @@ add_fs_corrupt_targets() {
       add_action "external" "$row" "ASM path requires ASM-aware corruption handling; filesystem dd is not valid"
     else
       add_action "$kind" "$row"
+    fi
+  done
+}
+
+add_datafile_header_corrupt_targets() {
+  local row
+  for row in "${TARGET_ROWS[@]}"; do
+    if [[ "$row" == +* ]]; then
+      add_action "asm_corrupt_header" "$row" "ASM header-corruption surrogate: remove ASM datafile and recover FILE#"
+    else
+      add_action "fs_corrupt_header" "$row"
     fi
   done
 }
@@ -6620,7 +6894,7 @@ scenario_non_system_one() {
   query_nonpdb_datafiles "$WORK_DIR/non_system_one.lst" \
     "ts.contents = 'PERMANENT' and df.tablespace_name not in ('SYSTEM','SYSAUX')" \
     "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6628,7 +6902,7 @@ scenario_non_system_one() {
 scenario_temp_one() {
   reset_actions
   query_nonpdb_tempfiles "$WORK_DIR/temp_one.lst" "1 = 1" "$(one_row)"
-  add_fs_rename_targets
+  add_tempfile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6636,7 +6910,7 @@ scenario_temp_one() {
 scenario_system_one() {
   reset_actions
   query_nonpdb_datafiles "$WORK_DIR/system_one.lst" "df.tablespace_name = 'SYSTEM'" "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6644,7 +6918,7 @@ scenario_system_one() {
 scenario_undo_one() {
   reset_actions
   query_nonpdb_datafiles "$WORK_DIR/undo_one.lst" "ts.contents = 'UNDO'" "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6662,7 +6936,7 @@ df.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6695,7 +6969,7 @@ from dba_data_files df
 join target_ts t on t.tablespace_name = df.tablespace_name
 order by df.file_id;
 "
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6757,7 +7031,7 @@ df.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6775,7 +7049,7 @@ tf.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_tempfile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6783,7 +7057,7 @@ tf.tablespace_name = (
 scenario_system_tbs() {
   reset_actions
   query_nonpdb_datafiles "$WORK_DIR/system_tbs.lst" "df.tablespace_name = 'SYSTEM'" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6801,7 +7075,7 @@ df.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6825,7 +7099,7 @@ scenario_password_file() {
 scenario_all_datafiles() {
   reset_actions
   query_all_datafiles "$WORK_DIR/all_datafiles.lst"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6833,7 +7107,7 @@ scenario_all_datafiles() {
 scenario_file_header_corrupt() {
   reset_actions
   query_nonpdb_datafiles "$WORK_DIR/file_header_corrupt.lst" "df.tablespace_name = 'SYSTEM'" "$(one_row)"
-  add_fs_corrupt_targets "fs_corrupt_header"
+  add_datafile_header_corrupt_targets
   execute_actions
   abort_target_instance
 }
@@ -6978,7 +7252,7 @@ scenario_pdb_non_system_one() {
   query_pdb_datafiles "$WORK_DIR/pdb_non_system_one.lst" \
     "ts.contents = 'PERMANENT' and df.tablespace_name not in ('SYSTEM','SYSAUX')" \
     "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6986,7 +7260,7 @@ scenario_pdb_non_system_one() {
 scenario_pdb_temp_one() {
   reset_actions
   query_pdb_tempfiles "$WORK_DIR/pdb_temp_one.lst" "1 = 1" "$(one_row)"
-  add_fs_rename_targets
+  add_tempfile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -6994,7 +7268,7 @@ scenario_pdb_temp_one() {
 scenario_pdb_system_one() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_system_one.lst" "df.tablespace_name = 'SYSTEM'" "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7002,7 +7276,7 @@ scenario_pdb_system_one() {
 scenario_pdb_undo_one() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_undo_one.lst" "ts.contents = 'UNDO'" "$(one_row)"
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7024,7 +7298,7 @@ df.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7065,7 +7339,7 @@ join target_pdb p on p.con_id = df.con_id
 join target_ts t on t.tablespace_name = df.tablespace_name
 order by df.file_id;
 "
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7138,7 +7412,7 @@ df.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7160,7 +7434,7 @@ tf.tablespace_name = (
   )
   where rownum = 1
 )" ""
-  add_fs_rename_targets
+  add_tempfile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7168,7 +7442,7 @@ tf.tablespace_name = (
 scenario_pdb_system_tbs() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_system_tbs.lst" "df.tablespace_name = 'SYSTEM'" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7176,7 +7450,7 @@ scenario_pdb_system_tbs() {
 scenario_pdb_undo_tbs() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_undo_tbs.lst" "ts.contents = 'UNDO'" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7184,7 +7458,7 @@ scenario_pdb_undo_tbs() {
 scenario_pdb_all_datafiles() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_all_datafiles.lst" "1 = 1" ""
-  add_fs_rename_targets
+  add_datafile_loss_targets
   execute_actions
   abort_target_instance
 }
@@ -7192,7 +7466,7 @@ scenario_pdb_all_datafiles() {
 scenario_pdb_file_header_corrupt() {
   reset_actions
   query_pdb_datafiles "$WORK_DIR/pdb_file_header_corrupt.lst" "df.tablespace_name = 'SYSTEM'" "$(one_row)"
-  add_fs_corrupt_targets "fs_corrupt_header"
+  add_datafile_header_corrupt_targets
   execute_actions
   abort_target_instance
 }
@@ -7400,16 +7674,51 @@ detect_asm_sid_from_process() {
     awk -F'asm_pmon_' 'NF > 1 {print $2; exit}'
 }
 
+discover_grid_home_for_tool() {
+  local tool="$1"
+  local tool_path candidate
+
+  tool_path="$(command -v "$tool" 2>/dev/null || true)"
+  if [[ -n "$tool_path" ]]; then
+    candidate="$(cd "$(dirname "$tool_path")/.." >/dev/null 2>&1 && pwd || true)"
+    if [[ -n "$candidate" && -x "${candidate}/bin/${tool}" ]]; then
+      printf "%s" "$candidate"
+      return "$SUCCESS"
+    fi
+  fi
+
+  for tool_path in \
+    "/u01/app/19.0.0.0/gridhome_1/bin/${tool}" \
+    "/u01/app/19.0.0.0/grid/bin/${tool}" \
+    "/u01/app/grid/product/19.0.0/grid/bin/${tool}"; do
+    if [[ -x "$tool_path" ]]; then
+      candidate="$(cd "$(dirname "$tool_path")/.." >/dev/null 2>&1 && pwd || true)"
+      if [[ -n "$candidate" ]]; then
+        printf "%s" "$candidate"
+        return "$SUCCESS"
+      fi
+    fi
+  done
+
+  return "$FAIL"
+}
+
 run_asmcmd_with_grid_env() {
   local asmcmd_bin asm_home asm_sid
-  asmcmd_bin="$(command -v asmcmd 2>/dev/null || true)"
-  [[ -n "$asmcmd_bin" ]] || return "$FAIL"
-  asm_home="$(cd "$(dirname "$asmcmd_bin")/.." >/dev/null 2>&1 && pwd)"
+  asm_home="$(discover_grid_home_for_tool asmcmd || true)"
   [[ -n "$asm_home" ]] || return "$FAIL"
+  asmcmd_bin="${asm_home}/bin/asmcmd"
+  [[ -x "$asmcmd_bin" ]] || return "$FAIL"
   asm_sid="${CRASHSIM_ASM_SID:-}"
   [[ -n "$asm_sid" ]] || asm_sid="$(detect_asm_sid_from_process || true)"
   [[ -n "$asm_sid" ]] || asm_sid="+ASM"
-  env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+  if [[ "$(id -un 2>/dev/null || true)" == "$GRID_USER" ]]; then
+    env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -n -u "$GRID_USER" env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+  else
+    env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+  fi
 }
 
 scenario_asm_diskgroup_unavailable() {
