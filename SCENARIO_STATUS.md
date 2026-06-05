@@ -196,6 +196,12 @@ Additional framework improvements and validations completed:
 - `45`: validation and execution now require a disposable target PDB whose name
   starts with `CRASHSIM_`. The framework refuses to drop application PDBs such
   as `CRASHPDB`.
+- `3`, `46`, `47`, `48`, and `49`: two-node preparation completed on
+  2026-06-05. Redo groups were confirmed multiplexed across `+DATACRASHDB` and
+  `+LOGCRASHDB`; a fresh manual OCR backup was created in `+GRID`; and an ASM
+  SPFILE backup was created in `+RECOCRASHDB`. Dry-runs completed and remained
+  correctly gated for destructive execution where the current storage topology
+  is not safe.
 
 Final two-node RAC validation showed:
 
@@ -211,9 +217,10 @@ Final two-node RAC validation showed:
   paths
 
 Destructive GI execution for `46`, `47`, `48`, and `49` remains blocked in this
-lab because OCR is in `+DATA`, the only voting disk is in `DATA`, and `DATA`
-uses `EXTERN` redundancy. Use a purpose-built redundant GI lab before removing
-OCR/voting/ASM SPFILE resources.
+lab because OCR, the only voting disk, and the ASM SPFILE are backed by `+GRID`,
+all ASM disk groups use `EXTERN` redundancy, and the observed layout has one
+ASM disk per disk group with no spare shared disks. Use a purpose-built
+redundant GI lab before removing OCR/voting/ASM SPFILE resources.
 
 Final RAC/GI/ASM validation showed:
 
@@ -221,7 +228,7 @@ Final RAC/GI/ASM validation showed:
 - PDB `CRASHPDB` open read write
 - `V$RECOVER_FILE` count `0`
 - `V$DATABASE_BLOCK_CORRUPTION` count `0`
-- Redo groups `1`, `2`, and `3` each have two members
+- Online redo groups `1` through `8` each have two ASM members
 - Clusterware database resource `ONLINE/STABLE`
 - PDB service running
 - No remaining `.crashsim.bak` artifacts
