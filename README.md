@@ -17,6 +17,7 @@ visualization.
 For the full end-user documentation, read:
 
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
+- [CLI setup and scenario tutorial video](assets/tutorial/crashsimulator_cli_tutorial.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
@@ -59,6 +60,12 @@ interactive confirmation token.
 
 The Guided Workflow menu separates safe planning actions from execution actions
 and redacts RMAN catalog/SYS password values from command echoes.
+
+## CLI Tutorial Video
+
+A short setup and full CLI scenario walkthrough is available in
+[assets/tutorial](assets/tutorial/README.md). The video includes burned-in
+subtitles and a WebVTT subtitle sidecar.
 
 ## First Safe Commands
 

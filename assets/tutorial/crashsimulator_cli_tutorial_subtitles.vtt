@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:06.000
+This tutorial shows how to set up CrashSimulator and run a complete CLI drill in a non-production Oracle lab.
+
+2
+00:00:06.000 --> 00:00:14.000
+Download the repository, unzip it on the database server, and make the scripts executable.
+
+3
+00:00:14.000 --> 00:00:22.000
+Switch to the Oracle software owner and export the target ORACLE_HOME, ORACLE_SID, and PATH.
+
+4
+00:00:22.000 --> 00:00:31.000
+Before choosing a drill, discover topology and confirm the CDB and PDB are healthy.
+
+5
+00:00:31.000 --> 00:00:39.000
+Use readiness validation first. The tool checks topology, target selection, and scenario guardrails.
+
+6
+00:00:39.000 --> 00:00:47.000
+For datafile drills, run protection first so RMAN backs up the exact FILE# and current control file.
+
+7
+00:00:47.000 --> 00:00:55.000
+Execute only after reviewing the dry-run plan, runbook hints, and protection evidence.
+
+8
+00:00:55.000 --> 00:01:04.000
+Recover with the executed scenario manifest so the helper knows the exact FILE#, PDB, and target path.
+
+9
+00:01:04.000 --> 00:01:12.000
+Finish with health checks, backup validation, and preserved logs/manifests for audit, training, and lessons learned.
