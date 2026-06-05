@@ -17,6 +17,7 @@ visualization.
 For the full end-user documentation, read:
 
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
+- [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
 - [Reference report examples](docs/reference/README.md)
@@ -29,7 +30,7 @@ and unzip it.
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh
 ```
 
 Run as the Oracle software owner, or as an OS user that can connect locally as

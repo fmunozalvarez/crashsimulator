@@ -222,6 +222,18 @@ all ASM disk groups use `EXTERN` redundancy, and the observed layout has one
 ASM disk per disk group with no spare shared disks. Use a purpose-built
 redundant GI lab before removing OCR/voting/ASM SPFILE resources.
 
+A guarded preparation helper and runbook were added for the required redundant
+GI/ASM lab foundation:
+
+- `crashsim_prepare_redundant_gi_lab.sh`
+- `docs/REDUNDANT_GI_LAB_RUNBOOK.md`
+
+The helper can scan the current RAC/GI posture and generate or execute a
+`NORMAL`/`HIGH` redundancy `CREATE DISKGROUP` plan once additional shared block
+devices are provisioned and visible on all RAC nodes. It intentionally cannot
+create OCI shared storage from the database host and does not use existing ASM
+member disks.
+
 Final RAC/GI/ASM validation showed:
 
 - Database open read write
