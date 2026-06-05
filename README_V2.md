@@ -74,6 +74,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
+./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
 ./CrashSimulatorV2.sh --protect 30 --pdb crashpdb --dry-run
 ./CrashSimulatorV2.sh --scenario 30 --pdb crashpdb --dry-run
@@ -118,6 +119,7 @@ drive from a single screen:
 - generate target configuration/recoverability reports
 - generate backup strategy and recoverability/RTO/RPO reports
 - generate Oracle MAA readiness and SLA planning reports
+- configure audit retention, inspect audit status, and purge old audit records
 - view recent manifests and logs
 
 Menu actions re-run the same script in CLI mode, so automation and manual usage
@@ -231,6 +233,29 @@ already backed up once, backs up the current control file and SPFILE, lists the
 generated tags, and writes the RMAN command/log files under
 `crashsimulator_logs`. The default RMAN tag prefix is `CSIM_BASE`; override it
 with `--backup-tag-prefix` or `CRASHSIM_BASELINE_TAG_PREFIX`.
+
+## Audit Retention And Purge
+
+CrashSimulator can retain a per-run audit archive for compliance, training, and
+drill review. Audit retention is enabled by default and writes under
+`crashsimulator_logs/audit` unless `--audit-dir` or `CRASHSIM_AUDIT_DIR` is set.
+
+Each audit run folder records redacted command metadata, redacted environment
+settings, stdout, stderr, exit status, and redacted copies of generated text
+artifacts such as RMAN, SQL, manifest, log, evidence, and Markdown files.
+
+```bash
+./CrashSimulatorV2.sh --audit-status
+./CrashSimulatorV2.sh --audit-retain yes --audit-retention-days 365 --audit-status
+./CrashSimulatorV2.sh --purge-audit-logs --dry-run
+./CrashSimulatorV2.sh --purge-audit-logs --execute
+```
+
+Use `--audit-retain no` or `CRASHSIM_AUDIT_RETAIN=0` to disable new audit run
+folders. Use `--audit-retention-days <days>` or
+`CRASHSIM_AUDIT_RETENTION_DAYS` to control purge eligibility. Purge is dry-run
+by default and requires `--execute` plus the `PURGE-AUDIT-LOGS` confirmation
+token unless `--yes` is supplied by trusted automation.
 
 ## MAA Readiness Report
 

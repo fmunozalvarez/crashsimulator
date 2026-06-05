@@ -34,6 +34,9 @@ PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
 REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
 RMAN_CATALOG_CONNECT="${CRASHSIM_RMAN_CATALOG:-}"
 BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
+AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
+AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
+AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
 MAA_APP_NAME="${CRASHSIM_MAA_APP_NAME:-}"
 MAA_LOCAL_RTO="${CRASHSIM_MAA_LOCAL_RTO:-}"
 MAA_LOCAL_RPO="${CRASHSIM_MAA_LOCAL_RPO:-}"
@@ -56,6 +59,14 @@ MANIFEST_FROM_ARG="${CRASHSIM_MANIFEST:+1}"
 MANIFEST_FROM_ARG="${MANIFEST_FROM_ARG:-0}"
 CURRENT_SCENARIO_ID=""
 PLANNING_ONLY=0
+AUDIT_RUN_DIR=""
+AUDIT_MARKER_FILE=""
+AUDIT_STDOUT_FILE=""
+AUDIT_STDERR_FILE=""
+AUDIT_STDOUT_FIFO=""
+AUDIT_STDERR_FIFO=""
+AUDIT_STARTED=0
+AUDIT_FINALIZED=0
 
 DB_NAME=""
 DB_UNIQUE_NAME=""
@@ -91,6 +102,7 @@ declare -a PLAN_TARGET_TABLESPACES=()
 declare -a RESTORE_ORIGINALS=()
 declare -a RESTORE_BACKUPS=()
 declare -a RECOVER_FILE_NOS=()
+declare -a ORIGINAL_ARGS=("$@")
 RENAME_COUNT=0
 
 declare -a SCENARIO_IDS=()
@@ -120,6 +132,8 @@ Usage:
   ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --backup-report [--deep-validate]
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
+  ./${PROGRAM} --audit-status
+  ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
   ./${PROGRAM} --maa-report
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
@@ -144,6 +158,12 @@ Options:
   --recoverability-report Alias for --backup-report.
   --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
   --fresh-baseline-backup Alias for --baseline-backup.
+  --audit-retain <yes|no> Enable or disable per-run audit log retention.
+  --audit-retention-days <n>
+                          Days to retain audit run folders before purge.
+  --audit-dir <dir>       Audit archive directory. Default: <log-dir>/audit.
+  --audit-status          Show audit settings, usage, and purge candidates.
+  --purge-audit-logs      Purge audit run folders older than retention policy.
   --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
@@ -202,6 +222,9 @@ Environment:
   CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
   CRASHSIM_RMAN_CATALOG         RMAN recovery catalog connect string.
   CRASHSIM_BASELINE_TAG_PREFIX  RMAN tag prefix for fresh baseline backups.
+  CRASHSIM_AUDIT_RETAIN         Set to 1/0 or yes/no. Default: 1.
+  CRASHSIM_AUDIT_RETENTION_DAYS Days to keep audit run folders. Default: 365.
+  CRASHSIM_AUDIT_DIR            Audit archive directory. Default: <log-dir>/audit.
   CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
   CRASHSIM_MAA_LOCAL_RTO        Local unplanned-outage RTO objective.
   CRASHSIM_MAA_LOCAL_RPO        Local unplanned-outage RPO objective.
@@ -296,9 +319,285 @@ normalize_targets() {
   validate_tempfile_size "$TEMPFILE_SIZE" || die "Invalid tempfile size: $TEMPFILE_SIZE"
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
   REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
+  AUDIT_RETAIN="$(normalize_bool "$AUDIT_RETAIN")" || die "Invalid audit retain value: $AUDIT_RETAIN"
+  [[ "$AUDIT_RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "Invalid audit retention days: $AUDIT_RETENTION_DAYS"
   if [[ -n "$MAX_TARGETS" && ! "$MAX_TARGETS" =~ ^[1-9][0-9]*$ ]]; then
     die "Invalid max targets value: $MAX_TARGETS"
   fi
+}
+
+audit_effective_dir() {
+  if [[ -z "$AUDIT_DIR" ]]; then
+    AUDIT_DIR="${LOG_DIR}/audit"
+  fi
+}
+
+audit_redact_stream() {
+  sed -E \
+    -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
+    -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
+    -e 's#(CRASHSIM_SYS_PASSWORD=)[^[:space:]]+#\1<redacted>#g' \
+    -e 's#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
+    -e 's#([Tt][Oo][Kk][Ee][Nn][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
+    -e 's#([Ss][Ee][Cc][Rr][Ee][Tt][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g'
+}
+
+audit_print_redacted_command() {
+  local arg redact_next=0
+
+  printf "%q" "$0"
+  for arg in "${ORIGINAL_ARGS[@]}"; do
+    if [[ "$redact_next" -eq 1 ]]; then
+      printf " %q" "<redacted>"
+      redact_next=0
+      continue
+    fi
+
+    case "$arg" in
+      --sys-password|--rman-catalog)
+        printf " %q" "$arg"
+        redact_next=1
+        ;;
+      --sys-password=*|--rman-catalog=*)
+        printf " %q" "${arg%%=*}=<redacted>"
+        ;;
+      *)
+        printf " %q" "$arg"
+        ;;
+    esac
+  done
+  printf "\n"
+}
+
+audit_write_redacted_environment() {
+  local env_file="$1"
+
+  env | sort | awk -F= '
+    {
+      key=$1
+      value=$0
+      sub(/^[^=]*=/, "", value)
+      upper=toupper(key)
+      if (upper ~ /(PASS|PASSWORD|TOKEN|SECRET|CREDENTIAL|AUTH|PRIVATE.*KEY|ACCESS.*KEY)/ || key == "CRASHSIM_RMAN_CATALOG") {
+        print key "=<redacted>"
+      } else {
+        print key "=" value
+      }
+    }
+  ' >"$env_file" || warn "Unable to write redacted audit environment: $env_file"
+}
+
+audit_start() {
+  local day_dir metadata_file command_file env_file
+
+  [[ "$AUDIT_RETAIN" -eq 1 ]] || return "$SUCCESS"
+  audit_effective_dir
+  mkdir -p "$AUDIT_DIR" || die "Unable to create audit directory: $AUDIT_DIR"
+
+  day_dir="${AUDIT_DIR}/$(date -u +%Y-%m-%d)"
+  AUDIT_RUN_DIR="${day_dir}/crashsim_audit_${RUN_ID}_$$"
+  mkdir -p "$AUDIT_RUN_DIR" || die "Unable to create audit run directory: $AUDIT_RUN_DIR"
+
+  AUDIT_MARKER_FILE="${AUDIT_RUN_DIR}/start.marker"
+  AUDIT_STDOUT_FILE="${AUDIT_RUN_DIR}/stdout.log"
+  AUDIT_STDERR_FILE="${AUDIT_RUN_DIR}/stderr.log"
+  AUDIT_STDOUT_FIFO="${AUDIT_RUN_DIR}/stdout.pipe"
+  AUDIT_STDERR_FIFO="${AUDIT_RUN_DIR}/stderr.pipe"
+  metadata_file="${AUDIT_RUN_DIR}/metadata.env"
+  command_file="${AUDIT_RUN_DIR}/command.redacted"
+  env_file="${AUDIT_RUN_DIR}/environment.redacted"
+
+  touch "$AUDIT_MARKER_FILE" "$AUDIT_STDOUT_FILE" "$AUDIT_STDERR_FILE" ||
+    die "Unable to initialize audit files under: $AUDIT_RUN_DIR"
+  mkfifo "$AUDIT_STDOUT_FIFO" "$AUDIT_STDERR_FIFO" ||
+    die "Unable to initialize audit capture pipes under: $AUDIT_RUN_DIR"
+
+  {
+    printf "version=%q\n" "$VERSION"
+    printf "run_id=%q\n" "$RUN_ID"
+    printf "started_at_utc=%q\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf "program=%q\n" "$PROGRAM"
+    printf "mode=%q\n" "$MODE"
+    printf "execute=%q\n" "$EXECUTE"
+    printf "assume_yes=%q\n" "$ASSUME_YES"
+    printf "cwd=%q\n" "$(pwd)"
+    printf "os_user=%q\n" "$(id -un 2>/dev/null || printf unknown)"
+    printf "host=%q\n" "$(hostname 2>/dev/null || printf unknown)"
+    printf "pid=%q\n" "$$"
+    printf "log_dir=%q\n" "$LOG_DIR"
+    printf "audit_dir=%q\n" "$AUDIT_DIR"
+    printf "audit_retention_days=%q\n" "$AUDIT_RETENTION_DAYS"
+  } >"$metadata_file" || die "Unable to write audit metadata: $metadata_file"
+
+  audit_print_redacted_command >"$command_file" ||
+    die "Unable to write redacted audit command: $command_file"
+  audit_write_redacted_environment "$env_file"
+
+  AUDIT_STARTED=1
+  audit_redact_stream <"$AUDIT_STDOUT_FIFO" | tee -a "$AUDIT_STDOUT_FILE" &
+  audit_redact_stream <"$AUDIT_STDERR_FIFO" | tee -a "$AUDIT_STDERR_FILE" >&2 &
+  exec >"$AUDIT_STDOUT_FIFO" 2>"$AUDIT_STDERR_FIFO"
+  rm -f "$AUDIT_STDOUT_FIFO" "$AUDIT_STDERR_FIFO" || true
+
+  echo "Audit logging enabled: ${AUDIT_RUN_DIR}"
+}
+
+audit_copy_artifact() {
+  local source_file="$1"
+  local artifact_dir="$2"
+  local dest_file redacted
+
+  dest_file="${artifact_dir}/$(basename "$source_file")"
+  redacted="no"
+  case "$source_file" in
+    *.evidence|*.log|*.manifest|*.md|*.out|*.rman|*.sql|*.txt)
+      audit_redact_stream <"$source_file" >"$dest_file" ||
+        return "$FAIL"
+      redacted="yes"
+      ;;
+    *)
+      cp -p -- "$source_file" "$dest_file" ||
+        return "$FAIL"
+      ;;
+  esac
+
+  printf "%s|%s|redacted=%s\n" "$source_file" "$dest_file" "$redacted"
+}
+
+audit_collect_artifacts() {
+  local artifact_dir index_file found=0 file
+
+  [[ "$AUDIT_STARTED" -eq 1 && -n "$AUDIT_RUN_DIR" ]] || return "$SUCCESS"
+  [[ -n "$LOG_DIR" && -d "$LOG_DIR" && -f "$AUDIT_MARKER_FILE" ]] || return "$SUCCESS"
+
+  artifact_dir="${AUDIT_RUN_DIR}/artifacts"
+  index_file="${AUDIT_RUN_DIR}/artifacts.index"
+  mkdir -p "$artifact_dir" || {
+    warn "Unable to create audit artifact directory: $artifact_dir"
+    return "$FAIL"
+  }
+  : >"$index_file" || {
+    warn "Unable to write audit artifact index: $index_file"
+    return "$FAIL"
+  }
+
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    case "$file" in
+      "$AUDIT_RUN_DIR"/*) continue ;;
+    esac
+    if audit_copy_artifact "$file" "$artifact_dir" >>"$index_file"; then
+      found=1
+    else
+      printf "%s|copy_failed\n" "$file" >>"$index_file"
+    fi
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f -newer "$AUDIT_MARKER_FILE" 2>/dev/null | sort)
+
+  if [[ "$found" -eq 0 ]]; then
+    printf "No generated log artifacts were detected for this run.\n" >"$index_file"
+  fi
+}
+
+audit_finalize() {
+  local status="$1"
+  local metadata_file
+
+  [[ "$AUDIT_STARTED" -eq 1 && "$AUDIT_FINALIZED" -eq 0 ]] || return "$SUCCESS"
+  AUDIT_FINALIZED=1
+
+  audit_collect_artifacts || true
+  metadata_file="${AUDIT_RUN_DIR}/metadata.env"
+  {
+    printf "ended_at_utc=%q\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf "exit_status=%q\n" "$status"
+  } >>"$metadata_file" || true
+  printf "%s\n" "$status" >"${AUDIT_RUN_DIR}/exit_status" || true
+  echo "Audit record finalized: ${AUDIT_RUN_DIR}"
+}
+
+audit_status() {
+  local candidate_count run_count usage
+
+  audit_effective_dir
+  echo "CrashSimulator audit status"
+  echo "Audit retain: $([[ "$AUDIT_RETAIN" -eq 1 ]] && echo enabled || echo disabled)"
+  echo "Audit directory: ${AUDIT_DIR}"
+  echo "Retention days: ${AUDIT_RETENTION_DAYS}"
+
+  if [[ ! -d "$AUDIT_DIR" ]]; then
+    echo "Audit directory does not exist yet."
+    return "$SUCCESS"
+  fi
+
+  run_count="$(find "$AUDIT_DIR" -mindepth 2 -maxdepth 2 -type d -name 'crashsim_audit_*' 2>/dev/null | wc -l | tr -d ' ')"
+  candidate_count="$(find "$AUDIT_DIR" -mindepth 2 -maxdepth 2 -type d -name 'crashsim_audit_*' -mtime +"$AUDIT_RETENTION_DAYS" 2>/dev/null | wc -l | tr -d ' ')"
+  usage="$(du -sh "$AUDIT_DIR" 2>/dev/null | awk '{print $1}')"
+  echo "Audit run folders: ${run_count:-0}"
+  echo "Purge candidates: ${candidate_count:-0}"
+  echo "Disk usage: ${usage:-unknown}"
+}
+
+confirm_audit_purge() {
+  if [[ "$EXECUTE" -eq 0 || "$ASSUME_YES" -eq 1 ]]; then
+    return "$SUCCESS"
+  fi
+
+  echo
+  echo "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days."
+  echo "Audit directory: ${AUDIT_DIR}"
+  echo "Type PURGE-AUDIT-LOGS to continue:"
+  local answer
+  read -r answer
+  [[ "$answer" == "PURGE-AUDIT-LOGS" ]] || die "Confirmation did not match. Aborting."
+}
+
+purge_audit_logs() {
+  local -a purge_dirs=()
+  local dir count=0
+
+  audit_effective_dir
+  echo "CrashSimulator audit purge"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Audit directory: ${AUDIT_DIR}"
+  echo "Retention days: ${AUDIT_RETENTION_DAYS}"
+
+  if [[ ! -d "$AUDIT_DIR" ]]; then
+    echo "Audit directory does not exist. Nothing to purge."
+    return "$SUCCESS"
+  fi
+
+  mapfile -t purge_dirs < <(find "$AUDIT_DIR" -mindepth 2 -maxdepth 2 -type d -name 'crashsim_audit_*' -mtime +"$AUDIT_RETENTION_DAYS" 2>/dev/null | sort)
+  if [[ "${#purge_dirs[@]}" -eq 0 ]]; then
+    echo "No audit run folders are older than the retention policy."
+    return "$SUCCESS"
+  fi
+
+  echo
+  echo "Audit run folders selected for purge:"
+  for dir in "${purge_dirs[@]}"; do
+    [[ -n "$AUDIT_RUN_DIR" && "$dir" == "$AUDIT_RUN_DIR" ]] && continue
+    echo "  ${dir}"
+    count=$((count + 1))
+  done
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "Only the current audit run matched the age filter; it will not be purged."
+    return "$SUCCESS"
+  fi
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo
+    echo "DRY-RUN: no audit folders were removed. Re-run with --execute to purge."
+    return "$SUCCESS"
+  fi
+
+  confirm_audit_purge
+  for dir in "${purge_dirs[@]}"; do
+    [[ -n "$AUDIT_RUN_DIR" && "$dir" == "$AUDIT_RUN_DIR" ]] && continue
+    rm -rf -- "$dir" || die "Unable to remove audit folder: $dir"
+  done
+  find "$AUDIT_DIR" -mindepth 1 -maxdepth 1 -type d -empty -delete 2>/dev/null || true
+  echo "Purged ${count} audit run folder(s)."
 }
 
 init_runtime() {
@@ -306,12 +605,15 @@ init_runtime() {
     LOG_DIR="$(pwd)/crashsimulator_logs"
   fi
   mkdir -p "$LOG_DIR" || die "Unable to create log directory: $LOG_DIR"
+  audit_effective_dir
   WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/crashsimulator.${RUN_ID}.XXXXXX")" ||
     die "Unable to create temporary directory"
   trap cleanup EXIT
 }
 
 cleanup() {
+  local status=$?
+  audit_finalize "$status" || true
   if [[ -n "${WORK_DIR:-}" && -d "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"
   fi
@@ -6798,6 +7100,14 @@ parse_args() {
         MODE="baseline_backup"
         shift
         ;;
+      --audit-status|--audit-info)
+        MODE="audit_status"
+        shift
+        ;;
+      --purge-audit-logs|--audit-purge|--purge-logs)
+        MODE="audit_purge"
+        shift
+        ;;
       --maa-report|--maa-assessment|--maa-readiness)
         MODE="maa_report"
         shift
@@ -6911,6 +7221,25 @@ parse_args() {
         BASELINE_TAG_PREFIX="$2"
         shift 2
         ;;
+      --audit-retain|--retain-logs)
+        [[ "$#" -ge 2 ]] || die "$1 requires yes or no"
+        AUDIT_RETAIN="$2"
+        shift 2
+        ;;
+      --no-audit-retain|--no-retain-logs)
+        AUDIT_RETAIN=0
+        shift
+        ;;
+      --audit-retention-days|--log-retention-days)
+        [[ "$#" -ge 2 ]] || die "$1 requires a number of days"
+        AUDIT_RETENTION_DAYS="$2"
+        shift 2
+        ;;
+      --audit-dir)
+        [[ "$#" -ge 2 ]] || die "--audit-dir requires a directory"
+        AUDIT_DIR="$2"
+        shift 2
+        ;;
       --maa-app-name)
         [[ "$#" -ge 2 ]] || die "--maa-app-name requires a value"
         MAA_APP_NAME="$2"
@@ -7010,6 +7339,7 @@ menu_print_header() {
   echo "Log dir: ${LOG_DIR}"
   echo "Report deep validation: ${REPORT_DEEP_VALIDATE}"
   echo "Baseline backup tag prefix: ${BASELINE_TAG_PREFIX}"
+  echo "Audit retain: ${AUDIT_RETAIN}  Retention days: ${AUDIT_RETENTION_DAYS}  Audit dir: ${AUDIT_DIR}"
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
@@ -7127,6 +7457,41 @@ menu_prompt_path() {
   esac
   printf -v "$var_name" "%s" "$answer"
   echo "${label} set to ${answer}."
+}
+
+menu_prompt_audit_retain() {
+  local answer
+
+  echo "Retain per-run audit logs? [y/N, blank keeps current ${AUDIT_RETAIN}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    y|Y|yes|YES|1|true|TRUE|on|ON)
+      AUDIT_RETAIN=1
+      ;;
+    n|N|no|NO|0|false|FALSE|off|OFF)
+      AUDIT_RETAIN=0
+      ;;
+    *)
+      warn "Invalid audit retain value: $answer"
+      return "$FAIL"
+      ;;
+  esac
+  echo "Audit retain set to ${AUDIT_RETAIN}."
+}
+
+menu_prompt_audit_retention_days() {
+  local answer
+
+  echo "Enter audit retention days, or blank to keep [${AUDIT_RETENTION_DAYS}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  [[ "$answer" =~ ^[0-9]+$ ]] || {
+    warn "Invalid retention days: $answer"
+    return "$FAIL"
+  }
+  AUDIT_RETENTION_DAYS="$answer"
+  echo "Audit retention days set to ${AUDIT_RETENTION_DAYS}."
 }
 
 menu_prompt_rman_catalog() {
@@ -7366,6 +7731,9 @@ menu_print_child_command() {
   printf "Running:"
   [[ -n "$SYS_PASSWORD" ]] && printf " CRASHSIM_SYS_PASSWORD=%q" "<redacted>"
   [[ -n "$RMAN_CATALOG_CONNECT" ]] && printf " CRASHSIM_RMAN_CATALOG=%q" "$(redact_rman_catalog_connect "$RMAN_CATALOG_CONNECT")"
+  printf " CRASHSIM_AUDIT_RETAIN=%q" "$AUDIT_RETAIN"
+  printf " CRASHSIM_AUDIT_RETENTION_DAYS=%q" "$AUDIT_RETENTION_DAYS"
+  printf " CRASHSIM_AUDIT_DIR=%q" "$AUDIT_DIR"
   for ((i = 0; i < ${#MENU_CMD[@]}; i++)); do
     arg="${MENU_CMD[$i]}"
     printf " %q" "$arg"
@@ -7385,7 +7753,13 @@ menu_run_child_command() {
   local status
   menu_print_child_command
   echo
-  env CRASHSIM_SYS_PASSWORD="$SYS_PASSWORD" CRASHSIM_RMAN_CATALOG="$RMAN_CATALOG_CONNECT" "${MENU_CMD[@]}"
+  env \
+    CRASHSIM_SYS_PASSWORD="$SYS_PASSWORD" \
+    CRASHSIM_RMAN_CATALOG="$RMAN_CATALOG_CONNECT" \
+    CRASHSIM_AUDIT_RETAIN="$AUDIT_RETAIN" \
+    CRASHSIM_AUDIT_RETENTION_DAYS="$AUDIT_RETENTION_DAYS" \
+    CRASHSIM_AUDIT_DIR="$AUDIT_DIR" \
+    "${MENU_CMD[@]}"
   status=$?
   echo
   if [[ "$status" -eq 0 ]]; then
@@ -7538,6 +7912,82 @@ menu_configure_maa_context() {
   menu_prompt_path "planned-maintenance RPO" MAA_PLANNED_RPO "$MAA_PLANNED_RPO"
 }
 
+menu_run_audit_status() {
+  MENU_CMD=("$0" "--audit-status")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_run_audit_purge() {
+  local run_mode="$1"
+  MENU_CMD=("$0" "--purge-audit-logs")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  case "$run_mode" in
+    execute) MENU_CMD+=("--execute") ;;
+    dry-run) MENU_CMD+=("--dry-run") ;;
+    *) warn "Unknown audit purge mode: $run_mode"; return "$FAIL" ;;
+  esac
+  menu_run_child_command
+}
+
+menu_audit_settings() {
+  local answer
+
+  while true; do
+    echo
+    echo "Audit / Retention Settings"
+    echo "  1. Enable/disable audit log retention"
+    echo "  2. Set audit retention days"
+    echo "  3. Set audit directory"
+    echo "  4. Show audit status"
+    echo "  5. Dry-run audit purge"
+    echo "  6. Execute audit purge"
+    echo "  b. Back"
+    echo
+    echo "Current retain=${AUDIT_RETAIN} retention_days=${AUDIT_RETENTION_DAYS} audit_dir=${AUDIT_DIR}"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1)
+        menu_prompt_audit_retain
+        menu_pause
+        ;;
+      2)
+        menu_prompt_audit_retention_days
+        menu_pause
+        ;;
+      3)
+        menu_prompt_path "audit directory" AUDIT_DIR "$AUDIT_DIR"
+        [[ -n "$AUDIT_DIR" ]] || audit_effective_dir
+        mkdir -p "$AUDIT_DIR" || die "Unable to create audit directory: $AUDIT_DIR"
+        menu_pause
+        ;;
+      4)
+        menu_run_audit_status
+        menu_pause
+        ;;
+      5)
+        menu_run_audit_purge "dry-run"
+        menu_pause
+        ;;
+      6)
+        menu_run_audit_purge "execute"
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown audit menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
 menu_reports() {
   local answer
 
@@ -7636,6 +8086,7 @@ interactive_menu() {
     echo " 14. Dry-run random/aleatory scenario for this topology"
     echo " 16. Reports"
     echo " 17. Validate all scenarios for this topology"
+    echo " 18. Audit / retention settings"
     echo
     echo "Execution actions - typed confirmation required"
     echo "  7. Execute protection for selected scenario"
@@ -7721,6 +8172,9 @@ interactive_menu() {
         menu_run_validate_all_scenarios
         menu_pause
         ;;
+      18)
+        menu_audit_settings
+        ;;
       q|Q|0)
         break
         ;;
@@ -7737,6 +8191,7 @@ main() {
   parse_args "$@"
   normalize_targets
   init_runtime
+  audit_start
 
   case "$MODE" in
     discover)
@@ -7756,6 +8211,12 @@ main() {
       ;;
     baseline_backup)
       run_baseline_backup
+      ;;
+    audit_status)
+      audit_status
+      ;;
+    audit_purge)
+      purge_audit_logs
       ;;
     maa_report)
       run_maa_report

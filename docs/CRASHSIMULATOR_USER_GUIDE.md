@@ -227,6 +227,7 @@ ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh seed_crashsim_lab.sql ver
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --backup-report --deep-validate
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
+./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --protect 30 --pdb CRASHPDB --dry-run
@@ -264,6 +265,7 @@ The menu provides options to:
 - Validate all scenarios for the detected topology.
 - Generate configuration, backup strategy/recoverability, and MAA readiness
   reports.
+- Configure audit retention, show audit status, and purge old audit records.
 
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
@@ -435,6 +437,53 @@ archived redo not already backed up once, backs up the current control file and
 SPFILE, lists the generated backup tags, and writes RMAN command/log files under
 `crashsimulator_logs`. Use `--backup-tag-prefix` or
 `CRASHSIM_BASELINE_TAG_PREFIX` to change the default `CSIM_BASE` tag prefix.
+
+### Audit Retention And Purge
+
+CrashSimulator can keep a dedicated per-run audit archive for compliance,
+training, and post-drill review. Audit retention is enabled by default.
+
+The default audit directory is `./crashsimulator_logs/audit`. Each run gets a
+folder similar to:
+
+```text
+crashsimulator_logs/audit/YYYY-MM-DD/crashsim_audit_<run_id>_<pid>/
+```
+
+Each audit run folder contains:
+
+- `metadata.env`: run id, mode, user, host, log directory, audit policy, and
+  exit status.
+- `command.redacted`: the command line with sensitive values redacted.
+- `environment.redacted`: selected environment evidence with password, token,
+  credential, and key-like variables redacted.
+- `stdout.log` and `stderr.log`: redacted terminal output from the run.
+- `artifacts.index`: source and copied audit artifact paths.
+- `artifacts/`: redacted copies of generated text artifacts such as `.rman`,
+  `.sql`, `.manifest`, `.log`, `.evidence`, and `.md` files.
+
+Common commands:
+
+```bash
+./CrashSimulatorV2.sh --audit-status
+./CrashSimulatorV2.sh --audit-retain yes --audit-retention-days 365 --audit-status
+./CrashSimulatorV2.sh --audit-dir /secure/audit/crashsimulator --audit-status
+./CrashSimulatorV2.sh --purge-audit-logs --dry-run
+./CrashSimulatorV2.sh --purge-audit-logs --execute
+```
+
+Environment defaults:
+
+```bash
+export CRASHSIM_AUDIT_RETAIN=1
+export CRASHSIM_AUDIT_RETENTION_DAYS=365
+export CRASHSIM_AUDIT_DIR=/secure/audit/crashsimulator
+```
+
+The purge process removes audit run folders older than the configured retention
+period. It is dry-run by default. Execution requires `--execute` and the
+`PURGE-AUDIT-LOGS` confirmation token unless `--yes` is supplied by trusted
+automation.
 
 ### MAA Readiness Report
 
@@ -713,6 +762,11 @@ Typical files include:
 
 Keep these files with the drill record. They are useful for audit evidence,
 lessons learned, RTO/RPO timing, and improving operational runbooks.
+
+When audit retention is enabled, CrashSimulator also writes a durable audit
+archive under `crashsimulator_logs/audit` by default. Use `--audit-status` to
+review audit usage and `--purge-audit-logs --dry-run` to preview cleanup before
+executing the retention policy.
 
 ## What To Do When A Scenario Is Not Automated Yet
 
