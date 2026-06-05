@@ -52,6 +52,9 @@ Validate the download and start safely:
 `--dry-run` is the default. Destructive scenarios require `--execute` and an
 interactive confirmation token.
 
+The Guided Workflow menu separates safe planning actions from execution actions
+and redacts RMAN catalog/SYS password values from command echoes.
+
 ## First Safe Commands
 
 ```bash

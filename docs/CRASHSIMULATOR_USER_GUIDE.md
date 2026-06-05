@@ -264,6 +264,12 @@ The menu provides options to:
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
 
+The menu groups safe planning actions separately from execution actions that
+require typed confirmation tokens such as `EXECUTE-30`, `PROTECT-30`, or
+`RECOVER-30`. Menu-launched child commands keep sensitive values out of the
+printed command line; RMAN catalog connect strings and SYS passwords are shown
+only as redacted environment values.
+
 ## Functional Capabilities
 
 ### Discovery

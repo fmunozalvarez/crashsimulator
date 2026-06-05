@@ -120,6 +120,10 @@ drive from a single screen:
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the
 same typed confirmation, such as `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
+The menu separates safe planning actions from confirmation-required execution
+actions. Menu-launched child commands keep sensitive values out of the printed
+command line; RMAN catalog connect strings and SYS passwords are shown only as
+redacted environment values.
 
 ## Scenario Readiness Validation
 
@@ -333,7 +337,8 @@ export CRASHSIM_RMAN_CATALOG='rman_catalog_user/password@//host:1521/service'
 The drill first connects to the target and catalog, runs `resync catalog`, lists
 incarnations, and reports schema metadata. It then validates a `NOCATALOG`
 fallback with incarnation, schema, backup summary, and restore-preview checks.
-Catalog passwords are redacted from printed RMAN logs.
+Catalog passwords are redacted from printed RMAN logs and Guided Workflow
+command echoes.
 
 For lab convenience, a catalog can be created in a PDB on the same target CDB.
 For production and production-like DR testing, keep the RMAN recovery catalog in

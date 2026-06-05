@@ -6172,6 +6172,24 @@ menu_prompt_path() {
   echo "${label} set to ${answer}."
 }
 
+menu_prompt_rman_catalog() {
+  local answer
+
+  echo "Enter RMAN recovery catalog connect string, c to clear, or blank to keep [$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not-set)]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      RMAN_CATALOG_CONNECT=""
+      echo "RMAN recovery catalog connect string cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+
+  RMAN_CATALOG_CONNECT="$answer"
+  echo "RMAN recovery catalog connect string configured: $(redact_rman_catalog_connect "$RMAN_CATALOG_CONNECT")"
+}
+
 menu_prompt_file_no() {
   local answer
   echo "Enter FILE#, c to clear, or blank to keep [${TARGET_FILE_NO:-not set}]:"
@@ -6289,7 +6307,7 @@ menu_configure_options() {
         menu_pause
         ;;
       9)
-        menu_prompt_path "RMAN recovery catalog connect string" RMAN_CATALOG_CONNECT "$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not-set)"
+        menu_prompt_rman_catalog
         menu_pause
         ;;
       10)
@@ -6375,17 +6393,27 @@ menu_append_common_child_args() {
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
   [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")
   [[ -n "$PIECE_HANDLE" ]] && MENU_CMD+=("--piece-handle" "$PIECE_HANDLE")
-  [[ -n "$RMAN_CATALOG_CONNECT" ]] && MENU_CMD+=("--rman-catalog" "$RMAN_CATALOG_CONNECT")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
 }
 
 menu_print_child_command() {
-  local arg
+  local arg i
   printf "Running:"
-  for arg in "${MENU_CMD[@]}"; do
+  [[ -n "$SYS_PASSWORD" ]] && printf " CRASHSIM_SYS_PASSWORD=%q" "<redacted>"
+  [[ -n "$RMAN_CATALOG_CONNECT" ]] && printf " CRASHSIM_RMAN_CATALOG=%q" "$(redact_rman_catalog_connect "$RMAN_CATALOG_CONNECT")"
+  for ((i = 0; i < ${#MENU_CMD[@]}; i++)); do
+    arg="${MENU_CMD[$i]}"
     printf " %q" "$arg"
+    case "$arg" in
+      --rman-catalog|--sys-password)
+        if (( i + 1 < ${#MENU_CMD[@]} )); then
+          i=$((i + 1))
+          printf " %q" "<redacted>"
+        fi
+        ;;
+    esac
   done
   printf "\n"
 }
@@ -6394,7 +6422,7 @@ menu_run_child_command() {
   local status
   menu_print_child_command
   echo
-  env CRASHSIM_SYS_PASSWORD="$SYS_PASSWORD" "${MENU_CMD[@]}"
+  env CRASHSIM_SYS_PASSWORD="$SYS_PASSWORD" CRASHSIM_RMAN_CATALOG="$RMAN_CATALOG_CONNECT" "${MENU_CMD[@]}"
   status=$?
   echo
   if [[ "$status" -eq 0 ]]; then
@@ -6531,7 +6559,7 @@ menu_reports() {
     echo
     echo "Reports"
     echo "  1. Generate target configuration report"
-    echo "  2. Generate target configuration report with deep RMAN validation"
+    echo "  2. Generate target configuration report with deep RMAN validation (read-only, heavier)"
     echo "  3. Generate Oracle MAA readiness report"
     echo "  4. Set MAA / SLA planning context"
     echo "  b. Back"
@@ -6584,6 +6612,8 @@ interactive_menu() {
     menu_print_header
     echo
     echo "Guided Workflow"
+    echo
+    echo "Safe discovery and planning"
     echo "  1. Discover or refresh database topology"
     echo "  2. Select scenario"
     echo "  3. List all scenarios"
@@ -6591,17 +6621,19 @@ interactive_menu() {
     echo "  v. Validate selected scenario readiness"
     echo "  5. Dry-run selected scenario"
     echo "  6. Dry-run protection for selected scenario"
-    echo "  7. Execute protection for selected scenario"
-    echo "  8. Execute selected scenario"
     echo "  9. Dry-run recovery for selected scenario"
-    echo " 10. Execute recovery for selected scenario"
     echo " 11. Run health check / validation"
     echo " 12. Configure targets and options"
     echo " 13. Show recent manifests and logs"
-    echo " 14. Dry-run aleatory scenario for this topology"
-    echo " 15. Execute aleatory scenario for this topology"
+    echo " 14. Dry-run random/aleatory scenario for this topology"
     echo " 16. Reports"
     echo " 17. Validate all scenarios for this topology"
+    echo
+    echo "Execution actions - typed confirmation required"
+    echo "  7. Execute protection for selected scenario"
+    echo "  8. Execute selected scenario"
+    echo " 10. Execute recovery for selected scenario"
+    echo " 15. Execute random/aleatory scenario for this topology"
     echo "  q. Quit"
     echo
     echo "Choice:"
