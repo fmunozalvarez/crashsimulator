@@ -183,6 +183,13 @@ cannot run, the tool prints a clear message such as:
 - the scenario is registered as a future placeholder but does not yet have a
   runnable handler
 
+Target-selection failures are translated into scenario-specific prerequisites
+where possible. For example, redo scenarios explain when redo groups are not
+multiplexed, read-only/index-only scenarios identify the missing lab
+tablespace, logical scenarios point back to `seed_crashsim_lab.sql`, and Data
+Guard/Active Data Guard scenarios name the missing standby, transport, broker,
+or apply requirement.
+
 Use `--validate-all-scenarios` to produce a runnable/not-runnable matrix for the
 current topology:
 

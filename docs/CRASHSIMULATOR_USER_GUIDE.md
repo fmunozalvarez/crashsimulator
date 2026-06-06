@@ -334,6 +334,12 @@ Common blockers include:
 - The scenario is registered as a future placeholder but no runnable handler is
   implemented yet.
 
+When target selection fails, CrashSimulator tries to return a scenario-specific
+prerequisite instead of a generic error. Examples include missing multiplexed
+redo members, missing read-only or index-only lab tablespaces, missing
+`seed_crashsim_lab.sql` objects, missing PDB table/schema targets, or missing
+Data Guard/Active Data Guard standby, transport, broker, and apply evidence.
+
 Use `--validate-all-scenarios` to produce a full runnable/not-runnable matrix:
 
 ```bash

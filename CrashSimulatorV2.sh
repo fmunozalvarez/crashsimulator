@@ -2312,6 +2312,210 @@ validation_missing_tool_reason() {
   return "$FAIL"
 }
 
+validation_requirement_blocker_reason() {
+  local id="$1"
+  local output="$2"
+
+  case "$id" in
+    50)
+      if printf "%s\n" "$output" | grep -q "requires a standby role"; then
+        printf "Scenario 50 requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V\$MANAGED_STANDBY."
+        return "$SUCCESS"
+      fi
+      ;;
+    51)
+      if printf "%s\n" "$output" | grep -q "requires Data Guard metadata"; then
+        printf "Scenario 51 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V\$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation."
+        return "$SUCCESS"
+      fi
+      ;;
+    52)
+      if printf "%s\n" "$output" | grep -q "requires Data Guard metadata"; then
+        printf "Scenario 52 requires a Data Guard configuration, preferably with broker enabled for broker outage practice. Configure a standby and verify DGMGRL SHOW CONFIGURATION before running this scenario."
+        return "$SUCCESS"
+      fi
+      ;;
+    53)
+      if printf "%s\n" "$output" | grep -q "requires a standby role"; then
+        printf "Scenario 53 requires an Active Data Guard standby opened READ ONLY WITH APPLY. Run it on an ADG standby after confirming open mode and apply status."
+        return "$SUCCESS"
+      fi
+      ;;
+    54)
+      if printf "%s\n" "$output" | grep -q "requires a standby role"; then
+        printf "Scenario 54 requires a Data Guard physical standby that is approved for snapshot-standby conversion practice. Run it on the standby after confirming flashback, broker/transport posture, and restore-point policy."
+        return "$SUCCESS"
+      fi
+      ;;
+  esac
+
+  return "$FAIL"
+}
+
+validation_no_target_reason() {
+  local id="$1"
+  local output="$2"
+  local no_target=0
+
+  if printf "%s\n" "$output" | grep -q "No targets were found for this scenario"; then
+    no_target=1
+  fi
+
+  case "$id" in
+    3)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No multiplexed member was found in the CURRENT redo group. Add at least one additional online redo member to the current group, or multiplex all redo groups and switch logs until a multiplexed group is current, then rerun validation."
+      ;;
+    5)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No non-SYSTEM permanent datafile was found. Create a disposable user tablespace/datafile, or seed the CrashSimulator lab objects, before running scenario 5."
+      ;;
+    6|31)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No tempfile was found in the target scope. Add a tempfile to the database/PDB temporary tablespace before running this scenario."
+      ;;
+    7)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB SYSTEM datafile was visible to the validation query. Confirm the database is open and DBA_DATA_FILES is accessible before running scenario 7."
+      ;;
+    8)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB UNDO datafile was found. Confirm local undo/undo tablespace configuration before running scenario 8."
+      ;;
+    9)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB READ ONLY permanent tablespace was found. Create a controlled read-only lab tablespace, preferably CRASHSIM_ROOT_RO_TBS, set it READ ONLY, then rerun validation."
+      ;;
+    10)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB index-only tablespace was found. Create a controlled index-only lab tablespace, preferably CRASHSIM_ROOT_INDEX_TBS, with indexes and no heap tables before running scenario 10."
+      ;;
+    11)
+      if printf "%s\n" "$output" | grep -q "No non-unique user index candidate"; then
+        printf "No root/non-CDB non-unique user index candidate was found. Re-run seed_crashsim_lab.sql or provide --schema for a disposable lab schema with non-unique indexes."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    12)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No non-SYSTEM permanent tablespace target was found. Create a disposable user tablespace before running scenario 12."
+      ;;
+    13|38)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No temporary tablespace tempfile target was found. Add a tempfile to the target temporary tablespace before running this scenario."
+      ;;
+    14)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB SYSTEM tablespace datafile was visible. Confirm the database is open and dictionary access is available before scenario 14."
+      ;;
+    15)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No root/non-CDB UNDO tablespace datafile was found. Confirm undo tablespace configuration before scenario 15."
+      ;;
+    17|41)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No datafiles were visible to the validation query. Confirm the database/PDB is open and V\$DATAFILE is accessible before running this all-datafile scenario."
+      ;;
+    18)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No online redo group with more than one member was found. Multiplex the online redo logs, preferably every group/thread in RAC, then rerun validation."
+      ;;
+    19)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No INACTIVE redo group members were found. Switch logs and checkpoint until at least one inactive redo group exists, then rerun validation."
+      ;;
+    20|21)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No active/current redo group members were found by the validation query. Confirm V\$LOG/V\$LOGFILE visibility and current redo status before running this redo scenario."
+      ;;
+    22|42)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No SYSTEM datafile target was found for header-corruption practice. Confirm the target database/PDB is open and SYSTEM datafile metadata is visible."
+      ;;
+    27|57)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No SQL*Net configuration files were found under TNS_ADMIN or ORACLE_HOME/network/admin. Create or locate listener.ora, tnsnames.ora, or sqlnet.ora before running this scenario."
+      ;;
+    30)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB non-SYSTEM datafile was found in ${TARGET_PDB:-the target PDB}. Create a disposable user tablespace/datafile in the PDB before running scenario 30."
+      ;;
+    32)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB SYSTEM datafile was visible in ${TARGET_PDB:-the target PDB}. Confirm the PDB is open and CDB_DATA_FILES metadata is accessible before running scenario 32."
+      ;;
+    33|40)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB UNDO datafile was found in ${TARGET_PDB:-the target PDB}. Confirm local undo is enabled and the PDB has an UNDO tablespace before running this scenario."
+      ;;
+    34)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No READ ONLY permanent tablespace was found in PDB ${TARGET_PDB:-not set}. Create a controlled PDB read-only lab tablespace, set it READ ONLY, then rerun validation."
+      ;;
+    35)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB index-only tablespace was found in ${TARGET_PDB:-the target PDB}. Create a controlled index-only lab tablespace with indexes and no heap tables before running scenario 35."
+      ;;
+    36)
+      if printf "%s\n" "$output" | grep -q "No PDB non-unique user index candidate"; then
+        printf "No PDB non-unique user index candidate was found in ${TARGET_PDB:-the target PDB}. Re-run seed_crashsim_lab.sql in the PDB or provide --schema for a disposable lab schema."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    37)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB non-SYSTEM permanent tablespace was found in ${TARGET_PDB:-the target PDB}. Create a disposable PDB user tablespace before running scenario 37."
+      ;;
+    39)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No PDB SYSTEM tablespace datafile was visible in ${TARGET_PDB:-the target PDB}. Confirm the PDB is open and metadata is accessible before running scenario 39."
+      ;;
+    43)
+      if printf "%s\n" "$output" | grep -Eq "No PDB user table candidate|No targets were found"; then
+        printf "No PDB user table candidate was found in ${TARGET_PDB:-the target PDB}. Re-run seed_crashsim_lab.sql in the PDB or provide --schema for a disposable lab schema with test tables."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    44)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No disposable PDB user schema candidate was found in ${TARGET_PDB:-the target PDB}. Re-run seed_crashsim_lab.sql or provide --schema for a lab schema that can be dropped."
+      ;;
+    50)
+      if printf "%s\n" "$output" | grep -q "No managed standby recovery process"; then
+        printf "No managed standby recovery process was detected. Start standby apply and confirm an MRP process in V\$MANAGED_STANDBY before running scenario 50."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    51)
+      if printf "%s\n" "$output" | grep -q "No remote standby archive destination"; then
+        printf "No enabled remote standby archive destination was found. Configure Data Guard transport and confirm V\$ARCHIVE_DEST TARGET='STANDBY' before running scenario 51."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    58)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No TDE wallet/keystore location was detected. Configure WALLET_ROOT/TDE_CONFIGURATION or an sqlnet.ora wallet location before running scenario 58."
+      ;;
+    59)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No archived redo log file was found in control-file metadata. Generate and retain archived redo logs, then rerun validation."
+      ;;
+    60)
+      [[ "$no_target" -eq 1 ]] || return "$FAIL"
+      printf "No RMAN catalog connect string was provided. Set --rman-catalog or CRASHSIM_RMAN_CATALOG to validate recovery catalog outage behavior."
+      ;;
+    *)
+      return "$FAIL"
+      ;;
+  esac
+  return "$SUCCESS"
+}
+
 validation_guardrail_reason() {
   local id="$1"
   case "$id" in
@@ -2354,7 +2558,11 @@ validate_scenario_can_run() {
   req_status=$?
   if [[ "$req_status" -ne 0 ]]; then
     SCENARIO_VALIDATION_OUTPUT="$req_output"
-    SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$req_output")"
+    if reason="$(validation_requirement_blocker_reason "$id" "$req_output")"; then
+      SCENARIO_VALIDATION_REASON="$reason"
+    else
+      SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$req_output")"
+    fi
     return "$FAIL"
   fi
 
@@ -2383,7 +2591,11 @@ validate_scenario_can_run() {
   plan_status=$?
   SCENARIO_VALIDATION_OUTPUT="$plan_output"
   if [[ "$plan_status" -ne 0 ]]; then
-    SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$plan_output")"
+    if reason="$(validation_no_target_reason "$id" "$plan_output")"; then
+      SCENARIO_VALIDATION_REASON="$reason"
+    else
+      SCENARIO_VALIDATION_REASON="$(validation_reason_from_output "$plan_output")"
+    fi
     return "$FAIL"
   fi
 
