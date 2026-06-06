@@ -211,12 +211,16 @@ def write_tutorial_readme() -> None:
 Generated assets:
 
 - `crashsimulator_cli_tutorial.mp4`: short 1080p CLI setup and scenario tutorial with burned-in subtitles.
+- `crashsimulator_cli_tutorial_with_audio.mp4`: narrated CLI setup and scenario tutorial generated from the subtitles.
 - `crashsimulator_cli_tutorial_subtitles.vtt`: CLI tutorial WebVTT subtitle sidecar.
 - `crashsimulator_guided_workflow_tutorial.mp4`: short 1080p Guided Workflow menu scenario tutorial with burned-in subtitles.
+- `crashsimulator_guided_workflow_tutorial_with_audio.mp4`: narrated Guided Workflow menu scenario tutorial generated from the subtitles.
 - `crashsimulator_guided_workflow_tutorial_subtitles.vtt`: Guided Workflow tutorial WebVTT subtitle sidecar.
 - `crashsimulator_audit_retention_tutorial.mp4`: short 1080p audit retention tutorial for CLI and Guided Workflow menu modes with burned-in subtitles.
+- `crashsimulator_audit_retention_tutorial_with_audio.mp4`: narrated audit retention tutorial generated from the subtitles.
 - `crashsimulator_audit_retention_tutorial_subtitles.vtt`: audit retention tutorial WebVTT subtitle sidecar.
 - `crashsimulator_scenario_readiness_tutorial.mp4`: short 1080p scenario readiness tutorial for CLI and Guided Workflow menu modes with burned-in subtitles.
+- `crashsimulator_scenario_readiness_tutorial_with_audio.mp4`: narrated scenario readiness tutorial generated from the subtitles.
 - `crashsimulator_scenario_readiness_tutorial_subtitles.vtt`: scenario readiness tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
@@ -227,6 +231,12 @@ python3 tools/render_cli_tutorial_video.py
 python3 tools/render_guided_workflow_tutorial_video.py
 python3 tools/render_audit_retention_tutorial_video.py
 python3 tools/render_scenario_readiness_tutorial_video.py
+```
+
+On macOS, regenerate the narrated copies from the subtitle scripts with:
+
+```bash
+python3 tools/add_tutorial_audio.py --voice Samantha --rate 175
 ```
 
 The tutorial set demonstrates direct CLI execution, the menu-driven
