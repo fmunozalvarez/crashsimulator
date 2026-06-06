@@ -237,6 +237,25 @@ available. The default report uses RMAN metadata and `restore database preview
 summary`; `--deep-validate` adds read-only but I/O-intensive RMAN
 `restore database validate` and `validate database check logical` checks.
 
+## Oracle Service HA Review
+
+Use `--service-review` to generate a focused, read-only review of Oracle
+Database services and application failover posture:
+
+```bash
+./CrashSimulatorV2.sh --service-review
+./CrashSimulatorV2.sh --service-review --html
+```
+
+The review checks SQL service metadata and, when Grid Infrastructure tooling is
+available, `srvctl config service` metadata. It reports Application Continuity
+and Transparent Application Continuity indicators, Commit Outcome/Transaction
+Guard, FAN/AQ notifications, runtime/client load-balancing goals, drain timeout,
+session-state consistency, failover restore, Fast-Start Failover evidence, ADG
+DML redirection configuration, and role-based services for Data Guard/Active
+Data Guard. The same service-awareness section is also included in
+`--maa-report`.
+
 ## Backup Strategy And Recoverability Report
 
 Use `--backup-report` to generate a focused backup strategy and recoverability
@@ -317,9 +336,10 @@ The report detects the current MAA posture as a best-effort mapping to Bronze,
 Silver, Gold, Platinum, or Diamond from observable evidence such as RAC/RAC One
 Node, Data Guard/Active Data Guard, FSFO, RMAN backup coverage, ARCHIVELOG,
 FORCE LOGGING, Flashback Database, redo/control-file redundancy, FRA, TDE, and
-GoldenGate-style dictionary evidence where available. It also records SLA/RTO/RPO
-planning context so a future recommendation engine can compare application
-objectives with the detected HA/DR capabilities.
+GoldenGate-style dictionary evidence where available. It also includes service
+HA awareness for AC/TAC, ADG DML redirection, and Data Guard role-based
+services. It records SLA/RTO/RPO planning context so a future recommendation
+engine can compare application objectives with the detected HA/DR capabilities.
 
 This is a readiness assessment, not an Oracle certification. It uses Oracle MAA
 reference architecture concepts and the RTO/RPO planning model from

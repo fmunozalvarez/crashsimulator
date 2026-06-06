@@ -446,6 +446,25 @@ CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh 
 Sanitized examples are available under `docs/reference/`, including default
 target-control-file, recovery-catalog-backed, and deep-validation report output.
 
+### Oracle Service HA Review
+
+`--service-review` generates a focused read-only report for Oracle Database
+service high-availability posture.
+
+```bash
+./CrashSimulatorV2.sh --service-review
+./CrashSimulatorV2.sh --service-review --html
+```
+
+The report checks Application Continuity and Transparent Application Continuity
+signals, Commit Outcome/Transaction Guard, FAN/AQ notifications, runtime/client
+load-balancing goals, drain timeout, session-state consistency, failover restore,
+Fast-Start Failover evidence, Active Data Guard DML redirection configuration,
+and role-based services. When `srvctl` is available, it parses Clusterware
+service metadata so Data Guard and Active Data Guard services can be reviewed
+for `PRIMARY` and standby-role placement. The same service review section is
+included in `--maa-report`.
+
 ### Fresh Baseline Backup
 
 `--baseline-backup` runs the official `crashsim_run_baseline_backup.sh` helper
@@ -555,7 +574,8 @@ Supported shortcuts include `topology`, `config`, `backup`,
 
 `--maa-report` generates a best-effort Oracle MAA posture report. It maps
 observable evidence to Bronze, Silver, Gold, Platinum, or Diamond-style
-capability levels and records RTO/RPO planning context.
+capability levels, includes AC/TAC, FSFO, ADG DML redirection, and role-based
+service awareness, and records RTO/RPO planning context.
 
 Example:
 
@@ -676,6 +696,11 @@ For Data Guard and Active Data Guard drills, include:
 - Transport and apply lag.
 - Archive gaps.
 - FSFO observer status.
+- Role-based services for primary write workloads and standby/ADG read-only
+  workloads.
+- AC/TAC, FAN/ONS, drain timeout, and client replay behavior.
+- ADG DML redirection posture for any standby service that allows redirected
+  writes.
 - Application failover and reconnection behavior.
 
 ### Document The Human Timeline

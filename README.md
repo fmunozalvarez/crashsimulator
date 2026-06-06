@@ -8,7 +8,9 @@ measure and improve database resilience.
 CrashSimulator V2 is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
-configuration reports, and Oracle MAA readiness reporting. It can also review previously collected
+configuration reports, Oracle MAA readiness reporting, and Oracle service HA
+best-practice reviews for AC/TAC, FSFO, ADG DML redirection, and role-based
+services. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
@@ -80,6 +82,7 @@ and Guided Workflow menu modes.
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --backup-report
+./CrashSimulatorV2.sh --service-review --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report

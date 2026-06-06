@@ -138,6 +138,7 @@ Usage:
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --backup-report [--deep-validate]
+  ./${PROGRAM} --service-review [--html]
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
@@ -168,6 +169,10 @@ Options:
   --backup-report         Generate backup strategy, recoverability, RTO/RPO report.
   --backup-assessment     Alias for --backup-report.
   --recoverability-report Alias for --backup-report.
+  --service-review        Generate AC/TAC, FSFO, DML redirection, and service
+                          best-practice review.
+  --service-assessment    Alias for --service-review.
+  --services-report       Alias for --service-review.
   --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
   --fresh-baseline-backup Alias for --baseline-backup.
   --audit-retain <yes|no> Enable or disable per-run audit log retention.
@@ -4237,6 +4242,9 @@ find_latest_artifact() {
     backup|backup-report|recoverability)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_backup_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
+    service|services|service-review|service-report)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_service_review_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
     scenario-readiness|readiness|scenario-availability|topology-scenarios)
       if [[ -f "${LOG_DIR}/crashsim_scenario_readiness_latest.md" ]]; then
         latest="${LOG_DIR}/crashsim_scenario_readiness_latest.md"
@@ -4351,13 +4359,14 @@ review_append_file_list() {
 }
 
 generate_review_index() {
-  local report_file latest_topology latest_config latest_backup latest_readiness latest_maa latest_health latest_review
+  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_maa latest_health latest_review
   local manifest audit_dir metadata command status started mode
 
   report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
   latest_topology="$(find_latest_artifact topology 2>/dev/null || true)"
   latest_config="$(find_latest_artifact config 2>/dev/null || true)"
   latest_backup="$(find_latest_artifact backup 2>/dev/null || true)"
+  latest_service="$(find_latest_artifact service 2>/dev/null || true)"
   latest_readiness="$(find_latest_artifact scenario-readiness 2>/dev/null || true)"
   latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
   latest_health="$(find_latest_artifact health 2>/dev/null || true)"
@@ -4377,6 +4386,7 @@ generate_review_index() {
     fi
     [[ -n "$latest_config" ]] && printf -- '- Latest configuration report: `%s`\n' "$latest_config"
     [[ -n "$latest_backup" ]] && printf -- '- Latest backup/recoverability report: `%s`\n' "$latest_backup"
+    [[ -n "$latest_service" ]] && printf -- '- Latest service HA review: `%s`\n' "$latest_service"
     [[ -n "$latest_readiness" ]] && printf -- '- Latest scenario readiness report: `%s`\n' "$latest_readiness"
     [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
     [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
@@ -4395,6 +4405,7 @@ generate_review_index() {
   review_append_file_list "$report_file" "Health Checks" 20 -name 'crashsim_health_check_*.log'
   review_append_file_list "$report_file" "Configuration Reports" 20 -name 'crashsim_config_report_*.md'
   review_append_file_list "$report_file" "Backup Strategy / Recoverability Reports" 20 -name 'crashsim_backup_report_*.md'
+  review_append_file_list "$report_file" "Service HA Reviews" 20 -name 'crashsim_service_review_*.md'
   review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
@@ -4549,6 +4560,12 @@ where name = 'tde_configuration';
 select 'CSIM_MAA|archive_lag_target|' || nvl(max(value), 'UNKNOWN')
 from v$parameter
 where name = 'archive_lag_target';
+select 'CSIM_MAA|adg_redirect_dml|' || nvl(max(value), 'UNAVAILABLE')
+from v$parameter
+where name = 'adg_redirect_dml';
+select 'CSIM_MAA|adg_redirect_dml_modifiable|' || nvl(max(issys_modifiable), 'UNAVAILABLE')
+from v$parameter
+where name = 'adg_redirect_dml';
 
 select 'CSIM_MAA|control_file_count|' || count(*) from v$controlfile;
 select 'CSIM_MAA|redo_group_count|' || count(*) from v$log;
@@ -4655,32 +4672,156 @@ select 'CSIM_MAA|pdb_not_open_rw_count|' ||
 from dual;
 
 declare
+  l_service_view varchar2(30) := 'DBA_SERVICES';
+  l_aq_column varchar2(30);
   l_count number;
-begin
+  l_has_failover_type boolean;
+  l_has_commit_outcome boolean;
+  l_has_aq_notification boolean;
+  l_has_goal boolean;
+  l_has_clb_goal boolean;
+  l_has_drain_timeout boolean;
+  l_has_session_state boolean;
+  l_has_failover_restore boolean;
+  l_has_pdb boolean;
+  l_ac_condition varchar2(2000) := '1=0';
+  l_tac_condition varchar2(2000) := '1=0';
+  l_replay_condition varchar2(2000) := '1=0';
+  l_user_filter varchar2(1000) := q'[name not like 'SYS$%' and upper(name) not in ('XDB')]';
+
+  function has_column(p_table_name varchar2, p_column_name varchar2) return boolean is
+    l_count number;
   begin
-    execute immediate q'[select count(*) from dba_services where failover_type in ('TRANSACTION','AUTO') or commit_outcome = 'YES']'
-      into l_count;
+    select count(*)
+    into l_count
+    from all_tab_columns
+    where table_name = upper(p_table_name)
+      and column_name = upper(p_column_name);
+    return l_count > 0;
   exception
     when others then
-      l_count := -1;
+      return false;
   end;
-  dbms_output.put_line('CSIM_MAA|application_continuity_service_count|' || l_count);
+
+  procedure emit(p_key varchar2, p_value varchar2) is
+  begin
+    dbms_output.put_line('CSIM_MAA|' || p_key || '|' || nvl(p_value, 'UNKNOWN'));
+  end;
+
+  procedure emit_count(p_key varchar2, p_sql varchar2) is
+    l_count number;
+  begin
+    execute immediate p_sql into l_count;
+    emit(p_key, to_char(l_count));
+  exception
+    when others then
+      emit(p_key, 'UNKNOWN');
+  end;
+begin
+  l_has_failover_type := has_column(l_service_view, 'FAILOVER_TYPE');
+  l_has_commit_outcome := has_column(l_service_view, 'COMMIT_OUTCOME');
+  if has_column(l_service_view, 'AQ_HA_NOTIFICATION') then
+    l_has_aq_notification := true;
+    l_aq_column := 'aq_ha_notification';
+  elsif has_column(l_service_view, 'AQ_HA_NOTIFICATIONS') then
+    l_has_aq_notification := true;
+    l_aq_column := 'aq_ha_notifications';
+  else
+    l_has_aq_notification := false;
+    l_aq_column := null;
+  end if;
+  l_has_goal := has_column(l_service_view, 'GOAL');
+  l_has_clb_goal := has_column(l_service_view, 'CLB_GOAL');
+  l_has_drain_timeout := has_column(l_service_view, 'DRAIN_TIMEOUT');
+  l_has_session_state := has_column(l_service_view, 'SESSION_STATE_CONSISTENCY');
+  l_has_failover_restore := has_column(l_service_view, 'FAILOVER_RESTORE');
+  l_has_pdb := has_column(l_service_view, 'PDB');
+
+  emit('service_attribute_source', l_service_view);
+  emit('service_failover_type_column', case when l_has_failover_type then 'YES' else 'NO' end);
+  emit('service_commit_outcome_column', case when l_has_commit_outcome then 'YES' else 'NO' end);
+  emit('service_aq_ha_notification_column', case when l_has_aq_notification then 'YES' else 'NO' end);
+  emit('service_drain_timeout_column', case when l_has_drain_timeout then 'YES' else 'NO' end);
+  emit('service_session_state_column', case when l_has_session_state then 'YES' else 'NO' end);
+
+  if l_has_failover_type then
+    l_ac_condition := l_ac_condition || q'[ or upper(nvl(failover_type,'')) = 'TRANSACTION']';
+    l_tac_condition := l_tac_condition || q'[ or upper(nvl(failover_type,'')) = 'AUTO']';
+    l_replay_condition := l_replay_condition || q'[ or upper(nvl(failover_type,'')) in ('TRANSACTION','AUTO')]';
+  end if;
+  if l_has_commit_outcome then
+    l_ac_condition := l_ac_condition || q'[ or upper(nvl(commit_outcome,'')) in ('YES','TRUE')]';
+    l_replay_condition := l_replay_condition || q'[ or upper(nvl(commit_outcome,'')) in ('YES','TRUE')]';
+  end if;
+
+  emit_count('service_total_count', 'select count(*) from ' || l_service_view);
+  emit_count('service_user_count', 'select count(*) from ' || l_service_view || ' where ' || l_user_filter);
+  emit_count('ac_service_count', 'select count(*) from ' || l_service_view || ' where ' || l_user_filter || ' and (' || l_ac_condition || ')');
+  emit_count('tac_service_count', 'select count(*) from ' || l_service_view || ' where ' || l_user_filter || ' and (' || l_tac_condition || ')');
+  emit_count('application_continuity_service_count', 'select count(*) from ' || l_service_view || ' where ' || l_user_filter || ' and (' || l_replay_condition || ')');
+  emit_count('service_without_ac_tac_count', 'select count(*) from ' || l_service_view || ' where ' || l_user_filter || ' and not (' || l_replay_condition || ')');
+
+  if l_has_commit_outcome then
+    emit_count('commit_outcome_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and upper(nvl(commit_outcome,'')) in ('YES','TRUE')]');
+  else
+    emit('commit_outcome_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_aq_notification then
+    emit_count('fan_notification_service_count', 'select count(*) from dba_services where name not like ''SYS$%'' and upper(name) not in (''XDB'') and upper(nvl(' || l_aq_column || ',''NO'')) in (''YES'',''TRUE'')');
+  else
+    emit('fan_notification_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_goal and l_has_clb_goal then
+    emit_count('runtime_load_balancing_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and (upper(nvl(goal,'NONE')) <> 'NONE' or upper(nvl(clb_goal,'NONE')) <> 'NONE')]');
+  elsif l_has_goal then
+    emit_count('runtime_load_balancing_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and upper(nvl(goal,'NONE')) <> 'NONE']');
+  elsif l_has_clb_goal then
+    emit_count('runtime_load_balancing_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and upper(nvl(clb_goal,'NONE')) <> 'NONE']');
+  else
+    emit('runtime_load_balancing_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_drain_timeout then
+    emit_count('drain_timeout_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and nvl(drain_timeout,0) > 0]');
+  else
+    emit('drain_timeout_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_session_state then
+    emit_count('session_state_consistency_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and upper(nvl(session_state_consistency,'NONE')) not in ('NONE','STATIC')]');
+  else
+    emit('session_state_consistency_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_failover_restore then
+    emit_count('failover_restore_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and upper(nvl(failover_restore,'NONE')) not in ('NONE','NO')]');
+  else
+    emit('failover_restore_service_count', 'UNKNOWN');
+  end if;
+
+  if l_has_pdb then
+    emit_count('pdb_service_count', q'[select count(*) from dba_services where name not like 'SYS$%' and upper(name) not in ('XDB') and pdb is not null]');
+  else
+    emit('pdb_service_count', 'UNKNOWN');
+  end if;
 
   begin
     execute immediate 'select count(*) from dba_capture' into l_count;
+    emit('capture_process_count', to_char(l_count));
   exception
     when others then
-      l_count := -1;
+      emit('capture_process_count', 'UNKNOWN');
   end;
-  dbms_output.put_line('CSIM_MAA|capture_process_count|' || l_count);
 
   begin
     execute immediate 'select count(*) from dba_apply' into l_count;
+    emit('apply_process_count', to_char(l_count));
   exception
     when others then
-      l_count := -1;
+      emit('apply_process_count', 'UNKNOWN');
   end;
-  dbms_output.put_line('CSIM_MAA|apply_process_count|' || l_count);
 end;
 /
 
@@ -4740,6 +4881,254 @@ maa_append_check() {
     "$(md_escape "$recommendation")" >>"$report_file"
 }
 
+collect_srvctl_service_evidence() {
+  local output_file="$1"
+  local summary_file="${output_file}.summary"
+  local status="UNAVAILABLE"
+
+  MAA_EVIDENCE["srvctl_available"]="NO"
+  MAA_EVIDENCE["srvctl_service_status"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_role_based_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_primary_role_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_standby_role_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_all_role_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_automatic_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_singleton_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_uniform_service_count"]="UNAVAILABLE"
+
+  if ! command -v srvctl >/dev/null 2>&1 || [[ -z "$DB_UNIQUE_NAME" ]]; then
+    {
+      printf "srvctl unavailable or DB_UNIQUE_NAME not discovered.\n"
+      printf "srvctl=%s\n" "$(command -v srvctl 2>/dev/null || printf not-found)"
+      printf "DB_UNIQUE_NAME=%s\n" "${DB_UNIQUE_NAME:-unknown}"
+    } >"$output_file" || true
+    return "$SUCCESS"
+  fi
+
+  MAA_EVIDENCE["srvctl_available"]="YES"
+  if srvctl config service -d "$DB_UNIQUE_NAME" >"$output_file" 2>&1; then
+    status="OK"
+  else
+    status="ERROR_OR_NO_SERVICES"
+  fi
+  MAA_EVIDENCE["srvctl_service_status"]="$status"
+
+  awk '
+    BEGIN {
+      service_count=0
+      role_based=0
+      primary_role=0
+      standby_role=0
+      all_role=0
+      automatic=0
+      singleton=0
+      uniform=0
+    }
+    function trim(v) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+      return v
+    }
+    /^Service name:/ {
+      service_count++
+      next
+    }
+    /^(Service )?[Rr]ole:/ {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      role=tolower(trim(value))
+      if (role != "" && role != "none" && role != "null") role_based++
+      if (role ~ /primary/) primary_role++
+      if (role ~ /standby|physical_standby|logical_standby|snapshot_standby/) standby_role++
+      if (role ~ /all/) all_role++
+      next
+    }
+    /^Management policy:/ {
+      value=tolower($0)
+      if (value ~ /automatic/) automatic++
+      next
+    }
+    /^Cardinality:/ {
+      value=tolower($0)
+      if (value ~ /singleton/) singleton++
+      if (value ~ /uniform/) uniform++
+      next
+    }
+    END {
+      print "srvctl_service_count=" service_count
+      print "srvctl_role_based_service_count=" role_based
+      print "srvctl_primary_role_service_count=" primary_role
+      print "srvctl_standby_role_service_count=" standby_role
+      print "srvctl_all_role_service_count=" all_role
+      print "srvctl_automatic_service_count=" automatic
+      print "srvctl_singleton_service_count=" singleton
+      print "srvctl_uniform_service_count=" uniform
+    }
+  ' "$output_file" >"$summary_file" 2>/dev/null || true
+
+  while IFS='=' read -r key value; do
+    [[ -n "$key" ]] || continue
+    MAA_EVIDENCE["$key"]="${value:-0}"
+  done <"$summary_file"
+}
+
+append_service_awareness_sections() {
+  local report_file="$1"
+  local dg_detected=0
+  local adg_standby=0
+  local ac_count tac_count replay_gap user_services role_services
+  local fan_count rlb_count drain_count commit_count state_count restore_count
+  local dml_redirect fsfo_status fsfo_observer db_role open_mode
+
+  db_role="$(maa_value db_role UNKNOWN)"
+  open_mode="$(maa_value open_mode UNKNOWN)"
+
+  if [[ "$db_role" != "PRIMARY" && "$db_role" != "UNKNOWN" ]] || maa_positive remote_standby_dest_count; then
+    dg_detected=1
+  fi
+  if [[ "$db_role" == *"STANDBY"* && "$open_mode" == *"READ ONLY WITH APPLY"* ]]; then
+    adg_standby=1
+  fi
+
+  ac_count="$(maa_value ac_service_count "$(maa_value application_continuity_service_count 0)")"
+  tac_count="$(maa_value tac_service_count 0)"
+  replay_gap="$(maa_value service_without_ac_tac_count UNKNOWN)"
+  user_services="$(maa_value service_user_count UNKNOWN)"
+  role_services="$(maa_value srvctl_role_based_service_count UNKNOWN)"
+  fan_count="$(maa_value fan_notification_service_count 0)"
+  rlb_count="$(maa_value runtime_load_balancing_service_count 0)"
+  drain_count="$(maa_value drain_timeout_service_count 0)"
+  commit_count="$(maa_value commit_outcome_service_count 0)"
+  state_count="$(maa_value session_state_consistency_service_count 0)"
+  restore_count="$(maa_value failover_restore_service_count 0)"
+  dml_redirect="$(maa_value adg_redirect_dml UNAVAILABLE)"
+  fsfo_status="$(maa_value fsfo_status UNKNOWN)"
+  fsfo_observer="$(maa_value fsfo_observer_present UNKNOWN)"
+
+  append_report_section "$report_file" "Application Continuity, TAC, FSFO, DML Redirection, And Services Review"
+  {
+    printf '| Area | Evidence |\n'
+    printf '| --- | --- |\n'
+    printf '| SQL service dictionary | Source `%s`, services `%s`, application services `%s`, PDB services `%s` |\n' \
+      "$(md_escape "$(maa_value service_attribute_source UNKNOWN)")" \
+      "$(md_escape "$(maa_value service_total_count UNKNOWN)")" \
+      "$(md_escape "$user_services")" \
+      "$(md_escape "$(maa_value pdb_service_count UNKNOWN)")"
+    printf '| Application Continuity / TAC | AC `%s`, TAC `%s`, Commit Outcome `%s`, missing AC/TAC `%s` |\n' \
+      "$(md_escape "$ac_count")" "$(md_escape "$tac_count")" \
+      "$(md_escape "$commit_count")" "$(md_escape "$replay_gap")"
+    printf '| Client HA service attributes | FAN/AQ `%s`, RLB goals `%s`, drain timeout `%s`, session state consistency `%s`, failover restore `%s` |\n' \
+      "$(md_escape "$fan_count")" "$(md_escape "$rlb_count")" \
+      "$(md_escape "$drain_count")" "$(md_escape "$state_count")" "$(md_escape "$restore_count")"
+    printf '| Data Guard / FSFO | DG detected `%s`, FSFO status `%s`, FSFO target `%s`, observer `%s`, threshold `%s` |\n' \
+      "$(md_escape "$dg_detected")" "$(md_escape "$fsfo_status")" \
+      "$(md_escape "$(maa_value fsfo_target NONE)")" "$(md_escape "$fsfo_observer")" \
+      "$(md_escape "$(maa_value fsfo_threshold UNKNOWN)")"
+    printf '| Active Data Guard DML redirection | adg_redirect_dml `%s`, ADG standby context `%s` |\n' \
+      "$(md_escape "$dml_redirect")" "$(md_escape "$adg_standby")"
+    printf '| srvctl service metadata | srvctl `%s`, status `%s`, services `%s`, role-based `%s`, primary-role `%s`, standby-role `%s`, automatic `%s` |\n' \
+      "$(md_escape "$(maa_value srvctl_available NO)")" \
+      "$(md_escape "$(maa_value srvctl_service_status UNAVAILABLE)")" \
+      "$(md_escape "$(maa_value srvctl_service_count UNKNOWN)")" \
+      "$(md_escape "$role_services")" \
+      "$(md_escape "$(maa_value srvctl_primary_role_service_count UNKNOWN)")" \
+      "$(md_escape "$(maa_value srvctl_standby_role_service_count UNKNOWN)")" \
+      "$(md_escape "$(maa_value srvctl_automatic_service_count UNKNOWN)")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Service Best-Practice Checks"
+  {
+    printf '| Status | Area | Check | Evidence | Recommendation |\n'
+    printf '| --- | --- | --- | --- | --- |\n'
+  } >>"$report_file"
+
+  if [[ "$user_services" =~ ^[0-9]+$ && "$user_services" -eq 0 ]]; then
+    maa_append_check "$report_file" "INFO" "Services" "Application services visible" "application_services=${user_services}" "Create dedicated application services instead of relying on default database services."
+  elif [[ "$user_services" =~ ^[0-9]+$ ]]; then
+    maa_append_check "$report_file" "OK" "Services" "Application services visible" "application_services=${user_services}" "Keep services workload-specific so HA, DR, and maintenance policies can differ by application."
+  else
+    maa_append_check "$report_file" "INFO" "Services" "Application services visible" "application_services=${user_services}" "Service dictionary columns could not be fully inspected on this release/session."
+  fi
+
+  if [[ "$tac_count" =~ ^[0-9]+$ && "$tac_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "AC/TAC" "Transparent Application Continuity services" "tac_services=${tac_count}" "Validate request replay with planned relocation, instance abort, and application smoke tests."
+  elif [[ "$ac_count" =~ ^[0-9]+$ && "$ac_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "AC/TAC" "Application Continuity services" "ac_services=${ac_count}, tac_services=${tac_count}" "Consider TAC where supported; confirm Transaction Guard, replay boundaries, and driver settings."
+  else
+    maa_append_check "$report_file" "INFO" "AC/TAC" "Replay-capable services" "ac_services=${ac_count}, tac_services=${tac_count}" "For user-facing services, evaluate TAC or AC with FAN/ONS and compatible drivers before HA drills."
+  fi
+
+  if [[ "$commit_count" =~ ^[0-9]+$ && "$commit_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "AC/TAC" "Commit Outcome / Transaction Guard" "commit_outcome_services=${commit_count}" "Keep retention aligned with application replay windows and failure detection."
+  else
+    maa_append_check "$report_file" "INFO" "AC/TAC" "Commit Outcome / Transaction Guard" "commit_outcome_services=${commit_count}" "Enable Commit Outcome for AC/TAC candidate services where the application is replay-safe."
+  fi
+
+  if [[ "$fan_count" =~ ^[0-9]+$ && "$fan_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "Client HA" "FAN/AQ notification services" "fan_services=${fan_count}" "Confirm ONS/FAN delivery with client pools during RAC/Data Guard failover drills."
+  else
+    maa_append_check "$report_file" "WARN" "Client HA" "FAN/AQ notification services" "fan_services=${fan_count}" "Enable HA notifications for application services and validate client-side failover behavior."
+  fi
+
+  if [[ "$rlb_count" =~ ^[0-9]+$ && "$rlb_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "Client HA" "Runtime/client load balancing goals" "rlb_services=${rlb_count}" "Validate service-time or throughput goals with connection pools and service relocation."
+  else
+    maa_append_check "$report_file" "INFO" "Client HA" "Runtime/client load balancing goals" "rlb_services=${rlb_count}" "Define CLB/RLB goals for services that need predictable RAC load balancing."
+  fi
+
+  if [[ "$drain_count" =~ ^[0-9]+$ && "$drain_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "Planned maintenance" "Service drain timeout" "drain_timeout_services=${drain_count}" "Use drain timeout and stop options during rolling maintenance and service relocation drills."
+  else
+    maa_append_check "$report_file" "INFO" "Planned maintenance" "Service drain timeout" "drain_timeout_services=${drain_count}" "Set drain timeout for services that need graceful planned maintenance."
+  fi
+
+  if [[ "$state_count" =~ ^[0-9]+$ && "$state_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "AC/TAC" "Session state consistency" "session_state_services=${state_count}" "Validate whether dynamic or auto session state handling matches application replay assumptions."
+  else
+    maa_append_check "$report_file" "INFO" "AC/TAC" "Session state consistency" "session_state_services=${state_count}" "Review session-state consistency before enabling AC/TAC for stateful applications."
+  fi
+
+  if [[ "$restore_count" =~ ^[0-9]+$ && "$restore_count" -gt 0 ]]; then
+    maa_append_check "$report_file" "OK" "AC/TAC" "Failover restore" "failover_restore_services=${restore_count}" "Test restored session state with planned and unplanned outages."
+  else
+    maa_append_check "$report_file" "INFO" "AC/TAC" "Failover restore" "failover_restore_services=${restore_count}" "For TAC/AC candidates, review failover restore behavior with the application team."
+  fi
+
+  if [[ "$dg_detected" -eq 1 ]]; then
+    if [[ "$role_services" =~ ^[0-9]+$ && "$role_services" -gt 0 ]]; then
+      maa_append_check "$report_file" "OK" "Data Guard services" "Role-based services" "role_based_services=${role_services}, primary=$(maa_value srvctl_primary_role_service_count UNKNOWN), standby=$(maa_value srvctl_standby_role_service_count UNKNOWN)" "Keep primary write services and ADG read-only services role-scoped; validate after switchover and failover."
+    elif [[ "$(maa_value srvctl_available NO)" == "YES" ]]; then
+      maa_append_check "$report_file" "GAP" "Data Guard services" "Role-based services" "role_based_services=${role_services}" "Configure srvctl role-based services for PRIMARY and PHYSICAL_STANDBY/ADG workloads before DG/ADG drills."
+    else
+      maa_append_check "$report_file" "INFO" "Data Guard services" "Role-based services" "srvctl_available=$(maa_value srvctl_available NO)" "Run the review on a GI-managed host or provide srvctl evidence to validate role-based services."
+    fi
+  else
+    maa_append_check "$report_file" "INFO" "Data Guard services" "Role-based services" "dg_detected=0" "Role-based services become critical once Data Guard or Active Data Guard is configured."
+  fi
+
+  if [[ "$dg_detected" -eq 1 ]]; then
+    if [[ "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED ]] || [[ "$fsfo_observer" == "YES" ]]; then
+      maa_append_check "$report_file" "OK" "FSFO" "Fast-Start Failover awareness" "fsfo=${fsfo_status}, observer=${fsfo_observer}, threshold=$(maa_value fsfo_threshold UNKNOWN)" "Validate observer location, failover threshold, target, reinstate/failback runbook, and application service movement."
+    else
+      maa_append_check "$report_file" "INFO" "FSFO" "Fast-Start Failover awareness" "fsfo=${fsfo_status}, observer=${fsfo_observer}" "For low RTO Data Guard designs, evaluate FSFO and rehearse observer failure/failback handling."
+    fi
+  else
+    maa_append_check "$report_file" "INFO" "FSFO" "Fast-Start Failover awareness" "dg_detected=0" "FSFO applies after a broker-managed Data Guard configuration is in place."
+  fi
+
+  if [[ "$adg_standby" -eq 1 ]]; then
+    if [[ "$(printf "%s" "$dml_redirect" | tr '[:lower:]' '[:upper:]')" =~ TRUE|YES|AUTO ]]; then
+      maa_append_check "$report_file" "OK" "ADG DML redirection" "DML redirection configuration" "adg_redirect_dml=${dml_redirect}" "Validate redirected DML latency, application semantics, and primary impact before exposing ADG write-capable sessions."
+    else
+      maa_append_check "$report_file" "INFO" "ADG DML redirection" "DML redirection configuration" "adg_redirect_dml=${dml_redirect}" "Enable only for approved ADG services that require occasional DML; keep read-only services strictly read-only by default."
+    fi
+  elif [[ "$dg_detected" -eq 1 ]]; then
+    maa_append_check "$report_file" "INFO" "ADG DML redirection" "DML redirection configuration" "role=${db_role}, open_mode=${open_mode}, adg_redirect_dml=${dml_redirect}" "Run this review on an ADG standby to confirm DML redirection posture for standby read services."
+  else
+    maa_append_check "$report_file" "INFO" "ADG DML redirection" "DML redirection configuration" "adg_redirect_dml=${dml_redirect}" "DML redirection is relevant for Active Data Guard standby services."
+  fi
+}
+
 maa_sla_hint() {
   local local_rto local_rpo dr_rto dr_rpo planned_rto combined
   local_rto="$(printf "%s" "$MAA_LOCAL_RTO" | tr '[:upper:]' '[:lower:]')"
@@ -4764,7 +5153,7 @@ run_maa_report() {
   discover_environment
   ensure_sqlplus
 
-  local report_file sql_file evidence_file generated_at
+  local report_file sql_file evidence_file srvctl_service_file generated_at
   local detected_level detected_reason readiness_status sla_hint
   local has_silver=0 has_gold=0 has_platinum=0 has_diamond=0 baseline_gap=0
   local version_major app_continuity capture_count apply_count
@@ -4773,11 +5162,13 @@ run_maa_report() {
   report_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.md"
   sql_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.sql"
   evidence_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.evidence"
+  srvctl_service_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_srvctl_services.out"
   write_maa_assessment_sql_file "$sql_file"
 
   "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "MAA assessment SQL failed: $sql_file (evidence: $evidence_file)"
   parse_maa_evidence_file "$evidence_file"
+  collect_srvctl_service_evidence "$srvctl_service_file"
 
   case "$CLUSTER_TYPE" in
     RAC|RACONE|RACONENODE|RAC_ONE_NODE)
@@ -4787,7 +5178,7 @@ run_maa_report() {
   if [[ "$(maa_value cluster_database FALSE)" == "TRUE" || "$(maa_value instance_parallel NO)" == "YES" ]]; then
     has_silver=1
   fi
-  if [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" ]] || maa_positive remote_standby_dest_count; then
+  if [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" && "$(maa_value db_role UNKNOWN)" != "UNKNOWN" ]] || maa_positive remote_standby_dest_count; then
     has_gold=1
   fi
   capture_count="$(maa_value capture_process_count 0)"
@@ -4903,8 +5294,17 @@ run_maa_report() {
       "$(md_escape "$(maa_value tde_wallet_not_open_count)")" \
       "$(md_escape "$(maa_value encrypted_tablespace_count)")" \
       "$(md_escape "$(maa_value tde_configuration)")"
-    printf '| Application continuity / replication | AC-style services `%s`, capture processes `%s`, apply processes `%s` |\n' \
-      "$(md_escape "$app_continuity")" "$(md_escape "$capture_count")" "$(md_escape "$apply_count")"
+    printf '| Application continuity / services | Replay-capable services `%s`, AC `%s`, TAC `%s`, missing AC/TAC `%s`, role-based srvctl services `%s` |\n' \
+      "$(md_escape "$app_continuity")" \
+      "$(md_escape "$(maa_value ac_service_count "$app_continuity")")" \
+      "$(md_escape "$(maa_value tac_service_count 0)")" \
+      "$(md_escape "$(maa_value service_without_ac_tac_count UNKNOWN)")" \
+      "$(md_escape "$(maa_value srvctl_role_based_service_count UNKNOWN)")"
+    printf '| ADG DML redirection | adg_redirect_dml `%s`, modifiable `%s` |\n' \
+      "$(md_escape "$(maa_value adg_redirect_dml UNAVAILABLE)")" \
+      "$(md_escape "$(maa_value adg_redirect_dml_modifiable UNAVAILABLE)")"
+    printf '| Replication dictionary | capture processes `%s`, apply processes `%s` |\n' \
+      "$(md_escape "$capture_count")" "$(md_escape "$apply_count")"
   } >>"$report_file"
 
   append_report_section "$report_file" "Best-Practice Checks"
@@ -4943,7 +5343,7 @@ run_maa_report() {
   else
     maa_append_check "$report_file" "WARN" "Recovery" "Flashback Database enabled" "FLASHBACK_ON=$(maa_value flashback_on)" "Consider Flashback Database for faster logical-error and failed-change recovery where storage allows."
   fi
-  if maa_positive remote_standby_dest_count || [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" ]]; then
+  if maa_positive remote_standby_dest_count || [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" && "$(maa_value db_role UNKNOWN)" != "UNKNOWN" ]]; then
     maa_append_check "$report_file" "OK" "Disaster recovery" "Data Guard topology detected" "role=$(maa_value db_role), standby_dests=$(maa_value remote_standby_dest_count), valid=$(maa_value valid_remote_standby_dest_count)" "Validate switchover/failover, FSFO, transport/apply lag, and application reconnection."
   else
     maa_append_check "$report_file" "GAP" "Disaster recovery" "Data Guard topology detected" "role=$(maa_value db_role), standby_dests=$(maa_value remote_standby_dest_count)" "Gold or higher MAA posture needs Data Guard/Active Data Guard or equivalent DR architecture."
@@ -4975,6 +5375,8 @@ run_maa_report() {
   else
     maa_append_check "$report_file" "GAP" "Security" "TDE wallet open for encrypted data" "wallet_not_open=$(maa_value tde_wallet_not_open_count), encrypted_tbs=$(maa_value encrypted_tablespace_count)" "Open/repair keystore state and validate encrypted tablespace and backup access."
   fi
+
+  append_service_awareness_sections "$report_file"
 
   append_report_section "$report_file" "SLA / RTO / RPO Planning Context"
   {
@@ -5028,6 +5430,76 @@ run_maa_report() {
   echo "MAA readiness report generated: ${report_file}"
   echo "Detected MAA posture: ${detected_level}"
   echo "Readiness status: ${readiness_status}"
+  maybe_render_html "$report_file"
+}
+
+run_service_review() {
+  discover_environment
+  ensure_sqlplus
+
+  local report_file sql_file evidence_file srvctl_service_file generated_at
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.md"
+  sql_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.sql"
+  evidence_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.evidence"
+  srvctl_service_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}_srvctl_services.out"
+
+  write_maa_assessment_sql_file "$sql_file"
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "Service review SQL failed: $sql_file (evidence: $evidence_file)"
+  parse_maa_evidence_file "$evidence_file"
+  collect_srvctl_service_evidence "$srvctl_service_file"
+
+  {
+    printf "# CrashSimulator Oracle Service HA Best-Practice Review\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Database: `%s`\n' "$(maa_value db_name "$DB_NAME")"
+    printf -- '- DB unique name: `%s`\n' "$(maa_value db_unique_name "$DB_UNIQUE_NAME")"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(maa_value db_role "$DB_ROLE")" "$(maa_value open_mode "$DB_OPEN_MODE")"
+    printf -- '- CDB: `%s`\n' "$(maa_value cdb "$DB_CDB")"
+    printf -- '- Cluster type: `%s`\n' "$CLUSTER_TYPE"
+    printf -- '- Storage type: `%s`\n' "$STORAGE_TYPE"
+    printf -- '- SQL evidence file: `%s`\n' "$evidence_file"
+    printf -- '- srvctl service evidence file: `%s`\n' "$srvctl_service_file"
+    printf "\n"
+    printf "This report is read-only. It reviews Oracle Database service metadata, AC/TAC readiness signals, FAN/client HA attributes, Data Guard FSFO posture, Active Data Guard DML redirection configuration, and role-based service evidence when srvctl is available.\n"
+  } >"$report_file" || die "Unable to write service review file: $report_file"
+
+  append_service_awareness_sections "$report_file"
+
+  append_report_section "$report_file" "Recommended Validation Drills"
+  {
+    printf '| Objective | Suggested validation |\n'
+    printf '| --- | --- |\n'
+    printf '| AC/TAC request replay | Run planned service relocation and scenario `55`/`56`; verify client replay, Transaction Guard outcomes, and application smoke tests. |\n'
+    printf '| FAN and service draining | Stop/start or relocate one service through srvctl; confirm connection pools receive FAN/ONS events and drain gracefully. |\n'
+    printf '| Data Guard role services | Switchover/failover in a lab; confirm PRIMARY services start only on the new primary and ADG read services start only on the standby role. |\n'
+    printf '| FSFO | Validate observer placement, failover threshold, failover target, automatic failover, reinstate, and failback runbooks. |\n'
+    printf '| ADG DML redirection | On an ADG standby, test approved redirected DML paths separately from read-only services and measure primary impact. |\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw Service Evidence"
+  {
+    printf 'SQL evidence file: `%s`\n\n' "$evidence_file"
+    printf '```text\n'
+    sed -n '/^CSIM_MAA|/p' "$evidence_file"
+    printf '```\n\n'
+    printf 'srvctl service evidence file: `%s`\n\n' "$srvctl_service_file"
+    printf '```text\n'
+    cat "$srvctl_service_file" 2>/dev/null || true
+    printf '```\n'
+  } >>"$report_file"
+
+  if command -v srvctl >/dev/null 2>&1 && [[ -n "$DB_UNIQUE_NAME" ]]; then
+    append_report_command "$report_file" "srvctl Service Status" srvctl status service -d "$DB_UNIQUE_NAME"
+  fi
+  if command -v dgmgrl >/dev/null 2>&1; then
+    append_report_command "$report_file" "Data Guard Broker FSFO Evidence" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
+  fi
+
+  echo "Oracle service HA review generated: ${report_file}"
   maybe_render_html "$report_file"
 }
 
@@ -6091,6 +6563,7 @@ where name in (
   'db_create_online_log_dest_2',
   'diagnostic_dest',
   'audit_file_dest',
+  'adg_redirect_dml',
   'compatible',
   'cluster_database',
   'remote_login_passwordfile',
@@ -8464,6 +8937,10 @@ parse_args() {
         MODE="backup_report"
         shift
         ;;
+      --service-review|--service-assessment|--services-report|--service-report)
+        MODE="service_review"
+        shift
+        ;;
       --baseline-backup|--fresh-baseline-backup|--run-baseline-backup)
         MODE="baseline_backup"
         shift
@@ -9314,6 +9791,15 @@ menu_run_maa_report() {
   menu_run_child_command
 }
 
+menu_run_service_review() {
+  MENU_CMD=("$0" "--service-review")
+  [[ "$HTML_OUTPUT" -eq 1 ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
 menu_configure_maa_context() {
   echo
   echo "MAA / SLA planning context"
@@ -9369,7 +9855,7 @@ menu_prompt_artifact_reference() {
   local answer
 
   echo "Enter artifact path or latest:<kind> reference."
-  echo "Kinds: topology, config, backup, scenario-readiness, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Kinds: topology, config, backup, service, scenario-readiness, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
   echo "Blank uses latest:any:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || answer="latest:any"
@@ -9524,10 +10010,11 @@ menu_reports() {
     echo "  2. Generate target configuration report with deep RMAN validation (read-only, heavier)"
     echo "  3. Generate Oracle MAA readiness report"
     echo "  4. Set MAA / SLA planning context"
-    echo "  5. Generate backup strategy and recoverability report"
-    echo "  6. Generate backup report with deep RMAN validation (read-only, heavier)"
-    echo "  7. Dry-run fresh RMAN baseline backup"
-    echo "  8. Run fresh RMAN baseline backup"
+    echo "  5. Generate Oracle service HA best-practice review"
+    echo "  6. Generate backup strategy and recoverability report"
+    echo "  7. Generate backup report with deep RMAN validation (read-only, heavier)"
+    echo "  8. Dry-run fresh RMAN baseline backup"
+    echo "  9. Run fresh RMAN baseline backup"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -9552,20 +10039,24 @@ menu_reports() {
         menu_pause
         ;;
       5)
+        menu_run_service_review
+        menu_pause
+        ;;
+      6)
         REPORT_DEEP_VALIDATE=0
         menu_run_backup_report
         menu_pause
         ;;
-      6)
+      7)
         REPORT_DEEP_VALIDATE=1
         menu_run_backup_report
         menu_pause
         ;;
-      7)
+      8)
         menu_run_baseline_backup "dry-run"
         menu_pause
         ;;
-      8)
+      9)
         menu_run_baseline_backup "execute"
         menu_pause
         ;;
@@ -9738,6 +10229,9 @@ main() {
       ;;
     backup_report)
       run_backup_report
+      ;;
+    service_review)
+      run_service_review
       ;;
     baseline_backup)
       run_baseline_backup
