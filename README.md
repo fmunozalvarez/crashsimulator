@@ -11,7 +11,9 @@ helpers, topology-aware random scenario selection, scenario readiness reporting,
 configuration reports, Oracle MAA readiness reporting, and Oracle service HA
 best-practice reviews for AC/TAC, FSFO, ADG DML redirection, and role-based
 services. It also includes targeted FRA pressure, TEMP exhaustion, and RTO/RPO
-validation drills. It can also review previously collected
+validation drills, plus Data Guard, RAC, and ASM-specific practice for FSFO,
+transport/apply lag, standby redo logs, VIP/service placement, and ASM disk
+failure planning. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.

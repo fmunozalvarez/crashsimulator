@@ -801,6 +801,13 @@ Scope meanings:
 | 63 | TEMP tablespace exhaustion | Core | CDB/non-CDB | logical | ORA-01652 diagnosis, workload cleanup, TEMP capacity planning, and resource controls. | Runs a disposable controlled TEMP-consuming workload. Use `--temp-exhaust-mb` to tune pressure. |
 | 64 | RTO validation drill | Compliance | CDB/non-CDB | logical | Comparing actual measured recovery timing against supplied RTO objectives. | Read-only report based on completed CrashSimulator recovery manifests. Use MAA/SLA options for objectives. |
 | 65 | RPO validation drill | Compliance | CDB/non-CDB | logical | Estimating recoverable data window from archived redo, backups, and Data Guard evidence. | Read-only report comparing current evidence against supplied RPO objectives. |
+| 66 | FSFO observer unavailable | DataGuard | DG | logical | Observer outage handling, broker monitoring, and failover expectation validation. | Plan-only external observer action. Requires Data Guard/FSFO observer evidence. |
+| 67 | Data Guard apply lag exceeds SLA | DataGuard | Standby | logical | Apply lag monitoring, RPO breach handling, and standby apply restart. | Recovery helper restarts managed standby recovery. Run on a physical standby. |
+| 68 | Data Guard transport network partition | DataGuard | Primary | logical | Redo transport interruption, lag/gap monitoring, and destination re-enable. | Defers one remote standby archive destination. Recovery helper enables it and forces a log switch. |
+| 69 | Standby redo log misconfiguration review | DataGuard | DG | logical | SRL sizing/count review by thread before real-time apply and low-RPO drills. | Read-only report. Flags missing, undersized, or too-few standby redo logs. |
+| 70 | RAC VIP relocation drill | RAC | RAC | logical | VIP movement planning, client retry behavior, SCAN/VIP listener evidence, and FAN/ONS validation. | Plan-only external VIP action because target node and Grid-owner approval are environment-specific. |
+| 71 | RAC service placement failure | RAC | RAC | logical | Service placement, instance-level service stop/start, FAN/ONS, AC/TAC behavior, and recovery validation. | Uses `srvctl` against one running service instance. Recovery helper validates/starts the service. |
+| 72 | ASM single disk failure | ASM | ASM | destructive | Single-disk failure planning, ASM redundancy, failgroups, rebalance monitoring, and disk replacement. | Plan-only external action. Requires NORMAL/HIGH/FLEX/EXTENDED redundancy; EXTERN redundancy is rejected. |
 
 ## Scenario Selection Guidance
 
@@ -816,6 +823,7 @@ Good first drills:
 - `63`: controlled TEMP exhaustion in a lab-sized workload.
 - `64` and `65`: read-only RTO/RPO validation reporting after objectives are
   supplied.
+- `69`: read-only standby redo log review in any Data Guard topology.
 
 Higher-risk drills:
 
@@ -824,7 +832,9 @@ Higher-risk drills:
 - SYSTEM and whole-database or whole-PDB datafiles: `7`, `14`, `17`, `32`,
   `39`, `41`.
 - FRA pressure: `61`, because it can affect archiving until recovered.
-- Infrastructure: `28`, `46`, `47`, `48`, `49`, `55`, `58`.
+- Data Guard state changes: `67` and `68`, because they intentionally create
+  apply or transport lag until recovered.
+- Infrastructure: `28`, `46`, `47`, `48`, `49`, `55`, `58`, `70`, `71`, `72`.
 
 Data Guard, Active Data Guard, and RAC service scenarios should be tested only
 in topologies that actually include those capabilities.

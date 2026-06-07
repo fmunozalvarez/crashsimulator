@@ -92,6 +92,13 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `63`: TEMP tablespace exhaustion
 - `64`: RTO validation drill
 - `65`: RPO validation drill
+- `66`: FSFO observer unavailable
+- `67`: Data Guard apply lag exceeds SLA
+- `68`: Data Guard transport network partition
+- `69`: standby redo log misconfiguration review
+- `70`: RAC VIP relocation drill
+- `71`: RAC service placement failure
+- `72`: ASM single disk failure
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.
@@ -288,10 +295,13 @@ Recommended next validation coverage:
 
 - True storage-level current-redo fault injection for scenario `3`
 - Redundant GI lab coverage for destructive scenarios `46`, `47`, `48`, and `49`
-- Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, and `54`
+- Data Guard and Active Data Guard for scenarios `50`, `51`, `52`, `53`, `54`,
+  `66`, `67`, `68`, and `69`
+- RAC client/network/service validation for scenarios `70` and `71`
 - Controlled destructive execution validation for the new ASM-aware root/PDB
   datafile and tempfile helpers: `8`, `12`, `13`, `15`, `22`, `33`, `34`,
   `35`, `37`, `38`, `40`, and `42`
+- Redundant ASM disk failure validation for scenario `72`
 - Controlled destructive execution validation for CDB-root read-only/index-only
   scenarios `9` and `10`
 - High-value resilience/compliance drill validation for scenarios `61`, `62`,

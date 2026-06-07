@@ -1936,6 +1936,13 @@ register_scenarios() {
   register_scenario "63" "TEMP tablespace exhaustion"                        "Core"       "CDB/non-CDB" "logical"      "primary"           "scenario_temp_exhaustion"   "Runs a controlled disposable TEMP-consuming workload; optional --pdb context is supported."
   register_scenario "64" "RTO validation drill"                              "Compliance" "CDB/non-CDB" "logical"      "any"               "scenario_rto_validation"    "Read-only report comparing latest recovery manifest timing to supplied RTO objectives."
   register_scenario "65" "RPO validation drill"                              "Compliance" "CDB/non-CDB" "logical"      "any"               "scenario_rpo_validation"    "Read-only report estimating recoverable-data window from archived redo, backups, and DG evidence."
+  register_scenario "66" "FSFO observer unavailable"                         "DataGuard"  "DG"         "logical"      "dg"                "scenario_fsfo_observer_unavailable" "Plans observer outage practice and captures broker/SQL FSFO evidence."
+  register_scenario "67" "Data Guard apply lag exceeds SLA"                  "DataGuard"  "Standby"    "logical"      "standby"           "scenario_dg_apply_lag"      "Pauses standby apply to create measurable lag, then recovery restarts apply."
+  register_scenario "68" "Data Guard transport network partition"            "DataGuard"  "Primary"    "logical"      "primary,dg"        "scenario_dg_transport_partition" "Defers one remote standby archive destination to simulate transport isolation."
+  register_scenario "69" "Standby redo log misconfiguration review"          "DataGuard"  "DG"         "logical"      "dg"                "scenario_standby_redo_log_misconfig" "Read-only SRL sizing/count review against online redo threads."
+  register_scenario "70" "RAC VIP relocation drill"                          "RAC"        "RAC"        "logical"      "rac,gi"            "scenario_rac_vip_relocation" "Plans VIP relocation and client survivability validation."
+  register_scenario "71" "RAC service placement failure"                     "RAC"        "RAC"        "logical"      "rac"               "scenario_rac_service_placement_failure" "Stops/starts one running service on an instance to validate placement recovery."
+  register_scenario "72" "ASM single disk failure"                           "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_single_disk_failure" "Plans single-disk failure only for redundant ASM disk groups."
 }
 
 list_scenarios() {
@@ -2271,7 +2278,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59|61|62) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|50|51|55|56|57|58|59|61|62|67|68|71) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2354,21 +2361,21 @@ validation_requirement_blocker_reason() {
   local output="$2"
 
   case "$id" in
-    50)
+    50|67)
       if printf "%s\n" "$output" | grep -q "requires a standby role"; then
-        printf "Scenario 50 requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V\$MANAGED_STANDBY."
+        printf "Scenario %s requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V\$MANAGED_STANDBY." "$id"
         return "$SUCCESS"
       fi
       ;;
-    51)
+    51|68)
       if printf "%s\n" "$output" | grep -q "requires Data Guard metadata"; then
-        printf "Scenario 51 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V\$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation."
+        printf "Scenario %s requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V\$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation." "$id"
         return "$SUCCESS"
       fi
       ;;
-    52)
+    52|66|69)
       if printf "%s\n" "$output" | grep -q "requires Data Guard metadata"; then
-        printf "Scenario 52 requires a Data Guard configuration, preferably with broker enabled for broker outage practice. Configure a standby and verify DGMGRL SHOW CONFIGURATION before running this scenario."
+        printf "Scenario %s requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario." "$id"
         return "$SUCCESS"
       fi
       ;;
@@ -2567,6 +2574,48 @@ validation_no_target_reason() {
     63)
       if printf "%s\n" "$output" | grep -q "No temporary tablespace/tempfile metadata"; then
         printf "No temporary tablespace/tempfile metadata was found for the selected container. Add a tempfile or choose a different PDB before running scenario 63."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    66)
+      if printf "%s\n" "$output" | grep -q "FSFO observer was not detected"; then
+        printf "FSFO observer was not detected. Enable Fast-Start Failover, start an observer, and confirm V\$DATABASE.FS_FAILOVER_OBSERVER_PRESENT or DGMGRL evidence before running scenario 66."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    67)
+      if printf "%s\n" "$output" | grep -q "No managed standby recovery process"; then
+        printf "No managed standby recovery process was detected. Start standby apply and confirm an MRP process in V\$MANAGED_STANDBY before running scenario 67."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    68)
+      if printf "%s\n" "$output" | grep -q "No remote standby archive destination"; then
+        printf "No enabled remote standby archive destination was found. Configure Data Guard transport and confirm V\$ARCHIVE_DEST TARGET='STANDBY' before running scenario 68."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    70)
+      if printf "%s\n" "$output" | grep -q "No RAC VIP resources"; then
+        printf "No RAC VIP resources were visible to crsctl. Run scenario 70 on a RAC/GI node with Grid Infrastructure commands in PATH."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    71)
+      if printf "%s\n" "$output" | grep -Eq "No srvctl-managed database service|Service .* is not running"; then
+        printf "No running srvctl-managed database service was available. Create/start a database service, or supply --service-name for scenario 71."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    72)
+      if printf "%s\n" "$output" | grep -q "No redundant ASM disk candidate"; then
+        printf "No redundant ASM disk candidate was found. Scenario 72 requires a NORMAL/HIGH/FLEX/EXTENDED redundancy ASM disk group with online disks; EXTERN redundancy remains plan-only unsuitable for single-disk failure practice."
       else
         return "$FAIL"
       fi
@@ -4076,6 +4125,129 @@ recover_rac_service_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+recover_standby_apply_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  CURRENT_SCENARIO_ID="$id"
+
+  if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
+    init_manifest "recover" "$id"
+  elif [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  fi
+
+  local apply_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_restart_apply.log"
+  local validate_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_apply_status.log"
+  manifest_append "recover_standby_apply_log" "$apply_log"
+  manifest_append "recover_standby_apply_status_log" "$validate_log"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would restart managed standby recovery"
+    echo "DRY-RUN: would query V\$MANAGED_STANDBY and V\$DATAGUARD_STATS"
+    return "$SUCCESS"
+  fi
+
+  check_requirements "$id"
+  run_sql_text "restart managed standby recovery" "
+alter database recover managed standby database disconnect from session;
+" "$apply_log"
+  run_sql_text "validate standby apply status" "
+select process || '|' || status
+from v\$managed_standby
+where process like 'MRP%'
+order by process;
+select name || '=' || nvl(value, 'UNKNOWN') || ' ' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+" "$validate_log"
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
+recover_dg_transport_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  CURRENT_SCENARIO_ID="$id"
+
+  local dest_id dest_log validate_log
+  if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
+    dest_id="$(manifest_first_value "dg_dest_id" || true)"
+  else
+    dest_id=""
+  fi
+
+  if [[ -z "$dest_id" ]]; then
+    warn "No Data Guard destination id was found in the manifest; attempting live destination discovery."
+    check_requirements "$id"
+    local dest_file="$WORK_DIR/recover_dg_transport_dest.lst"
+    query_targets "$dest_file" "
+select dest_id
+from (
+  select dest_id
+  from v\$archive_dest
+  where target = 'STANDBY'
+    and destination is not null
+  order by case status when 'VALID' then 1 else 2 end, dest_id
+)
+where rownum = 1;
+"
+    [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No remote standby archive destination was found for recovery."
+    dest_id="${TARGET_ROWS[0]}"
+  fi
+  [[ "$dest_id" =~ ^[0-9]+$ ]] || die "Invalid Data Guard destination id for recovery: ${dest_id}"
+
+  if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
+    init_manifest "recover" "$id"
+  elif [[ -f "$MANIFEST_FILE" ]]; then
+    manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  fi
+
+  dest_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_enable_dest_${dest_id}.log"
+  validate_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_transport_status.log"
+  manifest_append "recover_dg_dest_id" "$dest_id"
+  manifest_append "recover_dg_enable_log" "$dest_log"
+  manifest_append "recover_dg_transport_status_log" "$validate_log"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Remote archive destination: LOG_ARCHIVE_DEST_${dest_id}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would enable LOG_ARCHIVE_DEST_STATE_${dest_id}"
+    echo "DRY-RUN: would force a log switch and inspect V\$ARCHIVE_DEST / V\$DATAGUARD_STATS"
+    return "$SUCCESS"
+  fi
+
+  check_requirements "$id"
+  run_sql_text "enable Data Guard transport destination ${dest_id}" "
+alter system set log_archive_dest_state_${dest_id}=enable scope=both;
+alter system archive log current;
+" "$dest_log"
+  run_sql_text "validate Data Guard transport status" "
+select dest_id || '|' || status || '|' || target || '|' || nvl(error, 'NO_ERROR')
+from v\$archive_dest
+where dest_id = ${dest_id};
+select name || '=' || nvl(value, 'UNKNOWN') || ' ' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+" "$validate_log"
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 recover_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
@@ -4110,10 +4282,16 @@ recover_scenario() {
     27|57|58)
       recover_fs_rename_scenario "$id"
       ;;
+    50|67)
+      recover_standby_apply_scenario "$id"
+      ;;
+    51|68)
+      recover_dg_transport_scenario "$id"
+      ;;
     55)
       recover_srvctl_database_scenario "$id"
       ;;
-    56)
+    56|71)
       recover_rac_service_scenario "$id"
       ;;
     59)
@@ -7260,12 +7438,13 @@ RUNBOOK
     3. Recreate services, open modes, save state, local users, wallets, and application connectivity.
 RUNBOOK
       ;;
-    46|49)
+    46|49|72)
       cat <<'RUNBOOK'
-  - ASM disk group/SPFILE recovery:
-    1. Use asmcmd/SQL to inspect disk group mount state and missing disks.
-    2. Restore ASM metadata/SPFILE from backup or OCR/srvctl metadata where applicable.
-    3. Rebalance, mount disk groups, then validate database files and Clusterware resources.
+  - ASM disk, disk group, or SPFILE recovery:
+    1. Use asmcmd/SQL to inspect disk group mount state, redundancy, failgroups, missing/offline disks, and rebalance operations.
+    2. For single-disk failure, confirm redundancy is still intact, monitor ASM rebalance, and restore/replace/drop/add the disk according to lab design.
+    3. Restore ASM metadata/SPFILE from backup or OCR/srvctl metadata where applicable.
+    4. Mount disk groups, then validate database files and Clusterware resources.
 RUNBOOK
       ;;
     47|48)
@@ -7276,21 +7455,40 @@ RUNBOOK
     3. Validate CRS stack, node membership, database resources, services, and post-recovery backups.
 RUNBOOK
       ;;
-    50)
+    50|67)
       cat <<'RUNBOOK'
-  - Standby apply cancelled:
+  - Standby apply cancelled or apply-lag simulation:
     1. Restart managed recovery:
        alter database recover managed standby database disconnect from session;
     2. If using broker, set apply state through DGMGRL and validate configuration.
     3. Monitor V$DATAGUARD_STATS, V$ARCHIVE_DEST_STATUS, alert log, and apply lag until caught up.
+    4. Compare actual lag duration against RPO/SLA and confirm alerting detected the breach.
 RUNBOOK
       ;;
-    51|52|54)
+    51|52|54|68)
       cat <<'RUNBOOK'
   - Data Guard transport/broker/snapshot drill:
     1. Restore transport state, then force a log switch on the primary.
     2. Validate broker configuration with DGMGRL SHOW CONFIGURATION and SHOW DATABASE VERBOSE.
     3. Monitor transport/apply lag, archive gaps, protection mode, and FSFO observer state if enabled.
+RUNBOOK
+      ;;
+    66)
+      cat <<'RUNBOOK'
+  - FSFO observer unavailable:
+    1. Confirm FSFO status, observer location, failover target, threshold, and protection mode with DGMGRL and V$DATABASE.
+    2. Stop or isolate only the observer in an approved lab; do not break primary-standby redo transport unless that is a separate scenario.
+    3. Validate broker warnings, failover expectations, monitoring alerts, and observer restart procedure.
+    4. Restart the observer and confirm FSFO returns to the expected synchronized/ready state.
+RUNBOOK
+      ;;
+    69)
+      cat <<'RUNBOOK'
+  - Standby redo log misconfiguration:
+    1. Compare online redo groups and sizes per thread against standby redo logs.
+    2. Add SRLs so each thread has at least online redo group count plus one, with SRLs at least as large as online redo.
+    3. In RAC, validate every redo thread and every standby site.
+    4. Force log switches, confirm real-time apply, and validate Data Guard broker status after changes.
 RUNBOOK
       ;;
     53)
@@ -7300,12 +7498,13 @@ RUNBOOK
     2. Validate services, resource manager limits, session cleanup, and lag metrics.
 RUNBOOK
       ;;
-    55|56)
+    55|56|70|71)
       cat <<'RUNBOOK'
   - RAC instance/service recovery:
     1. Check crsctl stat res -t, srvctl status database, srvctl status service, and alert logs on all nodes.
-    2. Restart the failed instance or relocate services with srvctl.
-    3. Validate FAN/TAF/Application Continuity behavior and service placement after recovery.
+    2. Restart the failed instance, relocate VIP/services, or start services with srvctl as appropriate.
+    3. Validate FAN/ONS, TAF/Application Continuity/TAC behavior, connection pool response, and service placement after recovery.
+    4. For VIP drills, validate SCAN/VIP listener behavior and client retry timing from outside the cluster.
 RUNBOOK
       ;;
     58)
@@ -9250,6 +9449,389 @@ scenario_asm_spfile_loss() {
   execute_actions
 }
 
+collect_dgmgrl_fsfo_evidence() {
+  local output_file="$1"
+  if ! command -v dgmgrl >/dev/null 2>&1; then
+    printf "dgmgrl not found in PATH.\n" >"$output_file" || true
+    return "$FAIL"
+  fi
+  printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' |
+    dgmgrl -silent / >"$output_file" 2>&1 || return "$FAIL"
+}
+
+plan_dg_transport_defer() {
+  local detail="$1"
+  local dest_file="$WORK_DIR/remote_standby_dest.lst"
+  local row dest_id status destination db_unique_name
+
+  query_targets "$dest_file" "
+select dest_id || '|' ||
+       nvl(status, 'UNKNOWN') || '|' ||
+       nvl(destination, 'UNKNOWN') || '|' ||
+       nvl(db_unique_name, 'UNKNOWN')
+from (
+  select dest_id, status, destination, db_unique_name
+  from v\$archive_dest
+  where target = 'STANDBY'
+    and destination is not null
+    and status <> 'INACTIVE'
+  order by case status when 'VALID' then 1 else 2 end, dest_id
+)
+where rownum = 1;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No remote standby archive destination was found."
+  row="${TARGET_ROWS[0]}"
+  IFS='|' read -r dest_id status destination db_unique_name <<<"$row"
+  [[ "$dest_id" =~ ^[0-9]+$ ]] || die "Unable to parse Data Guard destination metadata: ${row}"
+
+  manifest_append "dg_dest_id" "$dest_id"
+  manifest_append "dg_dest_status_before" "$status"
+  manifest_append "dg_dest_destination" "$destination"
+  manifest_append "dg_dest_db_unique_name" "$db_unique_name"
+
+  add_action "sql" "alter system set log_archive_dest_state_${dest_id}=defer scope=both;" "$detail for LOG_ARCHIVE_DEST_${dest_id}"
+  execute_actions
+}
+
+write_standby_redo_log_review_sql_file() {
+  local sql_file="$1"
+  cat >"$sql_file" <<'SQL' || die "Unable to write standby redo log review SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 200 lines 260 trimspool on tab off feedback off heading off
+
+select 'CSIM_SRL|database_role|' || database_role from v$database;
+select 'CSIM_SRL|protection_mode|' || protection_mode from v$database;
+select 'CSIM_SRL|open_mode|' || open_mode from v$database;
+
+select 'CSIM_SRL|online_thread|' || thread# ||
+       '|online_groups|' || count(*) ||
+       '|online_max_mb|' || round(max(bytes)/1024/1024, 2)
+from v$log
+group by thread#
+order by thread#;
+
+select 'CSIM_SRL|standby_thread|' || thread# ||
+       '|srl_groups|' || count(*) ||
+       '|srl_max_mb|' || round(max(bytes)/1024/1024, 2)
+from v$standby_log
+group by thread#
+order by thread#;
+
+with online_redo as (
+  select thread#, count(*) online_groups, max(bytes) max_online_bytes
+  from v$log
+  group by thread#
+),
+standby_redo as (
+  select thread#, count(*) srl_groups, max(bytes) max_srl_bytes
+  from v$standby_log
+  group by thread#
+),
+threads as (
+  select thread# from online_redo
+  union
+  select thread# from standby_redo
+)
+select 'CSIM_SRL|thread|' || t.thread# ||
+       '|online_groups|' || nvl(o.online_groups, 0) ||
+       '|required_srl_groups|' || (nvl(o.online_groups, 0) + 1) ||
+       '|actual_srl_groups|' || nvl(s.srl_groups, 0) ||
+       '|online_max_mb|' || round(nvl(o.max_online_bytes, 0)/1024/1024, 2) ||
+       '|srl_max_mb|' || round(nvl(s.max_srl_bytes, 0)/1024/1024, 2) ||
+       '|status|' ||
+       case
+         when nvl(s.srl_groups, 0) = 0 then 'MISSING_SRLS'
+         when nvl(s.srl_groups, 0) < nvl(o.online_groups, 0) + 1 then 'TOO_FEW_SRLS'
+         when nvl(s.max_srl_bytes, 0) < nvl(o.max_online_bytes, 0) then 'SRL_TOO_SMALL'
+         else 'OK'
+       end
+from threads t
+left join online_redo o on o.thread# = t.thread#
+left join standby_redo s on s.thread# = t.thread#
+order by t.thread#;
+
+exit
+SQL
+}
+
+write_standby_redo_log_review_report() {
+  local report_file="$1"
+  local evidence_file="$2"
+  {
+    printf "# CrashSimulator Standby Redo Log Review\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Database: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "${DB_ROLE:-unknown}" "${DB_OPEN_MODE:-unknown}"
+    printf -- '- Evidence file: `%s`\n\n' "$evidence_file"
+    printf "This read-only scenario checks whether standby redo logs appear to meet a common Data Guard baseline: each redo thread should have at least one more SRL group than online redo groups, and SRL size should be at least the largest online redo size for that thread.\n\n"
+  } >"$report_file" || die "Unable to write standby redo log report: $report_file"
+
+  append_report_section "$report_file" "Thread Results"
+  {
+    printf '```text\n'
+    sed -n '/^CSIM_SRL|thread|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Recommendations"
+  {
+    printf -- '- If a thread reports `MISSING_SRLS`, add standby redo logs before relying on real-time apply or low RPO.\n'
+    printf -- '- If a thread reports `TOO_FEW_SRLS`, add at least enough SRL groups to reach online redo group count plus one.\n'
+    printf -- '- If a thread reports `SRL_TOO_SMALL`, recreate SRLs so each thread has SRLs at least as large as the largest online redo log.\n'
+    printf -- '- In RAC, validate every redo thread, not only the currently active instance.\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw Evidence"
+  {
+    printf '```text\n'
+    sed -n '/^CSIM_SRL|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+}
+
+scenario_fsfo_observer_unavailable() {
+  reset_actions
+  local fsfo_file="$WORK_DIR/fsfo_observer_sql.lst"
+  local dgmgrl_file="$WORK_DIR/fsfo_observer_dgmgrl.out"
+  local line fsfo_status fsfo_target fsfo_threshold observer_present observer_seen=0
+
+  sql_query "$fsfo_file" "
+select nvl(fs_failover_status, 'UNKNOWN') || '|' ||
+       nvl(fs_failover_current_target, 'UNKNOWN') || '|' ||
+       nvl(to_char(fs_failover_threshold), 'UNKNOWN') || '|' ||
+       nvl(fs_failover_observer_present, 'UNKNOWN')
+from v\$database;
+"
+  line="$(trim_blank_lines <"$fsfo_file" | head -n 1)"
+  IFS='|' read -r fsfo_status fsfo_target fsfo_threshold observer_present <<<"$line"
+  [[ -n "$fsfo_status" ]] || die "Unable to collect FSFO status from V\$DATABASE."
+
+  echo "FSFO SQL evidence: status=${fsfo_status}, target=${fsfo_target}, threshold=${fsfo_threshold}, observer=${observer_present}"
+  if [[ "$observer_present" == "YES" ]]; then
+    observer_seen=1
+  fi
+
+  if collect_dgmgrl_fsfo_evidence "$dgmgrl_file"; then
+    echo
+    echo "DGMGRL FSFO evidence:"
+    sed 's/^/  /' "$dgmgrl_file"
+    if grep -Eiq 'observer[[:space:]]*:[[:space:]]*[^[:space:](]+' "$dgmgrl_file" ||
+       grep -Eiq 'observer[[:space:]_]*(host|name|present)[^:]*:[[:space:]]*[^[:space:](]+' "$dgmgrl_file"; then
+      observer_seen=1
+    fi
+  else
+    warn "DGMGRL FSFO evidence was not available; relying on SQL FSFO columns."
+  fi
+
+  [[ "$observer_seen" -eq 1 ]] ||
+    die "FSFO observer was not detected. Enable FSFO and start an observer before scenario 66."
+
+  manifest_append "fsfo_status" "$fsfo_status"
+  manifest_append "fsfo_target" "$fsfo_target"
+  manifest_append "fsfo_threshold" "$fsfo_threshold"
+  manifest_append "fsfo_observer_present" "$observer_present"
+  manifest_append "fsfo_dgmgrl_evidence" "$dgmgrl_file"
+
+  add_action "external" "FSFO_OBSERVER" "Stop or isolate the observer host/process, then validate broker status, failover expectations, and observer restart. CrashSimulator keeps this plan-only."
+  execute_actions
+}
+
+scenario_dg_apply_lag() {
+  reset_actions
+  local apply_file="$WORK_DIR/dg_apply_lag_process.lst"
+  local lag_file="$WORK_DIR/dg_apply_lag_stats.lst"
+  local row process_name process_status
+
+  query_targets "$apply_file" "
+select process || '|' || status
+from (
+  select process, status
+  from v\$managed_standby
+  where process like 'MRP%'
+  order by process
+)
+where rownum = 1;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] ||
+    die "No managed standby recovery process was detected. Start apply before running scenario 67."
+  row="${TARGET_ROWS[0]}"
+  IFS='|' read -r process_name process_status <<<"$row"
+
+  sql_query "$lag_file" "
+select name || '=' || nvl(value, 'UNKNOWN') || ' ' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+"
+  echo "Current Data Guard lag evidence:"
+  sed 's/^/  /' "$lag_file"
+
+  manifest_append "dg_apply_process" "$process_name"
+  manifest_append "dg_apply_process_status" "$process_status"
+  manifest_append "dg_apply_lag_evidence" "$lag_file"
+
+  add_action "sql" "alter database recover managed standby database cancel;" "pause standby apply to create measurable apply lag"
+  execute_actions
+}
+
+scenario_dg_transport_partition() {
+  reset_actions
+  plan_dg_transport_defer "simulate Data Guard transport network partition"
+}
+
+scenario_standby_redo_log_misconfig() {
+  reset_actions
+  local sql_file evidence_file report_file
+  sql_file="${LOG_DIR}/crashsim_s69_${RUN_ID}_standby_redo_review.sql"
+  evidence_file="${LOG_DIR}/crashsim_s69_${RUN_ID}_standby_redo_review.evidence"
+  report_file="${LOG_DIR}/crashsim_s69_${RUN_ID}_standby_redo_review.md"
+
+  write_standby_redo_log_review_sql_file "$sql_file"
+  manifest_append "standby_redo_review_sqlfile" "$sql_file"
+  manifest_append "standby_redo_review_evidence" "$evidence_file"
+  manifest_append "standby_redo_review_report" "$report_file"
+
+  add_action "report" "Standby redo log review" "$report_file"
+  execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+
+  ensure_sqlplus
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "Standby redo log review SQL failed: $sql_file (evidence: $evidence_file)"
+  write_standby_redo_log_review_report "$report_file" "$evidence_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_rac_vip_relocation() {
+  reset_actions
+  command -v crsctl >/dev/null 2>&1 || die "crsctl not found"
+  local vip_file="$WORK_DIR/rac_vip_resources.out"
+  local vip_detail_file="$WORK_DIR/rac_vip_resources_detail.out"
+  local vip_resource
+
+  crsctl stat res -t >"$vip_file" 2>&1 ||
+    die "Unable to collect Clusterware resource status with crsctl."
+  crsctl stat res -w "TYPE = ora.cluster_vip_net1.type" -p >"$vip_detail_file" 2>&1 || true
+
+  vip_resource="$(awk '/^ora\..*\.vip([[:space:]]|$)/ {print $1; exit}' "$vip_file")"
+  if [[ -z "$vip_resource" ]]; then
+    vip_resource="$(awk -F= '/^NAME=ora\..*\.vip$/ {print $2; exit}' "$vip_detail_file")"
+  fi
+  [[ -n "$vip_resource" ]] || die "No RAC VIP resources were visible to crsctl."
+
+  echo "RAC VIP evidence:"
+  sed 's/^/  /' "$vip_file"
+  manifest_append "rac_vip_resource" "$vip_resource"
+  manifest_append "rac_vip_status_evidence" "$vip_file"
+  manifest_append "rac_vip_detail_evidence" "$vip_detail_file"
+
+  add_action "external" "$vip_resource" "Relocate VIP with srvctl/crsctl under Grid owner approval, then validate client connect strings, FAN/ONS, and service failover. CrashSimulator keeps VIP movement plan-only."
+  execute_actions
+}
+
+scenario_rac_service_placement_failure() {
+  reset_actions
+  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
+  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
+
+  local service services_file status_file config_file status_line running source_inst
+  services_file="$WORK_DIR/srvctl_services_placement.lst"
+  srvctl config service -d "$DB_UNIQUE_NAME" >"$services_file" 2>&1 ||
+    die "Unable to collect srvctl service configuration for ${DB_UNIQUE_NAME}."
+
+  if [[ -n "$SERVICE_NAME" ]]; then
+    service="$SERVICE_NAME"
+  else
+    service="$(awk -F': ' '/^Service name:/ {print $2; exit}' "$services_file")"
+  fi
+  [[ -n "$service" ]] || die "No srvctl-managed database service was found. Create a service before scenario 71."
+
+  config_file="$WORK_DIR/srvctl_service_${service//[^A-Za-z0-9_.-]/_}_placement_config.out"
+  status_file="$WORK_DIR/srvctl_service_${service//[^A-Za-z0-9_.-]/_}_placement_status.out"
+  srvctl config service -d "$DB_UNIQUE_NAME" -s "$service" >"$config_file" 2>&1 ||
+    die "Service ${service} was not found in srvctl config for ${DB_UNIQUE_NAME}."
+  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service" >"$status_file" 2>&1 ||
+    die "Unable to collect srvctl service status for ${service}."
+
+  echo "srvctl config service -d ${DB_UNIQUE_NAME} -s ${service}:"
+  sed 's/^/  /' "$config_file"
+  echo
+  echo "srvctl status service -d ${DB_UNIQUE_NAME} -s ${service}:"
+  sed 's/^/  /' "$status_file"
+
+  status_line="$(grep -E '^Service .* is running on instance' "$status_file" | head -n 1 || true)"
+  running="$(printf "%s" "$status_line" | sed -E 's/^.*instance\(s\)[[:space:]]*//; s/[[:space:]]//g')"
+  [[ -n "$running" ]] || die "Service ${service} is not running. Start it before service placement failure practice."
+  source_inst="$(first_csv_value "$running" || true)"
+  [[ -n "$source_inst" ]] || die "Unable to determine a running source instance for service ${service}."
+
+  manifest_append "scenario_71_service" "$service"
+  manifest_append "scenario_71_running_instances_before" "$running"
+  manifest_append "scenario_71_source_instance" "$source_inst"
+  manifest_append "scenario_71_config_evidence" "$config_file"
+  manifest_append "scenario_71_status_evidence" "$status_file"
+
+  add_action "srvctl_stop_start_service_instance" "$service" "$source_inst"
+  execute_actions
+}
+
+scenario_asm_single_disk_failure() {
+  reset_actions
+  local disk_file="$WORK_DIR/asm_single_disk_candidates.lst"
+  local all_disk_file="$WORK_DIR/asm_single_disk_all.lst"
+  local row dg_name dg_type disk_name failgroup disk_path mount_status header_status mode_status state
+
+  query_targets "$disk_file" "
+select dg.name || '|' ||
+       dg.type || '|' ||
+       d.name || '|' ||
+       nvl(d.failgroup, 'UNKNOWN') || '|' ||
+       nvl(d.path, 'UNKNOWN') || '|' ||
+       nvl(d.mount_status, 'UNKNOWN') || '|' ||
+       nvl(d.header_status, 'UNKNOWN') || '|' ||
+       nvl(d.mode_status, 'UNKNOWN') || '|' ||
+       nvl(d.state, 'UNKNOWN')
+from v\$asm_disk d
+join v\$asm_diskgroup dg on dg.group_number = d.group_number
+where dg.type not in ('EXTERN', 'EXTERNAL')
+  and d.name is not null
+  and d.mount_status = 'CACHED'
+  and d.mode_status = 'ONLINE'
+order by case dg.type when 'HIGH' then 1 when 'NORMAL' then 2 else 3 end,
+         dg.name, d.failgroup, d.name;
+"
+  if [[ "${#TARGET_ROWS[@]}" -eq 0 ]]; then
+    sql_query "$all_disk_file" "
+select dg.name || '|' || dg.type || '|' || count(*) || ' disks'
+from v\$asm_disk d
+join v\$asm_diskgroup dg on dg.group_number = d.group_number
+group by dg.name, dg.type
+order by dg.name;
+"
+    echo "ASM disk group evidence:"
+    sed 's/^/  /' "$all_disk_file"
+    die "No redundant ASM disk candidate was found. Scenario 72 requires NORMAL, HIGH, FLEX, or EXTENDED redundancy with online disks."
+  fi
+
+  row="${TARGET_ROWS[0]}"
+  IFS='|' read -r dg_name dg_type disk_name failgroup disk_path mount_status header_status mode_status state <<<"$row"
+  [[ -n "$dg_name" && -n "$disk_name" ]] || die "Unable to parse ASM disk candidate metadata: ${row}"
+
+  manifest_append "asm_diskgroup_name" "$dg_name"
+  manifest_append "asm_diskgroup_type" "$dg_type"
+  manifest_append "asm_disk_name" "$disk_name"
+  manifest_append "asm_disk_failgroup" "$failgroup"
+  manifest_append "asm_disk_path" "$disk_path"
+  manifest_append "asm_disk_mount_status" "$mount_status"
+  manifest_append "asm_disk_header_status" "$header_status"
+  manifest_append "asm_disk_mode_status" "$mode_status"
+  manifest_append "asm_disk_state" "$state"
+
+  add_action "external" "${dg_name}:${disk_name}" "Single ASM disk failure should be injected only in a redundant lab. Example plan: alter diskgroup ${dg_name} offline disk ${disk_name}; monitor rebalance; restore with online/drop/add disk as appropriate."
+  execute_actions
+}
+
 scenario_standby_apply_cancel() {
   reset_actions
   query_targets "$WORK_DIR/standby_apply_process.lst" "
@@ -9270,22 +9852,7 @@ where rownum = 1;
 
 scenario_primary_transport_defer() {
   reset_actions
-  local dest_file="$WORK_DIR/remote_dest.lst"
-  query_targets "$dest_file" "
-select dest_id
-from (
-  select dest_id
-  from v\$archive_dest
-  where target = 'STANDBY'
-    and status <> 'INACTIVE'
-  order by dest_id
-)
-where rownum = 1;
-"
-  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No remote standby archive destination was found."
-  local dest_id="${TARGET_ROWS[0]}"
-  add_action "sql" "alter system set log_archive_dest_state_${dest_id}=defer scope=both;" "defer remote archive destination ${dest_id}"
-  execute_actions
+  plan_dg_transport_defer "defer remote archive destination"
 }
 
 scenario_rac_abort_instance() {

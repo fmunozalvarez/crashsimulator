@@ -534,6 +534,36 @@ ORA-01652 response. Scenarios `64` and `65` are read-only compliance drills:
 they compare measured recovery timing and current recoverable-data evidence
 against supplied RTO/RPO objectives.
 
+## DG, RAC, And ASM-Specific Drills
+
+Scenarios `66` through `72` add topology-specific MAA practice:
+
+```bash
+./CrashSimulatorV2.sh --scenario 66 --dry-run
+./CrashSimulatorV2.sh --scenario 67 --dry-run
+./CrashSimulatorV2.sh --scenario 67 --execute
+./CrashSimulatorV2.sh --recover 67 --execute
+
+./CrashSimulatorV2.sh --scenario 68 --dry-run
+./CrashSimulatorV2.sh --scenario 68 --execute
+./CrashSimulatorV2.sh --recover 68 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
+
+./CrashSimulatorV2.sh --scenario 69 --execute --html
+./CrashSimulatorV2.sh --scenario 70 --dry-run
+./CrashSimulatorV2.sh --scenario 71 --service-name <service> --dry-run
+./CrashSimulatorV2.sh --scenario 72 --dry-run
+```
+
+Scenario `66` is plan-only for FSFO observer outage practice. Scenario `67`
+pauses standby apply so teams can measure apply lag and alerting, and the
+recovery helper restarts managed recovery. Scenario `68` simulates a transport
+network partition by deferring a remote standby archive destination, then
+re-enables it during recovery. Scenario `69` is a read-only standby redo log
+review. Scenario `70` is plan-only VIP relocation evidence. Scenario `71`
+exercises RAC service placement with `srvctl`. Scenario `72` plans single ASM
+disk failure only when a redundant disk group exists; EXTERN redundancy is
+rejected for this drill.
+
 ## Executing A Scenario
 
 Destructive execution requires `--execute` and an interactive confirmation:
