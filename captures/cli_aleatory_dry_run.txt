@@ -1,40 +1,18 @@
-Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_070037_185083
-Aleatory scenario selected from 52 topology-compatible scenarios after target planning checks:
-  33: PDB loss of one UNDO datafile
-Topology: role=PRIMARY, cdb=YES, storage=ASM, cluster=RAC
-PDB target context: CRASHPDB
-
-Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
-
-Scenario 33: PDB loss of one UNDO datafile
-Group: PDB
-Scope: PDB
-Impact: destructive
-Requires: cdb,pdb,primary
-Notes: Requires local undo and --pdb.
+Recover scenario 67: Data Guard apply lag exceeds SLA
 Mode: DRY-RUN
-Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s33_20260605_070037.manifest
+Manifest: /tmp/crashsim_capture/crashsim_recover_s67_20260607_104321.manifest
 
 Recovery runbook hints:
   - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
   - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
   - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
   - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
-  - PDB datafile/tablespace recovery:
-    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
-    2. Close the affected PDB if needed:
-       alter pluggable database <pdb_name> close immediate;
-    3. Restore/recover at PDB or datafile granularity:
-       rman target /
-       restore pluggable database <pdb_name>;
-       recover pluggable database <pdb_name>;
-       sql "alter pluggable database <pdb_name> open";
-    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
-    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+  - Standby apply cancelled or apply-lag simulation:
+    1. Restart managed recovery:
+       alter database recover managed standby database disconnect from session;
+    2. If using broker, set apply state through DGMGRL and validate configuration.
+    3. Monitor V$DATAGUARD_STATS, V$ARCHIVE_DEST_STATUS, alert log, and apply lag until caught up.
+    4. Compare actual lag duration against RPO/SLA and confirm alerting detected the breach.
 
-Planned actions:
- 1. asm_rm         +DATACRASHDB/CRASHDB/5378904D74263AEDE063D800000A7586/DATAFILE/undotbs1.269.1235093329 (ASM datafile loss via asmcmd rm)
-
-DRY-RUN complete. Re-run with --execute to perform these actions.
-DRY-RUN: would abort target instance crashdb1
-Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_070037_185083
+DRY-RUN: would restart managed standby recovery
+DRY-RUN: would query V$MANAGED_STANDBY and V$DATAGUARD_STATS

@@ -5,6 +5,22 @@ Snapshot date: 2026-06-07
 This status reflects the first OCI Base DB Service validation environment and
 the RAC/GI/ASM validation environments, including the current two-node RAC lab.
 
+Current framework registry snapshot:
+
+- `72` registered scenarios across Core, PDB, Backup, Config, Corrupt, Logical,
+  ASM, GI, Data Guard, Active Data Guard, RAC, Network, Security, and
+  Compliance groups.
+- Newly added high-value resilience drills: `61` FRA pressure, `62` required
+  archived-log recovery gap, `63` TEMP exhaustion, `64` RTO validation, and
+  `65` RPO validation.
+- Newly added topology-specific drills: `66` FSFO observer unavailable, `67`
+  Data Guard apply lag, `68` Data Guard transport partition, `69` standby redo
+  log review, `70` RAC VIP relocation planning, `71` RAC service placement
+  failure, and `72` ASM single-disk failure planning.
+- Recovery automation is available for the reversible DG/RAC additions `67`,
+  `68`, and `71`; `66`, `69`, `70`, and `72` are intentionally plan-only or
+  review-only until a matching DG/RAC/ASM lab topology is explicitly approved.
+
 First OCI Base DB Service validation environment:
 
 - Oracle Database 19.31 Enterprise Edition

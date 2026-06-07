@@ -19,6 +19,15 @@ This directory contains sanitized reference output generated from live CrashSimu
 
 The examples are anonymized: hostnames, DBID, ASM disk group names, temporary paths, PDB GUIDs, and provider-specific backup library paths have been replaced with representative values.
 
+## Scenario Registry And Readiness References
+
+- `scenario_registry_72_reference.md`
+  - Generated from `./CrashSimulatorV2.sh --list --audit-retain no`
+  - Summarizes the current 72-scenario registry, group counts, newly added
+    resilience/DG/RAC/ASM scenarios, and current protection/recovery helper
+    coverage.
+  - HTML copy: `scenario_registry_72_reference.md.html`
+
 ## HTML Reference Files
 
 The `.html` files were generated from the sanitized Markdown reference reports
@@ -28,6 +37,7 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_target_control_file_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_recovery_catalog_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_deep_validate_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_72_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ```
 
 They are intended for demos and visual review. The original Markdown examples

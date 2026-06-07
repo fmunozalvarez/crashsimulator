@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crashsim_scenario_registry_refresh_20260607.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>crashsim_scenario_registry_refresh_20260607.md</h1><div class="meta">Source: reports/crashsim_scenario_registry_refresh_20260607.md<br>Generated UTC: 2026-06-07T00:49:01Z</div></header>
+<pre>
+# CrashSimulator Scenario Registry And Artifact Refresh
+
+- Refresh date: `2026-06-07`
+- Local source tree: `/Users/franciscomunozalvarez/Downloads/Crashsimulator/source`
+- Scenario source command: `./CrashSimulatorV2.sh --list --audit-retain no`
+- Registry count: `72`
+
+## What Was Refreshed
+
+| Area | Refreshed artifact |
+| --- | --- |
+| Scenario status | `SCENARIO_STATUS.md` now summarizes the 72-scenario registry and the newly added resilience/DG/RAC/ASM layer. |
+| End-user guide | `docs/CRASHSIMULATOR_USER_GUIDE.md` now reports 72 scenarios and the current protection/recovery helper coverage. |
+| Captures | `captures/scenarios_available.txt` was regenerated from the current script registry; menu captures were aligned to the current Guided Workflow labels. |
+| Screenshots | `tools/render_promo_screenshots.cjs` was updated so the generated scenario catalog includes the new Compliance group. |
+| References | `docs/reference/scenario_registry_72_reference.md` was added as a sanitized scenario registry reference. |
+| Reports | This report records the refresh baseline for review and audit. |
+
+## New Scenario Layer
+
+| Range | Capability |
+| --- | --- |
+| `61`-`65` | FRA pressure, required archived-log recovery gap, TEMP exhaustion, RTO validation, and RPO validation. |
+| `66`-`69` | FSFO observer, Data Guard apply lag, Data Guard transport partition, and standby redo log review. |
+| `70`-`71` | RAC VIP/service placement validation. |
+| `72` | ASM single-disk failure planning for redundant disk groups. |
+
+## Current Guardrail Position
+
+The framework can list, runbook, and readiness-check all 72 scenarios. Scenario
+execution is topology-aware: destructive actions are blocked when the required
+PDB, Data Guard, RAC, ASM, redundancy, local filesystem, backup-piece, or lab
+object prerequisites are missing.
+
+Plan-only scenarios remain intentionally guarded when the safe action requires
+external infrastructure steps or an unvalidated topology, especially FSFO
+observer outage, RAC VIP movement, OCR/voting disk operations, ASM SPFILE loss,
+and ASM single-disk failure in redundant failgroups.
+
+## Next Validation Targets
+
+- Validate scenarios `66`, `67`, `68`, and `69` in a Data Guard/FSFO-capable
+  lab.
+- Validate scenarios `70` and `71` with RAC client connectivity, FAN/ONS, and
+  AC/TAC observations.
+- Validate scenario `72` only after provisioning a purpose-built NORMAL/HIGH
+  redundancy ASM disk group with clear failgroups.
+- Re-render promotional screenshots after any future scenario registry change.
+</pre>
+</main></body></html>

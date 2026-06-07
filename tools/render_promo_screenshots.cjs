@@ -240,6 +240,7 @@ function scenarioAccent(group) {
     RAC: "#34d399",
     Network: "#2dd4bf",
     Security: "#f472b6",
+    Compliance: "#facc15",
   };
   return colors[group] || "#94a3b8";
 }
@@ -288,7 +289,7 @@ function writeScenarioCatalogPage() {
   }
 
   const leftGroups = ["Core", "Config", "Backup", "ASM", "DataGuard", "RAC", "Security"];
-  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network"];
+  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance"];
   const leftCards = leftGroups
     .filter((group) => byGroup.has(group))
     .map((group) => renderGroupCard(group, byGroup.get(group)))
@@ -954,9 +955,9 @@ async function renderMaaSummary(browser) {
         input: "captures/cli_aleatory_dry_run.txt",
         html: "cli_aleatory_dry_run.html",
         output: "crashsim_cli_aleatory_dry_run.png",
-        title: "Aleatory Scenario Dry-Run",
-        subtitle: "CLI mode | RAC/GI/ASM lab",
-        prompt: "$ ./CrashSimulatorV2.sh --random-scenario --pdb CRASHPDB --dry-run",
+        title: "Data Guard Recovery Dry-Run",
+        subtitle: "CLI mode | DG/RAC/ASM scenario layer",
+        prompt: "$ ./CrashSimulatorV2.sh --recover 67 --dry-run",
         height: 1600,
       },
       {

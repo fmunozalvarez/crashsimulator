@@ -292,7 +292,7 @@ signals, FRA configuration, and other topology evidence.
 ### Scenario Registry
 
 `--list` prints all registered scenarios with ID, group, scope, impact, and
-scenario name. The current registry contains 60 scenarios.
+scenario name. The current registry contains 72 scenarios.
 
 ### Dry-Run Planning
 
@@ -380,8 +380,9 @@ printed before destructive execution.
 It records metadata and can generate or run targeted RMAN backups before a
 destructive drill.
 
-Automated protection currently supports scenarios `5`, `7`, `14`, `17`, `30`,
-`32`, `39`, and `41`.
+Automated protection currently supports scenarios `5`, `7`, `8`, `9`, `10`,
+`12`, `14`, `15`, `17`, `22`, `30`, `32`, `33`, `34`, `35`, `37`, `39`,
+`40`, `41`, and `42`.
 
 ### Crash Injection
 
@@ -398,7 +399,8 @@ implemented.
 Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
 `7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
 `21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
-`35`, `37`, `38`, `39`, `40`, `41`, `42`, `55`, `56`, `57`, `58`, and `59`.
+`35`, `37`, `38`, `39`, `40`, `41`, `42`, `50`, `51`, `55`, `56`, `57`,
+`58`, `59`, `61`, `62`, `67`, `68`, and `71`.
 
 For unsupported scenarios, use `--runbook <id>` and the generated target
 evidence to perform the recovery manually.

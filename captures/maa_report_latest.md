@@ -83,9 +83,9 @@ Preliminary recommendation hint: Supplied objectives appear very aggressive. Exp
 
 | Objective | Suggested drills |
 | --- | --- |
-| Bronze backup/restart readiness | Health check, config report, scenarios `5`, `6`, `25`, `26`, `59`, and timed restore-preview/validate runs. |
-| Silver local HA readiness | Service/instance relocation or restart drills such as `55` and `56`, plus client FAN/ONS/Application Continuity validation. |
-| Gold DR readiness | Data Guard transport/apply, switchover/failover, FSFO, archive gap, and standby recovery drills such as `50`, `51`, `52`, `59`. |
+| Bronze backup/restart readiness | Health check, config report, scenarios `5`, `6`, `25`, `26`, `59`, `61`, `62`, `63`, `64`, `65`, and timed restore-preview/validate runs. |
+| Silver local HA readiness | Service/instance/VIP relocation or restart drills such as `55`, `56`, `70`, and `71`, plus client FAN/ONS/Application Continuity validation. |
+| Gold DR readiness | Data Guard transport/apply, switchover/failover, FSFO, archive gap, standby redo log, and standby recovery drills such as `50`, `51`, `52`, `59`, `66`, `67`, `68`, and `69`. |
 | Platinum/Diamond application continuity | GoldenGate/active-active or sharding failover, conflict handling, zero-downtime planned maintenance, and application transaction replay tests. |
 
 ## References
