@@ -39,7 +39,9 @@ Oracle AI Database 26ai RAC/ASM validation environment:
   `CRASHPDB` when present, otherwise the first read-write user PDB
 - Online redo groups multiplexed across `+RECO` and `+DATA`
 - Control files multiplexed across `+RECO` and `+DATA`
-- Fresh RMAN baseline backup completed with tag `C26AI_260607031353`
+- Fresh RMAN baseline backup completed with tag `C26AI_260607031353`; a
+  post-APEX/ORDS baseline refresh was completed with tag
+  `C26AIAPEX_260607073734`.
 - MAA readiness report detected Silver posture with baseline checks passed
 - Backup report detected Level 0/full datafile backup strategy with archived
   redo backups after patching full/non-incremental backup detection
@@ -67,11 +69,15 @@ Oracle AI Database 26ai RAC/ASM validation environment:
   `27`, `30`, `31`, `32`, `33`, `34`, `35`, `36`, `37`, `38`, `39`, `40`,
   `41`, `42`, `43`, `44`, `55`, `56`, `57`, `58`, `60`, `61`, `63`, `64`,
   `65`, `71`, `76`, `77`, `78`, `81`, and `82`.
-- APEX/ORDS read-only scenarios `78`, `81`, and `82` were executed and evidence
-  reports were generated. Scenarios `76` and `77` are runnable but still await
-  controlled destructive execution; `73`, `74`, `75`, and `80` are plan-only in
-  this lab until ORDS service/config permissions or a seeded APEX session driver
-  are approved; `79` requires a load-balancer URL.
+- APEX/ORDS scenarios `76` and `77` were executed and recovered successfully.
+  Scenario `76` initially exposed a CDB recovery-helper gap because unlock ran
+  from root instead of the PDB; the helper now reads the target container from
+  the manifest and recovery was revalidated in `CRASHDB_PDB1`. Scenario `77`
+  restored `/opt/oracle/apex/images` with no `.crashsim.bak` leftovers. Read-only
+  scenarios `78`, `81`, and `82` were also executed and evidence reports were
+  generated. Scenarios `73`, `74`, `75`, and `80` remain plan-only in this lab
+  until ORDS service/config permissions or a seeded APEX session driver are
+  approved; `79` requires a load-balancer URL.
 - Post-validation health check showed CDB/PDB open read write, no
   `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
 - Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
@@ -171,10 +177,9 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `71`: RAC service placement failure
 - `72`: ASM single disk failure
 - APEX/ORDS scenarios `73` through `82`: implemented and validated in the 26ai
-  RAC/ASM/APEX/ORDS lab. Read-only scenarios `78`, `81`, and `82` have
-  execution evidence; `76` and `77` are runnable pending approved execution;
-  `73`, `74`, `75`, and `80` are plan-only in the current OS/application
-  posture; `79` requires an ORDS load-balancer URL.
+  RAC/ASM/APEX/ORDS lab. Scenarios `76`, `77`, `78`, `81`, and `82` now have
+  execution evidence; `73`, `74`, `75`, and `80` are plan-only in the current
+  OS/application posture; `79` requires an ORDS load-balancer URL.
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.
@@ -382,7 +387,6 @@ Recommended next validation coverage:
   scenarios `9` and `10`
 - High-value resilience/compliance drill validation for scenarios `61`, `62`,
   `63`, `64`, and `65`
-- APEX/ORDS controlled execution validation for scenarios `73`, `74`, `76`,
-  `77`, and `79` after ORDS service/static-resource permissions and an optional
-  load-balancer URL are confirmed; lab-script design for plan-only scenarios
-  `75` and `80`
+- APEX/ORDS controlled execution validation for scenarios `73`, `74`, and `79`
+  after ORDS service/config privileges and an optional load-balancer URL are
+  confirmed; lab-script design for plan-only scenarios `75` and `80`

@@ -1,0 +1,155 @@
+# 26ai APEX/ORDS Scenario 76/77 Execution Evidence
+
+## Baseline Backup
+
+Recovery Manager: Release 23.26.2.0.0 - Production on Sun Jun 7 07:37:34 2026
+Version 23.26.2.0.0
+
+Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
+
+connected to target database: CRASHDB (DBID=1275113611)
+
+RMAN> run {
+2>   sql "alter system archive log current";
+3>   backup as compressed backupset database force tag 'C26AIAPEX_260607073734';
+4>   sql "alter system archive log current";
+5>   backup as compressed backupset archivelog all not backed up 1 times tag 'C26AIAPEX_260607073734_ARCH';
+6>   backup current controlfile tag 'C26AIAPEX_260607073734_CTL';
+7>   backup spfile tag 'C26AIAPEX_260607073734_SPFILE';
+8> }
+9> list backup tag 'C26AIAPEX_260607073734';
+10> list backup tag 'C26AIAPEX_260607073734_ARCH';
+11> list backup tag 'C26AIAPEX_260607073734_CTL';
+12> list backup tag 'C26AIAPEX_260607073734_SPFILE';
+13> report schema;
+14>
+using target database control file instead of recovery catalog
+sql statement: alter system archive log current
+
+Starting backup at 07-JUN-26
+allocated channel: ORA_SBT_TAPE_1
+channel ORA_SBT_TAPE_1: SID=338 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_SBT_TAPE_2
+channel ORA_SBT_TAPE_2: SID=482 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_SBT_TAPE_3
+channel ORA_SBT_TAPE_3: SID=632 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER 23.0.0.1
+
+## Scenario 76 Manifest
+version=2.0.0-dev
+run_id=20260607_073913
+mode=scenario
+scenario_id=76
+scenario_title=APEX/ORDS runtime account locked
+started_at_utc=2026-06-07T07:39:16Z
+db_name=CRASHDB
+db_unique_name=crashdb_26ai
+db_role=PRIMARY
+db_cdb=YES
+cluster_type=RAC
+gi_managed=1
+storage_type=ASM
+target_pdb=CRASHDB_PDB1
+target_schema=
+apex_runtime_user=APEX_PUBLIC_USER
+apex_runtime_target_container=CRASHDB_PDB1
+planned_action_count=1
+action_1_kind=sql
+action_1_target=alter session set container = "CRASHDB_PDB1";alter user APEX_PUBLIC_USER account lock;
+action_1_detail=lock APEX/ORDS runtime account APEX_PUBLIC_USER
+scenario_completed_at_utc=2026-06-07T07:39:16Z
+recovery_started_at_utc=2026-06-07T07:39:28Z
+recover_apex_runtime_user=APEX_PUBLIC_USER
+recover_apex_runtime_sqlfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_073928_unlock_runtime_user.sql
+recover_apex_runtime_log=/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_073928_unlock_runtime_user.log
+recovery_started_at_utc=2026-06-07T07:41:44Z
+recover_apex_runtime_user=APEX_PUBLIC_USER
+recover_apex_runtime_container=CRASHDB_PDB1
+recover_apex_runtime_sqlfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_074144_unlock_runtime_user.sql
+recover_apex_runtime_log=/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_074144_unlock_runtime_user.log
+recovery_completed_at_utc=2026-06-07T07:41:44Z
+
+## Scenario 76 Recovery Log After Patch
+
+Session altered.
+
+
+User altered.
+
+
+USERNAME															 ACCOUNT_STATUS
+-------------------------------------------------------------------------------------------------------------------------------- --------------------------------
+APEX_PUBLIC_USER														 OPEN
+
+1 row selected.
+
+
+## Scenario 77 Manifest
+version=2.0.0-dev
+run_id=20260607_074239
+mode=scenario
+scenario_id=77
+scenario_title=APEX static resources unavailable
+started_at_utc=2026-06-07T07:42:42Z
+db_name=CRASHDB
+db_unique_name=crashdb_26ai
+db_role=PRIMARY
+db_cdb=YES
+cluster_type=RAC
+gi_managed=1
+storage_type=ASM
+target_pdb=CRASHDB_PDB1
+target_schema=
+apex_images_dir=/opt/oracle/apex/images
+planned_action_count=1
+action_1_kind=fs_rename
+action_1_target=/opt/oracle/apex/images
+action_1_detail=simulate missing APEX static files/images
+rename_1_original=/opt/oracle/apex/images
+rename_1_backup=/opt/oracle/apex/images.20260607_074239.crashsim.bak
+rename_1_method=rename
+scenario_completed_at_utc=2026-06-07T07:42:42Z
+recovery_started_at_utc=2026-06-07T07:42:58Z
+recovery_completed_at_utc=2026-06-07T07:42:58Z
+
+## Scenario 77 Recovery Health Log
+=== Database state ===
+
+NAME                                                                             DB_UNIQUE_NAME                 OPEN_MODE            DATABASE_ROLE    CDB
+-------------------------------------------------------------------------------- ------------------------------ -------------------- ---------------- ---
+CRASHDB                                                                          crashdb_26ai                   READ WRITE           PRIMARY          YES
+
+1 row selected.
+
+=== PDB state ===
+
+NAME                                                                             OPEN_MODE
+-------------------------------------------------------------------------------- ----------
+PDB$SEED                                                                         READ ONLY
+CRASHDB_PDB1                                                                     READ WRITE
+
+2 rows selected.
+
+=== Files needing media recovery ===
+
+no rows selected
+
+=== Datafile status for drill targets ===
+
+PDB_NAME                                                                                                                             CON_ID    FILE_NO TABLESPACE_NAME                STATUS    ONLINE_ FILE_NAME
+-------------------------------------------------------------------------------------------------------------------------------- ---------- ---------- ------------------------------ --------- ------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                          1          7 USERS                          AVAILABLE ONLINE  +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
+
+1 row selected.
+
+=== Block corruption view ===
+
+no rows selected
+
+
+## Post-Drill Static Resource Check
+APEX_IMAGES_DIR_OK
+NO_CRASHSIM_BAK_LEFTOVERS
+ORDS_SMOKE_OK

@@ -15,7 +15,8 @@
   when present, otherwise the first read-write user PDB.
 - Multiplexed online redo logs across `+RECO` and `+DATA`.
 - Multiplexed control files across `+RECO` and `+DATA`.
-- Ran a fresh RMAN baseline backup with tag `C26AI_260607031353`.
+- Ran a fresh RMAN baseline backup with tag `C26AI_260607031353`, then refreshed
+  the baseline after APEX/ORDS installation with tag `C26AIAPEX_260607073734`.
 - Installed and validated APEX 26.1.0 in PDB `CRASHDB_PDB1`.
 - Installed ORDS 26.1.2 on both RAC nodes, configured the default pool against
   the RAC SCAN/PDB service, and configured APEX static image serving.
@@ -27,10 +28,13 @@
 - APEX/ORDS readiness checks passed for APEX registry status, runtime accounts,
   invalid object count, ORDS service posture, ORDS pool validation, and local
   smoke URL.
-- APEX/ORDS read-only scenarios `78`, `81`, and `82` executed successfully.
-  Scenarios `76` and `77` are runnable pending approved destructive execution;
-  `73`, `74`, `75`, and `80` are plan-only in the current OS/application
-  posture; `79` requires an ORDS load-balancer URL.
+- APEX/ORDS scenarios `76` and `77` executed and recovered successfully.
+  Scenario `76` validated PDB-aware runtime-account recovery after patching the
+  helper to read `apex_runtime_target_container` from the manifest. Scenario
+  `77` restored the APEX static-resource directory with no `.crashsim.bak`
+  leftovers. Read-only scenarios `78`, `81`, and `82` executed successfully.
+  Scenarios `73`, `74`, `75`, and `80` are plan-only in the current
+  OS/application posture; `79` requires an ORDS load-balancer URL.
 - MAA readiness: Silver posture, baseline checks passed.
 - Backup report: Level 0/full backup strategy with archived redo backups.
 - Post-validation health: CDB/PDB open read write, no recover-file rows, no
@@ -48,6 +52,7 @@
   - `docs/reference/26ai/26ai_service_ha_review_reference.md`
   - `docs/reference/26ai/26ai_apex_ords_readiness_reference.md`
   - `docs/reference/26ai/26ai_apex_availability_s78_reference.md`
+  - `captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
 
 ## Notes
 

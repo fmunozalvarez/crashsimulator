@@ -44,7 +44,8 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
   - Shows 44 runnable scenarios, 27 plan-only scenarios, and 11 not-runnable
     scenarios for the RAC/ASM/APEX/ORDS/no-Data-Guard topology.
 - `26ai/26ai_backup_strategy_recoverability_reference.md`
-  - Generated after a fresh baseline backup tagged `C26AI_260607031353`.
+  - Generated after the post-APEX/ORDS baseline backup tagged
+    `C26AIAPEX_260607073734`.
   - Shows Level 0/full backup detection, archived redo backup evidence, and
     RTO/RPO planning estimates from 26ai RMAN metadata.
 - `26ai/26ai_config_report_reference.md`
@@ -62,6 +63,9 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
     26.1.2 on the 26ai RAC lab.
 - `26ai/26ai_apex_availability_s78_reference.md`
   - Shows scenario 78 read-only ORDS/APEX availability smoke evidence.
+- `../../captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
+  - Shows compact execution and recovery evidence for APEX/ORDS scenarios `76`
+    and `77`, including the PDB-aware recovery helper validation.
 
 ## HTML Reference Files
 

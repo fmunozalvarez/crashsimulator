@@ -1,6 +1,6 @@
 # CrashSimulator Backup Strategy And Recoverability Report
 
-- Generated UTC: `2026-06-07T03:16:15Z`
+- Generated UTC: `2026-06-07T07:44:09Z`
 - Host: `crashdb26ai1`
 - OS user: `oracle`
 - Database: `CRASHDB`
@@ -12,7 +12,7 @@
 - Cluster type: `RAC`
 - Deep RMAN validation: `disabled`
 - RMAN repository source requested: `target control file`
-- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614.evidence`
+- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408.evidence`
 
 This report estimates recoverability from current database/RMAN metadata and optional RMAN validation output. RTO/RPO values are planning estimates, not guarantees; prove them with timed restore, recovery, and application validation drills.
 
@@ -21,28 +21,28 @@ This report estimates recoverability from current database/RMAN metadata and opt
 | Field | Value |
 | --- | --- |
 | Strategy detected | Level 0/full datafile backup strategy observed with archived redo backups |
-| Level 0/full cadence | roughly hourly or better; last backup `2026-06-07 03:14:44`, age `0` hours |
+| Level 0/full cadence | roughly hourly or better; last backup `2026-06-07 07:38:32`, age `0.1` hours |
 | Level 1 incremental cadence | not enough history; last backup `NONE`, age `UNKNOWN` hours |
-| Archived redo backup cadence | roughly hourly or better; last backup `2026-06-07 03:14:33`, age `0` hours |
-| Visible database size | `4.17` GB across `17` datafiles |
+| Archived redo backup cadence | roughly hourly or better; last backup `2026-06-07 07:38:27`, age `0.1` hours |
+| Visible database size | `5.02` GB across `17` datafiles |
 | Backup device types | `SBT_TAPE` |
 | Backup piece device types | `DISK,SBT_TAPE` |
-| Backup-only RPO estimate | Backup-only RPO is approximately the age of the latest archived redo backup, currently about 0 hours; actual data loss can be lower if required archived logs and online redo survive locally. |
-| Backup/recovery RTO estimate | Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced. Visible database size is 4.17 GB. Latest Level 0/full backup age is 0 hours. Recent successful backup job duration averages 0.8 minutes and maxes at 0.8 minutes; restore time can differ and must be measured. |
+| Backup-only RPO estimate | Backup-only RPO is approximately the age of the latest archived redo backup, currently about 0.1 hours; actual data loss can be lower if required archived logs and online redo survive locally. |
+| Backup/recovery RTO estimate | Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced. Visible database size is 5.02 GB. Latest Level 0/full backup age is 0.1 hours. Recent successful backup job duration averages 0.5 minutes and maxes at 0.9 minutes; restore time can differ and must be measured. |
 
 ## Backup Health Checks
 
 | Status | Area | Check | Evidence | Recommendation |
 | --- | --- | --- | --- | --- |
 | `OK` | Coverage | Every datafile has backup metadata | missing_datafiles=0 | Keep validating restore paths and catalog/control-file metadata retention. |
-| `OK` | Baseline | Recent Level 0/full backup | age_hours=0 | Keep Level 0/full backups aligned with restore-time objectives. |
+| `OK` | Baseline | Recent Level 0/full backup | age_hours=0.1 | Keep Level 0/full backups aligned with restore-time objectives. |
 | `OK` | Recoverability | ARCHIVELOG mode | log_mode=ARCHIVELOG | Continue backing archived redo frequently enough to meet RPO. |
-| `OK` | RPO | Recent archived redo backup | age_hours=0 | Back up archived redo more frequently than the required backup-only RPO. |
+| `OK` | RPO | Recent archived redo backup | age_hours=0.1 | Back up archived redo more frequently than the required backup-only RPO. |
 | `OK` | Reliability | No failed RMAN jobs in last 7 days | failed_7d=0, failed_30d=0 | Keep alerting on failed backup jobs. |
-| `OK` | Repository | Backup piece status | available=21, expired=0, unavailable=0, deleted=0 | Schedule periodic CROSSCHECK and cleanup obsolete/expired records. |
+| `OK` | Repository | Backup piece status | available=78, expired=0, unavailable=0, deleted=0 | Schedule periodic CROSSCHECK and cleanup obsolete/expired records. |
 | `OK` | Control file | Control file autobackup | ON | Keep autobackup enabled and test restore controlfile from autobackup. |
 | `OK` | Validation | Recovery/corruption views | recover_files=0, corruption_rows=0 | Continue scheduled validation and corruption monitoring. |
-| `OK` | FRA | FRA utilization | fra_used_pct=.15 | Keep FRA capacity monitored against archive generation and retention. |
+| `OK` | FRA | FRA utilization | fra_used_pct=.63 | Keep FRA capacity monitored against archive generation and retention. |
 
 ## Strategy Interpretation And Recommendations
 
@@ -50,8 +50,8 @@ This report estimates recoverability from current database/RMAN metadata and opt
 - RMAN retention policy: `TO RECOVERY WINDOW OF 30 DAYS`.
 - Control file record keep time: `39` days. If no catalog is used, keep this long enough to preserve restore history for your retention window.
 - Backup repository source: `Target control file only for this report run.`.
-- RTO guidance: Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced. Visible database size is 4.17 GB. Latest Level 0/full backup age is 0 hours. Recent successful backup job duration averages 0.8 minutes and maxes at 0.8 minutes; restore time can differ and must be measured.
-- RPO guidance: Backup-only RPO is approximately the age of the latest archived redo backup, currently about 0 hours; actual data loss can be lower if required archived logs and online redo survive locally.
+- RTO guidance: Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced. Visible database size is 5.02 GB. Latest Level 0/full backup age is 0.1 hours. Recent successful backup job duration averages 0.5 minutes and maxes at 0.9 minutes; restore time can differ and must be measured.
+- RPO guidance: Backup-only RPO is approximately the age of the latest archived redo backup, currently about 0.1 hours; actual data loss can be lower if required archived logs and online redo survive locally.
 - Best-practice direction: run periodic RMAN restore validation, validate selected backups when pieces are suspected missing, keep repository metadata accurate with crosschecks, protect control file/SPFILE backups, and run timed CrashSimulator restore drills to prove actual RTO/RPO.
 
 ## SQL Backup Repository Details
@@ -59,7 +59,7 @@ This report estimates recoverability from current database/RMAN metadata and opt
 
 ## Control-File SQL Backup Evidence
 
-Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus -s /\ as\ sysdba @/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614_detail.sql
+Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus -s /\ as\ sysdba @/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408_detail.sql
 
 ```text
 # Backup SQL Evidence
@@ -77,7 +77,8 @@ CRASHDB                                crashdb_26ai                   PRIMARY   
 NAME                                   VALUE
 -------------------------------------- ------------------------------------------------------------------------------------------------------------------------
 BACKUP OPTIMIZATION                    OFF
-CHANNEL                                DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=<redacted-opc-pfile>)'
+CHANNEL                                DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=/opt/o
+                                       racle/dcs/commonstore/crashdb/opc/opccrashdb.ora)'
 
 COMPRESSION ALGORITHM                  'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE
 CONTROLFILE AUTOBACKUP                 ON
@@ -98,42 +99,72 @@ INPUT_BYTES_DISPLAY
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 OUTPUT_BYTES_DISPLAY
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                  96 DB FULL                  COMPLETED                2026-06-07 07:37:39  2026-06-07 07:38:33                    .9 SBT_TAPE
+    4.47G
+    1.03G
+
+                  89 ARCHIVELOG               COMPLETED                2026-06-07 07:12:47  2026-06-07 07:12:57                    .2 SBT_TAPE
+   98.61M
+   62.25M
+
+                  82 ARCHIVELOG               COMPLETED                2026-06-07 06:13:26  2026-06-07 06:13:43                    .3 SBT_TAPE
+  341.18M
+  305.00M
+
+                  75 ARCHIVELOG               COMPLETED                2026-06-07 05:14:26  2026-06-07 05:14:58                    .5 SBT_TAPE
+  840.06M
+  803.75M
+
+                  68 ARCHIVELOG               COMPLETED                2026-06-07 04:12:46  2026-06-07 04:12:54                    .1 SBT_TAPE
+   76.43M
+   40.00M
+
+                  57 DB INCR                  COMPLETED                2026-06-07 03:19:13  2026-06-07 03:19:51                    .6 SBT_TAPE
+    3.87G
+  896.00M
+
                   15 DB FULL                  COMPLETED                2026-06-07 03:13:57  2026-06-07 03:14:45                    .8 SBT_TAPE
     4.23G
     1.11G
 
 
-1 row selected.
+7 rows selected.
 
 ## Observed Job Cadence By Type, Day, And Hour
 
 INPUT_TYPE               START_DAY  ST            JOB_COUNT FIRST_OBSERVED      LAST_OBSERVED
 ------------------------ ---------- -- -------------------- ------------------- -------------------
+ARCHIVELOG               SUN        04                    1 2026-06-07 04:12:46 2026-06-07 04:12:46
+ARCHIVELOG               SUN        05                    1 2026-06-07 05:14:26 2026-06-07 05:14:26
+ARCHIVELOG               SUN        06                    1 2026-06-07 06:13:26 2026-06-07 06:13:26
+ARCHIVELOG               SUN        07                    1 2026-06-07 07:12:47 2026-06-07 07:12:47
 DB FULL                  SUN        03                    1 2026-06-07 03:13:57 2026-06-07 03:13:57
+DB FULL                  SUN        07                    1 2026-06-07 07:37:39 2026-06-07 07:37:39
+DB INCR                  SUN        03                    1 2026-06-07 03:19:13 2026-06-07 03:19:13
 
-1 row selected.
+7 rows selected.
 
 ## Datafile Backup Coverage
 
                FILE# FILE_NAME                                                                                                                                              LAST_BACKUP_TIME    LAST_INCREMENTAL_LEVEL BACKUP_STATUS
 -------------------- ------------------------------------------------------------------------------------------------------------------------------------------------------ ------------------- ---------------------- ----------------------------------
-                   1 +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617                                                                                                      2026-06-07 03:14:16                        BACKUP METADATA FOUND
-                   3 +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601                                                                                                      2026-06-07 03:14:16                        BACKUP METADATA FOUND
-                   4 +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641                                                                                                    2026-06-07 03:13:59                        BACKUP METADATA FOUND
-                   5 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431                                                                     2026-06-07 03:14:10                        BACKUP METADATA FOUND
-                   6 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/sysaux.268.1235269431                                                                     2026-06-07 03:14:11                        BACKUP METADATA FOUND
-                   7 +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643                                                                                                       2026-06-07 03:13:58                        BACKUP METADATA FOUND
-                   8 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431                                                                   2026-06-07 03:14:17                        BACKUP METADATA FOUND
-                   9 +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599                                                                                                    2026-06-07 03:13:58                        BACKUP METADATA FOUND
-                  10 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875                                                                     2026-06-07 03:14:23                        BACKUP METADATA FOUND
-                  11 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885                                                                     2026-06-07 03:14:20                        BACKUP METADATA FOUND
-                  12 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893                                                                   2026-06-07 03:14:20                        BACKUP METADATA FOUND
-                  13 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897                                                                     2026-06-07 03:14:20                        BACKUP METADATA FOUND
-                  14 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875                                                                      2026-06-07 03:14:20                        BACKUP METADATA FOUND
-                  17 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137                                                                                        2026-06-07 03:13:58                        BACKUP METADATA FOUND
-                  18 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139                                                                                     2026-06-07 03:13:58                        BACKUP METADATA FOUND
-                  19 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139                                                            2026-06-07 03:14:20                        BACKUP METADATA FOUND
-                  20 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139                                                         2026-06-07 03:14:20                        BACKUP METADATA FOUND
+                   1 +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617                                                                                                      2026-06-07 07:38:03                        BACKUP METADATA FOUND
+                   3 +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601                                                                                                      2026-06-07 07:38:02                        BACKUP METADATA FOUND
+                   4 +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641                                                                                                    2026-06-07 07:37:41                        BACKUP METADATA FOUND
+                   5 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431                                                                     2026-06-07 07:38:14                        BACKUP METADATA FOUND
+                   6 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/sysaux.268.1235269431                                                                     2026-06-07 07:38:13                        BACKUP METADATA FOUND
+                   7 +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643                                                                                                       2026-06-07 07:37:41                        BACKUP METADATA FOUND
+                   8 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431                                                                   2026-06-07 07:38:13                        BACKUP METADATA FOUND
+                   9 +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599                                                                                                    2026-06-07 07:37:42                        BACKUP METADATA FOUND
+                  10 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875                                                                     2026-06-07 07:38:01                        BACKUP METADATA FOUND
+                  11 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885                                                                     2026-06-07 07:38:02                        BACKUP METADATA FOUND
+                  12 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893                                                                   2026-06-07 07:38:09                        BACKUP METADATA FOUND
+                  13 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897                                                                     2026-06-07 07:38:09                        BACKUP METADATA FOUND
+                  14 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875                                                                      2026-06-07 07:38:09                        BACKUP METADATA FOUND
+                  17 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137                                                                                        2026-06-07 07:37:41                        BACKUP METADATA FOUND
+                  18 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139                                                                                     2026-06-07 07:37:41                        BACKUP METADATA FOUND
+                  19 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139                                                            2026-06-07 07:38:09                        BACKUP METADATA FOUND
+                  20 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139                                                         2026-06-07 07:37:45                        BACKUP METADATA FOUND
 
 17 rows selected.
 
@@ -141,16 +172,17 @@ DB FULL                  SUN        03                    1 2026-06-07 03:13:57 
 
 BACKUP_CLASS            BACKED_FILE_ENTRIES FIRST_OBSERVED      LAST_OBSERVED
 ---------------------- -------------------- ------------------- -------------------
-FULL/NON-INCREMENTAL                     21 2026-06-07 02:42:15 2026-06-07 03:14:44
+FULL/NON-INCREMENTAL                     51 2026-06-07 02:42:15 2026-06-07 07:38:32
+LEVEL 0                                  17 2026-06-07 03:19:16 2026-06-07 03:19:41
 
-1 row selected.
+2 rows selected.
 
 ## Backup Piece Status
 
 STATUS                   DEVICE_TYPE                 PIECE_COUNT OLDEST_COMPLETION   LATEST_COMPLETION
 ------------------------ ------------------ -------------------- ------------------- -------------------
 A                        DISK                                  1 2026-06-07 02:42:15 2026-06-07 02:42:15
-A                        SBT_TAPE                             20 2026-06-07 03:13:58 2026-06-07 03:14:45
+A                        SBT_TAPE                             77 2026-06-07 03:13:58 2026-06-07 07:38:32
 
 2 rows selected.
 
@@ -160,6 +192,177 @@ A                        SBT_TAPE                             20 2026-06-07 03:1
 -------------------- -------------------- ------------------------ ------------------ -------------------- -------------------- ---
 HANDLE
 ------------------------------------------------------------------------------------------------------------------------------------------------------
+                  78           1235288312 A                        SBT_TAPE           2026-06-07 07:38:32                     0 YES
+c-1275113611-20260607-09
+
+                  77           1235288310 A                        SBT_TAPE           2026-06-07 07:38:31                     0 YES
+2dmv707m_77_1_1
+
+                  76           1235288309 A                        SBT_TAPE           2026-06-07 07:38:30                     0 YES
+2clv707k_76_1_1
+
+                  72           1235288306 A                        SBT_TAPE           2026-06-07 07:38:27                     0 YES
+29iv707i_73_1_1
+
+                  75           1235288306 A                        SBT_TAPE           2026-06-07 07:38:27                     0 YES
+28iv707i_72_1_1
+
+                  74           1235288306 A                        SBT_TAPE           2026-06-07 07:38:27                     0 YES
+2biv707i_75_1_1
+
+                  73           1235288306 A                        SBT_TAPE           2026-06-07 07:38:27                     0 YES
+2aiv707i_74_1_1
+
+                  71           1235288299 A                        SBT_TAPE           2026-06-07 07:38:20                     0 YES
+c-1275113611-20260607-08
+
+                  69           1235288288 A                        SBT_TAPE           2026-06-07 07:38:16                   .05 YES
+240v7070_68_1_1
+
+                  70           1235288288 A                        SBT_TAPE           2026-06-07 07:38:16                   .13 YES
+250v7070_69_1_1
+
+                  68           1235288292 A                        SBT_TAPE           2026-06-07 07:38:14                   .01 YES
+264v7074_70_1_1
+
+                  66           1235288288 A                        SBT_TAPE           2026-06-07 07:38:10                   .01 YES
+220v7070_66_1_1
+
+                  67           1235288288 A                        SBT_TAPE           2026-06-07 07:38:10                   .01 YES
+230v7070_67_1_1
+
+                  65           1235288260 A                        SBT_TAPE           2026-06-07 07:38:05                   .37 YES
+1s4u7064_60_1_1
+
+                  64           1235288263 A                        SBT_TAPE           2026-06-07 07:38:04                   .14 YES
+207u7067_64_1_1
+
+                  62           1235288263 A                        SBT_TAPE           2026-06-07 07:38:03                   .18 YES
+217u7067_65_1_1
+
+                  63           1235288260 A                        SBT_TAPE           2026-06-07 07:38:03                   .11 YES
+1t4u7064_61_1_1
+
+                  60           1235288260 A                        SBT_TAPE           2026-06-07 07:37:42                     0 YES
+1u4u7064_62_1_1
+
+                  61           1235288260 A                        SBT_TAPE           2026-06-07 07:37:42                     0 YES
+1v4u7064_63_1_1
+
+                  59           1235286776 A                        SBT_TAPE           2026-06-07 07:12:57                     0 YES
+c-1275113611-20260607-07
+
+                  58           1235286775 A                        SBT_TAPE           2026-06-07 07:12:56                     0 YES
+AL_AUTO_07_06_2026_071200_cf_CRASHDB_1275113611_1pnf6unm_57_1_1_20260607_1780816375_set57
+
+                  57           1235286774 A                        SBT_TAPE           2026-06-07 07:12:55                     0 YES
+AL_AUTO_07_06_2026_071200_spf_CRASHDB_1275113611_1qmf6unm_58_1_1_20260607_1780816374_set58
+
+                  55           1235286770 A                        SBT_TAPE           2026-06-07 07:12:51                   .02 NO
+AL_AUTO_07_06_2026_071200_arc_CRASHDB_1275113611_1oif6uni_56_1_1_20260607_1780816370_set56
+
+                  56           1235286770 A                        SBT_TAPE           2026-06-07 07:12:51                   .04 NO
+AL_AUTO_07_06_2026_071200_arc_CRASHDB_1275113611_1nif6uni_55_1_1_20260607_1780816370_set55
+
+                  54           1235283222 A                        SBT_TAPE           2026-06-07 06:13:43                     0 YES
+c-1275113611-20260607-06
+
+                  53           1235283221 A                        SBT_TAPE           2026-06-07 06:13:41                     0 YES
+AL_AUTO_07_06_2026_061200_cf_CRASHDB_1275113611_1kl03r8k_52_1_1_20260607_1780812821_set52
+
+                  52           1235283220 A                        SBT_TAPE           2026-06-07 06:13:40                     0 YES
+AL_AUTO_07_06_2026_061200_spf_CRASHDB_1275113611_1lk03r8k_53_1_1_20260607_1780812820_set53
+
+                  51           1235283212 A                        SBT_TAPE           2026-06-07 06:13:36                   .16 NO
+AL_AUTO_07_06_2026_061200_arc_CRASHDB_1275113611_1ic03r8c_50_1_1_20260607_1780812812_set50
+
+                  50           1235283212 A                        SBT_TAPE           2026-06-07 06:13:35                   .14 NO
+AL_AUTO_07_06_2026_061200_arc_CRASHDB_1275113611_1jc03r8c_51_1_1_20260607_1780812812_set51
+
+                  49           1235279697 A                        SBT_TAPE           2026-06-07 05:14:57                     0 YES
+c-1275113611-20260607-05
+
+                  48           1235279695 A                        SBT_TAPE           2026-06-07 05:14:56                     0 YES
+AL_AUTO_07_06_2026_051200_cf_CRASHDB_1275113611_1ffivnqe_47_1_1_20260607_1780809295_set47
+
+                  47           1235279694 A                        SBT_TAPE           2026-06-07 05:14:55                     0 YES
+AL_AUTO_07_06_2026_051200_spf_CRASHDB_1275113611_1geivnqe_48_1_1_20260607_1780809294_set48
+
+                  46           1235279678 A                        SBT_TAPE           2026-06-07 05:14:51                   .73 NO
+AL_AUTO_07_06_2026_051200_arc_CRASHDB_1275113611_1duhvnpu_45_1_1_20260607_1780809278_set45
+
+                  45           1235279678 A                        SBT_TAPE           2026-06-07 05:14:40                   .05 NO
+AL_AUTO_07_06_2026_051200_arc_CRASHDB_1275113611_1euhvnpu_46_1_1_20260607_1780809278_set46
+
+                  44           1235275973 A                        SBT_TAPE           2026-06-07 04:12:54                     0 YES
+c-1275113611-20260607-04
+
+                  43           1235275972 A                        SBT_TAPE           2026-06-07 04:12:52                     0 YES
+AL_AUTO_07_06_2026_041200_cf_CRASHDB_1275113611_1a4urk63_42_1_1_20260607_1780805572_set42
+
+                  42           1235275971 A                        SBT_TAPE           2026-06-07 04:12:51                     0 YES
+AL_AUTO_07_06_2026_041200_spf_CRASHDB_1275113611_1b3urk63_43_1_1_20260607_1780805571_set43
+
+                  40           1235275967 A                        SBT_TAPE           2026-06-07 04:12:48                   .02 NO
+AL_AUTO_07_06_2026_041200_arc_CRASHDB_1275113611_19vtrk5v_41_1_1_20260607_1780805567_set41
+
+                  41           1235275967 A                        SBT_TAPE           2026-06-07 04:12:48                   .02 NO
+AL_AUTO_07_06_2026_041200_arc_CRASHDB_1275113611_18vtrk5v_40_1_1_20260607_1780805567_set40
+
+                  39           1235272790 A                        SBT_TAPE           2026-06-07 03:19:51                     0 YES
+c-1275113611-20260607-03
+
+                  38           1235272789 A                        SBT_TAPE           2026-06-07 03:19:49                     0 YES
+DBTRegular-L01780800994562Ur0_cf_CRASHDB_1275113611_15lqoh2k_37_1_1_20260607_1780802389_set37
+
+                  37           1235272788 A                        SBT_TAPE           2026-06-07 03:19:48                     0 YES
+DBTRegular-L01780800994562Ur0_spf_CRASHDB_1275113611_16kqoh2k_38_1_1_20260607_1780802388_set38
+
+                  35           1235272786 A                        SBT_TAPE           2026-06-07 03:19:47                     0 YES
+DBTRegular-L01780800994562Ur0_arc_CRASHDB_1275113611_14iqoh2i_36_1_1_20260607_1780802386_set36
+
+                  36           1235272786 A                        SBT_TAPE           2026-06-07 03:19:47                     0 YES
+DBTRegular-L01780800994562Ur0_arc_CRASHDB_1275113611_13iqoh2i_35_1_1_20260607_1780802386_set35
+
+                  34           1235272777 A                        SBT_TAPE           2026-06-07 03:19:43                   .13 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_108qoh28_32_1_1_20260607_1780802376_set32
+
+                  32           1235272777 A                        SBT_TAPE           2026-06-07 03:19:39                   .01 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_129qoh29_34_1_1_20260607_1780802377_set34
+
+                  33           1235272773 A                        SBT_TAPE           2026-06-07 03:19:39                   .05 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0v5qoh25_31_1_1_20260607_1780802373_set31
+
+                  31           1235272777 A                        SBT_TAPE           2026-06-07 03:19:38                     0 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_118qoh28_33_1_1_20260607_1780802376_set33
+
+                  29           1235272755 A                        SBT_TAPE           2026-06-07 03:19:36                   .37 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0ojpoh1j_24_1_1_20260607_1780802355_set24
+
+                  30           1235272755 A                        SBT_TAPE           2026-06-07 03:19:36                    .1 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0pjpoh1j_25_1_1_20260607_1780802355_set25
+
+                  28           1235272773 A                        SBT_TAPE           2026-06-07 03:19:35                   .01 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0u5qoh25_30_1_1_20260607_1780802373_set30
+
+                  27           1235272758 A                        SBT_TAPE           2026-06-07 03:19:31                   .13 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0tmpoh1m_29_1_1_20260607_1780802358_set29
+
+                  26           1235272758 A                        SBT_TAPE           2026-06-07 03:19:29                   .05 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0smpoh1m_28_1_1_20260607_1780802358_set28
+
+                  25           1235272755 A                        SBT_TAPE           2026-06-07 03:19:17                     0 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0qjpoh1j_26_1_1_20260607_1780802355_set26
+
+                  24           1235272755 A                        SBT_TAPE           2026-06-07 03:19:16                     0 YES
+DBTRegular-L01780800994562Ur0_CRASHDB_1275113611_0rjpoh1j_27_1_1_20260607_1780802355_set27
+
+                  22           1235272753 A                        SBT_TAPE           2026-06-07 03:19:14                     0 YES
+DBTRegular-L01780800994562Ur0_arc_CRASHDB_1275113611_0mhpoh1h_22_1_1_20260607_1780802353_set22
+
+                  23           1235272753 A                        SBT_TAPE           2026-06-07 03:19:14                     0 YES
+DBTRegular-L01780800994562Ur0_arc_CRASHDB_1275113611_0nhpoh1h_23_1_1_20260607_1780802353_set23
+
                   21           1235272484 A                        SBT_TAPE           2026-06-07 03:14:45                     0 YES
 c-1275113611-20260607-02
 
@@ -224,7 +427,7 @@ c-1275113611-20260607-01
 +RECO/CRASHDB_26AI/AUTOBACKUP/2026_06_07/s_1235270535.268.1235270535
 
 
-21 rows selected.
+78 rows selected.
 
 ## Archived Redo Backup Coverage - Last 7 Days
 
@@ -251,6 +454,33 @@ c-1275113611-20260607-01
                    1                    8 2026-06-07 03:14:28 2026-06-07 03:14:31  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
                                                                                                             07/thread_1_seq_8.280.1235272471
 
+                   1                    9 2026-06-07 03:14:31 2026-06-07 03:19:13  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_9.282.1235272753
+
+                   1                   10 2026-06-07 03:19:13 2026-06-07 03:19:44  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_10.284.1235272785
+
+                   1                   11 2026-06-07 03:19:44 2026-06-07 04:12:47  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_11.287.1235275967
+
+                   1                   12 2026-06-07 04:12:46 2026-06-07 05:14:38  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_12.289.1235279669
+
+                   1                   13 2026-06-07 05:14:29 2026-06-07 06:13:31  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_13.291.1235283209
+
+                   1                   14 2026-06-07 06:13:29 2026-06-07 07:12:47  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_14.292.1235286767
+
+                   1                   15 2026-06-07 07:12:47 2026-06-07 07:37:36  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_15.294.1235288257
+
+                   1                   16 2026-06-07 07:37:36 2026-06-07 07:38:23  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_16.297.1235288303
+
+                   1                   17 2026-06-07 07:38:23 2026-06-07 07:38:23  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_1_seq_17.298.1235288303
+
                    2                    1 2026-06-07 02:29:16 2026-06-07 02:29:18  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
                                                                                                             07/thread_2_seq_1.265.1235269759
 
@@ -272,8 +502,35 @@ c-1275113611-20260607-01
                    2                    7 2026-06-07 03:14:28 2026-06-07 03:14:31  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
                                                                                                             07/thread_2_seq_7.281.1235272471
 
+                   2                    8 2026-06-07 03:14:31 2026-06-07 03:19:13  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_8.283.1235272753
 
-14 rows selected.
+                   2                    9 2026-06-07 03:19:13 2026-06-07 03:19:46  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_9.285.1235272787
+
+                   2                   10 2026-06-07 03:19:46 2026-06-07 04:12:46  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_10.286.1235275967
+
+                   2                   11 2026-06-07 04:12:46 2026-06-07 05:14:29  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_11.288.1235279669
+
+                   2                   12 2026-06-07 05:14:28 2026-06-07 06:13:29  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_12.290.1235283209
+
+                   2                   13 2026-06-07 06:13:29 2026-06-07 07:12:50  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_13.293.1235286771
+
+                   2                   14 2026-06-07 07:12:50 2026-06-07 07:37:38  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_14.295.1235288259
+
+                   2                   15 2026-06-07 07:37:38 2026-06-07 07:38:23  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_15.296.1235288303
+
+                   2                   16 2026-06-07 07:38:23 2026-06-07 07:38:26  NO                     1 +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_
+                                                                                                            07/thread_2_seq_16.299.1235288307
+
+
+32 rows selected.
 
 ## Unbacked Archived Redo Logs
 
@@ -297,7 +554,7 @@ no rows selected
 
 NAME                                         SPACE_LIMIT_GB        SPACE_USED_GB SPACE_RECLAIMABLE_GB      NUMBER_OF_FILES
 -------------------------------------- -------------------- -------------------- -------------------- --------------------
-+RECO                                                   255                  .39                  .35                   16
++RECO                                                   255                  1.6                 1.56                   34
 
 1 row selected.
 
@@ -305,7 +562,7 @@ NAME                                         SPACE_LIMIT_GB        SPACE_USED_GB
 
 FILE_TYPE                 PERCENT_SPACE_USED PERCENT_SPACE_RECLAIMABLE      NUMBER_OF_FILES
 ----------------------- -------------------- ------------------------- --------------------
-ARCHIVED LOG                             .14                       .14                   14
+ARCHIVED LOG                             .61                       .61                   32
 AUXILIARY DATAFILE COPY                    0                         0                    0
 BACKUP PIECE                             .01                         0                    1
 CONTROL FILE                             .01                         0                    1
@@ -340,11 +597,11 @@ no rows selected
 
 Repository source requested: `target control file`
 
-Command: `rman target / cmdfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614_repository.rman log=/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614_repository.log`
+Command: `rman target / cmdfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408_repository.rman log=/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408_repository.log`
 
 ```text
 
-Recovery Manager: Release 23.26.2.0.0 - Production on Sun Jun 7 03:16:16 2026
+Recovery Manager: Release 23.26.2.0.0 - Production on Sun Jun 7 07:44:11 2026
 Version 23.26.2.0.0
 
 Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
@@ -376,7 +633,7 @@ CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE SBT_TAPE TO 1; # default
 CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
 CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE SBT_TAPE TO 1; # default
 CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
-CONFIGURE CHANNEL DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=<redacted-opc-pfile>)';
+CONFIGURE CHANNEL DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=/opt/oracle/dcs/commonstore/crashdb/opc/opccrashdb.ora)';
 CONFIGURE MAXSETSIZE TO UNLIMITED; # default
 CONFIGURE ENCRYPTION FOR DATABASE ON;
 CONFIGURE ENCRYPTION ALGORITHM 'AES256';
@@ -411,6 +668,63 @@ Key     TY LV S Device Type Completion Time #Pieces #Copies Compressed Tag
 19      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353_CTL
 20      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353_SPFILE
 21      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T031444
+22      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+23      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+24      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+25      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+26      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+27      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+28      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+29      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+30      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+31      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+32      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+33      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+34      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+35      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+36      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+37      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+38      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+39      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T031950
+40      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_041200
+41      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_041200
+42      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_041200
+43      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_041200
+44      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T041253
+45      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_051200
+46      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_051200
+47      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_051200
+48      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_051200
+49      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T051456
+50      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_061200
+51      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_061200
+52      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_061200
+53      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_061200
+54      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T061342
+55      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_071200
+56      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_071200
+57      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_071200
+58      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        AL_AUTO_07_06_2026_071200
+59      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T071256
+60      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+61      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+62      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+63      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+64      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+65      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+66      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+67      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+68      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+69      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+70      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+71      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T073819
+72      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+73      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+74      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+75      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+76      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_CTL
+77      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_SPFILE
+78      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        TAG20260607T073831
 
 
 List of Backups
@@ -428,6 +742,28 @@ Key     TY LV S Device Type Completion Time #Pieces #Copies Compressed Tag
 10      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
 11      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
 12      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+24      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+25      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+26      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+27      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+28      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+29      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+30      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+31      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+32      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+33      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+34      B  0  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+60      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+61      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+62      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+63      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+64      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+65      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+66      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+67      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+68      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+69      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+70      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
 
 
 List of Backups
@@ -439,6 +775,22 @@ Key     TY LV S Device Type Completion Time #Pieces #Copies Compressed Tag
 16      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353_ARCH
 17      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353_ARCH
 18      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353_ARCH
+22      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+23      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+35      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+36      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        DBTREGULAR-L01780800994562UR0
+40      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_041200
+41      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_041200
+45      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_051200
+46      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_051200
+50      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_061200
+51      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_061200
+55      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_071200
+56      B  A  A SBT_TAPE    07-JUN-26       1       1       NO         AL_AUTO_07_06_2026_071200
+72      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+73      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+74      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
+75      B  A  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734_ARCH
 
 specification does not match any backup in the repository
 
@@ -450,19 +802,19 @@ List of Permanent Datafiles
 ===========================
 File Size(MB) Tablespace           RB segs Datafile Name
 ---- -------- -------------------- ------- ------------------------
-1    1180     SYSTEM               YES     +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617
-3    910      SYSAUX               NO      +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601
+1    1190     SYSTEM               YES     +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617
+3    970      SYSAUX               NO      +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601
 4    125      UNDOTBS1             YES     +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641
 5    370      PDB$SEED:SYSTEM      NO      +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431
 6    460      PDB$SEED:SYSAUX      NO      +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/sysaux.268.1235269431
 7    100      USERS                NO      +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
 8    50       PDB$SEED:UNDOTBS1    NO      +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431
 9    60       UNDOTBS2             YES     +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599
-10   380      CRASHDB_PDB1:SYSTEM  YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875
-11   460      CRASHDB_PDB1:SYSAUX  NO      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885
-12   50       CRASHDB_PDB1:UNDOTBS1 YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893
-13   50       CRASHDB_PDB1:UNDO_5  YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897
-14   7        CRASHDB_PDB1:USERS   NO      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875
+10   550      CRASHDB_PDB1:SYSTEM  YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875
+11   840      CRASHDB_PDB1:SYSAUX  NO      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885
+12   225      CRASHDB_PDB1:UNDOTBS1 YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893
+13   60       CRASHDB_PDB1:UNDO_5  YES     +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897
+14   72       CRASHDB_PDB1:USERS   NO      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875
 17   16       CRASHSIM_ROOT_RO_TBS NO      +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137
 18   16       CRASHSIM_ROOT_INDEX_TBS NO      +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139
 19   16       CRASHDB_PDB1:CRASHSIM_RO_TBS NO      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139
@@ -489,36 +841,36 @@ no obsolete backups found
 
 Starting restore at 07-JUN-26
 allocated channel: ORA_SBT_TAPE_1
-channel ORA_SBT_TAPE_1: SID=484 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: SID=20 instance=crashdb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_2
-channel ORA_SBT_TAPE_2: SID=942 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: SID=186 instance=crashdb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_3
-channel ORA_SBT_TAPE_3: SID=1096 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: SID=338 instance=crashdb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_4
-channel ORA_SBT_TAPE_4: SID=23 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_4: SID=482 instance=crashdb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_4: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_DISK_1
-channel ORA_DISK_1: SID=180 instance=crashdb1 device type=DISK
+channel ORA_DISK_1: SID=631 instance=crashdb1 device type=DISK
 
 
 List of Backups
 ===============
 Key     TY LV S Device Type Completion Time #Pieces #Copies Compressed Tag
 ------- -- -- - ----------- --------------- ------- ------- ---------- ---
-7       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-8       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-3       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-5       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-4       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-2       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-6       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-12      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-11      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-10      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
-9       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+65      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+63      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+60      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+70      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+69      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+61      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+68      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+62      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+64      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+66      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
+67      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AIAPEX_260607073734
 using channel ORA_SBT_TAPE_1
 using channel ORA_SBT_TAPE_2
 using channel ORA_SBT_TAPE_3
@@ -530,21 +882,21 @@ List of Archived Log Copies for database with db_unique_name CRASHDB_26AI
 
 Key     Thrd Seq     S Low Time
 ------- ---- ------- - ---------
-11      1    7       A 07-JUN-26
-        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_7.278.1235272469
+30      1    16      A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_16.297.1235288303
 
-13      1    8       A 07-JUN-26
-        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_8.280.1235272471
+31      1    17      A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_17.298.1235288303
 
-12      2    6       A 07-JUN-26
-        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_6.279.1235272469
+29      2    15      A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_15.296.1235288303
 
-14      2    7       A 07-JUN-26
-        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_7.281.1235272471
+32      2    16      A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_16.299.1235288307
 
-recovery will be done up to SCN 1297845
-Media recovery start SCN is 1296754
-Recovery must be done beyond SCN 1297737 to clear datafile fuzziness
+recovery will be done up to SCN 1649165
+Media recovery start SCN is 1648976
+Recovery must be done beyond SCN 1649036 to clear datafile fuzziness
 validation succeeded for backup piece
 Finished restore at 07-JUN-26
 
@@ -563,7 +915,7 @@ Skipped by default. Re-run with `--deep-validate` or set `CRASHSIM_REPORT_DEEP_V
 
 ## Raw Backup Evidence
 
-Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614.evidence`
+Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408.evidence`
 
 ```text
 CSIM_BKP|db_name|CRASHDB
@@ -587,54 +939,54 @@ CSIM_BKP|rman_compression|'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE
 CSIM_BKP|rman_channel_config_count|1
 CSIM_BKP|datafile_count|17
 CSIM_BKP|tempfile_count|3
-CSIM_BKP|database_size_gb|4.17
+CSIM_BKP|database_size_gb|5.02
 CSIM_BKP|datafile_copy_count|3
 CSIM_BKP|datafiles_without_backup_metadata|0
-CSIM_BKP|oldest_datafile_backup_time|2026-06-07 03:13:58
-CSIM_BKP|last_datafile_backup_time|2026-06-07 03:14:44
-CSIM_BKP|last_datafile_backup_age_hours|0
-CSIM_BKP|last_level0_backup_time|2026-06-07 03:14:44
-CSIM_BKP|last_level0_backup_age_hours|0
+CSIM_BKP|oldest_datafile_backup_time|2026-06-07 07:37:41
+CSIM_BKP|last_datafile_backup_time|2026-06-07 07:38:32
+CSIM_BKP|last_datafile_backup_age_hours|.1
+CSIM_BKP|last_level0_backup_time|2026-06-07 07:38:32
+CSIM_BKP|last_level0_backup_age_hours|.1
 CSIM_BKP|last_level1_backup_time|NONE
 CSIM_BKP|last_level1_backup_age_hours|UNKNOWN
-CSIM_BKP|level0_count_30d|15
+CSIM_BKP|level0_count_30d|50
 CSIM_BKP|level1_count_30d|0
-CSIM_BKP|level0_avg_gap_hours|0
+CSIM_BKP|level0_avg_gap_hours|.1
 CSIM_BKP|level1_avg_gap_hours|UNKNOWN
-CSIM_BKP|successful_jobs_7d|1
+CSIM_BKP|successful_jobs_7d|7
 CSIM_BKP|failed_jobs_7d|0
-CSIM_BKP|successful_jobs_30d|1
+CSIM_BKP|successful_jobs_30d|7
 CSIM_BKP|failed_jobs_30d|0
-CSIM_BKP|last_successful_job_time|2026-06-07 03:14:45
-CSIM_BKP|last_successful_job_age_hours|0
+CSIM_BKP|last_successful_job_time|2026-06-07 07:38:33
+CSIM_BKP|last_successful_job_age_hours|.1
 CSIM_BKP|backup_device_types|SBT_TAPE
-CSIM_BKP|avg_successful_job_elapsed_minutes_30d|.8
-CSIM_BKP|max_successful_job_elapsed_minutes_30d|.8
-CSIM_BKP|archivelog_backup_sets_30d|5
-CSIM_BKP|last_archivelog_backup_time|2026-06-07 03:14:33
-CSIM_BKP|last_archivelog_backup_age_hours|0
-CSIM_BKP|archivelog_backup_avg_gap_hours|0
-CSIM_BKP|archivelogs_known_7d|14
+CSIM_BKP|avg_successful_job_elapsed_minutes_30d|.5
+CSIM_BKP|max_successful_job_elapsed_minutes_30d|.9
+CSIM_BKP|archivelog_backup_sets_30d|21
+CSIM_BKP|last_archivelog_backup_time|2026-06-07 07:38:27
+CSIM_BKP|last_archivelog_backup_age_hours|.1
+CSIM_BKP|archivelog_backup_avg_gap_hours|.5
+CSIM_BKP|archivelogs_known_7d|32
 CSIM_BKP|archivelogs_not_backed_7d|0
 CSIM_BKP|oldest_unbacked_archivelog_time|NONE
 CSIM_BKP|oldest_unbacked_archivelog_age_hours|UNKNOWN
-CSIM_BKP|latest_archivelog_time|2026-06-07 03:14:31
-CSIM_BKP|controlfile_backup_count_30d|4
-CSIM_BKP|last_controlfile_backup_time|2026-06-07 03:14:44
-CSIM_BKP|last_controlfile_backup_age_hours|0
-CSIM_BKP|backup_piece_available_count|21
+CSIM_BKP|latest_archivelog_time|2026-06-07 07:38:26
+CSIM_BKP|controlfile_backup_count_30d|17
+CSIM_BKP|last_controlfile_backup_time|2026-06-07 07:38:32
+CSIM_BKP|last_controlfile_backup_age_hours|.1
+CSIM_BKP|backup_piece_available_count|78
 CSIM_BKP|backup_piece_expired_count|0
 CSIM_BKP|backup_piece_deleted_count|0
 CSIM_BKP|backup_piece_unavailable_count|0
-CSIM_BKP|latest_backup_piece_time|2026-06-07 03:14:45
+CSIM_BKP|latest_backup_piece_time|2026-06-07 07:38:32
 CSIM_BKP|backup_piece_device_types|DISK,SBT_TAPE
 CSIM_BKP|recover_file_count|0
 CSIM_BKP|block_corruption_count|0
 CSIM_BKP|copy_corruption_count|0
 CSIM_BKP|backup_corruption_count|0
 CSIM_BKP|fra_configured|YES
-CSIM_BKP|fra_used_pct|.15
-CSIM_BKP|fra_reclaimable_pct|.14
+CSIM_BKP|fra_used_pct|.63
+CSIM_BKP|fra_reclaimable_pct|.61
 CSIM_BKP|remote_standby_dest_count|0
 CSIM_BKP|valid_remote_standby_dest_count|0
 CSIM_BKP|standby_dest_error_count|0

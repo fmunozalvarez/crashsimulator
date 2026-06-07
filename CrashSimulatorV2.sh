@@ -4594,12 +4594,14 @@ recover_apex_runtime_account_scenario() {
   scenario_exists "$id" || die "Unknown scenario id: $id"
   CURRENT_SCENARIO_ID="$id"
 
-  local runtime_user container_sql sql_file sql_log user_file
+  local runtime_user runtime_container container_sql sql_file sql_log user_file
   runtime_user=""
+  runtime_container=""
   if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
     runtime_user="$(manifest_first_value "apex_runtime_user" "action_1_target" || true)"
     runtime_user="${runtime_user##*alter user }"
     runtime_user="${runtime_user%% account*}"
+    runtime_container="$(manifest_first_value "apex_runtime_target_container" || true)"
   fi
   if [[ -z "$runtime_user" ]]; then
     user_file="$WORK_DIR/recover_apex_runtime_user.lst"
@@ -4609,7 +4611,14 @@ recover_apex_runtime_account_scenario() {
   fi
   runtime_user="$(normalize_name "$runtime_user")"
   validate_oracle_name "$runtime_user" || die "Invalid runtime user for recovery: $runtime_user"
-  container_sql="$(apex_ords_container_sql_prefix)"
+  runtime_container="$(normalize_name "$runtime_container")"
+  if [[ -n "$runtime_container" ]]; then
+    validate_oracle_name "$runtime_container" || die "Invalid runtime container for recovery: $runtime_container"
+    container_sql="$(printf "alter session set container = %s;\n" "$(sql_identifier "$runtime_container")")"
+  else
+    container_sql="$(apex_ords_container_sql_prefix)"
+    runtime_container="$(printf "%s" "$container_sql" | sed -n 's/^alter session set container = "\{0,1\}\([^";]*\)"\{0,1\};$/\1/p' | head -1)"
+  fi
 
   if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
     init_manifest "recover" "$id"
@@ -4629,12 +4638,14 @@ recover_apex_runtime_account_scenario() {
   } >"$sql_file" || die "Unable to write APEX/ORDS runtime recovery SQL file: $sql_file"
 
   manifest_append "recover_apex_runtime_user" "$runtime_user"
+  manifest_append "recover_apex_runtime_container" "$runtime_container"
   manifest_append "recover_apex_runtime_sqlfile" "$sql_file"
   manifest_append "recover_apex_runtime_log" "$sql_log"
 
   echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
   echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
   echo "Runtime user: ${runtime_user}"
+  [[ -n "$runtime_container" ]] && echo "Runtime container: ${runtime_container}"
   echo "Manifest: ${MANIFEST_FILE}"
   echo
   print_recovery_runbook "$id"
