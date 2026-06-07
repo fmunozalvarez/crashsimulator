@@ -49,7 +49,7 @@ and unzip it.
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
+chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
 Run as the Oracle software owner, or as an OS user that can connect locally as
@@ -67,11 +67,13 @@ Validate the download and start safely:
 
 ```bash
 ./CrashSimulatorV2.sh --help
+./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
+./crashsimulator --menu
 ```
 
 `--dry-run` is the default. Destructive scenarios require `--execute` and an

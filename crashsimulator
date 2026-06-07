@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Friendly launcher for CrashSimulatorV2.sh.
+
+set -euo pipefail
+
+resolve_self() {
+  local source_dir source_file link_target
+  source_file="${BASH_SOURCE[0]}"
+  while [[ -L "$source_file" ]]; do
+    source_dir="$(cd -P "$(dirname "$source_file")" >/dev/null 2>&1 && pwd)"
+    link_target="$(readlink "$source_file")"
+    if [[ "$link_target" == /* ]]; then
+      source_file="$link_target"
+    else
+      source_file="${source_dir}/${link_target}"
+    fi
+  done
+  cd -P "$(dirname "$source_file")" >/dev/null 2>&1 && pwd
+}
+
+select_bash() {
+  local candidate major
+  for candidate in "${CRASHSIM_BASH:-}" /opt/homebrew/bin/bash /usr/local/bin/bash /bin/bash /usr/bin/bash bash; do
+    [[ -n "$candidate" ]] || continue
+    if [[ "$candidate" == */* ]]; then
+      [[ -x "$candidate" ]] || continue
+    elif ! command -v "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    major="$("$candidate" -c 'printf "%s" "${BASH_VERSINFO[0]:-0}"' 2>/dev/null || true)"
+    if [[ "$major" =~ ^[0-9]+$ && "$major" -ge 4 ]]; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+  printf "%s\n" "${CRASHSIM_BASH:-bash}"
+}
+
+SCRIPT_DIR="$(resolve_self)"
+CRASHSIM_HOME="${CRASHSIM_HOME:-}"
+CRASHSIM_BASH_BIN="$(select_bash)"
+
+candidate_paths=()
+candidate_paths+=("${SCRIPT_DIR}/CrashSimulatorV2.sh")
+if [[ -n "$CRASHSIM_HOME" ]]; then
+  candidate_paths+=("${CRASHSIM_HOME}/CrashSimulatorV2.sh")
+fi
+candidate_paths+=("/tmp/crashsimulator/CrashSimulatorV2.sh")
+
+for candidate in "${candidate_paths[@]}"; do
+  if [[ -x "$candidate" ]]; then
+    cd "$(dirname "$candidate")"
+    exec "$CRASHSIM_BASH_BIN" "$candidate" "$@"
+  fi
+done
+
+target_os_user="${CRASHSIM_OS_USER:-oracle}"
+target_home="${CRASHSIM_HOME:-/tmp/crashsimulator}"
+target_script="${target_home}/CrashSimulatorV2.sh"
+
+if [[ "$(id -un)" != "$target_os_user" ]] && command -v sudo >/dev/null 2>&1; then
+  if sudo -n -u "$target_os_user" test -x "$target_script" 2>/dev/null; then
+    exec sudo -n -iu "$target_os_user" env \
+      "CRASHSIM_HOME=$target_home" \
+      "CRASHSIM_LOG_DIR=${CRASHSIM_LOG_DIR:-${target_home}/crashsimulator_logs}" \
+      "$CRASHSIM_BASH_BIN" "$target_script" "$@"
+  fi
+fi
+
+{
+  echo "CrashSimulator launcher could not find an executable CrashSimulatorV2.sh."
+  echo
+  echo "Tried:"
+  printf '  - %s\n' "${candidate_paths[@]}"
+  echo
+  echo "Fix:"
+  echo "  cd /path/to/crashsimulator"
+  echo "  chmod +x CrashSimulatorV2.sh crashsimulator"
+  echo "  ./crashsimulator --menu"
+  echo
+  echo "Or set CRASHSIM_HOME to the CrashSimulator directory."
+} >&2
+exit 127

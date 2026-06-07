@@ -189,7 +189,7 @@ Example:
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh
+chmod +x crashsimulator CrashSimulatorV2.sh
 chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
@@ -211,11 +211,13 @@ export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
 cd /path/to/crashsimulator-main
 ./CrashSimulatorV2.sh --help
+./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --validate-scenario 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --menu
+./crashsimulator --menu
 ```
 
 If the ZIP was renamed by the browser, the directory may be
@@ -264,6 +266,7 @@ Run the menu with:
 ```bash
 ./CrashSimulatorV2.sh
 ./CrashSimulatorV2.sh --menu
+./crashsimulator --menu
 ```
 
 The menu provides options to:

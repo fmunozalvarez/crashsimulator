@@ -13501,6 +13501,9 @@ main() {
       recover_scenario "$SCENARIO_ID"
       ;;
     menu)
+      echo "Starting CrashSimulator Guided Workflow menu..."
+      echo "Discovering target topology for the menu header. This normally takes a few seconds."
+      echo "If startup appears slow, verify ORACLE_HOME, ORACLE_SID, and local SYSDBA access."
       discover_environment || true
       interactive_menu
       ;;
