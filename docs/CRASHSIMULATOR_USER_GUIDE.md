@@ -657,6 +657,15 @@ Each audit run folder contains:
 - `artifacts/`: redacted copies of generated text artifacts such as `.rman`,
   `.sql`, `.manifest`, `.log`, `.evidence`, and `.md` files.
 
+Live stdout/stderr capture defaults to `auto`. In normal CLI runs,
+CrashSimulator captures redacted terminal output into `stdout.log` and
+`stderr.log`. In an interactive guided workflow menu attached to a terminal,
+live stream capture is disabled by default to keep the menu responsive; metadata
+and generated artifacts are still retained. Set
+`CRASHSIM_AUDIT_STREAM_CAPTURE=yes` only when you explicitly need live menu
+terminal capture and have validated that the terminal/SSH environment supports
+it.
+
 Common commands:
 
 ```bash
@@ -673,6 +682,7 @@ Environment defaults:
 export CRASHSIM_AUDIT_RETAIN=1
 export CRASHSIM_AUDIT_RETENTION_DAYS=365
 export CRASHSIM_AUDIT_DIR=/secure/audit/crashsimulator
+export CRASHSIM_AUDIT_STREAM_CAPTURE=auto
 ```
 
 The purge process removes audit run folders older than the configured retention

@@ -59,6 +59,7 @@ APEX_SESSION_HEADLESS="${CRASHSIM_APEX_SESSION_HEADLESS:-1}"
 AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
 AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
+AUDIT_STREAM_CAPTURE="${CRASHSIM_AUDIT_STREAM_CAPTURE:-auto}"
 HTML_OUTPUT=0
 HTML_TARGET="${CRASHSIM_HTML_TARGET:-}"
 REVIEW_TARGET="${CRASHSIM_REVIEW_TARGET:-}"
@@ -339,6 +340,7 @@ Environment:
   CRASHSIM_AUDIT_RETAIN         Set to 1/0 or yes/no. Default: 1.
   CRASHSIM_AUDIT_RETENTION_DAYS Days to keep audit run folders. Default: 365.
   CRASHSIM_AUDIT_DIR            Audit archive directory. Default: <log-dir>/audit.
+  CRASHSIM_AUDIT_STREAM_CAPTURE Capture live stdout/stderr: auto, yes, or no. Auto disables live capture for interactive menu TTYs.
   CRASHSIM_HTML_TARGET          Default artifact for --render-html.
   CRASHSIM_REVIEW_TARGET        Default artifact for --show-artifact.
   CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
@@ -416,6 +418,16 @@ normalize_bool() {
   esac
 }
 
+normalize_auto_bool() {
+  local value="$1"
+  case "$(printf "%s" "$value" | tr '[:upper:]' '[:lower:]')" in
+    auto|"") printf "auto" ;;
+    1|true|yes|y|on) printf "1" ;;
+    0|false|no|n|off) printf "0" ;;
+    *) return "$FAIL" ;;
+  esac
+}
+
 normalize_targets() {
   if [[ -n "$TARGET_PDB" ]]; then
     TARGET_PDB="$(normalize_name "$TARGET_PDB")"
@@ -436,6 +448,8 @@ normalize_targets() {
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
   REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
   AUDIT_RETAIN="$(normalize_bool "$AUDIT_RETAIN")" || die "Invalid audit retain value: $AUDIT_RETAIN"
+  AUDIT_STREAM_CAPTURE="$(normalize_auto_bool "$AUDIT_STREAM_CAPTURE")" ||
+    die "Invalid audit stream capture value: $AUDIT_STREAM_CAPTURE"
   [[ "$AUDIT_RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "Invalid audit retention days: $AUDIT_RETENTION_DAYS"
   [[ "$FRA_PRESSURE_TARGET_PCT" =~ ^[0-9]+$ && "$FRA_PRESSURE_TARGET_PCT" -ge 50 && "$FRA_PRESSURE_TARGET_PCT" -le 100 ]] ||
     die "Invalid FRA pressure target percentage: $FRA_PRESSURE_TARGET_PCT"
@@ -458,6 +472,20 @@ audit_effective_dir() {
   if [[ -z "$AUDIT_DIR" ]]; then
     AUDIT_DIR="${LOG_DIR}/audit"
   fi
+}
+
+audit_stream_capture_enabled() {
+  case "$AUDIT_STREAM_CAPTURE" in
+    1) return "$SUCCESS" ;;
+    0) return "$FAIL" ;;
+    auto)
+      if [[ "$MODE" == "menu" && -t 1 ]]; then
+        return "$FAIL"
+      fi
+      return "$SUCCESS"
+      ;;
+  esac
+  return "$FAIL"
 }
 
 audit_redact_stream() {
@@ -529,16 +557,12 @@ audit_start() {
   AUDIT_MARKER_FILE="${AUDIT_RUN_DIR}/start.marker"
   AUDIT_STDOUT_FILE="${AUDIT_RUN_DIR}/stdout.log"
   AUDIT_STDERR_FILE="${AUDIT_RUN_DIR}/stderr.log"
-  AUDIT_STDOUT_FIFO="${AUDIT_RUN_DIR}/stdout.pipe"
-  AUDIT_STDERR_FIFO="${AUDIT_RUN_DIR}/stderr.pipe"
   metadata_file="${AUDIT_RUN_DIR}/metadata.env"
   command_file="${AUDIT_RUN_DIR}/command.redacted"
   env_file="${AUDIT_RUN_DIR}/environment.redacted"
 
   touch "$AUDIT_MARKER_FILE" "$AUDIT_STDOUT_FILE" "$AUDIT_STDERR_FILE" ||
     die "Unable to initialize audit files under: $AUDIT_RUN_DIR"
-  mkfifo "$AUDIT_STDOUT_FIFO" "$AUDIT_STDERR_FIFO" ||
-    die "Unable to initialize audit capture pipes under: $AUDIT_RUN_DIR"
 
   {
     printf "version=%q\n" "$VERSION"
@@ -562,10 +586,19 @@ audit_start() {
   audit_write_redacted_environment "$env_file"
 
   AUDIT_STARTED=1
-  audit_redact_stream <"$AUDIT_STDOUT_FIFO" | tee -a "$AUDIT_STDOUT_FILE" &
-  audit_redact_stream <"$AUDIT_STDERR_FIFO" | tee -a "$AUDIT_STDERR_FILE" >&2 &
-  exec >"$AUDIT_STDOUT_FIFO" 2>"$AUDIT_STDERR_FIFO"
-  rm -f "$AUDIT_STDOUT_FIFO" "$AUDIT_STDERR_FIFO" || true
+  if ! audit_stream_capture_enabled; then
+    {
+      echo "Live stdout/stderr capture was disabled for this run."
+      echo "Reason: interactive guided menu terminal sessions use direct terminal I/O to avoid startup deadlocks."
+      echo "Generated CrashSimulator artifacts are still collected under this audit run at finalization."
+    } >"$AUDIT_STDOUT_FILE"
+    echo "Audit logging enabled: ${AUDIT_RUN_DIR}"
+    echo "Audit stream capture: disabled for interactive guided menu; generated artifacts will still be retained."
+    return "$SUCCESS"
+  fi
+
+  exec > >(audit_redact_stream | tee -a "$AUDIT_STDOUT_FILE") \
+    2> >(audit_redact_stream | tee -a "$AUDIT_STDERR_FILE" >&2)
 
   echo "Audit logging enabled: ${AUDIT_RUN_DIR}"
 }
