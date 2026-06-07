@@ -1,0 +1,65 @@
+# 26ai scenario 80 seeded APEX browser-session driver validation
+
+Validation date: 2026-06-07 UTC
+Target: Oracle AI Database 26ai RAC/ASM lab, PDB CRASHDB_PDB1
+
+Design implemented:
+
+- Added optional driver `tools/crashsim_apex_session_driver.cjs`.
+- Scenario `80` keeps its current read-only APEX/ORDS continuity evidence when
+  no driver is supplied.
+- When `--apex-session-driver` is supplied, scenario `80` checks that the
+  driver is executable and that the driver host has Node.js, Playwright, and a
+  Chromium browser runtime before execution.
+- The APEX test password is supplied through `CRASHSIM_APEX_SESSION_PASSWORD`
+  and is not passed to the driver command line by the framework.
+
+Local driver smoke test:
+
+```text
+Driver self-check: OK
+Data URL session smoke: PASS
+Artifacts:
+  /tmp/crashsim_apex_session_driver_test/apex_session_driver_report.md
+  /tmp/crashsim_apex_session_driver_test/apex_session_driver_result.json
+  /tmp/crashsim_apex_session_driver_test/baseline.png
+  /tmp/crashsim_apex_session_driver_test/final.png
+```
+
+Remote 26ai readiness without browser driver:
+
+```text
+Scenario readiness validation
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+```
+
+Remote 26ai readiness with browser driver configured:
+
+```text
+Scenario readiness validation
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 80 is not possible to run at this moment.
+Reason: Scenario 80 browser-session driver self-check failed for ./tools/crashsim_apex_session_driver.cjs. Verify Node.js, Playwright, and the Chromium browser runtime, or omit --apex-session-driver for read-only URL evidence.
+```
+
+Interpretation:
+
+- Scenario `80` remains runnable for read-only APEX/ORDS continuity evidence on
+  the 26ai lab.
+- Full seeded browser-session evidence is designed and locally validated.
+- To run the browser driver on the 26ai database host, install Node.js,
+  Playwright, and the Chromium runtime there, or run the driver from a separate
+  client/ORDS-access host with the same URL, test user, and success selector.

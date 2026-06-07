@@ -1,0 +1,103 @@
+# Scenario 80 Seeded APEX Browser-Session Driver
+
+Scenario `80` validates what an end user experiences while an APEX session is
+active during ORDS, RAC service, Data Guard, database, or network recovery
+drills. The database-level checks can prove that the target is open and ORDS is
+reachable, but browser evidence is needed to answer the user-facing question:
+did the session continue, require retry, require relogin, lose page state, or
+fail a transaction?
+
+## Seeded APEX App Contract
+
+Use a disposable APEX workspace/application created for CrashSimulator drills.
+The application should be safe to refresh repeatedly and should not depend on
+production data.
+
+Recommended seed page:
+
+- A login page, unless the application is intentionally public.
+- A landing page with a stable success marker such as:
+
+```html
+<span id="CRASHSIM_SESSION_OK">CrashSimulator session active</span>
+```
+
+- A simple region showing the current timestamp, application user, and session
+  id if available.
+- Optional lightweight action button that updates a lab-only row, so teams can
+  observe whether an in-flight transaction needs retry after failover.
+
+## Driver Behavior
+
+The optional driver is `tools/crashsim_apex_session_driver.cjs`.
+
+It uses Playwright on the host where it runs:
+
+1. Opens the seeded APEX application URL.
+2. Logs in when a username and `CRASHSIM_APEX_SESSION_PASSWORD` are supplied.
+3. Confirms the success selector when provided.
+4. Takes a baseline screenshot.
+5. Reloads the page at a configured interval for a configured duration.
+6. Records whether the page remains reachable and, for authenticated tests,
+   whether it falls back to a login page.
+7. Writes Markdown, JSON, and screenshot evidence.
+
+The password is read from the environment and is not passed as a process
+argument by `CrashSimulatorV2.sh`.
+
+The driver supports a lightweight runtime check:
+
+```bash
+./tools/crashsim_apex_session_driver.cjs --self-check
+```
+
+When `--apex-session-driver` is supplied, scenario `80` runs this check before
+execution. If the database host does not have Node.js, Playwright, and the
+Chromium browser runtime, keep scenario `80` in read-only mode or run the
+driver from a separate client/ORDS-access host.
+
+## Example
+
+```bash
+export CRASHSIM_APEX_SESSION_PASSWORD='<test-user-password>'
+
+./CrashSimulatorV2.sh \
+  --scenario 80 \
+  --pdb CRASHDB_PDB1 \
+  --ords-url http://localhost:8080/ords/ \
+  --apex-session-driver ./tools/crashsim_apex_session_driver.cjs \
+  --apex-session-url http://localhost:8080/ords/r/crashsim/session-lab/home \
+  --apex-session-username CRASHSIM_APEX_USER \
+  --apex-session-success-selector '#CRASHSIM_SESSION_OK' \
+  --apex-session-duration 120 \
+  --apex-session-interval 10 \
+  --execute
+```
+
+During the 120-second window, run the failure being tested from another
+terminal, for example an ORDS restart, RAC service relocation, or Data Guard
+role transition. Scenario `80` captures browser evidence while the session is
+kept active.
+
+## Evidence
+
+Scenario `80` appends the driver JSON to the scenario report and records the
+driver output directory in the manifest. The driver directory contains:
+
+- `apex_session_driver_report.md`
+- `apex_session_driver_result.json`
+- `baseline.png`
+- `final.png`
+- optional failure screenshots
+
+## Interpreting Results
+
+- `PASS`: the seeded page stayed reachable and the success selector remained
+  visible during the polling window.
+- `WARN`: URL continuity was tested, but no username or success selector was
+  supplied, so authenticated session continuity was not proven.
+- `FAIL`: the page became unreachable, the success selector disappeared, or an
+  authenticated session returned to a login page.
+
+Use the result alongside service AC/TAC, FAN/ONS, ORDS pool retry, APEX session
+timeout, and application transaction retry findings.

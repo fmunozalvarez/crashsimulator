@@ -1,8 +1,8 @@
 # CrashSimulator Scenario Lifecycle Coverage Report
 
-- Generated UTC: `2026-06-07T08:16:44Z`
+- Generated UTC: `2026-06-07T08:48:51Z`
 - Tool version: `2.0.0-dev`
-- Log directory: `/tmp/crashsimulator/crashsimulator_logs`
+- Log directory: `/tmp/crashsim_lifecycle_driver`
 - Registered scenarios: `82`
 
 This static report shows what lifecycle support the framework provides for each registered scenario. It complements `--scenario-readiness-report`, which checks whether a scenario can run in the current database topology.
@@ -113,7 +113,7 @@ This static report shows what lifecycle support the framework provides for each 
 | `77` | APEX/ORDS | destructive | APEX static resources unavailable | Automated readiness validation | Manual baseline/runbook | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Use baseline backup/runbook; add --protect only where target-specific backup is meaningful. |
 | `78` | APEX/ORDS | logical | APEX application availability validation after recovery | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
 | `79` | APEX/ORDS | logical | ORDS node unavailable behind load balancer | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Lifecycle covered where topology prerequisites are met. |
-| `80` | APEX/ORDS | logical | APEX session continuity test | Automated readiness validation | Not required: logical drill | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
+| `80` | APEX/ORDS | logical | APEX session continuity test | Automated readiness validation | Not required: logical drill | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, optional browser screenshots/JSON, manifest, audit | No recovery helper required; keep report evidence current. |
 | `81` | APEX/ORDS | logical | APEX mail queue and configuration validation | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
 | `82` | APEX/ORDS | logical | APEX upgrade or patch rollback readiness | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
 

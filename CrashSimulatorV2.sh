@@ -45,6 +45,17 @@ ORDS_LB_URL="${CRASHSIM_ORDS_LB_URL:-}"
 ORDS_DB_POOL="${CRASHSIM_ORDS_DB_POOL:-default}"
 ORDS_PRIV_HELPER="${CRASHSIM_ORDS_PRIV_HELPER:-/usr/local/bin/crashsim_ords_priv}"
 APEX_IMAGES_DIR="${CRASHSIM_APEX_IMAGES_DIR:-}"
+APEX_SESSION_DRIVER="${CRASHSIM_APEX_SESSION_DRIVER:-}"
+APEX_SESSION_URL="${CRASHSIM_APEX_SESSION_URL:-}"
+APEX_SESSION_USERNAME="${CRASHSIM_APEX_SESSION_USERNAME:-}"
+APEX_SESSION_PASSWORD="${CRASHSIM_APEX_SESSION_PASSWORD:-}"
+APEX_SESSION_SUCCESS_SELECTOR="${CRASHSIM_APEX_SESSION_SUCCESS_SELECTOR:-}"
+APEX_SESSION_USERNAME_SELECTOR="${CRASHSIM_APEX_SESSION_USERNAME_SELECTOR:-}"
+APEX_SESSION_PASSWORD_SELECTOR="${CRASHSIM_APEX_SESSION_PASSWORD_SELECTOR:-}"
+APEX_SESSION_SUBMIT_SELECTOR="${CRASHSIM_APEX_SESSION_SUBMIT_SELECTOR:-}"
+APEX_SESSION_DURATION="${CRASHSIM_APEX_SESSION_DURATION:-90}"
+APEX_SESSION_INTERVAL="${CRASHSIM_APEX_SESSION_INTERVAL:-10}"
+APEX_SESSION_HEADLESS="${CRASHSIM_APEX_SESSION_HEADLESS:-1}"
 AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
 AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
@@ -242,6 +253,28 @@ Options:
   --ords-lb-url <url>     Optional load balancer URL for ORDS node-outage drills.
   --ords-priv-helper <p>  Optional sudo helper for narrowly approved ORDS OS actions.
   --apex-images-dir <dir> APEX images/static files directory for static-file drills.
+  --apex-session-driver <p>
+                          Optional seeded APEX browser-session driver for scenario 80.
+  --apex-session-url <url>
+                          Scenario 80 APEX application URL. Default: --ords-url.
+  --apex-session-username <u>
+                          Scenario 80 APEX test user for browser login.
+  --apex-session-password <v>
+                          Scenario 80 APEX test password. Prefer env var.
+  --apex-session-success-selector <css>
+                          Scenario 80 CSS selector that proves the app session is open.
+  --apex-session-username-selector <css>
+                          Optional scenario 80 login username CSS selector.
+  --apex-session-password-selector <css>
+                          Optional scenario 80 login password CSS selector.
+  --apex-session-submit-selector <css>
+                          Optional scenario 80 login submit CSS selector.
+  --apex-session-duration <sec>
+                          Scenario 80 browser polling duration. Default: 90.
+  --apex-session-interval <sec>
+                          Scenario 80 browser polling interval. Default: 10.
+  --apex-session-headless <yes|no>
+                          Scenario 80 browser headless mode. Default: yes.
   --sysbackup-user <name> Common user to re-grant SYSBACKUP after password-file recovery.
   --local-only            Scenario 25: target local filesystem backup pieces only.
   --max-targets <n>       Limit selected targets. Strongly recommended for scenario 25.
@@ -281,6 +314,17 @@ Environment:
   CRASHSIM_ORDS_LB_URL          Optional ORDS load balancer URL.
   CRASHSIM_ORDS_PRIV_HELPER     Optional sudo helper path for ORDS service/config drills.
   CRASHSIM_APEX_IMAGES_DIR      APEX images/static files directory.
+  CRASHSIM_APEX_SESSION_DRIVER  Optional seeded APEX browser-session driver.
+  CRASHSIM_APEX_SESSION_URL     Optional scenario 80 APEX application URL.
+  CRASHSIM_APEX_SESSION_USERNAME Scenario 80 APEX test user.
+  CRASHSIM_APEX_SESSION_PASSWORD Scenario 80 APEX test password.
+  CRASHSIM_APEX_SESSION_SUCCESS_SELECTOR Scenario 80 success CSS selector.
+  CRASHSIM_APEX_SESSION_USERNAME_SELECTOR Optional login username CSS selector.
+  CRASHSIM_APEX_SESSION_PASSWORD_SELECTOR Optional login password CSS selector.
+  CRASHSIM_APEX_SESSION_SUBMIT_SELECTOR Optional login submit CSS selector.
+  CRASHSIM_APEX_SESSION_DURATION Scenario 80 browser polling duration.
+  CRASHSIM_APEX_SESSION_INTERVAL Scenario 80 browser polling interval.
+  CRASHSIM_APEX_SESSION_HEADLESS Scenario 80 browser headless mode.
   CRASHSIM_SYSBACKUP_USER       Common SYSBACKUP user to restore. Default: C##DBLCMUSER.
   CRASHSIM_TEMPFILE_SIZE        Tempfile size used by tempfile recovery. Default: 100m.
   CRASHSIM_LOCAL_ONLY           Set to 1 to target local filesystem pieces only.
@@ -399,6 +443,12 @@ normalize_targets() {
     die "Invalid FRA pressure headroom MB: $FRA_PRESSURE_HEADROOM_MB"
   [[ "$TEMP_EXHAUST_MB" =~ ^[1-9][0-9]*$ ]] ||
     die "Invalid TEMP exhaust MB: $TEMP_EXHAUST_MB"
+  [[ "$APEX_SESSION_DURATION" =~ ^[1-9][0-9]*$ ]] ||
+    die "Invalid APEX session duration seconds: $APEX_SESSION_DURATION"
+  [[ "$APEX_SESSION_INTERVAL" =~ ^[1-9][0-9]*$ ]] ||
+    die "Invalid APEX session interval seconds: $APEX_SESSION_INTERVAL"
+  APEX_SESSION_HEADLESS="$(normalize_bool "$APEX_SESSION_HEADLESS")" ||
+    die "Invalid APEX session headless value: $APEX_SESSION_HEADLESS"
   if [[ -n "$MAX_TARGETS" && ! "$MAX_TARGETS" =~ ^[1-9][0-9]*$ ]]; then
     die "Invalid max targets value: $MAX_TARGETS"
   fi
@@ -432,11 +482,11 @@ audit_print_redacted_command() {
     fi
 
     case "$arg" in
-      --sys-password|--rman-catalog)
+      --sys-password|--rman-catalog|--apex-session-password)
         printf " %q" "$arg"
         redact_next=1
         ;;
-      --sys-password=*|--rman-catalog=*)
+      --sys-password=*|--rman-catalog=*|--apex-session-password=*)
         printf " %q" "${arg%%=*}=<redacted>"
         ;;
       *)
@@ -1988,7 +2038,7 @@ register_scenarios() {
   register_scenario "77" "APEX static resources unavailable"                 "APEX/ORDS"  "Application" "destructive" "any"               "scenario_apex_static_resources_unavailable" "Renames APEX images/static directory when explicitly configured and writable."
   register_scenario "78" "APEX application availability validation after recovery" "APEX/ORDS" "Application" "logical" "any"         "scenario_apex_application_availability_validation" "Read-only ORDS/APEX smoke evidence after database/PDB recovery."
   register_scenario "79" "ORDS node unavailable behind load balancer"         "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_lb_node_unavailable" "Stops local ORDS service and validates optional load-balancer URL."
-  register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Read-only APEX/ORDS session-continuity evidence drill; pair with a live browser session for full validation."
+  register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation."
   register_scenario "81" "APEX mail queue and configuration validation"       "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_mail_config_validation" "Read-only SMTP/wallet/ACL evidence for notification recovery readiness."
   register_scenario "82" "APEX upgrade or patch rollback readiness"           "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_patch_rollback_readiness" "Read-only pre/post APEX version, object, and runtime-account evidence."
 }
@@ -2370,7 +2420,7 @@ scenario_execution_capability() {
     46|47|48|49|66|70|72)
       printf "Plan-only evidence; external approved action"
       ;;
-    64|65|69|78|80|81|82)
+    64|65|69|78|81|82)
       printf "Automated read-only report"
       ;;
     *)
@@ -2409,6 +2459,9 @@ scenario_runbook_capability() {
 scenario_evidence_capability() {
   local id="$1"
   case "$id" in
+    80)
+      printf "Markdown report, SQL evidence, optional browser screenshots/JSON, manifest, audit"
+      ;;
     64|65|69|78|80|81|82)
       printf "Markdown report, SQL evidence, manifest, audit"
       ;;
@@ -2925,6 +2978,12 @@ validation_no_target_reason() {
         printf "The ORDS/APEX smoke URL is not reachable: ${ORDS_URL}. Start/configure ORDS and validate network access before running scenario %s." "$id"
       elif printf "%s\n" "$output" | grep -q "APEX is not installed"; then
         printf "APEX is not installed in the selected target container. Install APEX in the PDB and rerun validation for scenario %s." "$id"
+      elif printf "%s\n" "$output" | grep -q "APEX session driver is not executable"; then
+        printf "Scenario 80 browser-session driver is not executable: ${APEX_SESSION_DRIVER}. Fix permissions or omit --apex-session-driver for read-only URL evidence."
+      elif printf "%s\n" "$output" | grep -q "APEX session driver self-check failed"; then
+        printf "Scenario 80 browser-session driver self-check failed for ${APEX_SESSION_DRIVER}. Verify Node.js, Playwright, and the Chromium browser runtime, or omit --apex-session-driver for read-only URL evidence."
+      elif printf "%s\n" "$output" | grep -q "APEX session username was supplied"; then
+        printf "Scenario 80 browser-session login needs CRASHSIM_APEX_SESSION_PASSWORD or --apex-session-password when --apex-session-username is supplied."
       else
         return "$FAIL"
       fi
@@ -5738,7 +5797,7 @@ run_apex_ords_report() {
     printf '| `77` | APEX static resources unavailable | Automatable when an APEX images/static directory is configured and writable. |\n'
     printf '| `78` | APEX application availability validation after recovery | Read-only smoke evidence after PDB/datafile recovery. |\n'
     printf '| `79` | One ORDS node unavailable behind load balancer | Automatable when ORDS service control and a load-balancer URL are supplied. |\n'
-    printf '| `80` | APEX session continuity test | Read-only continuity evidence; combine with a live browser session or seeded script for end-user behavior capture. |\n'
+    printf '| `80` | APEX session continuity test | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |\n'
     printf '| `81` | APEX mail queue/configuration validation | Read-only APEX SMTP/wallet/ACL evidence. |\n'
     printf '| `82` | APEX upgrade/patch rollback readiness | Read-only pre/post evidence and runbook. |\n'
   } >>"$report_file"
@@ -8567,8 +8626,9 @@ RUNBOOK
   - APEX application/session availability:
     1. Validate the ORDS landing page and a real APEX application URL after database/PDB/ORDS recovery.
     2. For session continuity, keep an active test session open during ORDS, RAC service, Data Guard, or database recovery drills.
-    3. Record whether users see retry, relogin, lost state, failed transaction, or seamless continuation.
-    4. Feed findings into service AC/TAC, FAN/ONS, pool retry, and APEX session timeout design.
+    3. When possible, use the seeded browser-session driver with a disposable APEX app and a stable success selector such as #CRASHSIM_SESSION_OK.
+    4. Record whether users see retry, relogin, lost state, failed transaction, or seamless continuation.
+    5. Feed findings into service AC/TAC, FAN/ONS, pool retry, and APEX session timeout design.
 RUNBOOK
       ;;
     81)
@@ -11611,6 +11671,74 @@ scenario_apex_application_availability_validation() {
   maybe_render_html "$report_file"
 }
 
+run_apex_session_driver() {
+  local report_file="$1"
+  local session_url output_dir output_file headless_value
+  local -a driver_cmd=()
+
+  [[ -n "$APEX_SESSION_DRIVER" ]] || return "$SUCCESS"
+  [[ -x "$APEX_SESSION_DRIVER" ]] ||
+    die "APEX session driver is not executable: ${APEX_SESSION_DRIVER}"
+
+  session_url="${APEX_SESSION_URL:-$ORDS_URL}"
+  output_dir="${LOG_DIR}/apex_session_driver_s80_${RUN_ID}"
+  output_file="${LOG_DIR}/crashsim_apex_session_driver_s80_${RUN_ID}.out"
+  headless_value="true"
+  [[ "$APEX_SESSION_HEADLESS" -eq 0 ]] && headless_value="false"
+
+  manifest_append "apex_session_driver" "$APEX_SESSION_DRIVER"
+  manifest_append "apex_session_driver_url" "$session_url"
+  manifest_append "apex_session_driver_output_dir" "$output_dir"
+  manifest_append "apex_session_driver_output_file" "$output_file"
+  [[ -n "$APEX_SESSION_USERNAME" ]] && manifest_append "apex_session_driver_username" "$APEX_SESSION_USERNAME"
+  [[ -n "$APEX_SESSION_SUCCESS_SELECTOR" ]] && manifest_append "apex_session_driver_success_selector" "$APEX_SESSION_SUCCESS_SELECTOR"
+
+  driver_cmd=(
+    "$APEX_SESSION_DRIVER"
+    "--url" "$session_url"
+    "--output-dir" "$output_dir"
+    "--duration" "$APEX_SESSION_DURATION"
+    "--interval" "$APEX_SESSION_INTERVAL"
+    "--headless" "$headless_value"
+    "--label" "scenario-80-${RUN_ID}"
+  )
+  [[ -n "$APEX_SESSION_USERNAME" ]] && driver_cmd+=("--username" "$APEX_SESSION_USERNAME")
+  [[ -n "$APEX_SESSION_SUCCESS_SELECTOR" ]] && driver_cmd+=("--success-selector" "$APEX_SESSION_SUCCESS_SELECTOR")
+  [[ -n "$APEX_SESSION_USERNAME_SELECTOR" ]] && driver_cmd+=("--username-selector" "$APEX_SESSION_USERNAME_SELECTOR")
+  [[ -n "$APEX_SESSION_PASSWORD_SELECTOR" ]] && driver_cmd+=("--password-selector" "$APEX_SESSION_PASSWORD_SELECTOR")
+  [[ -n "$APEX_SESSION_SUBMIT_SELECTOR" ]] && driver_cmd+=("--submit-selector" "$APEX_SESSION_SUBMIT_SELECTOR")
+
+  echo "Running APEX browser-session driver: ${APEX_SESSION_DRIVER}"
+  echo "Driver URL: ${session_url}"
+  echo "Driver output directory: ${output_dir}"
+
+  if CRASHSIM_APEX_SESSION_PASSWORD="$APEX_SESSION_PASSWORD" "${driver_cmd[@]}" >"$output_file" 2>&1; then
+    manifest_append "apex_session_driver_status" "completed"
+  else
+    manifest_append "apex_session_driver_status" "failed"
+    cat "$output_file" || true
+    die "APEX browser-session driver failed. Output: ${output_file}"
+  fi
+
+  {
+    printf "\n## Browser Session Driver\n\n"
+    printf -- '- Driver: `%s`\n' "$(md_escape "$APEX_SESSION_DRIVER")"
+    printf -- '- Session URL: `%s`\n' "$(md_escape "$session_url")"
+    printf -- '- Duration seconds: `%s`\n' "$APEX_SESSION_DURATION"
+    printf -- '- Interval seconds: `%s`\n' "$APEX_SESSION_INTERVAL"
+    printf -- '- Headless: `%s`\n' "$headless_value"
+    printf -- '- Driver output directory: `%s`\n' "$(md_escape "$output_dir")"
+    printf -- '- Driver stdout/JSON: `%s`\n' "$(md_escape "$output_file")"
+    if [[ -f "${output_dir}/apex_session_driver_report.md" ]]; then
+      printf -- '- Driver Markdown report: `%s`\n' "$(md_escape "${output_dir}/apex_session_driver_report.md")"
+    fi
+    printf "\nDriver result JSON:\n\n"
+    printf '```json\n'
+    cat "$output_file"
+    printf '\n```\n'
+  } >>"$report_file" || die "Unable to append browser-session driver evidence: $report_file"
+}
+
 scenario_ords_lb_node_unavailable() {
   reset_actions
   local continuity_url report_file continuity_status
@@ -11664,6 +11792,15 @@ scenario_apex_session_continuity() {
   command -v curl >/dev/null 2>&1 || die "curl was not found; cannot validate ORDS/APEX URL."
   curl -fsS -L --max-time 10 "$ORDS_URL" >/dev/null 2>&1 ||
     die "ORDS/APEX smoke URL is not reachable now: ${ORDS_URL}."
+  if [[ -n "$APEX_SESSION_DRIVER" ]]; then
+    [[ -x "$APEX_SESSION_DRIVER" ]] ||
+      die "APEX session driver is not executable: ${APEX_SESSION_DRIVER}"
+    "$APEX_SESSION_DRIVER" --self-check >/dev/null 2>&1 ||
+      die "APEX session driver self-check failed: ${APEX_SESSION_DRIVER}. Verify Node.js, Playwright, and the Chromium browser runtime on this host."
+    if [[ -n "$APEX_SESSION_USERNAME" && -z "$APEX_SESSION_PASSWORD" ]]; then
+      die "APEX session username was supplied but CRASHSIM_APEX_SESSION_PASSWORD/--apex-session-password is empty."
+    fi
+  fi
 
   local report_file continuity_url continuity_status
   report_file="${LOG_DIR}/crashsim_apex_session_continuity_s80_${RUN_ID}.md"
@@ -11694,8 +11831,14 @@ scenario_apex_session_continuity() {
     printf "| --- | --- |\n"
     printf '| ORDS/APEX smoke URL | `OK` |\n'
     printf '| Continuity or peer URL | `%s` |\n' "$(md_escape "$continuity_status")"
+    if [[ -n "$APEX_SESSION_DRIVER" ]]; then
+      printf "\nA seeded APEX browser-session driver is configured. Driver evidence will be appended below.\n"
+    else
+      printf "\nNo seeded browser-session driver was configured. Use `--apex-session-driver` with a seeded APEX application URL when full end-user behavior capture is needed.\n"
+    fi
     printf "\nUse this report during a live APEX browser session. Record whether the user sees seamless continuation, retry, relogin, lost page state, or failed transaction after ORDS/RAC/service/database failover.\n"
   } >"$report_file" || die "Unable to write scenario 80 report: $report_file"
+  run_apex_session_driver "$report_file"
   cat "$report_file"
   maybe_render_html "$report_file"
 }
@@ -11944,6 +12087,61 @@ parse_args() {
       --apex-images-dir)
         [[ "$#" -ge 2 ]] || die "--apex-images-dir requires a directory"
         APEX_IMAGES_DIR="$2"
+        shift 2
+        ;;
+      --apex-session-driver)
+        [[ "$#" -ge 2 ]] || die "--apex-session-driver requires a path"
+        APEX_SESSION_DRIVER="$2"
+        shift 2
+        ;;
+      --apex-session-url)
+        [[ "$#" -ge 2 ]] || die "--apex-session-url requires a URL"
+        APEX_SESSION_URL="$2"
+        shift 2
+        ;;
+      --apex-session-username)
+        [[ "$#" -ge 2 ]] || die "--apex-session-username requires a user name"
+        APEX_SESSION_USERNAME="$2"
+        shift 2
+        ;;
+      --apex-session-password)
+        [[ "$#" -ge 2 ]] || die "--apex-session-password requires a value"
+        APEX_SESSION_PASSWORD="$2"
+        shift 2
+        ;;
+      --apex-session-success-selector)
+        [[ "$#" -ge 2 ]] || die "--apex-session-success-selector requires a CSS selector"
+        APEX_SESSION_SUCCESS_SELECTOR="$2"
+        shift 2
+        ;;
+      --apex-session-username-selector)
+        [[ "$#" -ge 2 ]] || die "--apex-session-username-selector requires a CSS selector"
+        APEX_SESSION_USERNAME_SELECTOR="$2"
+        shift 2
+        ;;
+      --apex-session-password-selector)
+        [[ "$#" -ge 2 ]] || die "--apex-session-password-selector requires a CSS selector"
+        APEX_SESSION_PASSWORD_SELECTOR="$2"
+        shift 2
+        ;;
+      --apex-session-submit-selector)
+        [[ "$#" -ge 2 ]] || die "--apex-session-submit-selector requires a CSS selector"
+        APEX_SESSION_SUBMIT_SELECTOR="$2"
+        shift 2
+        ;;
+      --apex-session-duration)
+        [[ "$#" -ge 2 ]] || die "--apex-session-duration requires seconds"
+        APEX_SESSION_DURATION="$2"
+        shift 2
+        ;;
+      --apex-session-interval)
+        [[ "$#" -ge 2 ]] || die "--apex-session-interval requires seconds"
+        APEX_SESSION_INTERVAL="$2"
+        shift 2
+        ;;
+      --apex-session-headless)
+        [[ "$#" -ge 2 ]] || die "--apex-session-headless requires yes/no"
+        APEX_SESSION_HEADLESS="$2"
         shift 2
         ;;
       --sysbackup-user)
@@ -12548,6 +12746,16 @@ menu_append_common_child_args() {
   [[ -n "$ORDS_LB_URL" ]] && MENU_CMD+=("--ords-lb-url" "$ORDS_LB_URL")
   [[ -n "$ORDS_PRIV_HELPER" ]] && MENU_CMD+=("--ords-priv-helper" "$ORDS_PRIV_HELPER")
   [[ -n "$APEX_IMAGES_DIR" ]] && MENU_CMD+=("--apex-images-dir" "$APEX_IMAGES_DIR")
+  [[ -n "$APEX_SESSION_DRIVER" ]] && MENU_CMD+=("--apex-session-driver" "$APEX_SESSION_DRIVER")
+  [[ -n "$APEX_SESSION_URL" ]] && MENU_CMD+=("--apex-session-url" "$APEX_SESSION_URL")
+  [[ -n "$APEX_SESSION_USERNAME" ]] && MENU_CMD+=("--apex-session-username" "$APEX_SESSION_USERNAME")
+  [[ -n "$APEX_SESSION_SUCCESS_SELECTOR" ]] && MENU_CMD+=("--apex-session-success-selector" "$APEX_SESSION_SUCCESS_SELECTOR")
+  [[ -n "$APEX_SESSION_USERNAME_SELECTOR" ]] && MENU_CMD+=("--apex-session-username-selector" "$APEX_SESSION_USERNAME_SELECTOR")
+  [[ -n "$APEX_SESSION_PASSWORD_SELECTOR" ]] && MENU_CMD+=("--apex-session-password-selector" "$APEX_SESSION_PASSWORD_SELECTOR")
+  [[ -n "$APEX_SESSION_SUBMIT_SELECTOR" ]] && MENU_CMD+=("--apex-session-submit-selector" "$APEX_SESSION_SUBMIT_SELECTOR")
+  MENU_CMD+=("--apex-session-duration" "$APEX_SESSION_DURATION")
+  MENU_CMD+=("--apex-session-interval" "$APEX_SESSION_INTERVAL")
+  MENU_CMD+=("--apex-session-headless" "$APEX_SESSION_HEADLESS")
   [[ -n "$SYSBACKUP_USER" ]] && MENU_CMD+=("--sysbackup-user" "$SYSBACKUP_USER")
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
   [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")

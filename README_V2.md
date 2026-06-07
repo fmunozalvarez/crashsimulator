@@ -36,7 +36,7 @@ Oracle database host and unzip it:
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
 Run it as the Oracle software owner, or as an OS user that can connect locally
@@ -624,6 +624,14 @@ APEX users.
 ./CrashSimulatorV2.sh --recover 75 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
 ./CrashSimulatorV2.sh --scenario 76 --pdb CRASHPDB --dry-run
 ./CrashSimulatorV2.sh --scenario 78 --ords-url http://localhost:8080/ords/ --execute
+CRASHSIM_APEX_SESSION_PASSWORD='<test-user-password>' \
+  ./CrashSimulatorV2.sh --scenario 80 --pdb CRASHPDB \
+  --apex-session-driver ./tools/crashsim_apex_session_driver.cjs \
+  --apex-session-url http://localhost:8080/ords/r/crashsim/session-lab/home \
+  --apex-session-username CRASHSIM_APEX_USER \
+  --apex-session-success-selector '#CRASHSIM_SESSION_OK' \
+  --apex-session-duration 120 \
+  --execute
 ```
 
 The APEX/ORDS readiness report checks APEX version/status, runtime accounts,
@@ -638,7 +646,9 @@ original value during recovery. Scenario `79` can use `--ords-lb-url` for a real
 load balancer or a lab peer-continuity URL for continuity practice. Scenarios
 `78`, `80`, `81`, and `82` are read-only evidence drills for application
 availability, session continuity, mail configuration, and upgrade/patch rollback
-readiness.
+readiness. Scenario `80` can optionally call the seeded browser-session driver
+`tools/crashsim_apex_session_driver.cjs` to capture authenticated APEX session
+evidence with screenshots, Markdown, and JSON artifacts.
 
 For labs where the Oracle software owner cannot control ORDS directly, install
 the restricted helper `crashsim_ords_priv_helper.sh` as root-owned
@@ -725,10 +735,11 @@ partitioning, standby redo log review, RAC VIP relocation planning, RAC service
 placement failure, and redundant ASM single-disk failure planning.
 
 The APEX/ORDS layer adds ORDS service and configuration outage drills, ORDS pool
-misconfiguration planning, APEX runtime account lockout recovery, APEX static
+misconfiguration recovery, APEX runtime account lockout recovery, APEX static
 resource loss, application availability smoke evidence after recovery, ORDS
-load-balancer node outage planning, APEX session continuity planning, mail
-configuration validation, and APEX upgrade/patch rollback readiness.
+load-balancer node outage practice, optional seeded APEX browser-session
+continuity evidence, mail configuration validation, and APEX upgrade/patch
+rollback readiness.
 
 See `SCENARIO_STATUS.md` for the current validation matrix, known environment
 gaps, and the next RAC, ASM, Data Guard, and Active Data Guard validation

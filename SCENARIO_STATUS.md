@@ -94,6 +94,10 @@ Oracle AI Database 26ai RAC/ASM validation environment:
 - A real ORDS load-balancer URL should still be supplied for production-grade
   scenario `79`; the 26ai lab evidence used a peer continuity endpoint because
   node-to-node ORDS port access was restricted by the environment.
+- Scenario `80` now has an optional seeded APEX browser-session driver
+  (`tools/crashsim_apex_session_driver.cjs`) for end-user screenshots,
+  Markdown, and JSON evidence when a disposable APEX test application URL and
+  success selector are supplied.
 - Post-validation health check showed CDB/PDB open read write, no
   `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
 - Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
@@ -195,8 +199,10 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - APEX/ORDS scenarios `73` through `82`: implemented and validated in the 26ai
   RAC/ASM/APEX/ORDS lab. Scenarios `73`, `74`, `75`, `76`, `77`, and `79` now
   have execution/recovery evidence; `78`, `80`, `81`, and `82` have read-only
-  evidence reports. Scenario `79` should be rerun with a production load
-  balancer URL when available; the current lab used peer continuity evidence.
+  evidence reports. Scenario `80` can add seeded browser-session evidence when
+  the optional driver and a disposable APEX application URL are supplied.
+  Scenario `79` should be rerun with a production load balancer URL when
+  available; the current lab used peer continuity evidence.
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.

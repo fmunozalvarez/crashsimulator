@@ -71,7 +71,7 @@ This report treats APEX/ORDS as an application access-path dependency. A databas
 | `77` | APEX static resources unavailable | Automatable when an APEX images/static directory is configured and writable. |
 | `78` | APEX application availability validation after recovery | Read-only smoke evidence after PDB/datafile recovery. |
 | `79` | One ORDS node unavailable behind load balancer | Automatable when ORDS service control and a load-balancer URL are supplied. |
-| `80` | APEX session continuity test | Read-only continuity evidence; combine with a live browser session or seeded script for end-user behavior capture. |
+| `80` | APEX session continuity test | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | `81` | APEX mail queue/configuration validation | Read-only APEX SMTP/wallet/ACL evidence. |
 | `82` | APEX upgrade/patch rollback readiness | Read-only pre/post evidence and runbook. |
 

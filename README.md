@@ -34,6 +34,7 @@ For the full end-user documentation, read:
 - [Scenario readiness narrated tutorial video](assets/tutorial/crashsimulator_scenario_readiness_tutorial_with_audio.mp4)
 - [Guided Reports menu narrated tutorial video](assets/tutorial/crashsimulator_guided_reports_menu_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
+- [Scenario 80 APEX browser-session driver design](docs/APEX_SESSION_DRIVER_DESIGN.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [26ai RAC/ASM validation summary](reports/crashsim_26ai_validation_20260607.md)
 - [Detailed V2 notes](README_V2.md)
@@ -47,7 +48,7 @@ and unzip it.
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
 Run as the Oracle software owner, or as an OS user that can connect locally as

@@ -53,6 +53,10 @@
 - Scenario `79` should still be repeated with a real load-balancer URL when
   available; the current evidence validates peer continuity, not production
   load-balancer routing or health-check policy.
+- Scenario `80` now has an optional seeded APEX browser-session driver for
+  end-user continuity evidence. It was smoke-tested locally with Playwright and
+  should be run against a disposable APEX test application when the lab URL,
+  test user, and success selector are available.
 
 ## Evidence
 

@@ -53,7 +53,7 @@ APEX/ORDS application access-path layer.
 | 77 | APEX static resources unavailable | Runnable where APEX static files are configured and writable; recovery helper restores the renamed directory. |
 | 78 | APEX application availability validation after recovery | Read-only ORDS/APEX smoke evidence. |
 | 79 | ORDS node unavailable behind load balancer | Requires ORDS service control and a continuity URL; use a real load-balancer URL for production-grade validation. |
-| 80 | APEX session continuity test | Read-only APEX/ORDS continuity evidence; pair with a live browser session or seeded script for end-user behavior capture. |
+| 80 | APEX session continuity test | Read-only APEX/ORDS continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | 81 | APEX mail queue and configuration validation | Read-only SMTP, wallet, ACL, and notification-readiness evidence. |
 | 82 | APEX upgrade or patch rollback readiness | Read-only pre/post APEX/ORDS patch evidence and runbook. |
 

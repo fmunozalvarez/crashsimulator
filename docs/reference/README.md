@@ -70,6 +70,12 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
   - Shows compact evidence for the fixed APEX/ORDS blockers: restricted ORDS
     helper validation, scenarios `73`, `74`, `75`, and `79` execution/recovery,
     scenario `80` read-only evidence, and post-drill stabilization.
+- `../APEX_SESSION_DRIVER_DESIGN.md`
+  - Documents the optional seeded APEX browser-session driver for scenario `80`,
+    including the seeded app contract, example command, and evidence artifacts.
+- `../../captures/26ai/26ai_apex_session_driver_s80_design_validation.txt`
+  - Shows scenario `80` default readiness in the 26ai lab, driver self-check
+    guardrail behavior, and local Playwright smoke-test evidence.
 
 ## HTML Reference Files
 

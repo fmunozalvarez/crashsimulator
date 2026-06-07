@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>crashsim_apex_ords_report_20260607_081644.md</title>
+<title>26ai_apex_ords_readiness_reference.md</title>
 <style>
 :root { color-scheme: light dark; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
@@ -15,7 +15,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>crashsim_apex_ords_report_20260607_081644.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md<br>Generated UTC: 2026-06-07T08:16:51Z</div></header>
+<header><h1>26ai_apex_ords_readiness_reference.md</h1><div class="meta">Source: docs/reference/26ai/26ai_apex_ords_readiness_reference.md<br>Generated UTC: 2026-06-07T08:49:53Z</div></header>
 <pre>
 # CrashSimulator APEX / ORDS Readiness Report
 
@@ -90,7 +90,7 @@ This report treats APEX/ORDS as an application access-path dependency. A databas
 | `77` | APEX static resources unavailable | Automatable when an APEX images/static directory is configured and writable. |
 | `78` | APEX application availability validation after recovery | Read-only smoke evidence after PDB/datafile recovery. |
 | `79` | One ORDS node unavailable behind load balancer | Automatable when ORDS service control and a load-balancer URL are supplied. |
-| `80` | APEX session continuity test | Read-only continuity evidence; combine with a live browser session or seeded script for end-user behavior capture. |
+| `80` | APEX session continuity test | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | `81` | APEX mail queue/configuration validation | Read-only APEX SMTP/wallet/ACL evidence. |
 | `82` | APEX upgrade/patch rollback readiness | Read-only pre/post evidence and runbook. |
 

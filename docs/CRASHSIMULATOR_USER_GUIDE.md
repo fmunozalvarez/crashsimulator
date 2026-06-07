@@ -190,7 +190,7 @@ Example:
 unzip crashsimulator-main.zip
 cd crashsimulator-main
 chmod +x CrashSimulatorV2.sh
-chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
+chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
 CrashSimulator V2 requires:
@@ -225,7 +225,7 @@ point is to run the commands from the directory containing `CrashSimulatorV2.sh`
 Recommended first checks after unzipping:
 
 ```bash
-ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_ords_priv_helper.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
+ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --discover
@@ -557,6 +557,41 @@ value and restores the original value during recovery. Scenario `79` can use a
 real `--ords-lb-url` or a lab peer-continuity URL, but only a real load balancer
 proves production health-check and routing behavior. Scenarios `78`, `80`,
 `81`, and `82` are read-only evidence/report drills.
+
+Scenario `80` can optionally call the seeded APEX browser-session driver
+`tools/crashsim_apex_session_driver.cjs`. The driver opens a disposable APEX
+application URL, logs in when a test user is supplied, verifies a success CSS
+selector, refreshes the page during the drill window, and writes screenshots,
+Markdown, and JSON evidence.
+
+Recommended seeded APEX marker:
+
+```html
+<span id="CRASHSIM_SESSION_OK">CrashSimulator session active</span>
+```
+
+Example:
+
+```bash
+export CRASHSIM_APEX_SESSION_PASSWORD='<test-user-password>'
+
+./CrashSimulatorV2.sh \
+  --scenario 80 \
+  --pdb CRASHPDB \
+  --apex-session-driver ./tools/crashsim_apex_session_driver.cjs \
+  --apex-session-url http://localhost:8080/ords/r/crashsim/session-lab/home \
+  --apex-session-username CRASHSIM_APEX_USER \
+  --apex-session-success-selector '#CRASHSIM_SESSION_OK' \
+  --apex-session-duration 120 \
+  --apex-session-interval 10 \
+  --execute
+```
+
+During the driver window, trigger the ORDS/RAC/Data Guard/database event from
+another terminal. A `PASS` proves the seeded page stayed reachable and the
+success marker remained visible; `WARN` means only URL continuity was tested;
+`FAIL` means the page became unreachable, returned to login, or lost the success
+marker. See `docs/APEX_SESSION_DRIVER_DESIGN.md` for the full design.
 
 If ORDS service/config control requires elevated OS privileges, install the
 restricted helper `crashsim_ords_priv_helper.sh` as root-owned
@@ -935,7 +970,7 @@ Scope meanings:
 | 77 | APEX static resources unavailable | APEX/ORDS | Application | destructive | Restoring APEX images/static files and validating page CSS, JavaScript, image, and login behavior. | Requires `--apex-images-dir` or a detected static path. Recovery helper restores the rename backup when executed. |
 | 78 | APEX application availability validation after recovery | APEX/ORDS | Application | logical | Proving the user-facing APEX/ORDS path after database, PDB, service, or ORDS recovery. | Read-only smoke evidence using `--ords-url` and optional load-balancer URL. |
 | 79 | ORDS node unavailable behind load balancer | APEX/ORDS | Application | logical | One-node ORDS outage, load-balancer health, session behavior, and service continuity. | Requires ORDS service control and a continuity URL. `--ords-lb-url` proves a real load balancer; a peer URL is acceptable for lab continuity practice. |
-| 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Read-only continuity evidence; pair with a live browser session or seeded script for full end-user behavior capture. |
+| 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | 81 | APEX mail queue and configuration validation | APEX/ORDS | Application | logical | SMTP, wallet/TLS, network ACL, failed mail queue, and notification recovery checks. | Read-only report/evidence drill. |
 | 82 | APEX upgrade or patch rollback readiness | APEX/ORDS | Application | logical | Pre/post APEX version, invalid object, ORDS config, runtime-user, and application smoke evidence. | Read-only readiness/runbook drill for APEX/ORDS patching and rollback decisions. |
 
