@@ -10,7 +10,8 @@ planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 configuration reports, Oracle MAA readiness reporting, and Oracle service HA
 best-practice reviews for AC/TAC, FSFO, ADG DML redirection, and role-based
-services. It can also review previously collected
+services. It also includes targeted FRA pressure, TEMP exhaustion, and RTO/RPO
+validation drills. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.

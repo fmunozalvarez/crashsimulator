@@ -35,6 +35,9 @@ PIECE_HANDLE="${CRASHSIM_PIECE_HANDLE:-}"
 REPORT_DEEP_VALIDATE="${CRASHSIM_REPORT_DEEP_VALIDATE:-0}"
 RMAN_CATALOG_CONNECT="${CRASHSIM_RMAN_CATALOG:-}"
 BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
+FRA_PRESSURE_TARGET_PCT="${CRASHSIM_FRA_PRESSURE_TARGET_PCT:-98}"
+FRA_PRESSURE_HEADROOM_MB="${CRASHSIM_FRA_PRESSURE_HEADROOM_MB:-64}"
+TEMP_EXHAUST_MB="${CRASHSIM_TEMP_EXHAUST_MB:-512}"
 AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
 AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
@@ -122,6 +125,7 @@ declare -A SCENARIO_HANDLER=()
 declare -A SCENARIO_NOTES=()
 declare -A MAA_EVIDENCE=()
 declare -A BACKUP_EVIDENCE=()
+declare -A RPO_EVIDENCE=()
 
 SCENARIO_VALIDATION_STATUS=""
 SCENARIO_VALIDATION_REASON=""
@@ -221,6 +225,11 @@ Options:
   --piece-handle <handle> Scenario 25: target one exact RMAN backup-piece handle.
   --rman-catalog <str>   RMAN recovery catalog connect string for drills/reports/backups.
   --backup-tag-prefix <p> RMAN tag prefix for --baseline-backup. Default: CSIM_BASE.
+  --fra-pressure-target-pct <n>
+                          Scenario 61 target FRA used percentage. Default: 98.
+  --fra-pressure-headroom-mb <n>
+                          Scenario 61 minimum free FRA headroom after shrink. Default: 64.
+  --temp-exhaust-mb <n>   Scenario 63 requested TEMP-consuming workload size. Default: 512.
   --maa-app-name <name>   Optional application name for MAA/SLA planning context.
   --maa-local-rto <value> Optional local unplanned-outage RTO objective.
   --maa-local-rpo <value> Optional local unplanned-outage RPO objective.
@@ -251,6 +260,9 @@ Environment:
   CRASHSIM_REPORT_DEEP_VALIDATE Set to 1 to run deep RMAN validation in reports.
   CRASHSIM_RMAN_CATALOG         RMAN recovery catalog connect string.
   CRASHSIM_BASELINE_TAG_PREFIX  RMAN tag prefix for fresh baseline backups.
+  CRASHSIM_FRA_PRESSURE_TARGET_PCT Scenario 61 target FRA pressure percentage.
+  CRASHSIM_FRA_PRESSURE_HEADROOM_MB Scenario 61 minimum FRA headroom in MB.
+  CRASHSIM_TEMP_EXHAUST_MB      Scenario 63 TEMP workload size in MB.
   CRASHSIM_AUDIT_RETAIN         Set to 1/0 or yes/no. Default: 1.
   CRASHSIM_AUDIT_RETENTION_DAYS Days to keep audit run folders. Default: 365.
   CRASHSIM_AUDIT_DIR            Audit archive directory. Default: <log-dir>/audit.
@@ -352,6 +364,12 @@ normalize_targets() {
   REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
   AUDIT_RETAIN="$(normalize_bool "$AUDIT_RETAIN")" || die "Invalid audit retain value: $AUDIT_RETAIN"
   [[ "$AUDIT_RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "Invalid audit retention days: $AUDIT_RETENTION_DAYS"
+  [[ "$FRA_PRESSURE_TARGET_PCT" =~ ^[0-9]+$ && "$FRA_PRESSURE_TARGET_PCT" -ge 50 && "$FRA_PRESSURE_TARGET_PCT" -le 100 ]] ||
+    die "Invalid FRA pressure target percentage: $FRA_PRESSURE_TARGET_PCT"
+  [[ "$FRA_PRESSURE_HEADROOM_MB" =~ ^[1-9][0-9]*$ ]] ||
+    die "Invalid FRA pressure headroom MB: $FRA_PRESSURE_HEADROOM_MB"
+  [[ "$TEMP_EXHAUST_MB" =~ ^[1-9][0-9]*$ ]] ||
+    die "Invalid TEMP exhaust MB: $TEMP_EXHAUST_MB"
   if [[ -n "$MAX_TARGETS" && ! "$MAX_TARGETS" =~ ^[1-9][0-9]*$ ]]; then
     die "Invalid max targets value: $MAX_TARGETS"
   fi
@@ -1050,6 +1068,14 @@ record_action_targets() {
         manifest_append "action_${action_no}_redo_type" "$member_type"
         manifest_append "action_${action_no}_redo_member" "$member"
       fi
+    fi
+    if [[ "$kind" == "sqlfile" ]]; then
+      manifest_append "action_${action_no}_sqlfile" "$target"
+      manifest_append "action_${action_no}_sqllog" "$detail"
+    fi
+    if [[ "$kind" == "report" ]]; then
+      manifest_append "action_${action_no}_report_type" "$target"
+      manifest_append "action_${action_no}_report_detail" "$detail"
     fi
 
     action_no=$((action_no + 1))
@@ -1905,6 +1931,11 @@ register_scenarios() {
   register_scenario "58" "TDE wallet or keystore unavailable"                "Security"   "CDB/non-CDB" "destructive" "primary"           "scenario_tde_wallet"        "Renames detected wallet root if configured."
   register_scenario "59" "Missing archived redo log"                         "Backup"     "CDB/non-CDB" "destructive" "primary"           "scenario_archivelog_loss"   "Targets one archived log known to the control file."
   register_scenario "60" "Recovery catalog unavailable"                      "Backup"     "External"   "logical"      "any"               "scenario_recovery_catalog_unavailable" "Validates catalog connectivity and NOCATALOG fallback behavior."
+  register_scenario "61" "FRA reaches critical utilization"                  "Backup"     "CDB/non-CDB" "destructive" "primary"           "scenario_fra_full"          "Safely simulates FRA pressure by shrinking DB_RECOVERY_FILE_DEST_SIZE near current usage."
+  register_scenario "62" "Missing required archived log during recovery"      "Backup"     "CDB/non-CDB" "destructive" "primary"           "scenario_required_archivelog_recovery_gap" "Targets one available archived log and generates recovery-decision evidence."
+  register_scenario "63" "TEMP tablespace exhaustion"                        "Core"       "CDB/non-CDB" "logical"      "primary"           "scenario_temp_exhaustion"   "Runs a controlled disposable TEMP-consuming workload; optional --pdb context is supported."
+  register_scenario "64" "RTO validation drill"                              "Compliance" "CDB/non-CDB" "logical"      "any"               "scenario_rto_validation"    "Read-only report comparing latest recovery manifest timing to supplied RTO objectives."
+  register_scenario "65" "RPO validation drill"                              "Compliance" "CDB/non-CDB" "logical"      "any"               "scenario_rpo_validation"    "Read-only report estimating recoverable-data window from archived redo, backups, and DG evidence."
 }
 
 list_scenarios() {
@@ -2201,6 +2232,7 @@ run_scenario() {
 
   local handler="${SCENARIO_HANDLER[$id]}"
   "$handler" "$id"
+  manifest_append "scenario_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
 confirm_mode_execution() {
@@ -2239,7 +2271,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|55|56|57|58|59|61|62) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2513,6 +2545,31 @@ validation_no_target_reason() {
     60)
       [[ "$no_target" -eq 1 ]] || return "$FAIL"
       printf "No RMAN catalog connect string was provided. Set --rman-catalog or CRASHSIM_RMAN_CATALOG to validate recovery catalog outage behavior."
+      ;;
+    61)
+      if printf "%s\n" "$output" | grep -q "No configured FRA destination"; then
+        printf "No configured FRA destination was found. Configure DB_RECOVERY_FILE_DEST and DB_RECOVERY_FILE_DEST_SIZE before running FRA pressure scenario 61."
+      elif printf "%s\n" "$output" | grep -q "FRA usage is zero"; then
+        printf "FRA pressure cannot be simulated because current FRA usage is zero. Generate archived redo or a small lab backup first, then rerun validation."
+      elif printf "%s\n" "$output" | grep -q "FRA pressure cannot be simulated"; then
+        printf "%s" "$(validation_reason_from_output "$output")"
+      else
+        return "$FAIL"
+      fi
+      ;;
+    62)
+      if printf "%s\n" "$output" | grep -q "No available local archived redo log"; then
+        printf "No available local archived redo log was found. Generate archived redo with log switches and keep it available before running scenario 62."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    63)
+      if printf "%s\n" "$output" | grep -q "No temporary tablespace/tempfile metadata"; then
+        printf "No temporary tablespace/tempfile metadata was found for the selected container. Add a tempfile or choose a different PDB before running scenario 63."
+      else
+        return "$FAIL"
+      fi
       ;;
     *)
       return "$FAIL"
@@ -3810,6 +3867,42 @@ recover_rman_backup_piece_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+recover_fra_full_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  require_manifest
+
+  local original_size sql_file sql_log
+  original_size="$(manifest_get "fra_original_size_bytes" || true)"
+  [[ "$original_size" =~ ^[0-9]+$ ]] ||
+    die "Manifest is missing fra_original_size_bytes. Use a manifest from executed scenario 61."
+
+  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_restore_fra_size.sql"
+  sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_restore_fra_size.log"
+  write_fra_restore_sql_file "$sql_file" "$original_size"
+  manifest_append "recover_fra_restore_sqlfile" "$sql_file"
+  manifest_append "recover_fra_restore_log" "$sql_log"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "Restore DB_RECOVERY_FILE_DEST_SIZE to: ${original_size}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would run SQL script ${sql_file}"
+    echo "DRY-RUN: would restore DB_RECOVERY_FILE_DEST_SIZE to ${original_size}"
+    return "$SUCCESS"
+  fi
+
+  run_sql_script_file "$sql_file" "$sql_log"
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 srvctl_database_is_running() {
   local output_file="$1"
   command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
@@ -4024,6 +4117,12 @@ recover_scenario() {
       recover_rac_service_scenario "$id"
       ;;
     59)
+      recover_archivelog_scenario "$id"
+      ;;
+    61)
+      recover_fra_full_scenario "$id"
+      ;;
+    62)
       recover_archivelog_scenario "$id"
       ;;
   esac
@@ -7031,7 +7130,7 @@ RUNBOOK
     5. Recreate multiplexed members and force several log switches after recovery.
 RUNBOOK
       ;;
-    5|8|9|10|12|15|22|59)
+    5|8|9|10|12|15|22|59|62)
       cat <<'RUNBOOK'
   - Non-SYSTEM datafile/tablespace or archived-log recovery:
     1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
@@ -7085,14 +7184,15 @@ RUNBOOK
     4. Test local and remote SYSDBA authentication, redo transport, and broker connectivity.
 RUNBOOK
       ;;
-    25|29|60)
+    25|29|60|61)
       cat <<'RUNBOOK'
   - Backup/FRA/catalog loss:
     1. Run CROSSCHECK and LIST BACKUP/ARCHIVELOG to separate missing local files from object-storage/catalog metadata.
     2. Restore missing local autobackups or backup pieces from secondary/object storage if available.
     3. If FRA was moved/lost, recreate the directory, permissions, and DB_RECOVERY_FILE_DEST capacity.
-    4. For catalog outage, practice NOCATALOG recovery using control-file metadata, then resync when the catalog returns.
-    5. Finish by running RESTORE VALIDATE DATABASE and taking a fresh backup.
+    4. For FRA pressure/full drills, restore DB_RECOVERY_FILE_DEST_SIZE, free reclaimable space safely, and confirm archiving resumes.
+    5. For catalog outage, practice NOCATALOG recovery using control-file metadata, then resync when the catalog returns.
+    6. Finish by running RESTORE VALIDATE DATABASE and taking a fresh backup.
 RUNBOOK
       ;;
     26)
@@ -7216,6 +7316,24 @@ RUNBOOK
     3. In RAC/Data Guard, synchronize wallet material to every required node/site and test redo apply.
 RUNBOOK
       ;;
+    63)
+      cat <<'RUNBOOK'
+  - TEMP exhaustion:
+    1. Confirm which SQL, module, user, or PDB consumed TEMP from V$TEMPSEG_USAGE and ASH/AWR evidence where licensed.
+    2. Relieve pressure by stopping the runaway workload, adding TEMP capacity, or adjusting workload/resource manager limits.
+    3. Validate temporary tablespace defaults, tempfile autoextend/maxsize posture, and alerts for ORA-01652.
+    4. Clean up disposable lab objects and confirm representative reporting/ETL workloads can complete.
+RUNBOOK
+      ;;
+    64|65)
+      cat <<'RUNBOOK'
+  - RTO/RPO validation drill:
+    1. Supply realistic objectives with --maa-local-rto/--maa-local-rpo, --maa-dr-rto/--maa-dr-rpo, or guided MAA/SLA context.
+    2. For RTO, run a scenario recovery first so CrashSimulator has measured recovery start/complete timestamps.
+    3. For RPO, review archived redo, backed-up archived redo, Data Guard lag, and archive-gap evidence.
+    4. Treat PASS/FAIL as an operational drill result, then update backup cadence, Data Guard transport/apply, monitoring, and runbooks.
+RUNBOOK
+      ;;
     *)
       cat <<'RUNBOOK'
   - Generic recovery:
@@ -7317,6 +7435,12 @@ execute_actions() {
         ;;
       sql)
         run_sql_action "$detail" "$target"
+        ;;
+      sqlfile)
+        run_sql_script_file "$target" "$detail"
+        ;;
+      report)
+        echo "Report action: ${target} ${detail}"
         ;;
       srvctl_abort_instance)
         perform_srvctl_abort_instance "$target"
@@ -8526,6 +8650,451 @@ scenario_recovery_catalog_unavailable() {
   cat "$fallback_log"
 }
 
+iso_to_epoch() {
+  local value="$1"
+  local epoch=""
+  [[ -n "$value" ]] || return "$FAIL"
+  epoch="$(date -u -d "$value" +%s 2>/dev/null || true)"
+  if [[ -z "$epoch" ]]; then
+    epoch="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$value" +%s 2>/dev/null || true)"
+  fi
+  [[ "$epoch" =~ ^[0-9]+$ ]] || return "$FAIL"
+  printf "%s\n" "$epoch"
+}
+
+duration_to_seconds() {
+  local raw="$1"
+  local text number unit
+  text="$(printf "%s" "$raw" | tr '[:upper:]' '[:lower:]')"
+  case "$text" in
+    ""|not\ supplied) return "$FAIL" ;;
+    zero|near\ zero|near-zero) printf "0\n"; return "$SUCCESS" ;;
+  esac
+  number="$(printf "%s" "$text" | sed -nE 's/.*([0-9]+([.][0-9]+)?).*/\1/p' | head -n 1)"
+  [[ -n "$number" ]] || return "$FAIL"
+  if printf "%s" "$text" | grep -Eq 'day|d\b'; then
+    unit=86400
+  elif printf "%s" "$text" | grep -Eq 'hour|hr|h\b'; then
+    unit=3600
+  elif printf "%s" "$text" | grep -Eq 'minute|min|m\b'; then
+    unit=60
+  else
+    unit=1
+  fi
+  awk -v n="$number" -v u="$unit" 'BEGIN {printf "%d\n", int(n*u + 0.999)}'
+}
+
+format_seconds() {
+  local seconds="$1"
+  [[ "$seconds" =~ ^[0-9]+$ ]] || { printf "%s" "$seconds"; return "$SUCCESS"; }
+  local days hours mins secs remainder
+  days=$((seconds / 86400))
+  remainder=$((seconds % 86400))
+  hours=$((remainder / 3600))
+  remainder=$((remainder % 3600))
+  mins=$((remainder / 60))
+  secs=$((remainder % 60))
+  if [[ "$days" -gt 0 ]]; then
+    printf "%sd %sh %sm %ss" "$days" "$hours" "$mins" "$secs"
+  elif [[ "$hours" -gt 0 ]]; then
+    printf "%sh %sm %ss" "$hours" "$mins" "$secs"
+  elif [[ "$mins" -gt 0 ]]; then
+    printf "%sm %ss" "$mins" "$secs"
+  else
+    printf "%ss" "$secs"
+  fi
+}
+
+latest_completed_recovery_manifest() {
+  local manifest
+  while IFS= read -r manifest; do
+    if grep -q '^recovery_completed_at_utc=' "$manifest" 2>/dev/null; then
+      printf "%s\n" "$manifest"
+      return "$SUCCESS"
+    fi
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_recover_s*.manifest' 2>/dev/null | sort -r)
+  return "$FAIL"
+}
+
+write_rto_validation_report() {
+  local report_file="$1"
+  local latest_manifest scenario_id scenario_title started completed start_epoch complete_epoch actual_seconds
+  local objective label target_seconds status
+
+  latest_manifest="$(latest_completed_recovery_manifest || true)"
+
+  {
+    printf "# CrashSimulator RTO Validation Drill\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Database: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "${DB_ROLE:-unknown}" "${DB_OPEN_MODE:-unknown}"
+    printf -- '- Latest completed recovery manifest: `%s`\n\n' "${latest_manifest:-none found}"
+    printf "This read-only drill measures actual recovery time from CrashSimulator recovery manifests. It does not infer RTO from backup size alone; it needs a completed `--recover <id> --execute` run to produce a measured result.\n\n"
+  } >"$report_file" || die "Unable to write RTO validation report: $report_file"
+
+  append_report_section "$report_file" "Measured Recovery"
+  {
+    printf '| Field | Value |\n'
+    printf '| --- | --- |\n'
+    if [[ -n "$latest_manifest" ]]; then
+      scenario_id="$(awk -F= '$1=="scenario_id"{print $2; exit}' "$latest_manifest")"
+      scenario_title="$(awk -F= '$1=="scenario_title"{print $2; exit}' "$latest_manifest")"
+      started="$(awk -F= '$1=="recovery_started_at_utc"{print $2; exit}' "$latest_manifest")"
+      completed="$(awk -F= '$1=="recovery_completed_at_utc"{print $2; exit}' "$latest_manifest")"
+      if start_epoch="$(iso_to_epoch "$started")" && complete_epoch="$(iso_to_epoch "$completed")" && [[ "$complete_epoch" -ge "$start_epoch" ]]; then
+        actual_seconds=$((complete_epoch - start_epoch))
+      else
+        actual_seconds=""
+      fi
+      printf '| Scenario | `%s - %s` |\n' "$(md_escape "${scenario_id:-unknown}")" "$(md_escape "${scenario_title:-unknown}")"
+      printf '| Recovery started | `%s` |\n' "$(md_escape "${started:-unknown}")"
+      printf '| Recovery completed | `%s` |\n' "$(md_escape "${completed:-unknown}")"
+      if [[ -n "$actual_seconds" ]]; then
+        printf '| Actual RTO | `%s` (`%s` seconds) |\n' "$(format_seconds "$actual_seconds")" "$actual_seconds"
+      else
+        printf '| Actual RTO | `UNKNOWN` |\n'
+      fi
+    else
+      printf '| Actual RTO | `NOT MEASURED` |\n'
+      printf '| Reason | No completed CrashSimulator recovery manifest was found. |\n'
+    fi
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Objective Comparison"
+  {
+    printf '| Objective | Supplied target | Parsed target | Result |\n'
+    printf '| --- | --- | --- | --- |\n'
+    for label in \
+      "Local unplanned RTO|${MAA_LOCAL_RTO:-}" \
+      "Disaster/site RTO|${MAA_DR_RTO:-}" \
+      "Planned maintenance RTO|${MAA_PLANNED_RTO:-}"; do
+      objective="${label#*|}"
+      label="${label%%|*}"
+      if target_seconds="$(duration_to_seconds "$objective")"; then
+        if [[ -n "${actual_seconds:-}" ]]; then
+          if [[ "$actual_seconds" -le "$target_seconds" ]]; then
+            status="PASS"
+          else
+            status="FAIL"
+          fi
+        else
+          status="NOT MEASURED"
+        fi
+        printf '| %s | `%s` | `%s` (`%s` seconds) | `%s` |\n' \
+          "$(md_escape "$label")" "$(md_escape "$objective")" "$(format_seconds "$target_seconds")" "$target_seconds" "$status"
+      else
+        printf '| %s | `%s` | `not supplied or not parseable` | `INFO` |\n' \
+          "$(md_escape "$label")" "$(md_escape "${objective:-not supplied}")"
+      fi
+    done
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Next Steps"
+  {
+    printf -- '- To create a measured RTO, execute a controlled scenario recovery and then re-run scenario `64`.\n'
+    printf -- '- Record application validation separately; database-open time is necessary but not always sufficient for business RTO.\n'
+    printf -- '- Use the same scenario repeatedly to trend operational improvement over time.\n'
+  } >>"$report_file"
+}
+
+write_rpo_validation_sql_file() {
+  local sql_file="$1"
+  cat >"$sql_file" <<'SQL' || die "Unable to write RPO validation SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set pages 0 lines 32767 trimspool on tab off verify off feedback off heading off
+
+select 'CSIM_RPO|database_role|' || database_role from v$database;
+select 'CSIM_RPO|open_mode|' || open_mode from v$database;
+select 'CSIM_RPO|current_scn|' || current_scn from v$database;
+select 'CSIM_RPO|log_mode|' || log_mode from v$database;
+select 'CSIM_RPO|force_logging|' || force_logging from v$database;
+select 'CSIM_RPO|flashback_on|' || flashback_on from v$database;
+select 'CSIM_RPO|current_time|' || to_char(systimestamp at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS TZH:TZM') from dual;
+
+select 'CSIM_RPO|latest_archived_log_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO';
+select 'CSIM_RPO|latest_archived_log_age_seconds|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 86400)), 'UNKNOWN')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO';
+select 'CSIM_RPO|latest_archived_log_thread_sequence|' ||
+       nvl(max(to_char(thread#) || ':' || to_char(sequence#)) keep (dense_rank last order by completion_time), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO';
+
+select 'CSIM_RPO|latest_backed_archivelog_time|' ||
+       nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) > 0;
+select 'CSIM_RPO|latest_backed_archivelog_age_seconds|' ||
+       nvl(to_char(round((sysdate - max(completion_time)) * 86400)), 'UNKNOWN')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) > 0;
+select 'CSIM_RPO|latest_backed_archivelog_thread_sequence|' ||
+       nvl(max(to_char(thread#) || ':' || to_char(sequence#)) keep (dense_rank last order by completion_time), 'NONE')
+from v$archived_log
+where name is not null
+  and nvl(deleted, 'NO') = 'NO'
+  and nvl(backup_count, 0) > 0;
+
+select 'CSIM_RPO|unbacked_archivelog_count|' || count(*)
+from v$archived_log al
+where al.name is not null
+  and nvl(al.deleted, 'NO') = 'NO'
+  and nvl(al.backup_count, 0) = 0;
+
+select 'CSIM_RPO|valid_remote_standby_dest_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and status = 'VALID';
+select 'CSIM_RPO|standby_dest_error_count|' || count(*)
+from v$archive_dest
+where target = 'STANDBY'
+  and destination is not null
+  and error is not null;
+select 'CSIM_RPO|archive_gap_count|' || count(*) from v$archive_gap;
+select 'CSIM_RPO|dataguard_transport_lag|' ||
+       nvl(max(case when name = 'transport lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+select 'CSIM_RPO|dataguard_apply_lag|' ||
+       nvl(max(case when name = 'apply lag' then value end), 'UNKNOWN')
+from v$dataguard_stats;
+
+exit
+SQL
+}
+
+parse_rpo_evidence_file() {
+  local evidence_file="$1"
+  local prefix key value
+  RPO_EVIDENCE=()
+  while IFS='|' read -r prefix key value; do
+    [[ "$prefix" == "CSIM_RPO" && -n "$key" ]] || continue
+    RPO_EVIDENCE["$key"]="${value:-}"
+  done <"$evidence_file"
+}
+
+rpo_value() {
+  local key="$1"
+  local default_value="${2:-UNKNOWN}"
+  local value="${RPO_EVIDENCE[$key]:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  else
+    printf "%s" "$default_value"
+  fi
+}
+
+write_rpo_validation_report() {
+  local report_file="$1"
+  local evidence_file="$2"
+  local backup_age archive_age actual_seconds actual_basis objective label target_seconds status
+
+  backup_age="$(rpo_value latest_backed_archivelog_age_seconds UNKNOWN)"
+  archive_age="$(rpo_value latest_archived_log_age_seconds UNKNOWN)"
+  if [[ "$backup_age" =~ ^[0-9]+$ ]]; then
+    actual_seconds="$backup_age"
+    actual_basis="Backup-only RPO based on latest backed-up archived redo."
+  elif [[ "$archive_age" =~ ^[0-9]+$ ]]; then
+    actual_seconds="$archive_age"
+    actual_basis="Control-file archived redo visibility; backup-only RPO was not measurable."
+  else
+    actual_seconds=""
+    actual_basis="No archived redo age was measurable from target control-file evidence."
+  fi
+
+  {
+    printf "# CrashSimulator RPO Validation Drill\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Database: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(rpo_value database_role "$DB_ROLE")" "$(rpo_value open_mode "$DB_OPEN_MODE")"
+    printf -- '- Evidence file: `%s`\n\n' "$evidence_file"
+    printf "This read-only drill estimates the currently recoverable data window from archived redo, archived-redo backup metadata, and Data Guard lag evidence. It is an operational RPO indicator, not a substitute for a timed restore/recovery drill.\n\n"
+  } >"$report_file" || die "Unable to write RPO validation report: $report_file"
+
+  append_report_section "$report_file" "Recoverable Data Window"
+  {
+    printf '| Signal | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Actual RPO estimate | `%s` |\n' "$([[ -n "$actual_seconds" ]] && format_seconds "$actual_seconds" || printf UNKNOWN)"
+    printf '| Actual RPO seconds | `%s` |\n' "${actual_seconds:-UNKNOWN}"
+    printf '| Basis | %s |\n' "$(md_escape "$actual_basis")"
+    printf '| Latest archived redo | `%s` sequence `%s`, age `%s` |\n' \
+      "$(md_escape "$(rpo_value latest_archived_log_time NONE)")" \
+      "$(md_escape "$(rpo_value latest_archived_log_thread_sequence NONE)")" \
+      "$(md_escape "$(rpo_value latest_archived_log_age_seconds UNKNOWN)")"
+    printf '| Latest backed-up archived redo | `%s` sequence `%s`, age `%s` |\n' \
+      "$(md_escape "$(rpo_value latest_backed_archivelog_time NONE)")" \
+      "$(md_escape "$(rpo_value latest_backed_archivelog_thread_sequence NONE)")" \
+      "$(md_escape "$(rpo_value latest_backed_archivelog_age_seconds UNKNOWN)")"
+    printf '| Unbacked archived logs | `%s` |\n' "$(md_escape "$(rpo_value unbacked_archivelog_count UNKNOWN)")"
+    printf '| Data Guard destinations | valid `%s`, errors `%s`, archive gaps `%s` |\n' \
+      "$(md_escape "$(rpo_value valid_remote_standby_dest_count UNKNOWN)")" \
+      "$(md_escape "$(rpo_value standby_dest_error_count UNKNOWN)")" \
+      "$(md_escape "$(rpo_value archive_gap_count UNKNOWN)")"
+    printf '| Data Guard lag | transport `%s`, apply `%s` |\n' \
+      "$(md_escape "$(rpo_value dataguard_transport_lag UNKNOWN)")" \
+      "$(md_escape "$(rpo_value dataguard_apply_lag UNKNOWN)")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Objective Comparison"
+  {
+    printf '| Objective | Supplied target | Parsed target | Result |\n'
+    printf '| --- | --- | --- | --- |\n'
+    for label in \
+      "Local unplanned RPO|${MAA_LOCAL_RPO:-}" \
+      "Disaster/site RPO|${MAA_DR_RPO:-}" \
+      "Planned maintenance RPO|${MAA_PLANNED_RPO:-}"; do
+      objective="${label#*|}"
+      label="${label%%|*}"
+      if target_seconds="$(duration_to_seconds "$objective")"; then
+        if [[ -n "$actual_seconds" ]]; then
+          if [[ "$actual_seconds" -le "$target_seconds" ]]; then
+            status="PASS"
+          else
+            status="FAIL"
+          fi
+        else
+          status="NOT MEASURED"
+        fi
+        printf '| %s | `%s` | `%s` (`%s` seconds) | `%s` |\n' \
+          "$(md_escape "$label")" "$(md_escape "$objective")" "$(format_seconds "$target_seconds")" "$target_seconds" "$status"
+      else
+        printf '| %s | `%s` | `not supplied or not parseable` | `INFO` |\n' \
+          "$(md_escape "$label")" "$(md_escape "${objective:-not supplied}")"
+      fi
+    done
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw RPO Evidence"
+  {
+    printf '```text\n'
+    sed -n '/^CSIM_RPO|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+}
+
+write_fra_pressure_sql_file() {
+  local sql_file="$1"
+  local original_size="$2"
+  local target_size="$3"
+  cat >"$sql_file" <<SQL || die "Unable to write FRA pressure SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback on pages 100 lines 220
+prompt FRA usage before pressure change
+select name, space_limit, space_used, space_reclaimable, number_of_files
+from v\$recovery_file_dest;
+alter system set db_recovery_file_dest_size=${target_size} scope=both;
+prompt FRA usage after shrinking DB_RECOVERY_FILE_DEST_SIZE
+select name, space_limit, space_used,
+       round(space_used / nullif(space_limit, 0) * 100, 2) used_pct,
+       space_reclaimable, number_of_files
+from v\$recovery_file_dest;
+declare
+begin
+  execute immediate 'alter system archive log current';
+  dbms_output.put_line('ARCHIVE LOG CURRENT completed. FRA pressure may not be high enough; lower headroom or generate more redo in a lab.');
+exception
+  when others then
+    if sqlcode in (-19809, -19815, -16038, -257) then
+      dbms_output.put_line('Expected FRA pressure symptom captured: ' || sqlerrm);
+    else
+      raise;
+    end if;
+end;
+/
+prompt Restore command for recovery helper
+prompt alter system set db_recovery_file_dest_size=${original_size} scope=both;
+exit
+SQL
+}
+
+write_fra_restore_sql_file() {
+  local sql_file="$1"
+  local original_size="$2"
+  cat >"$sql_file" <<SQL || die "Unable to write FRA restore SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback on pages 100 lines 220
+alter system set db_recovery_file_dest_size=${original_size} scope=both;
+select name, space_limit, space_used,
+       round(space_used / nullif(space_limit, 0) * 100, 2) used_pct,
+       space_reclaimable, number_of_files
+from v\$recovery_file_dest;
+alter system archive log current;
+exit
+SQL
+}
+
+write_temp_exhaustion_sql_file() {
+  local sql_file="$1"
+  local container_clause="$2"
+  local target_mb="$3"
+  local rows
+  rows=$(( (target_mb * 1024 * 1024 / 3000) + 1 ))
+  cat >"$sql_file" <<SQL || die "Unable to write TEMP exhaustion SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on size unlimited feedback on timing on pages 100 lines 220
+${container_clause}
+prompt TEMP usage before controlled pressure
+select tablespace, round(sum(blocks * 8192)/1024/1024, 2) used_mb
+from v\$tempseg_usage
+group by tablespace
+order by tablespace;
+declare
+  l_rows number := ${rows};
+  l_mb number := ${target_mb};
+begin
+  begin
+    execute immediate 'drop table crashsim_temp_pressure purge';
+  exception
+    when others then
+      if sqlcode != -942 then
+        raise;
+      end if;
+  end;
+
+  execute immediate 'create global temporary table crashsim_temp_pressure (id number, payload varchar2(4000)) on commit preserve rows';
+  dbms_output.put_line('Attempting controlled TEMP pressure: approximately ' || l_mb || ' MB using ' || l_rows || ' rows.');
+
+  begin
+    insert into crashsim_temp_pressure
+    select level, rpad('X', 3000, 'X')
+    from dual
+    connect by level <= l_rows
+    order by dbms_random.value;
+    dbms_output.put_line('TEMP pressure workload completed without ORA-01652. Increase --temp-exhaust-mb for a stronger lab drill.');
+  exception
+    when others then
+      if sqlcode = -1652 then
+        dbms_output.put_line('Expected TEMP exhaustion symptom captured: ' || sqlerrm);
+      else
+        raise;
+      end if;
+  end;
+
+  rollback;
+  execute immediate 'drop table crashsim_temp_pressure purge';
+end;
+/
+prompt TEMP usage after controlled pressure cleanup
+select tablespace, round(sum(blocks * 8192)/1024/1024, 2) used_mb
+from v\$tempseg_usage
+group by tablespace
+order by tablespace;
+exit
+SQL
+}
+
 print_optional_tool_output() {
   local title="$1"
   shift
@@ -8894,13 +9463,196 @@ from (
   select name
   from v\$archived_log
   where name is not null
-    and deleted = 'NO'
+    and nvl(deleted, 'NO') = 'NO'
   order by completion_time desc
 )
 where rownum = 1;
 "
   add_fs_rename_targets
   execute_actions
+}
+
+scenario_fra_full() {
+  reset_actions
+  local fra_file="$WORK_DIR/fra_pressure.lst"
+  local fra_line fra_name space_limit space_used space_reclaimable target_size headroom_bytes
+  local sql_file sql_log
+
+  query_targets "$fra_file" "
+select name || '|' ||
+       to_char(space_limit) || '|' ||
+       to_char(space_used) || '|' ||
+       to_char(space_reclaimable)
+from v\$recovery_file_dest
+where space_limit > 0;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No configured FRA destination was found in V\$RECOVERY_FILE_DEST."
+  fra_line="${TARGET_ROWS[0]}"
+  IFS='|' read -r fra_name space_limit space_used space_reclaimable <<<"$fra_line"
+  [[ "$space_limit" =~ ^[0-9]+$ && "$space_used" =~ ^[0-9]+$ ]] ||
+    die "Unable to parse FRA size evidence: ${fra_line}"
+  [[ "$space_used" -gt 0 ]] ||
+    die "FRA usage is zero. Generate archived redo or a small lab backup before running scenario 61."
+
+  headroom_bytes=$((FRA_PRESSURE_HEADROOM_MB * 1024 * 1024))
+  target_size="$(awk -v used="$space_used" -v pct="$FRA_PRESSURE_TARGET_PCT" -v headroom="$headroom_bytes" '
+    BEGIN {
+      by_pct = int((used * 100 / pct) + 0.999)
+      by_headroom = used + headroom
+      target = by_pct > by_headroom ? by_pct : by_headroom
+      print target
+    }')"
+  [[ "$target_size" =~ ^[0-9]+$ ]] || die "Unable to calculate FRA pressure target size."
+  if [[ "$target_size" -ge "$space_limit" ]]; then
+    die "FRA pressure cannot be simulated by shrinking DB_RECOVERY_FILE_DEST_SIZE: current limit=${space_limit}, used=${space_used}, calculated target=${target_size}. Lower --fra-pressure-headroom-mb or generate more FRA usage in a lab."
+  fi
+
+  sql_file="${LOG_DIR}/crashsim_s61_${RUN_ID}_fra_pressure.sql"
+  sql_log="${LOG_DIR}/crashsim_s61_${RUN_ID}_fra_pressure.log"
+  write_fra_pressure_sql_file "$sql_file" "$space_limit" "$target_size"
+
+  manifest_append "fra_name" "$fra_name"
+  manifest_append "fra_original_size_bytes" "$space_limit"
+  manifest_append "fra_space_used_bytes" "$space_used"
+  manifest_append "fra_space_reclaimable_bytes" "$space_reclaimable"
+  manifest_append "fra_pressure_target_size_bytes" "$target_size"
+  manifest_append "fra_pressure_target_pct" "$FRA_PRESSURE_TARGET_PCT"
+  manifest_append "fra_pressure_headroom_mb" "$FRA_PRESSURE_HEADROOM_MB"
+  manifest_append "fra_pressure_sqlfile" "$sql_file"
+  manifest_append "fra_pressure_log" "$sql_log"
+
+  add_action "sqlfile" "$sql_file" "$sql_log"
+  execute_actions
+}
+
+scenario_required_archivelog_recovery_gap() {
+  reset_actions
+  local archive_file="$WORK_DIR/required_archivelog_gap.lst"
+  local row archive_name thread_no sequence_no first_change next_change completion_time rman_file
+
+  query_targets "$archive_file" "
+select name || '|' ||
+       thread# || '|' ||
+       sequence# || '|' ||
+       first_change# || '|' ||
+       next_change# || '|' ||
+       to_char(completion_time, 'YYYY-MM-DD HH24:MI:SS')
+from (
+  select name, thread#, sequence#, first_change#, next_change#, completion_time
+  from v\$archived_log
+  where name is not null
+    and nvl(deleted, 'NO') = 'NO'
+    and nvl(standby_dest, 'NO') = 'NO'
+    and completion_time is not null
+  order by completion_time desc
+)
+where rownum = 1;
+"
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No available local archived redo log was found for required-recovery simulation."
+  row="${TARGET_ROWS[0]}"
+  IFS='|' read -r archive_name thread_no sequence_no first_change next_change completion_time <<<"$row"
+  [[ -n "$archive_name" && "$sequence_no" =~ ^[0-9]+$ && "$thread_no" =~ ^[0-9]+$ ]] ||
+    die "Unable to parse archived-log candidate metadata: ${row}"
+
+  rman_file="${LOG_DIR}/crashsim_s62_${RUN_ID}_recovery_decision.rman"
+  {
+    printf "crosscheck archivelog thread %s sequence %s;\n" "$thread_no" "$sequence_no"
+    printf "list archivelog thread %s sequence %s;\n" "$thread_no" "$sequence_no"
+    printf "restore archivelog thread %s sequence %s validate;\n" "$thread_no" "$sequence_no"
+    printf "recover database preview;\n"
+  } >"$rman_file" || die "Unable to write scenario 62 RMAN decision file: $rman_file"
+
+  manifest_append "archivelog_name" "$archive_name"
+  manifest_append "archivelog_thread" "$thread_no"
+  manifest_append "archivelog_sequence" "$sequence_no"
+  manifest_append "archivelog_first_change" "$first_change"
+  manifest_append "archivelog_next_change" "$next_change"
+  manifest_append "archivelog_completion_time" "$completion_time"
+  manifest_append "archivelog_recovery_decision_rman" "$rman_file"
+
+  if [[ "$archive_name" == +* ]]; then
+    add_action "external" "$archive_name" "ASM archived-log removal requires an ASM-aware handler; RMAN decision file: ${rman_file}"
+  else
+    add_action "fs_rename" "$archive_name" "thread=${thread_no} sequence=${sequence_no}; RMAN decision file: ${rman_file}"
+  fi
+  execute_actions
+}
+
+scenario_temp_exhaustion() {
+  reset_actions
+  local temp_file="$WORK_DIR/temp_exhaustion.lst"
+  local container_clause="" target_context="root/non-CDB" sql_file sql_log
+  local target_pdb_literal
+
+  if [[ "$DB_CDB" == "YES" && -n "$TARGET_PDB" ]]; then
+    target_pdb_literal="$(sql_quote "$TARGET_PDB")"
+    query_targets "$temp_file" "
+select p.name || '|' || tf.tablespace_name || '|' || count(*) || '|' || to_char(sum(tf.bytes))
+from cdb_temp_files tf
+join v\$pdbs p on p.con_id = tf.con_id
+where p.name = ${target_pdb_literal}
+group by p.name, tf.tablespace_name
+order by tf.tablespace_name;
+"
+    container_clause="alter session set container = ${TARGET_PDB};"
+    target_context="PDB ${TARGET_PDB}"
+  else
+    query_targets "$temp_file" "
+select 'CDB\$ROOT' || '|' || tablespace_name || '|' || count(*) || '|' || to_char(sum(bytes))
+from dba_temp_files
+group by tablespace_name
+order by tablespace_name;
+"
+  fi
+  [[ "${#TARGET_ROWS[@]}" -gt 0 ]] || die "No temporary tablespace/tempfile metadata was found for ${target_context}."
+
+  sql_file="${LOG_DIR}/crashsim_s63_${RUN_ID}_temp_exhaustion.sql"
+  sql_log="${LOG_DIR}/crashsim_s63_${RUN_ID}_temp_exhaustion.log"
+  write_temp_exhaustion_sql_file "$sql_file" "$container_clause" "$TEMP_EXHAUST_MB"
+
+  manifest_append "temp_exhaustion_context" "$target_context"
+  manifest_append "temp_exhaustion_target_mb" "$TEMP_EXHAUST_MB"
+  manifest_append "temp_exhaustion_sqlfile" "$sql_file"
+  manifest_append "temp_exhaustion_log" "$sql_log"
+
+  add_action "sqlfile" "$sql_file" "$sql_log"
+  execute_actions
+}
+
+scenario_rto_validation() {
+  reset_actions
+  local report_file
+  report_file="${LOG_DIR}/crashsim_rto_validation_${RUN_ID}.md"
+  manifest_append "rto_validation_report" "$report_file"
+  add_action "report" "RTO validation" "$report_file"
+  execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+  write_rto_validation_report "$report_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_rpo_validation() {
+  reset_actions
+  local sql_file evidence_file report_file
+  sql_file="${LOG_DIR}/crashsim_rpo_validation_${RUN_ID}.sql"
+  evidence_file="${LOG_DIR}/crashsim_rpo_validation_${RUN_ID}.evidence"
+  report_file="${LOG_DIR}/crashsim_rpo_validation_${RUN_ID}.md"
+  manifest_append "rpo_validation_sqlfile" "$sql_file"
+  manifest_append "rpo_validation_evidence" "$evidence_file"
+  manifest_append "rpo_validation_report" "$report_file"
+  add_action "report" "RPO validation" "$report_file"
+  execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+
+  ensure_sqlplus
+  write_rpo_validation_sql_file "$sql_file"
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "RPO validation SQL failed: $sql_file (evidence: $evidence_file)"
+  parse_rpo_evidence_file "$evidence_file"
+  write_rpo_validation_report "$report_file" "$evidence_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
 }
 
 scenario_planned() {
@@ -9095,6 +9847,21 @@ parse_args() {
         BASELINE_TAG_PREFIX="$2"
         shift 2
         ;;
+      --fra-pressure-target-pct)
+        [[ "$#" -ge 2 ]] || die "--fra-pressure-target-pct requires a percentage"
+        FRA_PRESSURE_TARGET_PCT="$2"
+        shift 2
+        ;;
+      --fra-pressure-headroom-mb)
+        [[ "$#" -ge 2 ]] || die "--fra-pressure-headroom-mb requires a size in MB"
+        FRA_PRESSURE_HEADROOM_MB="$2"
+        shift 2
+        ;;
+      --temp-exhaust-mb)
+        [[ "$#" -ge 2 ]] || die "--temp-exhaust-mb requires a size in MB"
+        TEMP_EXHAUST_MB="$2"
+        shift 2
+        ;;
       --audit-retain|--retain-logs)
         [[ "$#" -ge 2 ]] || die "$1 requires yes or no"
         AUDIT_RETAIN="$2"
@@ -9217,6 +9984,7 @@ menu_print_header() {
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
+  echo "Scenario 61/63 knobs: FRA target=${FRA_PRESSURE_TARGET_PCT}%  FRA headroom=${FRA_PRESSURE_HEADROOM_MB}MB  TEMP workload=${TEMP_EXHAUST_MB}MB"
 }
 
 menu_select_scenario() {
@@ -9378,6 +10146,33 @@ menu_prompt_audit_retention_days() {
   echo "Audit retention days set to ${AUDIT_RETENTION_DAYS}."
 }
 
+menu_prompt_integer_range() {
+  local label="$1"
+  local var_name="$2"
+  local current="$3"
+  local min_value="$4"
+  local max_value="${5:-}"
+  local answer
+
+  echo "Enter ${label}, or blank to keep [${current}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  [[ "$answer" =~ ^[0-9]+$ ]] || {
+    warn "Invalid ${label}: $answer"
+    return "$FAIL"
+  }
+  if [[ -n "$min_value" && "$answer" -lt "$min_value" ]]; then
+    warn "${label} must be >= ${min_value}."
+    return "$FAIL"
+  fi
+  if [[ -n "$max_value" && "$answer" -gt "$max_value" ]]; then
+    warn "${label} must be <= ${max_value}."
+    return "$FAIL"
+  fi
+  printf -v "$var_name" "%s" "$answer"
+  echo "${label} set to ${answer}."
+}
+
 menu_prompt_rman_catalog() {
   local answer
 
@@ -9449,6 +10244,16 @@ menu_configure_scenario25() {
   menu_prompt_path "backup-piece handle" PIECE_HANDLE "$PIECE_HANDLE"
 }
 
+menu_configure_resilience_drills() {
+  echo
+  echo "FRA / TEMP / RTO-RPO drill options"
+  menu_prompt_integer_range "scenario 61 FRA target used percentage" FRA_PRESSURE_TARGET_PCT "$FRA_PRESSURE_TARGET_PCT" 50 100
+  menu_prompt_integer_range "scenario 61 FRA free headroom MB" FRA_PRESSURE_HEADROOM_MB "$FRA_PRESSURE_HEADROOM_MB" 1
+  menu_prompt_integer_range "scenario 63 TEMP workload MB" TEMP_EXHAUST_MB "$TEMP_EXHAUST_MB" 1
+  echo
+  echo "Use the MAA/SLA context menu to set RTO/RPO objectives consumed by scenarios 64 and 65."
+}
+
 menu_set_password_file_options() {
   local answer
 
@@ -9490,7 +10295,8 @@ menu_configure_options() {
     echo "  8. Set log directory"
     echo "  9. Set RMAN recovery catalog"
     echo " 10. Set baseline backup tag prefix"
-    echo " 11. Clear selected scenario and targets"
+    echo " 11. FRA/TEMP/RTO-RPO drill options"
+    echo " 12. Clear selected scenario and targets"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -9522,6 +10328,10 @@ menu_configure_options() {
         menu_pause
         ;;
       11)
+        menu_configure_resilience_drills
+        menu_pause
+        ;;
+      12)
         SCENARIO_ID=""
         TARGET_PDB=""
         TARGET_SCHEMA=""
@@ -9534,6 +10344,9 @@ menu_configure_options() {
         PIECE_HANDLE=""
         RMAN_CATALOG_CONNECT=""
         BASELINE_TAG_PREFIX="${CRASHSIM_BASELINE_TAG_PREFIX:-CSIM_BASE}"
+        FRA_PRESSURE_TARGET_PCT="${CRASHSIM_FRA_PRESSURE_TARGET_PCT:-98}"
+        FRA_PRESSURE_HEADROOM_MB="${CRASHSIM_FRA_PRESSURE_HEADROOM_MB:-64}"
+        TEMP_EXHAUST_MB="${CRASHSIM_TEMP_EXHAUST_MB:-512}"
         echo "Scenario and target context cleared."
         menu_pause
         ;;
@@ -9605,6 +10418,16 @@ menu_append_common_child_args() {
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
   [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")
   [[ -n "$PIECE_HANDLE" ]] && MENU_CMD+=("--piece-handle" "$PIECE_HANDLE")
+  MENU_CMD+=("--fra-pressure-target-pct" "$FRA_PRESSURE_TARGET_PCT")
+  MENU_CMD+=("--fra-pressure-headroom-mb" "$FRA_PRESSURE_HEADROOM_MB")
+  MENU_CMD+=("--temp-exhaust-mb" "$TEMP_EXHAUST_MB")
+  [[ -n "$MAA_APP_NAME" ]] && MENU_CMD+=("--maa-app-name" "$MAA_APP_NAME")
+  [[ -n "$MAA_LOCAL_RTO" ]] && MENU_CMD+=("--maa-local-rto" "$MAA_LOCAL_RTO")
+  [[ -n "$MAA_LOCAL_RPO" ]] && MENU_CMD+=("--maa-local-rpo" "$MAA_LOCAL_RPO")
+  [[ -n "$MAA_DR_RTO" ]] && MENU_CMD+=("--maa-dr-rto" "$MAA_DR_RTO")
+  [[ -n "$MAA_DR_RPO" ]] && MENU_CMD+=("--maa-dr-rpo" "$MAA_DR_RPO")
+  [[ -n "$MAA_PLANNED_RTO" ]] && MENU_CMD+=("--maa-planned-rto" "$MAA_PLANNED_RTO")
+  [[ -n "$MAA_PLANNED_RPO" ]] && MENU_CMD+=("--maa-planned-rpo" "$MAA_PLANNED_RPO")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")

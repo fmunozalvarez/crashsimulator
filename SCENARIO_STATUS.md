@@ -1,6 +1,6 @@
 # CrashSimulator Scenario Status
 
-Snapshot date: 2026-06-05
+Snapshot date: 2026-06-07
 
 This status reflects the first OCI Base DB Service validation environment and
 the RAC/GI/ASM validation environments, including the current two-node RAC lab.
@@ -87,6 +87,11 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `42`: PDB SYSTEM file header corruption
 - `50`: standby managed recovery cancelled
 - `51`: primary transport destination deferred
+- `61`: FRA reaches critical utilization
+- `62`: missing required archived log during recovery
+- `63`: TEMP tablespace exhaustion
+- `64`: RTO validation drill
+- `65`: RPO validation drill
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.
@@ -289,3 +294,5 @@ Recommended next validation coverage:
   `35`, `37`, `38`, `40`, and `42`
 - Controlled destructive execution validation for CDB-root read-only/index-only
   scenarios `9` and `10`
+- High-value resilience/compliance drill validation for scenarios `61`, `62`,
+  `63`, `64`, and `65`

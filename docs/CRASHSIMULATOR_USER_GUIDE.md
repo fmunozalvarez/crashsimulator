@@ -796,6 +796,11 @@ Scope meanings:
 | 58 | TDE wallet or keystore unavailable | Security | CDB/non-CDB | destructive | Wallet restore, keystore open, encrypted tablespace and backup validation. | Recovery helper available for filesystem or ACFS wallet-root rename backups. Requires secure wallet backup and careful handling. |
 | 59 | Missing archived redo log | Backup | CDB/non-CDB | destructive | Archived log restore, crosscheck, gap handling, and incomplete recovery decision-making. | Recovery helper available. Useful RPO validation drill. |
 | 60 | Recovery catalog unavailable | Backup | External | logical | RMAN catalog connectivity, resync, and NOCATALOG fallback. | Uses `--rman-catalog` or `CRASHSIM_RMAN_CATALOG` when a catalog is available. |
+| 61 | FRA reaches critical utilization | Backup | CDB/non-CDB | destructive | FRA pressure, archiver/backups impact, reclaim decisions, and restoring FRA capacity. | Simulates pressure by safely shrinking `DB_RECOVERY_FILE_DEST_SIZE` near current usage. Recovery helper restores the original size. |
+| 62 | Missing required archived log during recovery | Backup | CDB/non-CDB | destructive | Required archived-log restore, RMAN preview, and incomplete-recovery decision-making. | Targets one available local archived log and produces RMAN decision evidence. ASM archived logs remain plan-only until ASM removal is explicitly approved. |
+| 63 | TEMP tablespace exhaustion | Core | CDB/non-CDB | logical | ORA-01652 diagnosis, workload cleanup, TEMP capacity planning, and resource controls. | Runs a disposable controlled TEMP-consuming workload. Use `--temp-exhaust-mb` to tune pressure. |
+| 64 | RTO validation drill | Compliance | CDB/non-CDB | logical | Comparing actual measured recovery timing against supplied RTO objectives. | Read-only report based on completed CrashSimulator recovery manifests. Use MAA/SLA options for objectives. |
+| 65 | RPO validation drill | Compliance | CDB/non-CDB | logical | Estimating recoverable data window from archived redo, backups, and Data Guard evidence. | Read-only report comparing current evidence against supplied RPO objectives. |
 
 ## Scenario Selection Guidance
 
@@ -807,7 +812,10 @@ Good first drills:
 - `16` and `26`: password file and SPFILE recovery, if remote-auth and pfile
   inputs are understood.
 - `25` with `--local-only --max-targets 1`: local backup-piece handling.
-- `59`: archived log loss and RPO decision practice.
+- `59` and `62`: archived log loss and required-log recovery decision practice.
+- `63`: controlled TEMP exhaustion in a lab-sized workload.
+- `64` and `65`: read-only RTO/RPO validation reporting after objectives are
+  supplied.
 
 Higher-risk drills:
 
@@ -815,6 +823,7 @@ Higher-risk drills:
 - Redo: `3`, `4`, `18`, `19`, `20`, `21`, `24`.
 - SYSTEM and whole-database or whole-PDB datafiles: `7`, `14`, `17`, `32`,
   `39`, `41`.
+- FRA pressure: `61`, because it can affect archiving until recovered.
 - Infrastructure: `28`, `46`, `47`, `48`, `49`, `55`, `58`.
 
 Data Guard, Active Data Guard, and RAC service scenarios should be tested only

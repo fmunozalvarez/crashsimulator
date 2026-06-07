@@ -508,6 +508,32 @@ For lab convenience, a catalog can be created in a PDB on the same target CDB.
 For production and production-like DR testing, keep the RMAN recovery catalog in
 an independent database so a target loss does not also remove catalog metadata.
 
+## FRA, TEMP, And RTO/RPO Drills
+
+The high-value resilience scenarios `61` through `65` connect operational
+failure practice with recoverability reporting:
+
+```bash
+./CrashSimulatorV2.sh --scenario 61 --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --dry-run
+./CrashSimulatorV2.sh --scenario 61 --execute
+./CrashSimulatorV2.sh --recover 61 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
+
+./CrashSimulatorV2.sh --scenario 62 --dry-run
+./CrashSimulatorV2.sh --scenario 63 --pdb CRASHPDB --temp-exhaust-mb 512 --execute
+
+./CrashSimulatorV2.sh --scenario 64 --maa-local-rto "15 minutes" --execute
+./CrashSimulatorV2.sh --scenario 65 --maa-local-rpo "5 minutes" --execute
+```
+
+Scenario `61` simulates FRA pressure by shrinking
+`DB_RECOVERY_FILE_DEST_SIZE` near current FRA usage, then the recovery helper
+restores the original size. Scenario `62` targets one archived log and produces
+RMAN decision evidence for required-log recovery and incomplete-recovery
+choices. Scenario `63` uses a disposable TEMP-consuming workload to practice
+ORA-01652 response. Scenarios `64` and `65` are read-only compliance drills:
+they compare measured recovery timing and current recoverable-data evidence
+against supplied RTO/RPO objectives.
+
 ## Executing A Scenario
 
 Destructive execution requires `--execute` and an interactive confirmation:
@@ -567,6 +593,9 @@ The framework has been validated in the first OCI Base DB Service lab for a
 subset of control-file, redo, datafile, tempfile, password-file, SPFILE,
 backup-piece, PDB, and archived-log scenarios, and initial RAC One Node/GI/ASM
 validation has started with scenario 55 and ASM dry-run/protection planning.
+Additional high-value resilience/compliance drills are now registered for FRA
+critical utilization, missing required archived logs during recovery, TEMP
+exhaustion, and RTO/RPO validation reporting.
 See `SCENARIO_STATUS.md` for the current validation matrix, known environment
 gaps, and the next RAC, ASM, Data Guard, and Active Data Guard validation
 targets.
