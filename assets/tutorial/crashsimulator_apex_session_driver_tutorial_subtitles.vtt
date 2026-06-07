@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial shows how to collect APEX and ORDS readiness evidence, then run scenario 80 with browser-session evidence.
+
+2
+00:00:07.000 --> 00:00:16.000
+Start with the APEX and ORDS readiness report so database recovery is tied to the application path users actually depend on.
+
+3
+00:00:16.000 --> 00:00:26.000
+Use a small seeded APEX page with a stable success marker so the browser driver can prove the session is still alive.
+
+4
+00:00:26.000 --> 00:00:36.000
+Run the optional Playwright driver self-check before a live drill so missing Node.js, Chromium, or permissions fail early.
+
+5
+00:00:36.000 --> 00:00:47.000
+Validate target readiness before execution. Without a driver, scenario 80 still collects read-only ORDS and continuity evidence.
+
+6
+00:00:47.000 --> 00:00:58.000
+Execute scenario 80 to create the base continuity report before adding a browser session or while testing only ORDS reachability.
+
+7
+00:00:58.000 --> 00:01:10.000
+For a full user-experience drill, keep the browser driver polling while you restart ORDS, relocate a RAC service, or perform a recovery step.
+
+8
+00:01:10.000 --> 00:01:22.000
+Trigger the planned event from another terminal while the driver keeps checking the active APEX page.
+
+9
+00:01:22.000 --> 00:01:33.000
+Finish by reviewing Markdown, HTML, JSON, and screenshots, then feed the result into service, pool, AC/TAC, and ORDS design.
+
+10
+00:01:33.000 --> 00:01:42.000
+Preserve the scenario manifest, audit log, screenshots, and HTML report so the drill can support training and compliance review.

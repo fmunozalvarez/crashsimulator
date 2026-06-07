@@ -1,6 +1,6 @@
 # CrashSimulator APEX / ORDS Readiness Report
 
-- Generated UTC: `2026-06-07T08:16:45Z`
+- Generated UTC: `2026-06-07T09:01:09Z`
 - Host: `crashdb26ai1`
 - OS user: `oracle`
 - Database: `CRASHDB`
@@ -8,7 +8,7 @@
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
 - Target PDB detail: `CRASHDB_PDB1`
-- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence`
+- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.evidence`
 - ORDS service name: `ords`
 - ORDS config directory: `/etc/ords/config`
 - ORDS smoke URL: `http://localhost:8080/ords/`
@@ -77,7 +77,7 @@ This report treats APEX/ORDS as an application access-path dependency. A databas
 
 ## Raw APEX / ORDS SQL Evidence
 
-Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence`
+Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.evidence`
 
 ```text
 CSIM_APEX|db_name|CRASHDB
@@ -121,9 +121,9 @@ CSIM_APEX|local_network_acl_count|1
 Command: ords --version
 
 ```text
-2026-06-07T08:16:47Z INFO   ORDS has not detected the option '--config' and this will be set up to the default directory.
+2026-06-07T09:01:11Z INFO   ORDS has not detected the option '--config' and this will be set up to the default directory.
 
-ORDS: Release 26.1 Production on Sun Jun 07 08:16:49 2026
+ORDS: Release 26.1 Production on Sun Jun 07 09:01:12 2026
 
 Copyright (c) 2010, 2026, Oracle.
 
@@ -139,7 +139,7 @@ Command: ords --config /etc/ords/config config list
 
 ```text
 
-ORDS: Release 26.1 Production on Sun Jun 07 08:16:50 2026
+ORDS: Release 26.1 Production on Sun Jun 07 09:01:14 2026
 
 Copyright (c) 2010, 2026, Oracle.
 
@@ -172,7 +172,7 @@ Command: systemctl status ords
 ```text
 ● ords.service - Oracle REST Data Services
    Loaded: loaded (/etc/systemd/system/ords.service; enabled; vendor preset: disabled)
-   Active: active (running) since Sun 2026-06-07 08:15:24 UTC; 1min 26s ago
+   Active: active (running) since Sun 2026-06-07 08:15:24 UTC; 45min ago
   Process: 81244 ExecStop=/usr/bin/bash -c /etc/init.d/ords stop (code=exited, status=0/SUCCESS)
   Process: 83755 ExecStart=/usr/bin/bash -c /etc/init.d/ords start (code=exited, status=0/SUCCESS)
  Main PID: 83890 (java)

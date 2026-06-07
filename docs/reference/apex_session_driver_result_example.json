@@ -1,0 +1,39 @@
+{
+  "label": "local-driver-smoke",
+  "startUrl": "seeded APEX application URL",
+  "finalUrl": "seeded APEX application URL",
+  "usernameSupplied": false,
+  "successSelector": "#CRASHSIM_SESSION_OK",
+  "durationSeconds": 1,
+  "intervalSeconds": 1,
+  "status": "PASS",
+  "startedAtUTC": "2026-06-07T08:52:42Z",
+  "completedAtUTC": "2026-06-07T08:52:47Z",
+  "checks": [
+    {
+      "label": "baseline",
+      "checkedAtUTC": "2026-06-07T08:52:43Z",
+      "url": "seeded APEX application URL",
+      "title": "CrashSimulator APEX Session",
+      "status": "OK",
+      "messages": []
+    },
+    {
+      "label": "poll-1",
+      "checkedAtUTC": "2026-06-07T08:52:46Z",
+      "url": "seeded APEX application URL",
+      "title": "CrashSimulator APEX Session",
+      "status": "OK",
+      "messages": []
+    }
+  ],
+  "warnings": [],
+  "screenshots": {
+    "baseline": "assets/screenshots/crashsim_apex_session_driver_baseline.png",
+    "final": "assets/screenshots/crashsim_apex_session_driver_final.png"
+  },
+  "artifacts": {
+    "report": "docs/reference/apex_session_driver_example.md",
+    "json": "docs/reference/apex_session_driver_result_example.json"
+  }
+}

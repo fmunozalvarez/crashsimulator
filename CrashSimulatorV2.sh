@@ -11834,7 +11834,7 @@ scenario_apex_session_continuity() {
     if [[ -n "$APEX_SESSION_DRIVER" ]]; then
       printf "\nA seeded APEX browser-session driver is configured. Driver evidence will be appended below.\n"
     else
-      printf "\nNo seeded browser-session driver was configured. Use `--apex-session-driver` with a seeded APEX application URL when full end-user behavior capture is needed.\n"
+      printf '\nNo seeded browser-session driver was configured. Use `--apex-session-driver` with a seeded APEX application URL when full end-user behavior capture is needed.\n'
     fi
     printf "\nUse this report during a live APEX browser session. Record whether the user sees seamless continuation, retry, relogin, lost page state, or failed transaction after ORDS/RAC/service/database failover.\n"
   } >"$report_file" || die "Unable to write scenario 80 report: $report_file"

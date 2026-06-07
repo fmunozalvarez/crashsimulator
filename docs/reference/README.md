@@ -33,6 +33,22 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
     coverage for every registered scenario.
   - HTML copy: `scenario_lifecycle_coverage_reference.md.html`
 
+## APEX / ORDS Scenario 80 Evidence Examples
+
+- `apex_session_driver_example.md`
+  - Sanitized local Playwright smoke evidence for the optional scenario `80`
+    browser-session driver.
+  - Shows the Markdown evidence shape, screenshots, status checks, and how the
+    success selector proves a seeded APEX page is still available.
+  - HTML copy: `apex_session_driver_example.md.html`
+- `apex_session_driver_result_example.json`
+  - Sanitized JSON result file produced by
+    `tools/crashsim_apex_session_driver.cjs`.
+- `../../assets/screenshots/crashsim_apex_session_driver_baseline.png`
+  - Baseline browser screenshot from the seeded-session evidence example.
+- `../../assets/screenshots/crashsim_apex_session_driver_final.png`
+  - Final browser screenshot from the seeded-session evidence example.
+
 ## Oracle AI Database 26ai Validation References
 
 The `26ai/` subdirectory contains reference artifacts from a live two-node RAC
@@ -63,6 +79,9 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
     26.1.2 on the 26ai RAC lab.
 - `26ai/26ai_apex_availability_s78_reference.md`
   - Shows scenario 78 read-only ORDS/APEX availability smoke evidence.
+- `26ai/26ai_apex_session_continuity_s80_reference.md`
+  - Shows fresh scenario 80 ORDS/APEX continuity evidence with local and peer
+    ORDS URLs in the 26ai RAC lab.
 - `../../captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
   - Shows compact execution and recovery evidence for APEX/ORDS scenarios `76`
     and `77`, including the PDB-aware recovery helper validation.
@@ -89,6 +108,7 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_82_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_lifecycle_coverage_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/26ai/26ai_scenario_readiness_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/apex_session_driver_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ```
 
 They are intended for demos and visual review. The original Markdown examples

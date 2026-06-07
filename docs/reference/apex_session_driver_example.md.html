@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>apex_session_driver_example.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>apex_session_driver_example.md</h1><div class="meta">Source: docs/reference/apex_session_driver_example.md<br>Generated UTC: 2026-06-07T09:02:58Z</div></header>
+<pre>
+# CrashSimulator APEX Browser Session Driver Evidence Example
+
+- Generated UTC: `2026-06-07T08:52:47Z`
+- Label: `local-driver-smoke`
+- Start URL: `seeded APEX application URL`
+- Final URL: `seeded APEX application URL`
+- Username supplied: `no`
+- Success selector: `#CRASHSIM_SESSION_OK`
+- Duration seconds: `1`
+- Interval seconds: `1`
+- Status: `PASS`
+
+This sanitized example shows the evidence shape produced by
+`tools/crashsim_apex_session_driver.cjs` for scenario `80`. In a real drill, the
+URL should be a disposable seeded APEX application page, and the success
+selector should point at a stable page element that proves the user session is
+still alive after an ORDS, RAC service, Data Guard, or database recovery event.
+
+## Screenshots
+
+- baseline: `assets/screenshots/crashsim_apex_session_driver_baseline.png`
+- final: `assets/screenshots/crashsim_apex_session_driver_final.png`
+
+## Checks
+
+| Check | Status | URL | Title | Messages |
+| --- | --- | --- | --- | --- |
+| baseline | `OK` | seeded APEX application URL | CrashSimulator APEX Session | `OK` |
+| poll-1 | `OK` | seeded APEX application URL | CrashSimulator APEX Session | `OK` |
+
+## Interpretation
+
+The browser driver is intentionally optional. Scenario `80` can still collect
+read-only ORDS/APEX continuity evidence without it, but the driver adds the
+end-user view: screenshots, page title, final URL, marker validation, warning
+messages, and a JSON result file suitable for audit evidence.
+</pre>
+</main></body></html>

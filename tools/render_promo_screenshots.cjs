@@ -241,6 +241,7 @@ function scenarioAccent(group) {
     Network: "#2dd4bf",
     Security: "#f472b6",
     Compliance: "#facc15",
+    "APEX/ORDS": "#fb7185",
   };
   return colors[group] || "#94a3b8";
 }
@@ -289,7 +290,7 @@ function writeScenarioCatalogPage() {
   }
 
   const leftGroups = ["Core", "Config", "Backup", "ASM", "DataGuard", "RAC", "Security"];
-  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance"];
+  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance", "APEX/ORDS"];
   const leftCards = leftGroups
     .filter((group) => byGroup.has(group))
     .map((group) => renderGroupCard(group, byGroup.get(group)))
@@ -1020,6 +1021,39 @@ async function renderMaaSummary(browser) {
         height: 1900,
         lineLimit: 56,
         wrap: 120,
+      },
+      {
+        input: "docs/reference/26ai/26ai_apex_ords_readiness_reference.md",
+        html: "26ai_apex_ords_readiness.html",
+        output: "crashsim_26ai_apex_ords_readiness.png",
+        title: "APEX / ORDS Readiness",
+        subtitle: "26ai lab | application access-path evidence",
+        prompt: "$ ./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHDB_PDB1 --html",
+        height: 1900,
+        lineLimit: 54,
+        wrap: 120,
+      },
+      {
+        input: "docs/reference/26ai/26ai_apex_session_continuity_s80_reference.md",
+        html: "26ai_apex_session_continuity_s80.html",
+        output: "crashsim_apex_session_continuity_s80.png",
+        title: "Scenario 80 APEX Session Continuity",
+        subtitle: "Read-only continuity evidence | ORDS and peer URL",
+        prompt: "$ ./CrashSimulatorV2.sh --scenario 80 --pdb CRASHDB_PDB1 --execute --html",
+        height: 1300,
+        lineLimit: 34,
+        wrap: 120,
+      },
+      {
+        input: "docs/reference/apex_session_driver_example.md",
+        html: "apex_session_driver_example.html",
+        output: "crashsim_apex_session_driver_example.png",
+        title: "APEX Browser Session Driver",
+        subtitle: "Scenario 80 | screenshots, JSON, and Markdown evidence",
+        prompt: "$ tools/crashsim_apex_session_driver.cjs --url <seeded-apex-url> --success-selector '#CRASHSIM_SESSION_OK'",
+        height: 1500,
+        lineLimit: 42,
+        wrap: 118,
       },
     ];
 

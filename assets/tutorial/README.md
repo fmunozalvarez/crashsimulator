@@ -17,6 +17,9 @@ Generated assets:
 - `crashsimulator_guided_reports_menu_tutorial.mp4`: short 1080p Guided Workflow Reports menu tutorial with burned-in subtitles.
 - `crashsimulator_guided_reports_menu_tutorial_with_audio.mp4`: narrated Guided Workflow Reports menu tutorial generated from the subtitles.
 - `crashsimulator_guided_reports_menu_tutorial_subtitles.vtt`: Guided Workflow Reports menu tutorial WebVTT subtitle sidecar.
+- `crashsimulator_apex_session_driver_tutorial.mp4`: short 1080p APEX/ORDS readiness and scenario 80 browser-session tutorial with burned-in subtitles.
+- `crashsimulator_apex_session_driver_tutorial_with_audio.mp4`: narrated APEX/ORDS scenario 80 tutorial generated from the subtitles.
+- `crashsimulator_apex_session_driver_tutorial_subtitles.vtt`: APEX/ORDS tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
@@ -27,6 +30,7 @@ python3 tools/render_guided_workflow_tutorial_video.py
 python3 tools/render_audit_retention_tutorial_video.py
 python3 tools/render_scenario_readiness_tutorial_video.py
 python3 tools/render_guided_reports_menu_tutorial_video.py
+python3 tools/render_apex_session_driver_tutorial_video.py
 ```
 
 On macOS, regenerate the narrated copies from the subtitle scripts with:
@@ -43,4 +47,5 @@ reading the runnable/blocked buckets, using `latest:scenario-readiness`, and
 launching the same capability from the Guided Workflow menu. The Reports menu
 tutorial covers configuration, MAA best practices, Oracle service HA review,
 backup strategy/recoverability, baseline backups, lifecycle coverage, and HTML
-evidence review.
+evidence review. The APEX/ORDS tutorial covers readiness reporting, seeded
+scenario 80 browser-session evidence, and preserving user-facing artifacts.

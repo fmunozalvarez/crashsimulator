@@ -33,6 +33,7 @@ DEFAULT_TUTORIALS = (
     "crashsimulator_audit_retention_tutorial",
     "crashsimulator_scenario_readiness_tutorial",
     "crashsimulator_guided_reports_menu_tutorial",
+    "crashsimulator_apex_session_driver_tutorial",
 )
 
 
