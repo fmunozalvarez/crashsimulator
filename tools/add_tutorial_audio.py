@@ -32,6 +32,7 @@ DEFAULT_TUTORIALS = (
     "crashsimulator_guided_workflow_tutorial",
     "crashsimulator_audit_retention_tutorial",
     "crashsimulator_scenario_readiness_tutorial",
+    "crashsimulator_guided_reports_menu_tutorial",
 )
 
 

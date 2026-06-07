@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+Use the Guided Workflow Reports menu before and after drills to collect evidence, review readiness, and keep recovery decisions visible.
+
+2
+00:00:07.000 --> 00:00:16.000
+The Reports menu groups configuration, MAA, service HA, backup, baseline backup, and lifecycle coverage in one guided place.
+
+3
+00:00:16.000 --> 00:00:25.000
+Start with the target configuration report to document topology, storage, files, FRA, listeners, and non-default parameters.
+
+4
+00:00:25.000 --> 00:00:35.000
+Run the MAA readiness review to detect the current MAA posture and highlight HA, DR, backup, and recoverability gaps.
+
+5
+00:00:35.000 --> 00:00:44.000
+Set RTO and RPO planning context so reports can connect the technical posture to business recovery expectations.
+
+6
+00:00:44.000 --> 00:00:54.000
+Review service design for AC, TAC, FSFO, Data Guard role-based services, and Active Data Guard DML redirection awareness.
+
+7
+00:00:54.000 --> 00:01:04.000
+Generate the backup strategy report to review backup sources, RMAN catalog use, recoverability, and estimated RTO and RPO posture.
+
+8
+00:01:04.000 --> 00:01:13.000
+Use the baseline backup choices after destructive drills or structural changes, and dry-run before creating the backup.
+
+9
+00:01:13.000 --> 00:01:24.000
+The lifecycle coverage report shows which scenarios have validation, protection, execution, recovery, and evidence coverage.
+
+10
+00:01:24.000 --> 00:01:34.000
+Finish by opening the Review Center so operators can inspect the latest reports, logs, runbooks, and HTML copies without rerunning drills.

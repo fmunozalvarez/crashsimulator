@@ -265,8 +265,8 @@ The menu provides options to:
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.
-- Generate configuration, backup strategy/recoverability, and MAA readiness
-  reports.
+- Generate configuration, backup strategy/recoverability, Oracle service HA,
+  MAA readiness, and scenario lifecycle coverage reports.
 - Configure audit retention, show audit status, and purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
   health checks, dry-run/execution records, and audit history.

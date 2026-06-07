@@ -14,6 +14,9 @@ Generated assets:
 - `crashsimulator_scenario_readiness_tutorial.mp4`: short 1080p scenario readiness tutorial for CLI and Guided Workflow menu modes with burned-in subtitles.
 - `crashsimulator_scenario_readiness_tutorial_with_audio.mp4`: narrated scenario readiness tutorial generated from the subtitles.
 - `crashsimulator_scenario_readiness_tutorial_subtitles.vtt`: scenario readiness tutorial WebVTT subtitle sidecar.
+- `crashsimulator_guided_reports_menu_tutorial.mp4`: short 1080p Guided Workflow Reports menu tutorial with burned-in subtitles.
+- `crashsimulator_guided_reports_menu_tutorial_with_audio.mp4`: narrated Guided Workflow Reports menu tutorial generated from the subtitles.
+- `crashsimulator_guided_reports_menu_tutorial_subtitles.vtt`: Guided Workflow Reports menu tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
@@ -23,6 +26,7 @@ python3 tools/render_cli_tutorial_video.py
 python3 tools/render_guided_workflow_tutorial_video.py
 python3 tools/render_audit_retention_tutorial_video.py
 python3 tools/render_scenario_readiness_tutorial_video.py
+python3 tools/render_guided_reports_menu_tutorial_video.py
 ```
 
 On macOS, regenerate the narrated copies from the subtitle scripts with:
@@ -32,8 +36,11 @@ python3 tools/add_tutorial_audio.py --voice Samantha --rate 175
 ```
 
 The tutorial set demonstrates direct CLI execution, the menu-driven
-best-practice scenario workflow, audit-retention operations, and topology-aware
-scenario readiness reporting. The readiness tutorial covers generating the
-environment-versus-scenario report, reading the runnable/blocked buckets, using
-`latest:scenario-readiness`, and launching the same capability from the Guided
-Workflow menu.
+best-practice scenario workflow, audit-retention operations, topology-aware
+scenario readiness reporting, and Guided Workflow Reports menu evidence. The
+readiness tutorial covers generating the environment-versus-scenario report,
+reading the runnable/blocked buckets, using `latest:scenario-readiness`, and
+launching the same capability from the Guided Workflow menu. The Reports menu
+tutorial covers configuration, MAA best practices, Oracle service HA review,
+backup strategy/recoverability, baseline backups, lifecycle coverage, and HTML
+evidence review.

@@ -26,6 +26,7 @@ For the full end-user documentation, read:
 - [Guided Workflow scenario narrated tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial_with_audio.mp4)
 - [Audit retention narrated tutorial video](assets/tutorial/crashsimulator_audit_retention_tutorial_with_audio.mp4)
 - [Scenario readiness narrated tutorial video](assets/tutorial/crashsimulator_scenario_readiness_tutorial_with_audio.mp4)
+- [Guided Reports menu narrated tutorial video](assets/tutorial/crashsimulator_guided_reports_menu_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [Detailed V2 notes](README_V2.md)
@@ -72,10 +73,11 @@ and redacts RMAN catalog/SYS password values from command echoes.
 
 ## Tutorial Videos
 
-Short setup, full scenario walkthrough, audit-retention, and scenario-readiness
-videos are available in [assets/tutorial](assets/tutorial/README.md). Narrated
-MP4s, burned-in subtitle MP4s, and WebVTT subtitle sidecars are included for CLI
-and Guided Workflow menu modes.
+Short setup, full scenario walkthrough, audit-retention, scenario-readiness,
+and Guided Reports menu videos are available in
+[assets/tutorial](assets/tutorial/README.md). Narrated MP4s, burned-in subtitle
+MP4s, and WebVTT subtitle sidecars are included for CLI and Guided Workflow
+menu modes.
 
 ## First Safe Commands
 
