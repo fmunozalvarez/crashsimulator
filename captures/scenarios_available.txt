@@ -72,3 +72,13 @@ ID   Group        Scope         Impact       Scenario
 70   RAC          RAC           logical      RAC VIP relocation drill
 71   RAC          RAC           logical      RAC service placement failure
 72   ASM          ASM           destructive  ASM single disk failure
+73   APEX/ORDS    Application   logical      ORDS service unavailable
+74   APEX/ORDS    Application   destructive  ORDS configuration unavailable
+75   APEX/ORDS    Application   logical      ORDS database pool misconfiguration
+76   APEX/ORDS    Application   logical      APEX/ORDS runtime account locked
+77   APEX/ORDS    Application   destructive  APEX static resources unavailable
+78   APEX/ORDS    Application   logical      APEX application availability validation after recovery
+79   APEX/ORDS    Application   logical      ORDS node unavailable behind load balancer
+80   APEX/ORDS    Application   logical      APEX session continuity test
+81   APEX/ORDS    Application   logical      APEX mail queue and configuration validation
+82   APEX/ORDS    Application   logical      APEX upgrade or patch rollback readiness

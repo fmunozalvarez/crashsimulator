@@ -1015,7 +1015,7 @@ async function renderMaaSummary(browser) {
         html: "26ai_scenario_readiness.html",
         output: "crashsim_26ai_scenario_readiness.png",
         title: "26ai Scenario Readiness",
-        subtitle: "39 runnable dry-runs | 72-scenario registry",
+        subtitle: "44 runnable checks | 82-scenario registry",
         prompt: "$ ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html",
         height: 1900,
         lineLimit: 56,

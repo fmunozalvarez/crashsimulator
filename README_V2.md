@@ -10,6 +10,8 @@ CrashSimulator V2 is a safer, single-script rewrite of the original
 CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
+It also treats APEX/ORDS as an application access-path dependency when ORDS is
+installed on the target host.
 
 Compatibility target: Oracle Database 12c and later. Project validation
 evidence now includes live Oracle Database 19c and Oracle AI Database 26ai
@@ -78,6 +80,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
+./CrashSimulatorV2.sh --apex-ords-report --pdb crashpdb --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
@@ -163,7 +166,7 @@ kept unchanged. `--render-html <path|latest:kind>` can convert an existing
 artifact later. Supported `latest:<kind>` shortcuts include `topology`,
 `config`, `backup`, `scenario-readiness`, `lifecycle`, `maa`, `health`,
 `scenario`, `protect`, `recover`, `runbook`, `baseline`, `review`, `audit`,
-and `latest`.
+`apex-ords`, and `latest`.
 
 ## Scenario Readiness Validation
 
@@ -476,6 +479,13 @@ Automated recovery helpers are currently enabled for:
   pressure simulation and validate FRA posture.
 - Scenario 62: restore/crosscheck the targeted archived log and generate
   required-log recovery decision evidence.
+- Scenario 73 and 79: restart the ORDS service and generate ORDS/APEX smoke
+  evidence.
+- Scenario 74 and 77: restore renamed ORDS configuration or APEX static-file
+  directories from scenario backups when the target was writable and executed by
+  the lab user.
+- Scenario 76: unlock the affected APEX/ORDS runtime account in the selected
+  PDB and validate account state.
 
 For scenario 30, recovery creates a SQL*Plus post-step that opens the target PDB
 only when it is not already open, avoiding the ORA-65019 issue observed during
@@ -596,6 +606,34 @@ exercises RAC service placement with `srvctl`. Scenario `72` plans single ASM
 disk failure only when a redundant disk group exists; EXTERN redundancy is
 rejected for this drill.
 
+## APEX/ORDS Application Access Drills
+
+Scenarios `73` through `82` cover APEX and ORDS as user-facing recovery
+dependencies. They are useful after database, PDB, RAC, Data Guard, or ORDS
+maintenance because a technically recovered database can still be unavailable to
+APEX users.
+
+```bash
+./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
+./CrashSimulatorV2.sh --validate-scenario 73 --pdb CRASHPDB
+./CrashSimulatorV2.sh --scenario 73 --pdb CRASHPDB --dry-run
+./CrashSimulatorV2.sh --recover 73 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
+./CrashSimulatorV2.sh --scenario 76 --pdb CRASHPDB --dry-run
+./CrashSimulatorV2.sh --scenario 78 --ords-url http://localhost:8080/ords/ --execute
+```
+
+The APEX/ORDS readiness report checks APEX version/status, runtime accounts,
+invalid APEX/ORDS objects, workspaces/applications, SMTP and wallet signals,
+network ACLs, ORDS version/configuration, systemd service state, and ORDS smoke
+URLs. The Guided Workflow Reports menu includes the same report.
+
+Scenarios `73`, `74`, `76`, `77`, and `79` have automated recovery helpers
+where the lab user has safe OS permissions and the target is reversible.
+Scenarios `75` and `80` are intentionally plan-only until a target-specific ORDS
+pool mutation or APEX session script is provided. Scenarios `78`, `81`, and `82`
+are read-only evidence drills for application availability, mail configuration,
+and upgrade/patch rollback readiness.
+
 ## Executing A Scenario
 
 Destructive execution requires `--execute` and an interactive confirmation:
@@ -656,9 +694,9 @@ For automated lab runs only:
 
 ## Current Status
 
-The framework currently registers `72` scenarios across Core, PDB, Backup,
+The framework currently registers `82` scenarios across Core, PDB, Backup,
 Config, Corrupt, Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network,
-Security, and Compliance groups.
+Security, Compliance, and APEX/ORDS groups.
 
 The first OCI Base DB Service lab validated representative control-file, redo,
 datafile, tempfile, password-file, SPFILE, backup-piece, PDB, and archived-log
@@ -673,6 +711,12 @@ validation, and RPO validation, plus DG/RAC/ASM-specific drills for FSFO
 observer outage planning, Data Guard apply lag, Data Guard transport
 partitioning, standby redo log review, RAC VIP relocation planning, RAC service
 placement failure, and redundant ASM single-disk failure planning.
+
+The APEX/ORDS layer adds ORDS service and configuration outage drills, ORDS pool
+misconfiguration planning, APEX runtime account lockout recovery, APEX static
+resource loss, application availability smoke evidence after recovery, ORDS
+load-balancer node outage planning, APEX session continuity planning, mail
+configuration validation, and APEX upgrade/patch rollback readiness.
 
 See `SCENARIO_STATUS.md` for the current validation matrix, known environment
 gaps, and the next RAC, ASM, Data Guard, and Active Data Guard validation

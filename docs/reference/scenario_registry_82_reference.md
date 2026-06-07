@@ -1,13 +1,14 @@
 # CrashSimulator Scenario Registry Reference
 
-- Generated UTC: `2026-06-07T10:45:00Z`
+- Generated UTC: `2026-06-07T07:19:00Z`
 - Source command: `./CrashSimulatorV2.sh --list --audit-retain no`
-- Registry size: `72` scenarios
-- Logical drills: `20`
-- Destructive drills: `52`
+- Registry size: `82` scenarios
+- Logical drills: `28`
+- Destructive drills: `54`
 
 This sanitized reference shows the current scenario coverage after adding the
-high-value resilience drills and the Data Guard/RAC/ASM-specific layer.
+high-value resilience drills, the Data Guard/RAC/ASM-specific layer, and the
+APEX/ORDS application access-path layer.
 
 ## Coverage By Group
 
@@ -27,6 +28,7 @@ high-value resilience drills and the Data Guard/RAC/ASM-specific layer.
 | Network | 1 | Listener/network configuration recovery. |
 | Security | 1 | TDE wallet or keystore unavailability. |
 | Compliance | 2 | RTO and RPO validation reporting. |
+| APEX/ORDS | 10 | ORDS service/config/pool, APEX runtime account, static files, availability, session, mail, and patch-readiness practice. |
 
 ## Newly Added Resilience Scenarios
 
@@ -44,6 +46,16 @@ high-value resilience drills and the Data Guard/RAC/ASM-specific layer.
 | 70 | RAC VIP relocation drill | Plan-only VIP movement/client-survivability workflow. |
 | 71 | RAC service placement failure | Reversible service stop/start or placement validation with recovery helper. |
 | 72 | ASM single disk failure | Plan-only redundant ASM/failgroup drill; EXTERN redundancy is rejected. |
+| 73 | ORDS service unavailable | Automatable where ORDS service control is available; recovery helper restarts ORDS and captures smoke evidence. |
+| 74 | ORDS configuration unavailable | Reversible only where the ORDS config directory can be safely renamed/restored; otherwise plan-only. |
+| 75 | ORDS database pool misconfiguration | Plan-only until a target-specific reversible pool mutation is approved. |
+| 76 | APEX/ORDS runtime account locked | Runnable where APEX/ORDS runtime users exist; recovery helper unlocks the account. |
+| 77 | APEX static resources unavailable | Runnable where APEX static files are configured and writable; recovery helper restores the renamed directory. |
+| 78 | APEX application availability validation after recovery | Read-only ORDS/APEX smoke evidence. |
+| 79 | ORDS node unavailable behind load balancer | Requires ORDS service control and an ORDS load-balancer URL. |
+| 80 | APEX session continuity test | Plan-only until a seeded APEX app and browser/session script exist. |
+| 81 | APEX mail queue and configuration validation | Read-only SMTP, wallet, ACL, and notification-readiness evidence. |
+| 82 | APEX upgrade or patch rollback readiness | Read-only pre/post APEX/ORDS patch evidence and runbook. |
 
 ## Automation Snapshot
 
@@ -55,7 +67,8 @@ Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
 `7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
 `21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
 `35`, `37`, `38`, `39`, `40`, `41`, `42`, `50`, `51`, `55`, `56`, `57`,
-`58`, `59`, `61`, `62`, `67`, `68`, and `71`.
+`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `76`, `77`, and
+`79`.
 
 Use `--validate-scenario <id>` or `--scenario-readiness-report` before running
 any destructive drill. CrashSimulator now blocks execution when the current

@@ -114,6 +114,20 @@ SYSDBA and SYSBACKUP.
 `listener`: Oracle Net process that accepts client connections and registers
 database services.
 
+`APEX`: Oracle APEX, a low-code application platform that runs inside an Oracle
+Database schema and is commonly exposed to users through ORDS.
+
+`ORDS`: Oracle REST Data Services. It is the HTTP access layer for APEX,
+Database Actions, REST-enabled SQL, and REST APIs. ORDS can be installed on one
+or more mid-tier/database hosts.
+
+`APEX static resources`: JavaScript, CSS, images, and other files normally
+served under a path such as `/i/`. If these files are missing, the database may
+be open but APEX pages can still be unusable.
+
+`ORDS pool`: The ORDS database connection configuration that points to a
+service, user, password, wallet, and pool settings.
+
 `FRA`: Fast Recovery Area. A managed location for archived logs, backups,
 flashback logs, and recovery-related files.
 
@@ -230,6 +244,7 @@ ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh seed_crashsim_lab.sql ver
 ./CrashSimulatorV2.sh --config-report --deep-validate
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --backup-report --deep-validate
+./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
@@ -268,7 +283,7 @@ The menu provides options to:
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.
 - Generate configuration, backup strategy/recoverability, Oracle service HA,
-  MAA readiness, and scenario lifecycle coverage reports.
+  APEX/ORDS readiness, MAA readiness, and scenario lifecycle coverage reports.
 - Configure audit retention, show audit status, and purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
   health checks, dry-run/execution records, and audit history.
@@ -294,7 +309,7 @@ signals, FRA configuration, and other topology evidence.
 ### Scenario Registry
 
 `--list` prints all registered scenarios with ID, group, scope, impact, and
-scenario name. The current registry contains 72 scenarios.
+scenario name. The current registry contains 82 scenarios.
 
 ### Dry-Run Planning
 
@@ -420,7 +435,8 @@ Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
 `7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
 `21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
 `35`, `37`, `38`, `39`, `40`, `41`, `42`, `50`, `51`, `55`, `56`, `57`,
-`58`, `59`, `61`, `62`, `67`, `68`, and `71`.
+`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `76`, `77`, and
+`79`.
 
 For unsupported scenarios, use `--runbook <id>` and the generated target
 evidence to perform the recovery manually.
@@ -486,6 +502,58 @@ and role-based services. When `srvctl` is available, it parses Clusterware
 service metadata so Data Guard and Active Data Guard services can be reviewed
 for `PRIMARY` and standby-role placement. The same service review section is
 included in `--maa-report`.
+
+### APEX/ORDS Readiness Report
+
+`--apex-ords-report` checks whether APEX and ORDS are ready to be part of a
+resilience drill. It treats the application access path as part of recovery,
+because users can remain down even when the database and PDB are open.
+
+```bash
+./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
+./CrashSimulatorV2.sh --apex-ords-report \
+  --pdb CRASHPDB \
+  --ords-service ords \
+  --ords-config-dir /etc/ords/config \
+  --ords-url http://localhost:8080/ords/ \
+  --apex-images-dir /opt/oracle/apex/images \
+  --html
+```
+
+The report checks:
+
+- APEX version and component status in the selected container.
+- `APEX_PUBLIC_USER`, `APEX_PUBLIC_ROUTER`, `ORDS_PUBLIC_USER`, and
+  `ORDS_METADATA` status where present.
+- Invalid APEX and ORDS objects.
+- APEX workspace and application counts.
+- APEX mail, wallet, and network ACL signals.
+- ORDS binary version, configuration directory, systemd service state, and
+  smoke URL status.
+- Optional ORDS load-balancer URL status.
+
+The Guided Workflow Reports menu includes the same APEX/ORDS readiness option.
+
+### APEX/ORDS Scenarios
+
+Scenarios `73` through `82` cover APEX and ORDS failures and validations:
+
+- `73`: ORDS service unavailable.
+- `74`: ORDS configuration unavailable.
+- `75`: ORDS database pool misconfiguration.
+- `76`: APEX/ORDS runtime account locked.
+- `77`: APEX static resources unavailable.
+- `78`: APEX application availability validation after recovery.
+- `79`: One ORDS node unavailable behind a load balancer.
+- `80`: APEX session continuity test.
+- `81`: APEX mail queue and configuration validation.
+- `82`: APEX upgrade or patch rollback readiness.
+
+Scenarios `73`, `74`, `76`, `77`, and `79` have automated recovery helpers when
+the target is reversible and the current OS user has safe permissions. Scenarios
+`75` and `80` are plan-only until the lab supplies a target-specific ORDS pool
+mutation or APEX session script. Scenarios `78`, `81`, and `82` are read-only
+evidence/report drills.
 
 ### Fresh Baseline Backup
 
@@ -590,7 +658,8 @@ files. Use `--render-html <path>` to convert one known artifact, or
 `--render-html latest:<kind>` to convert the latest artifact of a type.
 Supported shortcuts include `topology`, `config`, `backup`,
 `scenario-readiness`, `lifecycle`, `maa`, `health`, `scenario`, `protect`,
-`recover`, `runbook`, `baseline`, `review`, `audit`, and `latest`.
+`recover`, `runbook`, `baseline`, `review`, `audit`, `apex-ords`, and
+`latest`.
 
 ### MAA Readiness Report
 
@@ -850,6 +919,16 @@ Scope meanings:
 | 70 | RAC VIP relocation drill | RAC | RAC | logical | VIP movement planning, client retry behavior, SCAN/VIP listener evidence, and FAN/ONS validation. | Plan-only external VIP action because target node and Grid-owner approval are environment-specific. |
 | 71 | RAC service placement failure | RAC | RAC | logical | Service placement, instance-level service stop/start, FAN/ONS, AC/TAC behavior, and recovery validation. | Uses `srvctl` against one running service instance. Recovery helper validates/starts the service. |
 | 72 | ASM single disk failure | ASM | ASM | destructive | Single-disk failure planning, ASM redundancy, failgroups, rebalance monitoring, and disk replacement. | Plan-only external action. Requires NORMAL/HIGH/FLEX/EXTENDED redundancy; EXTERN redundancy is rejected. |
+| 73 | ORDS service unavailable | APEX/ORDS | Application | logical | ORDS outage detection, service restart, HTTP smoke validation, and user-facing recovery timing. | Automatable when the current OS user can control the ORDS systemd service. Recovery helper starts ORDS and writes smoke evidence. |
+| 74 | ORDS configuration unavailable | APEX/ORDS | Application | destructive | Restoring ORDS configuration, wallets, pools, static mappings, and connection settings. | Renames the ORDS config directory only when it is writable and reversible; otherwise plan-only. Recovery helper restores the rename backup. |
+| 75 | ORDS database pool misconfiguration | APEX/ORDS | Application | logical | Diagnosing bad service names, wallets, users, passwords, pool settings, and ORDS logs. | Plan-only until a target-specific reversible pool mutation is approved for the ORDS version and lab. |
+| 76 | APEX/ORDS runtime account locked | APEX/ORDS | Application | logical | Recovering from locked or expired APEX/ORDS runtime users and validating application access. | Locks an available runtime account in the selected container. Recovery helper unlocks it. |
+| 77 | APEX static resources unavailable | APEX/ORDS | Application | destructive | Restoring APEX images/static files and validating page CSS, JavaScript, image, and login behavior. | Requires `--apex-images-dir` or a detected static path. Recovery helper restores the rename backup when executed. |
+| 78 | APEX application availability validation after recovery | APEX/ORDS | Application | logical | Proving the user-facing APEX/ORDS path after database, PDB, service, or ORDS recovery. | Read-only smoke evidence using `--ords-url` and optional load-balancer URL. |
+| 79 | ORDS node unavailable behind load balancer | APEX/ORDS | Application | logical | One-node ORDS outage, load-balancer health, session behavior, and service continuity. | Requires ORDS service control and `--ords-lb-url`. Recovery helper starts the local ORDS service and records smoke evidence. |
+| 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Plan-only until a seeded APEX application and session-driving script are supplied. |
+| 81 | APEX mail queue and configuration validation | APEX/ORDS | Application | logical | SMTP, wallet/TLS, network ACL, failed mail queue, and notification recovery checks. | Read-only report/evidence drill. |
+| 82 | APEX upgrade or patch rollback readiness | APEX/ORDS | Application | logical | Pre/post APEX version, invalid object, ORDS config, runtime-user, and application smoke evidence. | Read-only readiness/runbook drill for APEX/ORDS patching and rollback decisions. |
 
 ## Scenario Selection Guidance
 
@@ -866,6 +945,8 @@ Good first drills:
 - `64` and `65`: read-only RTO/RPO validation reporting after objectives are
   supplied.
 - `69`: read-only standby redo log review in any Data Guard topology.
+- `73`, `78`, `81`, and `82`: APEX/ORDS service, smoke, mail, and patch
+  readiness checks when ORDS/APEX are installed.
 
 Higher-risk drills:
 
@@ -877,6 +958,8 @@ Higher-risk drills:
 - Data Guard state changes: `67` and `68`, because they intentionally create
   apply or transport lag until recovered.
 - Infrastructure: `28`, `46`, `47`, `48`, `49`, `55`, `58`, `70`, `71`, `72`.
+- Application access path: `73`, `74`, `76`, `77`, and `79`, because they can
+  interrupt ORDS/APEX user access until recovered.
 
 Data Guard, Active Data Guard, and RAC service scenarios should be tested only
 in topologies that actually include those capabilities.

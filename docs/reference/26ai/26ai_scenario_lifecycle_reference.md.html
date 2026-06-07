@@ -15,14 +15,14 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>crashsim_scenario_lifecycle_latest.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md<br>Generated UTC: 2026-06-07T03:46:13Z</div></header>
+<header><h1>crashsim_scenario_lifecycle_latest.md</h1><div class="meta">Source: /tmp/crashsim_apex_lifecycle/crashsim_scenario_lifecycle_latest.md<br>Generated UTC: 2026-06-07T07:18:05Z</div></header>
 <pre>
 # CrashSimulator Scenario Lifecycle Coverage Report
 
-- Generated UTC: `2026-06-07T03:46:12Z`
+- Generated UTC: `2026-06-07T07:18:02Z`
 - Tool version: `2.0.0-dev`
-- Log directory: `/tmp/crashsimulator/crashsimulator_logs`
-- Registered scenarios: `72`
+- Log directory: `/tmp/crashsim_apex_lifecycle`
+- Registered scenarios: `82`
 
 This static report shows what lifecycle support the framework provides for each registered scenario. It complements `--scenario-readiness-report`, which checks whether a scenario can run in the current database topology.
 
@@ -41,12 +41,12 @@ This static report shows what lifecycle support the framework provides for each 
 
 | Metric | Count |
 | --- | ---: |
-| Registered scenarios | 72 |
+| Registered scenarios | 82 |
 | Automated `--protect` support | 20 |
-| Automated `--recover` support | 50 |
-| Plan-only external-action scenarios | 7 |
+| Automated `--recover` support | 55 |
+| Plan-only external-action scenarios | 9 |
 | Placeholder scenarios awaiting implementation | 3 |
-| Read-only report/review scenarios | 3 |
+| Read-only report/review scenarios | 6 |
 
 
 ## Scenario Lifecycle Matrix
@@ -125,6 +125,16 @@ This static report shows what lifecycle support the framework provides for each 
 | `70` | RAC | logical | RAC VIP relocation drill | Automated readiness validation | Not required: logical drill | Plan-only evidence; external approved action | Manual/external runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
 | `71` | RAC | logical | RAC service placement failure | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Lifecycle covered where topology prerequisites are met. |
 | `72` | ASM | destructive | ASM single disk failure | Automated readiness validation | Manual baseline/runbook | Plan-only evidence; external approved action | Manual/external runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `73` | APEX/ORDS | logical | ORDS service unavailable | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Lifecycle covered where topology prerequisites are met. |
+| `74` | APEX/ORDS | destructive | ORDS configuration unavailable | Automated readiness validation | Manual baseline/runbook | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Use baseline backup/runbook; add --protect only where target-specific backup is meaningful. |
+| `75` | APEX/ORDS | logical | ORDS database pool misconfiguration | Automated readiness validation | Not required: logical drill | Plan-only evidence; external approved action | Manual/external runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `76` | APEX/ORDS | logical | APEX/ORDS runtime account locked | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Lifecycle covered where topology prerequisites are met. |
+| `77` | APEX/ORDS | destructive | APEX static resources unavailable | Automated readiness validation | Manual baseline/runbook | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Use baseline backup/runbook; add --protect only where target-specific backup is meaningful. |
+| `78` | APEX/ORDS | logical | APEX application availability validation after recovery | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
+| `79` | APEX/ORDS | logical | ORDS node unavailable behind load balancer | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Automated --recover helper | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Lifecycle covered where topology prerequisites are met. |
+| `80` | APEX/ORDS | logical | APEX session continuity test | Automated readiness validation | Not required: logical drill | Plan-only evidence; external approved action | Manual/external runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `81` | APEX/ORDS | logical | APEX mail queue and configuration validation | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
+| `82` | APEX/ORDS | logical | APEX upgrade or patch rollback readiness | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
 
 
 ## Recommended Use

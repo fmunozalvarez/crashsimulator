@@ -11,10 +11,11 @@ helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
 readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
 FSFO, ADG DML redirection, and role-based services. It also includes targeted
-FRA pressure, TEMP exhaustion, and RTO/RPO
-validation drills, plus Data Guard, RAC, and ASM-specific practice for FSFO,
-transport/apply lag, standby redo logs, VIP/service placement, and ASM disk
-failure planning. It can also review previously collected
+FRA pressure, TEMP exhaustion, and RTO/RPO validation drills, plus Data Guard,
+RAC, ASM, and APEX/ORDS-specific practice for FSFO, transport/apply lag,
+standby redo logs, VIP/service placement, ASM disk failure planning, ORDS
+service/config outages, APEX runtime-user lockouts, static-resource loss, and
+application access-path validation. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
@@ -96,6 +97,7 @@ menu modes.
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --service-review --html
+./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report

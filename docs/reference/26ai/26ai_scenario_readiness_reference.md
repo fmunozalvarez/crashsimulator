@@ -1,6 +1,6 @@
 # CrashSimulator Scenario Readiness Report
 
-- Generated UTC: `2026-06-07T03:15:22Z`
+- Generated UTC: `2026-06-07T07:26:49Z`
 - Tool version: `2.0.0-dev`
 - Log directory: `/tmp/crashsimulator/crashsimulator_logs`
 - Target PDB context: `CRASHDB_PDB1`
@@ -44,10 +44,10 @@ This report validates the discovered target environment against the CrashSimulat
 
 | Status | Count | Meaning |
 | --- | ---: | --- |
-| RUNNABLE | 39 | Scenario can be selected for dry-run and, when requested, execution. |
-| PLAN-ONLY | 23 | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |
-| NOT-RUNNABLE | 10 | Scenario is not available in the current topology or target context. |
-| TOTAL | 72 | Registered scenarios evaluated. |
+| RUNNABLE | 44 | Scenario can be selected for dry-run and, when requested, execution. |
+| PLAN-ONLY | 27 | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |
+| NOT-RUNNABLE | 11 | Scenario is not available in the current topology or target context. |
+| TOTAL | 82 | Registered scenarios evaluated. |
 
 ## Runnable Scenarios
 
@@ -92,6 +92,11 @@ This report validates the discovered target environment against the CrashSimulat
 | `64` | Compliance | CDB/non-CDB | logical | RTO validation drill | Requirements passed and target selection produced executable actions. |
 | `65` | Compliance | CDB/non-CDB | logical | RPO validation drill | Requirements passed and target selection produced executable actions. |
 | `71` | RAC | RAC | logical | RAC service placement failure | Requirements passed and target selection produced executable actions. |
+| `76` | APEX/ORDS | Application | logical | APEX/ORDS runtime account locked | Requirements passed and target selection produced executable actions. |
+| `77` | APEX/ORDS | Application | destructive | APEX static resources unavailable | Requirements passed and target selection produced executable actions. |
+| `78` | APEX/ORDS | Application | logical | APEX application availability validation after recovery | Requirements passed and target selection produced executable actions. |
+| `81` | APEX/ORDS | Application | logical | APEX mail queue and configuration validation | Requirements passed and target selection produced executable actions. |
+| `82` | APEX/ORDS | Application | logical | APEX upgrade or patch rollback readiness | Requirements passed and target selection produced executable actions. |
 
 ## Dry-Run Planning Only
 
@@ -99,15 +104,15 @@ This report validates the discovered target environment against the CrashSimulat
 | --- | --- | --- | --- | --- | --- |
 | `1` | Core | CDB/non-CDB | destructive | Loss of one control file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
 | `2` | Core | CDB/non-CDB | destructive | Loss of all control files | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `3` | Core | CDB/non-CDB | destructive | Loss of one member from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `4` | Core | CDB/non-CDB | destructive | Loss of all members from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `3` | Core | CDB/non-CDB | destructive | Loss of one member from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `4` | Core | CDB/non-CDB | destructive | Loss of all members from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
 | `16` | Config | CDB/non-CDB | destructive | Loss of password file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `18` | Core | CDB/non-CDB | destructive | Loss of one member from multiplexed redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `19` | Core | CDB/non-CDB | destructive | Loss of all inactive redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `20` | Core | CDB/non-CDB | destructive | Loss of all active redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `21` | Core | CDB/non-CDB | destructive | Loss of all current redo group members | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `18` | Core | CDB/non-CDB | destructive | Loss of one member from multiplexed redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `19` | Core | CDB/non-CDB | destructive | Loss of all inactive redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `20` | Core | CDB/non-CDB | destructive | Loss of all active redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `21` | Core | CDB/non-CDB | destructive | Loss of all current redo group members | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
 | `23` | Corrupt | CDB/non-CDB | destructive | Control file corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
-| `24` | Corrupt | CDB/non-CDB | destructive | Redo log corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
+| `24` | Corrupt | CDB/non-CDB | destructive | Redo log corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
 | `25` | Backup | CDB/non-CDB | destructive | Loss of RMAN backup pieces | Scenario 25 can see local and object-storage backup handles; execution requires --piece-handle or --local-only --max-targets <n>. |
 | `26` | Config | CDB/non-CDB | destructive | Loss of SPFILE | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
 | `28` | Config | CDB/non-CDB | destructive | Loss of ORACLE_HOME | Scenario 28 ORACLE_HOME loss requires an external restore/reinstall plan and is intentionally dry-run/manual only in this framework. |
@@ -117,9 +122,13 @@ This report validates the discovered target environment against the CrashSimulat
 | `47` | GI | Cluster | destructive | OCR loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: OCR (OCR restore practice must use a root/Grid procedure, verified OCR backups, and CRS validation) |
 | `48` | GI | Cluster | destructive | Voting disk loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: VOTING_DISK (Voting disk replacement practice must use a root/Grid procedure and cluster membership validation) |
 | `49` | ASM | ASM | destructive | ASM SPFILE loss | Selected target requires a provider-specific or manual handler before safe execution: +ASM_SPFILE (ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation) |
-| `59` | Backup | CDB/non-CDB | destructive | Missing archived redo log | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_8.280.1235272471 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `62` | Backup | CDB/non-CDB | destructive | Missing required archived log during recovery | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_8.280.1235272471 (ASM archived-log removal requires an ASM-aware handler; RMAN decision file: /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_031506_recovery_decision.rman) |
+| `59` | Backup | CDB/non-CDB | destructive | Missing archived redo log | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_13.293.1235286771 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `62` | Backup | CDB/non-CDB | destructive | Missing required archived log during recovery | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_13.293.1235286771 (ASM archived-log removal requires an ASM-aware handler; RMAN decision file: /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_072635_recovery_decision.rman) |
 | `70` | RAC | RAC | logical | RAC VIP relocation drill | Selected target requires a provider-specific or manual handler before safe execution: ora.crashdb26ai1.vip (Relocate VIP with srvctl/crsctl under Grid owner approval, then validate client connect strings, FAN/ONS, and service failover. CrashSimulator keeps VIP movement plan-only.) |
+| `73` | APEX/ORDS | Application | logical | ORDS service unavailable | Selected target requires a provider-specific or manual handler before safe execution: ords (ORDS service control requires root or passwordless sudo for the current OS user) |
+| `74` | APEX/ORDS | Application | destructive | ORDS configuration unavailable | Selected target requires a provider-specific or manual handler before safe execution: /etc/ords/config (ORDS config directory is not writable by oracle; run with approved OS privileges or restore from config backup) |
+| `75` | APEX/ORDS | Application | logical | ORDS database pool misconfiguration | Selected target requires a provider-specific or manual handler before safe execution: /etc/ords/config:default (Plan: back up ORDS config, change one pool setting such as service name/wallet/user to a lab-bad value, restart ORDS, validate outage, then restore config and restart. Automated mutation is intentionally blocked until target ORDS pool layout is confirmed.) |
+| `80` | APEX/ORDS | Application | logical | APEX session continuity test | Selected target requires a provider-specific or manual handler before safe execution: APEX_SESSION (Plan: open a seeded APEX application session, inject ORDS/RAC/service/database failover, capture browser/client outcome, then validate whether retry/relogin is required. Automated execution requires a lab APEX application and session script.) |
 
 ## Not Runnable Now
 
@@ -135,6 +144,7 @@ This report validates the discovered target environment against the CrashSimulat
 | `68` | DataGuard | Primary | logical | Data Guard transport network partition | Scenario 68 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation. |
 | `69` | DataGuard | DG | logical | Standby redo log misconfiguration review | Scenario 69 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
 | `72` | ASM | ASM | destructive | ASM single disk failure | No redundant ASM disk candidate was found. Scenario 72 requires a NORMAL/HIGH/FLEX/EXTENDED redundancy ASM disk group with online disks; EXTERN redundancy remains plan-only unsuitable for single-disk failure practice. |
+| `79` | APEX/ORDS | Application | logical | ORDS node unavailable behind load balancer | Scenario 79 requires --ords-lb-url or CRASHSIM_ORDS_LB_URL so the drill can validate load-balancer continuity. |
 
 ## How CrashSimulator Uses This Result
 

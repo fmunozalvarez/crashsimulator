@@ -21,12 +21,12 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
 
 ## Scenario Registry And Readiness References
 
-- `scenario_registry_72_reference.md`
+- `scenario_registry_82_reference.md`
   - Generated from `./CrashSimulatorV2.sh --list --audit-retain no`
-  - Summarizes the current 72-scenario registry, group counts, newly added
-    resilience/DG/RAC/ASM scenarios, and current protection/recovery helper
-    coverage.
-  - HTML copy: `scenario_registry_72_reference.md.html`
+  - Summarizes the current 82-scenario registry, group counts, newly added
+    resilience/DG/RAC/ASM/APEX/ORDS scenarios, and current protection/recovery
+    helper coverage.
+  - HTML copy: `scenario_registry_82_reference.md.html`
 - `scenario_lifecycle_coverage_reference.md`
   - Generated with `./CrashSimulatorV2.sh --scenario-lifecycle-report --html`
   - Shows validation, protection, execution, recovery, and runbook/evidence
@@ -41,8 +41,8 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 
 - `26ai/26ai_scenario_readiness_reference.md`
   - Generated with `./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html`
-  - Shows 39 runnable scenarios, 23 plan-only scenarios, and 10 not-runnable
-    scenarios for the RAC/ASM/no-Data-Guard topology.
+  - Shows 44 runnable scenarios, 27 plan-only scenarios, and 11 not-runnable
+    scenarios for the RAC/ASM/APEX/ORDS/no-Data-Guard topology.
 - `26ai/26ai_backup_strategy_recoverability_reference.md`
   - Generated after a fresh baseline backup tagged `C26AI_260607031353`.
   - Shows Level 0/full backup detection, archived redo backup evidence, and
@@ -56,7 +56,12 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
   - Shows Oracle service HA, AC/TAC, FSFO, DML redirection, and role-based
     service awareness evidence for the lab.
 - `26ai/26ai_scenario_lifecycle_reference.md`
-  - Shows lifecycle coverage for the 72-scenario registry from the 26ai run.
+  - Shows lifecycle coverage for the 82-scenario registry from the 26ai run.
+- `26ai/26ai_apex_ords_readiness_reference.md`
+  - Shows the APEX/ORDS readiness report after installing APEX 26.1.0 and ORDS
+    26.1.2 on the 26ai RAC lab.
+- `26ai/26ai_apex_availability_s78_reference.md`
+  - Shows scenario 78 read-only ORDS/APEX availability smoke evidence.
 
 ## HTML Reference Files
 
@@ -67,8 +72,9 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_target_control_file_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_recovery_catalog_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_deep_validate_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
-./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_72_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_82_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_lifecycle_coverage_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/26ai/26ai_scenario_readiness_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ```
 
 They are intended for demos and visual review. The original Markdown examples

@@ -15,25 +15,25 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>crashsim_scenario_registry_refresh_20260607.md</h1><div class="meta">Source: reports/crashsim_scenario_registry_refresh_20260607.md<br>Generated UTC: 2026-06-07T01:11:10Z</div></header>
+<header><h1>crashsim_scenario_registry_refresh_20260607.md</h1><div class="meta">Source: reports/crashsim_scenario_registry_refresh_20260607.md<br>Generated UTC: 2026-06-07T07:30:41Z</div></header>
 <pre>
 # CrashSimulator Scenario Registry And Artifact Refresh
 
 - Refresh date: `2026-06-07`
 - Local source tree: `/Users/franciscomunozalvarez/Downloads/Crashsimulator/source`
 - Scenario source command: `./CrashSimulatorV2.sh --list --audit-retain no`
-- Registry count: `72`
+- Registry count: `82`
 
 ## What Was Refreshed
 
 | Area | Refreshed artifact |
 | --- | --- |
-| Scenario status | `SCENARIO_STATUS.md` now summarizes the 72-scenario registry and the newly added resilience/DG/RAC/ASM layer. |
-| End-user guide | `docs/CRASHSIMULATOR_USER_GUIDE.md` now reports 72 scenarios and the current protection/recovery helper coverage. |
-| V2 notes | `README_V2.md` now reflects the 72-scenario registry, helper-script ZIP permissions, and new recovery helper coverage. |
+| Scenario status | `SCENARIO_STATUS.md` now summarizes the 82-scenario registry and the newly added resilience/DG/RAC/ASM/APEX/ORDS layer. |
+| End-user guide | `docs/CRASHSIMULATOR_USER_GUIDE.md` now reports 82 scenarios and the current protection/recovery helper coverage. |
+| V2 notes | `README_V2.md` now reflects the 82-scenario registry, helper-script ZIP permissions, and new recovery helper coverage. |
 | Captures | `captures/scenarios_available.txt` was regenerated from the current script registry; menu captures were aligned to the current Guided Workflow labels. |
 | Screenshots | `tools/render_promo_screenshots.cjs` was updated so the generated scenario catalog includes the new Compliance group. |
-| References | `docs/reference/scenario_registry_72_reference.md` was added as a sanitized scenario registry reference. |
+| References | `docs/reference/scenario_registry_82_reference.md` was added as a sanitized scenario registry reference. |
 | Reports | This report records the refresh baseline for review and audit. |
 | Lifecycle coverage | `--scenario-lifecycle-report` now records validation, protection, execution, recovery, and runbook/evidence coverage for every scenario. |
 
@@ -45,18 +45,20 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 | `66`-`69` | FSFO observer, Data Guard apply lag, Data Guard transport partition, and standby redo log review. |
 | `70`-`71` | RAC VIP/service placement validation. |
 | `72` | ASM single-disk failure planning for redundant disk groups. |
+| `73`-`82` | APEX/ORDS application access-path validation, including service, config, runtime-account, static-resource, availability, session, mail, and patch-readiness practice. |
 
 ## Current Guardrail Position
 
-The framework can list, runbook, and readiness-check all 72 scenarios. Scenario
+The framework can list, runbook, and readiness-check all 82 scenarios. Scenario
 execution is topology-aware: destructive actions are blocked when the required
-PDB, Data Guard, RAC, ASM, redundancy, local filesystem, backup-piece, or lab
-object prerequisites are missing.
+PDB, Data Guard, RAC, ASM, redundancy, local filesystem, backup-piece, APEX,
+ORDS, or lab object prerequisites are missing.
 
 Plan-only scenarios remain intentionally guarded when the safe action requires
 external infrastructure steps or an unvalidated topology, especially FSFO
 observer outage, RAC VIP movement, OCR/voting disk operations, ASM SPFILE loss,
-and ASM single-disk failure in redundant failgroups.
+ASM single-disk failure in redundant failgroups, ORDS service/config control,
+and APEX browser-session continuity.
 
 ## Next Validation Targets
 
@@ -66,6 +68,9 @@ and ASM single-disk failure in redundant failgroups.
   AC/TAC observations.
 - Validate scenario `72` only after provisioning a purpose-built NORMAL/HIGH
   redundancy ASM disk group with clear failgroups.
+- Validate APEX/ORDS scenarios `73`, `74`, `76`, `77`, and `79` after ORDS
+  service/config/static-resource privileges and an ORDS load-balancer URL are
+  approved; design a seeded APEX browser-session driver for `80`.
 - Re-render promotional screenshots after any future scenario registry change.
 </pre>
 </main></body></html>
