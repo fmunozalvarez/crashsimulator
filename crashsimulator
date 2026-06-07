@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-resolve_self() {
+resolve_self_path() {
   local source_dir source_file link_target
   source_file="${BASH_SOURCE[0]}"
   while [[ -L "$source_file" ]]; do
@@ -15,7 +15,8 @@ resolve_self() {
       source_file="${source_dir}/${link_target}"
     fi
   done
-  cd -P "$(dirname "$source_file")" >/dev/null 2>&1 && pwd
+  source_dir="$(cd -P "$(dirname "$source_file")" >/dev/null 2>&1 && pwd)"
+  printf "%s/%s\n" "$source_dir" "$(basename "$source_file")"
 }
 
 select_bash() {
@@ -36,7 +37,8 @@ select_bash() {
   printf "%s\n" "${CRASHSIM_BASH:-bash}"
 }
 
-SCRIPT_DIR="$(resolve_self)"
+SCRIPT_PATH="$(resolve_self_path)"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 CRASHSIM_HOME="${CRASHSIM_HOME:-}"
 CRASHSIM_BASH_BIN="$(select_bash)"
 
@@ -49,6 +51,8 @@ candidate_paths+=("/tmp/crashsimulator/CrashSimulatorV2.sh")
 
 for candidate in "${candidate_paths[@]}"; do
   if [[ -x "$candidate" ]]; then
+    candidate_path="$(cd -P "$(dirname "$candidate")" >/dev/null 2>&1 && pwd)/$(basename "$candidate")"
+    [[ "$candidate_path" == "$SCRIPT_PATH" ]] && continue
     cd "$(dirname "$candidate")"
     exec "$CRASHSIM_BASH_BIN" "$candidate" "$@"
   fi
