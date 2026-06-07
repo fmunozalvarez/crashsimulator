@@ -47,7 +47,7 @@ and unzip it.
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
 ```
 
 Run as the Oracle software owner, or as an OS user that can connect locally as

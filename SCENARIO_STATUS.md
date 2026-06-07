@@ -22,10 +22,10 @@ Current framework registry snapshot:
   review-only until a matching DG/RAC/ASM lab topology is explicitly approved.
 - Newly added APEX/ORDS application access-path drills: `73` ORDS service
   unavailable, `74` ORDS configuration unavailable, `75` ORDS pool
-  misconfiguration planning, `76` APEX/ORDS runtime account locked, `77` APEX
+  misconfiguration, `76` APEX/ORDS runtime account locked, `77` APEX
   static resources unavailable, `78` APEX availability smoke validation, `79`
   ORDS node unavailable behind a load balancer, `80` APEX session continuity
-  planning, `81` APEX mail configuration validation, and `82` APEX
+  evidence, `81` APEX mail configuration validation, and `82` APEX
   upgrade/patch rollback readiness.
 
 Oracle AI Database 26ai RAC/ASM validation environment:
@@ -54,30 +54,46 @@ Oracle AI Database 26ai RAC/ASM validation environment:
   in the framework. Destructive execution is gated by ORDS service permissions,
   writable/reversible config/static directories, load-balancer URL availability,
   and APEX/ORDS installation status.
+- Restricted ORDS OS action helper `/usr/local/bin/crashsim_ords_priv` was
+  installed on both RAC nodes and granted only through a narrow sudoers rule for
+  the Oracle software owner. It permits ORDS service control and reversible
+  `/etc/ords/config` rename/restore only.
+- A lab peer-continuity URL was enabled at `http://localhost:18080/ords/` on
+  each RAC node through a node-to-node tunnel. This supports scenario `79`
+  continuity practice, but a real load-balancer URL is still preferred for
+  production-grade load-balancer health-check/routing validation.
 
 26ai scenario readiness result:
 
-- `44` scenarios runnable in this RAC/ASM/APEX/ORDS/no-Data-Guard topology
-- `27` scenarios plan-only because they require ASM/GI/provider-specific
-  destructive handlers, ORDS service/config privileges, a disposable PDB,
-  explicit backup-piece selection, or external restore practice
-- `11` scenarios not runnable because this lab has no Data Guard/Active Data
+- `49` scenarios runnable in this RAC/ASM/APEX/ORDS/no-Data-Guard topology
+- `23` scenarios plan-only because they require ASM/GI/provider-specific
+  destructive handlers, a disposable PDB, explicit backup-piece selection, or
+  external restore practice
+- `10` scenarios not runnable because this lab has no Data Guard/Active Data
   Guard topology, no NORMAL/HIGH/FLEX ASM diskgroup for single-disk failure
-  practice, and no ORDS load-balancer URL
-- All `44` runnable scenarios completed readiness validation successfully:
+  practice
+- All `49` runnable scenarios completed readiness validation successfully:
   `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`, `14`, `15`, `17`, `22`,
   `27`, `30`, `31`, `32`, `33`, `34`, `35`, `36`, `37`, `38`, `39`, `40`,
   `41`, `42`, `43`, `44`, `55`, `56`, `57`, `58`, `60`, `61`, `63`, `64`,
-  `65`, `71`, `76`, `77`, `78`, `81`, and `82`.
-- APEX/ORDS scenarios `76` and `77` were executed and recovered successfully.
-  Scenario `76` initially exposed a CDB recovery-helper gap because unlock ran
+  `65`, `71`, `73`, `74`, `75`, `76`, `77`, `78`, `79`, `80`, `81`, and
+  `82`.
+- APEX/ORDS scenarios `73`, `74`, `75`, `76`, `77`, and `79` were executed and
+  recovered successfully; read-only scenarios `78`, `80`, `81`, and `82`
+  generated evidence reports. Scenario `73` restarted ORDS through the
+  restricted helper, `74` restored `/etc/ords/config` through the helper, `75`
+  restored the original ORDS `db.servicename`, and `79` used the lab peer
+  continuity URL after the local ORDS service was stopped. Scenario `80`
+  generated read-only APEX/ORDS continuity evidence.
+- Scenario `76` initially exposed a CDB recovery-helper gap because unlock ran
   from root instead of the PDB; the helper now reads the target container from
   the manifest and recovery was revalidated in `CRASHDB_PDB1`. Scenario `77`
-  restored `/opt/oracle/apex/images` with no `.crashsim.bak` leftovers. Read-only
-  scenarios `78`, `81`, and `82` were also executed and evidence reports were
-  generated. Scenarios `73`, `74`, `75`, and `80` remain plan-only in this lab
-  until ORDS service/config permissions or a seeded APEX session driver are
-  approved; `79` requires a load-balancer URL.
+  restored `/opt/oracle/apex/images` with no `.crashsim.bak` leftovers.
+  Scenarios `78`, `81`, and `82` were also executed and evidence reports were
+  generated.
+- A real ORDS load-balancer URL should still be supplied for production-grade
+  scenario `79`; the 26ai lab evidence used a peer continuity endpoint because
+  node-to-node ORDS port access was restricted by the environment.
 - Post-validation health check showed CDB/PDB open read write, no
   `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
 - Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
@@ -177,9 +193,10 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `71`: RAC service placement failure
 - `72`: ASM single disk failure
 - APEX/ORDS scenarios `73` through `82`: implemented and validated in the 26ai
-  RAC/ASM/APEX/ORDS lab. Scenarios `76`, `77`, `78`, `81`, and `82` now have
-  execution evidence; `73`, `74`, `75`, and `80` are plan-only in the current
-  OS/application posture; `79` requires an ORDS load-balancer URL.
+  RAC/ASM/APEX/ORDS lab. Scenarios `73`, `74`, `75`, `76`, `77`, and `79` now
+  have execution/recovery evidence; `78`, `80`, `81`, and `82` have read-only
+  evidence reports. Scenario `79` should be rerun with a production load
+  balancer URL when available; the current lab used peer continuity evidence.
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.

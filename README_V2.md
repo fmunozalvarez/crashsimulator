@@ -36,7 +36,7 @@ Oracle database host and unzip it:
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
 ```
 
 Run it as the Oracle software owner, or as an OS user that can connect locally
@@ -480,10 +480,12 @@ Automated recovery helpers are currently enabled for:
 - Scenario 62: restore/crosscheck the targeted archived log and generate
   required-log recovery decision evidence.
 - Scenario 73 and 79: restart the ORDS service and generate ORDS/APEX smoke
-  evidence.
+  or continuity evidence.
 - Scenario 74 and 77: restore renamed ORDS configuration or APEX static-file
   directories from scenario backups when the target was writable and executed by
   the lab user.
+- Scenario 75: restore the original ORDS pool `db.servicename`, restart ORDS,
+  and validate the ORDS/APEX smoke URL.
 - Scenario 76: unlock the affected APEX/ORDS runtime account in the selected
   PDB and validate account state.
 
@@ -618,6 +620,8 @@ APEX users.
 ./CrashSimulatorV2.sh --validate-scenario 73 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --scenario 73 --pdb CRASHPDB --dry-run
 ./CrashSimulatorV2.sh --recover 73 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
+./CrashSimulatorV2.sh --scenario 75 --pdb CRASHPDB --dry-run
+./CrashSimulatorV2.sh --recover 75 --manifest ./crashsimulator_logs/<manifest>.manifest --execute
 ./CrashSimulatorV2.sh --scenario 76 --pdb CRASHPDB --dry-run
 ./CrashSimulatorV2.sh --scenario 78 --ords-url http://localhost:8080/ords/ --execute
 ```
@@ -627,12 +631,20 @@ invalid APEX/ORDS objects, workspaces/applications, SMTP and wallet signals,
 network ACLs, ORDS version/configuration, systemd service state, and ORDS smoke
 URLs. The Guided Workflow Reports menu includes the same report.
 
-Scenarios `73`, `74`, `76`, `77`, and `79` have automated recovery helpers
-where the lab user has safe OS permissions and the target is reversible.
-Scenarios `75` and `80` are intentionally plan-only until a target-specific ORDS
-pool mutation or APEX session script is provided. Scenarios `78`, `81`, and `82`
-are read-only evidence drills for application availability, mail configuration,
-and upgrade/patch rollback readiness.
+Scenarios `73`, `74`, `75`, `76`, `77`, and `79` have automated recovery
+helpers where the lab user has safe OS permissions and the target is reversible.
+Scenario `75` performs a reversible `db.servicename` mutation and restores the
+original value during recovery. Scenario `79` can use `--ords-lb-url` for a real
+load balancer or a lab peer-continuity URL for continuity practice. Scenarios
+`78`, `80`, `81`, and `82` are read-only evidence drills for application
+availability, session continuity, mail configuration, and upgrade/patch rollback
+readiness.
+
+For labs where the Oracle software owner cannot control ORDS directly, install
+the restricted helper `crashsim_ords_priv_helper.sh` as root-owned
+`/usr/local/bin/crashsim_ords_priv` and grant only that helper through sudoers.
+Then pass `--ords-priv-helper /usr/local/bin/crashsim_ords_priv` or set
+`CRASHSIM_ORDS_PRIV_HELPER`.
 
 ## Executing A Scenario
 

@@ -1,0 +1,68 @@
+# 26ai APEX/ORDS blocker fix evidence
+
+Validation date: 2026-06-07 UTC
+Target: Oracle AI Database 26ai RAC/ASM lab, PDB CRASHDB_PDB1
+
+Former blockers addressed:
+
+- Scenario 73: ORDS service unavailable now uses a restricted sudo helper for
+  ORDS service stop/start/restart/status.
+- Scenario 74: ORDS configuration unavailable now uses the same restricted
+  helper for reversible /etc/ords/config rename and restore.
+- Scenario 75: ORDS pool misconfiguration is no longer plan-only; it changes
+  db.servicename to a lab-bad value, restarts ORDS, validates outage, and
+  --recover 75 restores the original service name.
+- Scenario 79: ORDS node outage now accepts an explicit load-balancer URL and,
+  for this lab, can use a peer ORDS continuity URL on localhost:18080 through a
+  node-to-node tunnel. This validates peer continuity, not production load
+  balancer routing policy.
+- Scenario 80: APEX session continuity is no longer plan-only; it generates
+  read-only APEX/ORDS continuity evidence and should be paired with a live
+  browser/session driver for end-user experience capture.
+
+OS helper and continuity checks:
+
+```text
+Node 1 /usr/local/bin/crashsim_ords_priv: root:root, mode 750
+Node 1 ORDS service via helper: active
+Node 1 peer tunnel service: active
+Node 1 local ORDS smoke: HTTP 200
+Node 1 peer continuity URL: HTTP 200
+
+Node 2 /usr/local/bin/crashsim_ords_priv: root:root, mode 750
+Node 2 ORDS service via helper: active
+Node 2 peer tunnel service: active
+Node 2 local ORDS smoke: HTTP 200
+Node 2 peer continuity URL: HTTP 200
+```
+
+Scenario readiness after the patch:
+
+```text
+Scenario 73: RUNNABLE - Requirements passed and target selection produced executable actions.
+Scenario 74: RUNNABLE - Requirements passed and target selection produced executable actions.
+Scenario 75: RUNNABLE - Requirements passed and target selection produced executable actions.
+Scenario 79: RUNNABLE - Requirements passed and target selection produced executable actions.
+Scenario 80: RUNNABLE - Requirements passed and target selection produced executable actions.
+```
+
+Execution and recovery evidence generated on node 1:
+
+```text
+crashsimulator_logs/crashsim_scenario_s73_20260607_081243.manifest
+crashsimulator_logs/crashsim_scenario_s74_20260607_081329.manifest
+crashsimulator_logs/crashsim_scenario_s75_20260607_081408.manifest
+crashsimulator_logs/crashsim_scenario_s79_20260607_081501.manifest
+crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_081546.md
+```
+
+Post-drill stabilization:
+
+```text
+Database CRASHDB / crashdb_26ai: READ WRITE, PRIMARY, CDB=YES
+PDB CRASHDB_PDB1: READ WRITE
+V$RECOVER_FILE: no rows selected
+V$DATABASE_BLOCK_CORRUPTION: no rows selected
+ORDS db.servicename after recovery: crashdb_CRASHDB_PDB1.paas.oracle.com
+No .crashsim.bak leftovers found under /etc/ords or /opt/oracle/apex on either node.
+```

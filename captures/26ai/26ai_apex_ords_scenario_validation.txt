@@ -6,9 +6,8 @@ Scope: Application
 Impact: logical
 Requires: any
 
-Result: NOT RUNNABLE (dry-run planning only)
-Scenario 73 is not possible to run at this moment.
-Reason: Selected target requires a provider-specific or manual handler before safe execution: ords (ORDS service control requires root or passwordless sudo for the current OS user)
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
 ===SCENARIO_74===
 Scenario readiness validation
 Scenario 74: ORDS configuration unavailable
@@ -17,9 +16,8 @@ Scope: Application
 Impact: destructive
 Requires: any
 
-Result: NOT RUNNABLE (dry-run planning only)
-Scenario 74 is not possible to run at this moment.
-Reason: Selected target requires a provider-specific or manual handler before safe execution: /etc/ords/config (ORDS config directory is not writable by oracle; run with approved OS privileges or restore from config backup)
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
 ===SCENARIO_75===
 Scenario readiness validation
 Scenario 75: ORDS database pool misconfiguration
@@ -28,9 +26,8 @@ Scope: Application
 Impact: logical
 Requires: any
 
-Result: NOT RUNNABLE (dry-run planning only)
-Scenario 75 is not possible to run at this moment.
-Reason: Selected target requires a provider-specific or manual handler before safe execution: /etc/ords/config:default (Plan: back up ORDS config, change one pool setting such as service name/wallet/user to a lab-bad value, restart ORDS, validate outage, then restore config and restart. Automated mutation is intentionally blocked until target ORDS pool layout is confirmed.)
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
 ===SCENARIO_76===
 Scenario readiness validation
 Scenario 76: APEX/ORDS runtime account locked
@@ -69,9 +66,8 @@ Scope: Application
 Impact: logical
 Requires: any
 
-Result: NOT RUNNABLE
-Scenario 79 is not possible to run at this moment.
-Reason: Scenario 79 requires --ords-lb-url or CRASHSIM_ORDS_LB_URL so the drill can validate load-balancer continuity.
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
 ===SCENARIO_80===
 Scenario readiness validation
 Scenario 80: APEX session continuity test
@@ -80,9 +76,8 @@ Scope: Application
 Impact: logical
 Requires: any
 
-Result: NOT RUNNABLE (dry-run planning only)
-Scenario 80 is not possible to run at this moment.
-Reason: Selected target requires a provider-specific or manual handler before safe execution: APEX_SESSION (Plan: open a seeded APEX application session, inject ORDS/RAC/service/database failover, capture browser/client outcome, then validate whether retry/relogin is required. Automated execution requires a lab APEX application and session script.)
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
 ===SCENARIO_81===
 Scenario readiness validation
 Scenario 81: APEX mail queue and configuration validation

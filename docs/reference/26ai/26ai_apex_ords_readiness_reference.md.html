@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>crashsim_apex_ords_report_20260607_074349.md</title>
+<title>crashsim_apex_ords_report_20260607_081644.md</title>
 <style>
 :root { color-scheme: light dark; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
@@ -15,11 +15,11 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>crashsim_apex_ords_report_20260607_074349.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_074349.md<br>Generated UTC: 2026-06-07T07:43:55Z</div></header>
+<header><h1>crashsim_apex_ords_report_20260607_081644.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md<br>Generated UTC: 2026-06-07T08:16:51Z</div></header>
 <pre>
 # CrashSimulator APEX / ORDS Readiness Report
 
-- Generated UTC: `2026-06-07T07:43:50Z`
+- Generated UTC: `2026-06-07T08:16:45Z`
 - Host: `crashdb26ai1`
 - OS user: `oracle`
 - Database: `CRASHDB`
@@ -27,7 +27,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
 - Target PDB detail: `CRASHDB_PDB1`
-- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_074349.evidence`
+- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence`
 - ORDS service name: `ords`
 - ORDS config directory: `/etc/ords/config`
 - ORDS smoke URL: `http://localhost:8080/ords/`
@@ -85,18 +85,18 @@ This report treats APEX/ORDS as an application access-path dependency. A databas
 | --- | --- | --- |
 | `73` | ORDS service unavailable | Automatable when the OS user can control the ORDS systemd unit. |
 | `74` | ORDS configuration unavailable | Automatable only when the config directory is writable or explicitly run with approved OS privileges. |
-| `75` | ORDS database pool misconfiguration | Plan-only until a reversible pool-setting backup/restore flow is approved for the target ORDS version. |
+| `75` | ORDS database pool misconfiguration | Reversible db.servicename mutation when ORDS restart privileges are approved; --recover 75 restores the original value. |
 | `76` | APEX/ORDS runtime account locked | Automatable when APEX/ORDS runtime users exist in the target container. |
 | `77` | APEX static resources unavailable | Automatable when an APEX images/static directory is configured and writable. |
 | `78` | APEX application availability validation after recovery | Read-only smoke evidence after PDB/datafile recovery. |
 | `79` | One ORDS node unavailable behind load balancer | Automatable when ORDS service control and a load-balancer URL are supplied. |
-| `80` | APEX session continuity test | Plan-only until a test APEX application/session script exists. |
+| `80` | APEX session continuity test | Read-only continuity evidence; combine with a live browser session or seeded script for end-user behavior capture. |
 | `81` | APEX mail queue/configuration validation | Read-only APEX SMTP/wallet/ACL evidence. |
 | `82` | APEX upgrade/patch rollback readiness | Read-only pre/post evidence and runbook. |
 
 ## Raw APEX / ORDS SQL Evidence
 
-Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_074349.evidence`
+Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence`
 
 ```text
 CSIM_APEX|db_name|CRASHDB
@@ -140,9 +140,9 @@ CSIM_APEX|local_network_acl_count|1
 Command: ords --version
 
 ```text
-2026-06-07T07:43:52Z INFO   ORDS has not detected the option '--config' and this will be set up to the default directory.
+2026-06-07T08:16:47Z INFO   ORDS has not detected the option '--config' and this will be set up to the default directory.
 
-ORDS: Release 26.1 Production on Sun Jun 07 07:43:53 2026
+ORDS: Release 26.1 Production on Sun Jun 07 08:16:49 2026
 
 Copyright (c) 2010, 2026, Oracle.
 
@@ -158,7 +158,7 @@ Command: ords --config /etc/ords/config config list
 
 ```text
 
-ORDS: Release 26.1 Production on Sun Jun 07 07:43:55 2026
+ORDS: Release 26.1 Production on Sun Jun 07 08:16:50 2026
 
 Copyright (c) 2010, 2026, Oracle.
 
@@ -191,13 +191,14 @@ Command: systemctl status ords
 ```text
 ● ords.service - Oracle REST Data Services
    Loaded: loaded (/etc/systemd/system/ords.service; enabled; vendor preset: disabled)
-   Active: active (running) since Sun 2026-06-07 07:12:01 UTC; 31min ago
-  Process: 76798 ExecStart=/usr/bin/bash -c /etc/init.d/ords start (code=exited, status=0/SUCCESS)
- Main PID: 76888 (java)
+   Active: active (running) since Sun 2026-06-07 08:15:24 UTC; 1min 26s ago
+  Process: 81244 ExecStop=/usr/bin/bash -c /etc/init.d/ords stop (code=exited, status=0/SUCCESS)
+  Process: 83755 ExecStart=/usr/bin/bash -c /etc/init.d/ords start (code=exited, status=0/SUCCESS)
+ Main PID: 83890 (java)
     Tasks: 0 (limit: 79998)
-   Memory: 232.0K
+   Memory: 24.0K
    CGroup: /system.slice/ords.service
-           ‣ 76888 java -Doracle.dbtools.cmdline.home=/opt/oracle/ords -Duser.language=en -Duser.region=US -Dfile.encoding=UTF-8 -Djava.awt.headless=true -Doracle.dbtools.cmdline.ShellCommand=ords -Duser.timezone=UTC -XX:+IgnoreUnrecognizedVMOptions -jar /opt/oracle/ords/ords.war --config /etc/ords/config serve --apex-images /opt/oracle/apex/images
+           ‣ 83890 java -Doracle.dbtools.cmdline.home=/opt/oracle/ords -Duser.language=en -Duser.region=US -Dfile.encoding=UTF-8 -Djava.awt.headless=true -Doracle.dbtools.cmdline.ShellCommand=ords -Duser.timezone=UTC -XX:+IgnoreUnrecognizedVMOptions -jar /opt/oracle/ords/ords.war --config /etc/ords/config serve --apex-images /opt/oracle/apex/images
 ```
 
 ## ORDS Smoke URL

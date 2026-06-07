@@ -15,7 +15,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>scenario_registry_82_reference.md</h1><div class="meta">Source: docs/reference/scenario_registry_82_reference.md<br>Generated UTC: 2026-06-07T07:26:02Z</div></header>
+<header><h1>scenario_registry_82_reference.md</h1><div class="meta">Source: docs/reference/scenario_registry_82_reference.md<br>Generated UTC: 2026-06-07T08:29:04Z</div></header>
 <pre>
 # CrashSimulator Scenario Registry Reference
 
@@ -66,13 +66,13 @@ APEX/ORDS application access-path layer.
 | 71 | RAC service placement failure | Reversible service stop/start or placement validation with recovery helper. |
 | 72 | ASM single disk failure | Plan-only redundant ASM/failgroup drill; EXTERN redundancy is rejected. |
 | 73 | ORDS service unavailable | Automatable where ORDS service control is available; recovery helper restarts ORDS and captures smoke evidence. |
-| 74 | ORDS configuration unavailable | Reversible only where the ORDS config directory can be safely renamed/restored; otherwise plan-only. |
-| 75 | ORDS database pool misconfiguration | Plan-only until a target-specific reversible pool mutation is approved. |
+| 74 | ORDS configuration unavailable | Reversible where the ORDS config directory can be safely renamed/restored, including through the restricted ORDS helper. |
+| 75 | ORDS database pool misconfiguration | Reversible `db.servicename` mutation when ORDS restart privileges are approved; recovery restores the original value. |
 | 76 | APEX/ORDS runtime account locked | Runnable where APEX/ORDS runtime users exist; recovery helper unlocks the account. |
 | 77 | APEX static resources unavailable | Runnable where APEX static files are configured and writable; recovery helper restores the renamed directory. |
 | 78 | APEX application availability validation after recovery | Read-only ORDS/APEX smoke evidence. |
-| 79 | ORDS node unavailable behind load balancer | Requires ORDS service control and an ORDS load-balancer URL. |
-| 80 | APEX session continuity test | Plan-only until a seeded APEX app and browser/session script exist. |
+| 79 | ORDS node unavailable behind load balancer | Requires ORDS service control and a continuity URL; use a real load-balancer URL for production-grade validation. |
+| 80 | APEX session continuity test | Read-only APEX/ORDS continuity evidence; pair with a live browser session or seeded script for end-user behavior capture. |
 | 81 | APEX mail queue and configuration validation | Read-only SMTP, wallet, ACL, and notification-readiness evidence. |
 | 82 | APEX upgrade or patch rollback readiness | Read-only pre/post APEX/ORDS patch evidence and runbook. |
 
@@ -86,7 +86,7 @@ Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
 `7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
 `21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
 `35`, `37`, `38`, `39`, `40`, `41`, `42`, `50`, `51`, `55`, `56`, `57`,
-`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `76`, `77`, and
+`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `75`, `76`, `77`, and
 `79`.
 
 Use `--validate-scenario &lt;id&gt;` or `--scenario-readiness-report` before running

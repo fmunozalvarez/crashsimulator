@@ -41,7 +41,7 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 
 - `26ai/26ai_scenario_readiness_reference.md`
   - Generated with `./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html`
-  - Shows 44 runnable scenarios, 27 plan-only scenarios, and 11 not-runnable
+  - Shows 49 runnable scenarios, 23 plan-only scenarios, and 10 not-runnable
     scenarios for the RAC/ASM/APEX/ORDS/no-Data-Guard topology.
 - `26ai/26ai_backup_strategy_recoverability_reference.md`
   - Generated after the post-APEX/ORDS baseline backup tagged
@@ -66,6 +66,10 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 - `../../captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
   - Shows compact execution and recovery evidence for APEX/ORDS scenarios `76`
     and `77`, including the PDB-aware recovery helper validation.
+- `../../captures/26ai/26ai_apex_ords_blockers_fixed_s73_s75_s79_s80.txt`
+  - Shows compact evidence for the fixed APEX/ORDS blockers: restricted ORDS
+    helper validation, scenarios `73`, `74`, `75`, and `79` execution/recovery,
+    scenario `80` read-only evidence, and post-drill stabilization.
 
 ## HTML Reference Files
 

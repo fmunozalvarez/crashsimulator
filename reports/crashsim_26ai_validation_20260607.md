@@ -20,25 +20,39 @@
 - Installed and validated APEX 26.1.0 in PDB `CRASHDB_PDB1`.
 - Installed ORDS 26.1.2 on both RAC nodes, configured the default pool against
   the RAC SCAN/PDB service, and configured APEX static image serving.
+- Installed the restricted ORDS helper `/usr/local/bin/crashsim_ords_priv` on
+  both RAC nodes with a narrow sudoers grant for ORDS service control and
+  reversible `/etc/ords/config` rename/restore.
+- Added a lab peer-continuity URL at `http://localhost:18080/ords/` on each
+  node for scenario `79` continuity practice when a production load-balancer URL
+  is not available.
 
 ## Validation Results
 
-- Scenario readiness: `44` runnable, `27` plan-only, `11` not runnable.
-- All `44` runnable scenarios completed readiness validation successfully.
+- Scenario readiness: `49` runnable, `23` plan-only, `10` not runnable.
+- All `49` runnable scenarios completed readiness validation successfully.
 - APEX/ORDS readiness checks passed for APEX registry status, runtime accounts,
   invalid object count, ORDS service posture, ORDS pool validation, and local
   smoke URL.
-- APEX/ORDS scenarios `76` and `77` executed and recovered successfully.
+- APEX/ORDS scenarios `73`, `74`, `75`, `76`, `77`, and `79` executed and
+  recovered successfully.
+  - `73` restarted ORDS through the restricted helper.
+  - `74` restored `/etc/ords/config` through the restricted helper.
+  - `75` restored the original ORDS `db.servicename` and restarted ORDS.
+  - `79` stopped local ORDS, validated peer continuity through the lab URL, and
+    recovered the local ORDS service.
   Scenario `76` validated PDB-aware runtime-account recovery after patching the
   helper to read `apex_runtime_target_container` from the manifest. Scenario
   `77` restored the APEX static-resource directory with no `.crashsim.bak`
-  leftovers. Read-only scenarios `78`, `81`, and `82` executed successfully.
-  Scenarios `73`, `74`, `75`, and `80` are plan-only in the current
-  OS/application posture; `79` requires an ORDS load-balancer URL.
+  leftovers. Read-only scenarios `78`, `80`, `81`, and `82` executed
+  successfully.
 - MAA readiness: Silver posture, baseline checks passed.
 - Backup report: Level 0/full backup strategy with archived redo backups.
 - Post-validation health: CDB/PDB open read write, no recover-file rows, no
   database block corruption rows.
+- Scenario `79` should still be repeated with a real load-balancer URL when
+  available; the current evidence validates peer continuity, not production
+  load-balancer routing or health-check policy.
 
 ## Evidence
 
@@ -53,6 +67,7 @@
   - `docs/reference/26ai/26ai_apex_ords_readiness_reference.md`
   - `docs/reference/26ai/26ai_apex_availability_s78_reference.md`
   - `captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
+  - `captures/26ai/26ai_apex_ords_blockers_fixed_s73_s75_s79_s80.txt`
 
 ## Notes
 

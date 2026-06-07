@@ -43,6 +43,7 @@ ORDS_CONFIG_DIR="${CRASHSIM_ORDS_CONFIG_DIR:-/etc/ords/config}"
 ORDS_URL="${CRASHSIM_ORDS_URL:-http://localhost:8080/ords/}"
 ORDS_LB_URL="${CRASHSIM_ORDS_LB_URL:-}"
 ORDS_DB_POOL="${CRASHSIM_ORDS_DB_POOL:-default}"
+ORDS_PRIV_HELPER="${CRASHSIM_ORDS_PRIV_HELPER:-/usr/local/bin/crashsim_ords_priv}"
 APEX_IMAGES_DIR="${CRASHSIM_APEX_IMAGES_DIR:-}"
 AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
@@ -114,6 +115,7 @@ declare -a PLAN_TARGET_FILE_NOS=()
 declare -a PLAN_TARGET_TABLESPACES=()
 declare -a RESTORE_ORIGINALS=()
 declare -a RESTORE_BACKUPS=()
+declare -a RESTORE_METHODS=()
 declare -a RECOVER_FILE_NOS=()
 declare -a RECOVER_TEMPFILE_PATHS=()
 declare -a ORIGINAL_ARGS=("$@")
@@ -238,6 +240,7 @@ Options:
   --ords-config-dir <dir> ORDS configuration directory. Default: /etc/ords/config.
   --ords-url <url>        ORDS health/smoke URL. Default: http://localhost:8080/ords/.
   --ords-lb-url <url>     Optional load balancer URL for ORDS node-outage drills.
+  --ords-priv-helper <p>  Optional sudo helper for narrowly approved ORDS OS actions.
   --apex-images-dir <dir> APEX images/static files directory for static-file drills.
   --sysbackup-user <name> Common user to re-grant SYSBACKUP after password-file recovery.
   --local-only            Scenario 25: target local filesystem backup pieces only.
@@ -276,6 +279,7 @@ Environment:
   CRASHSIM_ORDS_CONFIG_DIR      ORDS configuration directory.
   CRASHSIM_ORDS_URL             ORDS health/smoke URL.
   CRASHSIM_ORDS_LB_URL          Optional ORDS load balancer URL.
+  CRASHSIM_ORDS_PRIV_HELPER     Optional sudo helper path for ORDS service/config drills.
   CRASHSIM_APEX_IMAGES_DIR      APEX images/static files directory.
   CRASHSIM_SYSBACKUP_USER       Common SYSBACKUP user to restore. Default: C##DBLCMUSER.
   CRASHSIM_TEMPFILE_SIZE        Tempfile size used by tempfile recovery. Default: 100m.
@@ -843,12 +847,14 @@ manifest_rename_paths() {
 load_manifest_restore_pairs() {
   RESTORE_ORIGINALS=()
   RESTORE_BACKUPS=()
+  RESTORE_METHODS=()
 
-  local idx original backup
+  local idx original backup method
   idx=1
   while true; do
     original="$(manifest_get "rename_${idx}_original" || true)"
     backup="$(manifest_get "rename_${idx}_backup" || true)"
+    method="$(manifest_get "rename_${idx}_method" || true)"
     if [[ -z "$original" && -z "$backup" ]]; then
       break
     fi
@@ -856,6 +862,7 @@ load_manifest_restore_pairs() {
       die "Manifest has an incomplete restore pair for rename_${idx}."
     RESTORE_ORIGINALS+=("$original")
     RESTORE_BACKUPS+=("$backup")
+    RESTORE_METHODS+=("${method:-rename}")
     idx=$((idx + 1))
   done
 
@@ -878,10 +885,11 @@ copy_restore_pairs_to_originals() {
 }
 
 move_restore_pairs_to_originals() {
-  local idx original backup
+  local idx original backup method
   for idx in "${!RESTORE_ORIGINALS[@]}"; do
     original="${RESTORE_ORIGINALS[$idx]}"
     backup="${RESTORE_BACKUPS[$idx]}"
+    method="${RESTORE_METHODS[$idx]:-rename}"
     if [[ "$EXECUTE" -eq 0 ]]; then
       echo "DRY-RUN: would move $backup back to $original"
     else
@@ -890,8 +898,13 @@ move_restore_pairs_to_originals() {
         warn "Original path already exists while restoring ${original}; leaving backup in place: ${backup}"
         continue
       fi
-      echo "mv -- $backup $original"
-      mv -- "$backup" "$original" || die "Unable to restore $original from $backup"
+      if [[ "$method" == "ords_priv_config_rename" ]]; then
+        run_ords_priv_helper config-restore "$backup" "$original" ||
+          die "Unable to restore ORDS config with approved helper: $backup -> $original"
+      else
+        echo "mv -- $backup $original"
+        mv -- "$backup" "$original" || die "Unable to restore $original from $backup"
+      fi
     fi
   done
 }
@@ -1970,12 +1983,12 @@ register_scenarios() {
   register_scenario "72" "ASM single disk failure"                           "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_single_disk_failure" "Plans single-disk failure only for redundant ASM disk groups."
   register_scenario "73" "ORDS service unavailable"                          "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_service_unavailable" "Stops the ORDS systemd service when OS service control is available."
   register_scenario "74" "ORDS configuration unavailable"                    "APEX/ORDS"  "Application" "destructive" "any"               "scenario_ords_config_unavailable" "Renames ORDS config only when the config directory is writable; otherwise plan-only."
-  register_scenario "75" "ORDS database pool misconfiguration"               "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_pool_misconfiguration" "Plan-only reversible pool misconfiguration drill with config backup guidance."
+  register_scenario "75" "ORDS database pool misconfiguration"               "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_pool_misconfiguration" "Reversible ORDS pool service-name misconfiguration drill when service restart privileges are approved."
   register_scenario "76" "APEX/ORDS runtime account locked"                  "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_runtime_account_locked" "Locks an available APEX/ORDS runtime account and validates unlock recovery."
   register_scenario "77" "APEX static resources unavailable"                 "APEX/ORDS"  "Application" "destructive" "any"               "scenario_apex_static_resources_unavailable" "Renames APEX images/static directory when explicitly configured and writable."
   register_scenario "78" "APEX application availability validation after recovery" "APEX/ORDS" "Application" "logical" "any"         "scenario_apex_application_availability_validation" "Read-only ORDS/APEX smoke evidence after database/PDB recovery."
   register_scenario "79" "ORDS node unavailable behind load balancer"         "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_lb_node_unavailable" "Stops local ORDS service and validates optional load-balancer URL."
-  register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Plan-only until a lab APEX app/session script is supplied."
+  register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Read-only APEX/ORDS session-continuity evidence drill; pair with a live browser session for full validation."
   register_scenario "81" "APEX mail queue and configuration validation"       "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_mail_config_validation" "Read-only SMTP/wallet/ACL evidence for notification recovery readiness."
   register_scenario "82" "APEX upgrade or patch rollback readiness"           "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_patch_rollback_readiness" "Read-only pre/post APEX version, object, and runtime-account evidence."
 }
@@ -2313,7 +2326,7 @@ supports_file_recovery_automation() {
 supports_recovery_automation() {
   local id="$1"
   case "$id" in
-    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|50|51|55|56|57|58|59|61|62|67|68|71|73|74|76|77|79) return "$SUCCESS" ;;
+    1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|50|51|55|56|57|58|59|61|62|67|68|71|73|74|75|76|77|79) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
 }
@@ -2354,10 +2367,10 @@ scenario_execution_capability() {
     28)
       printf "Manual-only external restore plan"
       ;;
-    46|47|48|49|66|70|72|75|80)
+    46|47|48|49|66|70|72)
       printf "Plan-only evidence; external approved action"
       ;;
-    64|65|69|78|81|82)
+    64|65|69|78|80|81|82)
       printf "Automated read-only report"
       ;;
     *)
@@ -2374,13 +2387,13 @@ scenario_recovery_capability() {
   fi
 
   case "$id" in
-    64|65|69|78|81|82)
+    64|65|69|78|80|81|82)
       printf "Not required: read-only report"
       ;;
     11|36|43|44)
       printf "Manual logical restore/reseed runbook"
       ;;
-    28|29|45|46|47|48|49|52|53|54|60|63|66|70|72|75|80)
+    28|29|45|46|47|48|49|52|53|54|60|63|66|70|72)
       printf "Manual/external runbook"
       ;;
     *)
@@ -2396,7 +2409,7 @@ scenario_runbook_capability() {
 scenario_evidence_capability() {
   local id="$1"
   case "$id" in
-    64|65|69|78|81|82)
+    64|65|69|78|80|81|82)
       printf "Markdown report, SQL evidence, manifest, audit"
       ;;
     52|53|54)
@@ -2416,7 +2429,7 @@ scenario_lifecycle_next_step() {
   fi
   if ! supports_recovery_automation "$id"; then
     case "$id" in
-      64|65|69|78|81|82)
+      64|65|69|78|80|81|82)
         printf "No recovery helper required; keep report evidence current."
         ;;
       11|36|43|44)
@@ -2445,8 +2458,8 @@ generate_scenario_lifecycle_report() {
     supports_recovery_automation "$id" && auto_recover_count=$((auto_recover_count + 1))
     [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder_count=$((placeholder_count + 1))
     case "$id" in
-      46|47|48|49|66|70|72|75|80) plan_only_count=$((plan_only_count + 1)) ;;
-      64|65|69|78|81|82) read_only_count=$((read_only_count + 1)) ;;
+      46|47|48|49|66|70|72) plan_only_count=$((plan_only_count + 1)) ;;
+      64|65|69|78|80|81|82) read_only_count=$((read_only_count + 1)) ;;
     esac
   done
 
@@ -2868,7 +2881,7 @@ validation_no_target_reason() {
       elif printf "%s\n" "$output" | grep -q "ORDS systemd service unit was not found"; then
         printf "The ORDS systemd service unit ${ORDS_SERVICE_NAME} was not found. Configure ORDS as a managed service before running scenario %s." "$id"
       elif printf "%s\n" "$output" | grep -q "requires --ords-lb-url"; then
-        printf "Scenario 79 requires --ords-lb-url or CRASHSIM_ORDS_LB_URL so the drill can validate load-balancer continuity."
+        printf "Scenario 79 requires --ords-lb-url/CRASHSIM_ORDS_LB_URL or a reachable peer ORDS node so the drill can validate continuity."
       else
         return "$FAIL"
       fi
@@ -2876,6 +2889,19 @@ validation_no_target_reason() {
     74)
       if printf "%s\n" "$output" | grep -q "ORDS configuration directory was not found"; then
         printf "ORDS configuration directory was not found at ${ORDS_CONFIG_DIR}. Configure ORDS or pass --ords-config-dir before running scenario 74."
+      elif printf "%s\n" "$output" | grep -q "ORDS config directory is not writable"; then
+        printf "ORDS config directory cannot be renamed by $(id -un). Configure the approved ORDS helper ${ORDS_PRIV_HELPER}, or make the ORDS config parent writable in a lab."
+      else
+        return "$FAIL"
+      fi
+      ;;
+    75)
+      if printf "%s\n" "$output" | grep -q "ORDS binary was not found"; then
+        printf "ORDS is not installed or not in PATH. Install/configure ORDS before running scenario 75."
+      elif printf "%s\n" "$output" | grep -q "ORDS configuration directory was not found"; then
+        printf "ORDS configuration directory was not found at ${ORDS_CONFIG_DIR}. Configure ORDS or pass --ords-config-dir before running scenario 75."
+      elif printf "%s\n" "$output" | grep -q "requires approved ORDS service restart privileges"; then
+        printf "Scenario 75 requires approved ORDS service restart privileges. Configure ${ORDS_PRIV_HELPER} or narrow sudo service control for ${ORDS_SERVICE_NAME}."
       else
         return "$FAIL"
       fi
@@ -2894,9 +2920,11 @@ validation_no_target_reason() {
         return "$FAIL"
       fi
       ;;
-    78)
+    78|80)
       if printf "%s\n" "$output" | grep -q "ORDS/APEX smoke URL is not reachable"; then
-        printf "The ORDS/APEX smoke URL is not reachable: ${ORDS_URL}. Start/configure ORDS and validate network access before running scenario 78."
+        printf "The ORDS/APEX smoke URL is not reachable: ${ORDS_URL}. Start/configure ORDS and validate network access before running scenario %s." "$id"
+      elif printf "%s\n" "$output" | grep -q "APEX is not installed"; then
+        printf "APEX is not installed in the selected target container. Install APEX in the PDB and rerun validation for scenario %s." "$id"
       else
         return "$FAIL"
       fi
@@ -4541,11 +4569,14 @@ recover_ords_service_scenario() {
   scenario_exists "$id" || die "Unknown scenario id: $id"
   CURRENT_SCENARIO_ID="$id"
 
-  local service status_file smoke_file service_from_manifest
+  local service status_file smoke_file service_from_manifest lb_from_manifest effective_lb_url
   service="$ORDS_SERVICE_NAME"
+  effective_lb_url="$ORDS_LB_URL"
   if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
     service_from_manifest="$(manifest_first_value "ords_service_name" "action_1_target" || true)"
     [[ -n "$service_from_manifest" ]] && service="$service_from_manifest"
+    lb_from_manifest="$(manifest_first_value "ords_lb_url" || true)"
+    [[ -z "$effective_lb_url" && -n "$lb_from_manifest" ]] && effective_lb_url="$lb_from_manifest"
   fi
   [[ -n "$service" ]] || die "ORDS service name was not supplied."
 
@@ -4565,7 +4596,7 @@ recover_ords_service_scenario() {
   echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
   echo "ORDS service: ${service}"
   echo "ORDS URL: ${ORDS_URL}"
-  [[ -n "$ORDS_LB_URL" ]] && echo "ORDS load balancer URL: ${ORDS_LB_URL}"
+  [[ -n "$effective_lb_url" ]] && echo "ORDS continuity URL: ${effective_lb_url}"
   echo "Manifest: ${MANIFEST_FILE}"
   echo
   print_recovery_runbook "$id"
@@ -4575,13 +4606,16 @@ recover_ords_service_scenario() {
   if [[ "$EXECUTE" -eq 0 ]]; then
     echo "DRY-RUN: would start ORDS service ${service}"
     echo "DRY-RUN: would validate ${ORDS_URL}"
-    [[ -n "$ORDS_LB_URL" ]] && echo "DRY-RUN: would validate ${ORDS_LB_URL}"
+    [[ -n "$effective_lb_url" ]] && echo "DRY-RUN: would validate ${effective_lb_url}"
     return "$SUCCESS"
   fi
 
   perform_systemctl_service_action start "$service"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl status "$service" >"$status_file" 2>&1 || true
+  fi
+  if [[ -n "$effective_lb_url" && -z "$ORDS_LB_URL" ]]; then
+    ORDS_LB_URL="$effective_lb_url"
   fi
   write_apex_ords_smoke_report "$smoke_file" "CrashSimulator ORDS Recovery Smoke Evidence"
   cat "$smoke_file"
@@ -4660,6 +4694,51 @@ recover_apex_runtime_account_scenario() {
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
+recover_ords_pool_scenario() {
+  local id="$1"
+  scenario_exists "$id" || die "Unknown scenario id: $id"
+  require_manifest
+
+  local original_service bad_service smoke_file
+  original_service="$(manifest_get "ords_pool_original_servicename" || true)"
+  bad_service="$(manifest_get "ords_pool_bad_servicename" || true)"
+  [[ -n "$original_service" ]] ||
+    die "Manifest is missing ords_pool_original_servicename; use the manifest from executed scenario 75."
+
+  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  manifest_append "recover_ords_pool_original_servicename" "$original_service"
+  [[ -n "$bad_service" ]] && manifest_append "recover_ords_pool_bad_servicename" "$bad_service"
+
+  smoke_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_ords_pool_smoke.md"
+  manifest_append "recover_ords_pool_smoke_report" "$smoke_file"
+
+  echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
+  echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+  echo "ORDS config: ${ORDS_CONFIG_DIR}"
+  echo "Restore db.servicename: ${original_service}"
+  [[ -n "$bad_service" ]] && echo "Lab-bad db.servicename: ${bad_service}"
+  echo "Manifest: ${MANIFEST_FILE}"
+  echo
+  print_recovery_runbook "$id"
+  echo
+
+  confirm_mode_execution "RECOVER" "$id"
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would restore ORDS db.servicename to ${original_service}"
+    echo "DRY-RUN: would restart ORDS service ${ORDS_SERVICE_NAME}"
+    echo "DRY-RUN: would validate ${ORDS_URL}"
+    return "$SUCCESS"
+  fi
+
+  ords_config_set_value db.servicename "$original_service" ||
+    die "Unable to restore ORDS db.servicename."
+  perform_systemctl_service_action restart "$ORDS_SERVICE_NAME"
+  write_apex_ords_smoke_report "$smoke_file" "CrashSimulator ORDS Pool Recovery Smoke Evidence"
+  cat "$smoke_file"
+  maybe_render_html "$smoke_file"
+  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 recover_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
@@ -4705,6 +4784,9 @@ recover_scenario() {
       ;;
     74|77)
       recover_fs_rename_scenario "$id"
+      ;;
+    75)
+      recover_ords_pool_scenario "$id"
       ;;
     76)
       recover_apex_runtime_account_scenario "$id"
@@ -5400,21 +5482,72 @@ apex_ords_report_target_pdb() {
   printf "%s" ""
 }
 
-ords_control_command_prefix() {
+run_ords_priv_helper() {
+  [[ -n "$ORDS_PRIV_HELPER" && -e "$ORDS_PRIV_HELPER" ]] || return "$FAIL"
+  command -v sudo >/dev/null 2>&1 || return "$FAIL"
+  echo "sudo -n ${ORDS_PRIV_HELPER} $*"
+  sudo -n "$ORDS_PRIV_HELPER" "$@"
+}
+
+ords_priv_helper_service_available() {
+  local rc
+  [[ -n "$ORDS_PRIV_HELPER" && -e "$ORDS_PRIV_HELPER" ]] || return "$FAIL"
+  command -v sudo >/dev/null 2>&1 || return "$FAIL"
+  sudo -n "$ORDS_PRIV_HELPER" service status "$ORDS_SERVICE_NAME" >/dev/null 2>&1
+  rc=$?
+  [[ "$rc" -eq 0 || "$rc" -eq 3 ]]
+}
+
+ords_priv_helper_config_available() {
+  [[ -n "$ORDS_PRIV_HELPER" && -e "$ORDS_PRIV_HELPER" ]] || return "$FAIL"
+  command -v sudo >/dev/null 2>&1 || return "$FAIL"
+  sudo -n "$ORDS_PRIV_HELPER" config-check "$ORDS_CONFIG_DIR" >/dev/null 2>&1
+}
+
+ords_sudo_systemctl_available() {
+  local rc
+  command -v sudo >/dev/null 2>&1 || return "$FAIL"
+  sudo -n systemctl status "$ORDS_SERVICE_NAME" >/dev/null 2>&1
+  rc=$?
+  [[ "$rc" -eq 0 || "$rc" -eq 3 ]]
+}
+
+ords_control_method() {
   if [[ "$(id -u)" -eq 0 ]]; then
     printf "systemctl"
     return "$SUCCESS"
   fi
-  if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-    printf "sudo -n systemctl"
+  if ords_priv_helper_service_available; then
+    printf "ords_priv_helper"
+    return "$SUCCESS"
+  fi
+  if ords_sudo_systemctl_available; then
+    printf "sudo_systemctl"
     return "$SUCCESS"
   fi
   return "$FAIL"
 }
 
+ords_control_command_prefix() {
+  case "$(ords_control_method 2>/dev/null || true)" in
+    systemctl)
+      printf "systemctl"
+      ;;
+    ords_priv_helper)
+      printf "sudo -n %s service" "$ORDS_PRIV_HELPER"
+      ;;
+    sudo_systemctl)
+      printf "sudo -n systemctl"
+      ;;
+    *)
+      return "$FAIL"
+      ;;
+  esac
+}
+
 can_control_ords_service() {
-  command -v systemctl >/dev/null 2>&1 || return "$FAIL"
-  ords_control_command_prefix >/dev/null 2>&1 || return "$FAIL"
+  command -v systemctl >/dev/null 2>&1 || [[ -e "$ORDS_PRIV_HELPER" ]] || return "$FAIL"
+  ords_control_method >/dev/null 2>&1 || return "$FAIL"
 }
 
 ords_service_unit_exists() {
@@ -5600,12 +5733,12 @@ run_apex_ords_report() {
     printf '| --- | --- | --- |\n'
     printf '| `73` | ORDS service unavailable | Automatable when the OS user can control the ORDS systemd unit. |\n'
     printf '| `74` | ORDS configuration unavailable | Automatable only when the config directory is writable or explicitly run with approved OS privileges. |\n'
-    printf '| `75` | ORDS database pool misconfiguration | Plan-only until a reversible pool-setting backup/restore flow is approved for the target ORDS version. |\n'
+    printf '| `75` | ORDS database pool misconfiguration | Reversible db.servicename mutation when ORDS restart privileges are approved; --recover 75 restores the original value. |\n'
     printf '| `76` | APEX/ORDS runtime account locked | Automatable when APEX/ORDS runtime users exist in the target container. |\n'
     printf '| `77` | APEX static resources unavailable | Automatable when an APEX images/static directory is configured and writable. |\n'
     printf '| `78` | APEX application availability validation after recovery | Read-only smoke evidence after PDB/datafile recovery. |\n'
     printf '| `79` | One ORDS node unavailable behind load balancer | Automatable when ORDS service control and a load-balancer URL are supplied. |\n'
-    printf '| `80` | APEX session continuity test | Plan-only until a test APEX application/session script exists. |\n'
+    printf '| `80` | APEX session continuity test | Read-only continuity evidence; combine with a live browser session or seeded script for end-user behavior capture. |\n'
     printf '| `81` | APEX mail queue/configuration validation | Read-only APEX SMTP/wallet/ACL evidence. |\n'
     printf '| `82` | APEX upgrade/patch rollback readiness | Read-only pre/post evidence and runbook. |\n'
   } >>"$report_file"
@@ -8581,6 +8714,12 @@ execute_actions() {
       systemctl_start_service)
         perform_systemctl_service_action start "$target"
         ;;
+      ords_priv_config_rename)
+        perform_ords_priv_config_rename "$target"
+        ;;
+      ords_pool_bad_service)
+        perform_ords_pool_bad_service
+        ;;
       external)
         die "External target requires a provider-specific handler and was not executed: $target"
         ;;
@@ -8602,8 +8741,8 @@ perform_asm_rm() {
 perform_systemctl_service_action() {
   local action="$1"
   local service="$2"
+  local method
 
-  command -v systemctl >/dev/null 2>&1 || die "systemctl was not found."
   [[ -n "$service" ]] || die "No systemd service name was supplied."
 
   case "$action" in
@@ -8616,17 +8755,98 @@ perform_systemctl_service_action() {
     return "$SUCCESS"
   fi
 
-  if [[ "$(id -u)" -eq 0 ]]; then
+  method="$(ords_control_method || true)"
+  if [[ "$method" == "systemctl" ]]; then
+    command -v systemctl >/dev/null 2>&1 || die "systemctl was not found."
     echo "systemctl ${action} ${service}"
     systemctl "$action" "$service" ||
       die "systemctl ${action} ${service} failed."
-  elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+  elif [[ "$method" == "ords_priv_helper" ]]; then
+    run_ords_priv_helper service "$action" "$service" ||
+      die "approved ORDS helper service ${action} ${service} failed."
+  elif [[ "$method" == "sudo_systemctl" ]]; then
     echo "sudo -n systemctl ${action} ${service}"
     sudo -n systemctl "$action" "$service" ||
       die "sudo systemctl ${action} ${service} failed."
   else
     die "systemctl ${action} ${service} requires root or passwordless sudo for the current OS user."
   fi
+}
+
+ords_config_get_value() {
+  local key="$1"
+  local output
+  command -v ords >/dev/null 2>&1 || return "$FAIL"
+  output="$(ords --config "$ORDS_CONFIG_DIR" config get "$key" 2>/dev/null | trim_blank_lines || true)"
+  printf "%s" "$output" | tail -n 1
+}
+
+ords_config_set_value() {
+  local key="$1"
+  local value="$2"
+  command -v ords >/dev/null 2>&1 || return "$FAIL"
+  echo "ords --config ${ORDS_CONFIG_DIR} config set ${key} ${value}"
+  ords --config "$ORDS_CONFIG_DIR" config set "$key" "$value" >/dev/null
+}
+
+perform_ords_pool_bad_service() {
+  local original_service bad_service state
+
+  [[ -d "$ORDS_CONFIG_DIR" ]] || die "ORDS config directory not found: $ORDS_CONFIG_DIR"
+  can_control_ords_service || die "ORDS pool drill requires approved ORDS service restart privileges."
+  command -v curl >/dev/null 2>&1 || die "curl was not found; cannot validate ORDS pool outage evidence."
+
+  original_service="$(ords_config_get_value db.servicename)"
+  [[ -n "$original_service" ]] || die "Could not read ORDS db.servicename from ${ORDS_CONFIG_DIR}."
+  bad_service="CRASHSIM_BAD_SERVICE_${RUN_ID}"
+
+  manifest_append "ords_config_dir" "$ORDS_CONFIG_DIR"
+  manifest_append "ords_db_pool" "$ORDS_DB_POOL"
+  manifest_append "ords_pool_original_servicename" "$original_service"
+  manifest_append "ords_pool_bad_servicename" "$bad_service"
+  manifest_append "ords_service_name" "$ORDS_SERVICE_NAME"
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would set ORDS db.servicename from ${original_service} to ${bad_service}"
+    echo "DRY-RUN: would restart ORDS service ${ORDS_SERVICE_NAME}"
+    echo "DRY-RUN: would validate ${ORDS_URL} is affected, then recover with --recover 75"
+    return "$SUCCESS"
+  fi
+
+  ords_config_set_value db.servicename "$bad_service" ||
+    die "Unable to set ORDS db.servicename to lab-bad value."
+  perform_systemctl_service_action restart "$ORDS_SERVICE_NAME"
+
+  if curl -fsS -L --max-time 10 "$ORDS_URL" >/dev/null 2>&1; then
+    state="reachable"
+    warn "ORDS smoke URL remained reachable after pool misconfiguration; review whether the URL exercises the changed pool."
+  else
+    state="outage-confirmed"
+  fi
+  manifest_append "ords_pool_fault_state" "$state"
+  echo "ORDS pool misconfiguration state: ${state}"
+}
+
+perform_ords_priv_config_rename() {
+  local path="$1"
+  local backup="${path}.${RUN_ID}.crashsim.bak"
+
+  [[ "$path" == "$ORDS_CONFIG_DIR" ]] ||
+    die "Approved ORDS config rename only supports the configured ORDS config directory: ${ORDS_CONFIG_DIR}"
+  ords_priv_helper_config_available ||
+    die "Approved ORDS config helper is not available for ${path}."
+
+  if [[ "$EXECUTE" -eq 0 ]]; then
+    echo "DRY-RUN: would run approved helper config-rename $path $backup"
+    return "$SUCCESS"
+  fi
+
+  run_ords_priv_helper config-rename "$path" "$backup" ||
+    die "Unable to rename ORDS config with approved helper: $path"
+  RENAME_COUNT=$((RENAME_COUNT + 1))
+  manifest_append "rename_${RENAME_COUNT}_original" "$path"
+  manifest_append "rename_${RENAME_COUNT}_backup" "$backup"
+  manifest_append "rename_${RENAME_COUNT}_method" "ords_priv_config_rename"
 }
 
 perform_fs_rename() {
@@ -11223,6 +11443,37 @@ where comp_id = 'APEX'
   [[ "${#TARGET_ROWS[@]}" -gt 0 && "$apex_count" =~ ^[0-9]+$ && "$apex_count" -gt 0 ]]
 }
 
+resolve_ords_continuity_url() {
+  if [[ -n "$ORDS_LB_URL" ]]; then
+    printf "%s" "$ORDS_LB_URL"
+    return "$SUCCESS"
+  fi
+
+  command -v curl >/dev/null 2>&1 || return "$FAIL"
+  local candidate
+  candidate="http://localhost:18080/ords/"
+  if [[ "$candidate" != "$ORDS_URL" ]] && curl -fsS -L --max-time 5 "$candidate" >/dev/null 2>&1; then
+    printf "%s" "$candidate"
+    return "$SUCCESS"
+  fi
+
+  command -v olsnodes >/dev/null 2>&1 || return "$FAIL"
+
+  local current_host node
+  current_host="$(hostname -s 2>/dev/null || hostname 2>/dev/null || true)"
+  while read -r node _; do
+    [[ -n "$node" ]] || continue
+    [[ "$node" == "$current_host" ]] && continue
+    candidate="http://${node}:8080/ords/"
+    if curl -fsS -L --max-time 5 "$candidate" >/dev/null 2>&1; then
+      printf "%s" "$candidate"
+      return "$SUCCESS"
+    fi
+  done < <(olsnodes 2>/dev/null || true)
+
+  return "$FAIL"
+}
+
 write_apex_ords_smoke_report() {
   local report_file="$1"
   local title="$2"
@@ -11287,6 +11538,8 @@ scenario_ords_config_unavailable() {
   manifest_append "ords_config_dir" "$ORDS_CONFIG_DIR"
   if [[ -w "$ORDS_CONFIG_DIR" && -w "$(dirname "$ORDS_CONFIG_DIR")" ]]; then
     add_action "fs_rename" "$ORDS_CONFIG_DIR" "simulate ORDS configuration loss"
+  elif ords_priv_helper_config_available; then
+    add_action "ords_priv_config_rename" "$ORDS_CONFIG_DIR" "simulate ORDS configuration loss with approved helper; recover with --recover 74"
   else
     add_action "external" "$ORDS_CONFIG_DIR" "ORDS config directory is not writable by $(id -un); run with approved OS privileges or restore from config backup"
   fi
@@ -11302,7 +11555,11 @@ scenario_ords_pool_misconfiguration() {
 
   manifest_append "ords_config_dir" "$ORDS_CONFIG_DIR"
   manifest_append "ords_db_pool" "$ORDS_DB_POOL"
-  add_action "external" "${ORDS_CONFIG_DIR}:${ORDS_DB_POOL}" "Plan: back up ORDS config, change one pool setting such as service name/wallet/user to a lab-bad value, restart ORDS, validate outage, then restore config and restart. Automated mutation is intentionally blocked until target ORDS pool layout is confirmed."
+  if can_control_ords_service; then
+    add_action "ords_pool_bad_service" "${ORDS_CONFIG_DIR}:${ORDS_DB_POOL}" "set db.servicename to a lab-bad value, restart ORDS, then recover with --recover 75"
+  else
+    add_action "external" "${ORDS_CONFIG_DIR}:${ORDS_DB_POOL}" "ORDS pool drill requires approved ORDS service restart privileges to mutate config and recover safely."
+  fi
   execute_actions
 }
 
@@ -11356,27 +11613,91 @@ scenario_apex_application_availability_validation() {
 
 scenario_ords_lb_node_unavailable() {
   reset_actions
+  local continuity_url report_file continuity_status
   command -v ords >/dev/null 2>&1 ||
     die "ORDS binary was not found. Install ORDS before running ORDS node-outage scenarios."
   ords_service_unit_exists ||
     die "ORDS systemd service unit was not found for service ${ORDS_SERVICE_NAME}."
-  [[ -n "$ORDS_LB_URL" ]] ||
-    die "Scenario 79 requires --ords-lb-url or CRASHSIM_ORDS_LB_URL to validate load-balancer continuity."
+  continuity_url="$(resolve_ords_continuity_url)" ||
+    die "Scenario 79 requires --ords-lb-url/CRASHSIM_ORDS_LB_URL or a reachable peer ORDS node to validate continuity."
 
   manifest_append "ords_service_name" "$ORDS_SERVICE_NAME"
-  manifest_append "ords_lb_url" "$ORDS_LB_URL"
+  manifest_append "ords_lb_url" "$continuity_url"
+  if [[ -z "$ORDS_LB_URL" ]]; then
+    manifest_append "ords_lb_url_source" "auto-detected peer ORDS URL"
+  else
+    manifest_append "ords_lb_url_source" "supplied"
+  fi
   if can_control_ords_service; then
     add_action "systemctl_stop_service" "$ORDS_SERVICE_NAME" "simulate one ORDS node down behind load balancer; recover with --recover 79"
   else
     add_action "external" "$ORDS_SERVICE_NAME" "ORDS service control requires root or passwordless sudo for the current OS user"
   fi
   execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+
+  continuity_status="NOT_REACHABLE"
+  if curl -fsS -L --max-time 10 "$continuity_url" >/dev/null 2>&1; then
+    continuity_status="OK"
+  fi
+  report_file="${LOG_DIR}/crashsim_ords_lb_node_s79_${RUN_ID}.md"
+  manifest_append "ords_lb_node_report" "$report_file"
+  manifest_append "ords_lb_node_continuity_status" "$continuity_status"
+  {
+    printf "# CrashSimulator ORDS Node Continuity Evidence\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Stopped local ORDS service: `%s`\n' "$ORDS_SERVICE_NAME"
+    printf -- '- Continuity URL: `%s`\n' "$continuity_url"
+    printf -- '- Continuity status: `%s`\n' "$continuity_status"
+    printf "\nUse a real load balancer URL for production-grade validation. An auto-detected peer ORDS URL is acceptable for lab continuity practice but does not validate load-balancer health checks or routing policy.\n"
+  } >"$report_file" || die "Unable to write scenario 79 report: $report_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+  [[ "$continuity_status" == "OK" ]] ||
+    die "Continuity URL was not reachable after stopping local ORDS service: ${continuity_url}"
 }
 
 scenario_apex_session_continuity() {
   reset_actions
-  add_action "external" "APEX_SESSION" "Plan: open a seeded APEX application session, inject ORDS/RAC/service/database failover, capture browser/client outcome, then validate whether retry/relogin is required. Automated execution requires a lab APEX application and session script."
+  apex_installed_in_target_container ||
+    die "APEX is not installed in the selected target container; session continuity evidence is not available yet."
+  command -v curl >/dev/null 2>&1 || die "curl was not found; cannot validate ORDS/APEX URL."
+  curl -fsS -L --max-time 10 "$ORDS_URL" >/dev/null 2>&1 ||
+    die "ORDS/APEX smoke URL is not reachable now: ${ORDS_URL}."
+
+  local report_file continuity_url continuity_status
+  report_file="${LOG_DIR}/crashsim_apex_session_continuity_s80_${RUN_ID}.md"
+  continuity_url="$(resolve_ords_continuity_url || true)"
+  continuity_status="not supplied"
+  if [[ -n "$continuity_url" ]]; then
+    if curl -fsS -L --max-time 10 "$continuity_url" >/dev/null 2>&1; then
+      continuity_status="OK"
+    else
+      continuity_status="NOT_REACHABLE"
+    fi
+  fi
+
+  manifest_append "apex_session_continuity_report" "$report_file"
+  manifest_append "apex_session_ords_url" "$ORDS_URL"
+  [[ -n "$continuity_url" ]] && manifest_append "apex_session_continuity_url" "$continuity_url"
+  add_action "report" "APEX session continuity evidence" "$report_file"
   execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+  {
+    printf "# CrashSimulator APEX Session Continuity Evidence\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Target PDB: `%s`\n' "$(apex_ords_report_target_pdb || true)"
+    printf -- '- ORDS URL: `%s`\n' "$ORDS_URL"
+    printf -- '- Continuity URL: `%s`\n' "${continuity_url:-not supplied}"
+    printf -- '- Continuity URL status: `%s`\n' "$continuity_status"
+    printf "\n| Check | Result |\n"
+    printf "| --- | --- |\n"
+    printf '| ORDS/APEX smoke URL | `OK` |\n'
+    printf '| Continuity or peer URL | `%s` |\n' "$(md_escape "$continuity_status")"
+    printf "\nUse this report during a live APEX browser session. Record whether the user sees seamless continuation, retry, relogin, lost page state, or failed transaction after ORDS/RAC/service/database failover.\n"
+  } >"$report_file" || die "Unable to write scenario 80 report: $report_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
 }
 
 scenario_apex_mail_config_validation() {
@@ -11613,6 +11934,11 @@ parse_args() {
       --ords-lb-url)
         [[ "$#" -ge 2 ]] || die "--ords-lb-url requires a URL"
         ORDS_LB_URL="$2"
+        shift 2
+        ;;
+      --ords-priv-helper)
+        [[ "$#" -ge 2 ]] || die "--ords-priv-helper requires a path"
+        ORDS_PRIV_HELPER="$2"
         shift 2
         ;;
       --apex-images-dir)
@@ -12220,6 +12546,7 @@ menu_append_common_child_args() {
   [[ -n "$ORDS_CONFIG_DIR" ]] && MENU_CMD+=("--ords-config-dir" "$ORDS_CONFIG_DIR")
   [[ -n "$ORDS_URL" ]] && MENU_CMD+=("--ords-url" "$ORDS_URL")
   [[ -n "$ORDS_LB_URL" ]] && MENU_CMD+=("--ords-lb-url" "$ORDS_LB_URL")
+  [[ -n "$ORDS_PRIV_HELPER" ]] && MENU_CMD+=("--ords-priv-helper" "$ORDS_PRIV_HELPER")
   [[ -n "$APEX_IMAGES_DIR" ]] && MENU_CMD+=("--apex-images-dir" "$APEX_IMAGES_DIR")
   [[ -n "$SYSBACKUP_USER" ]] && MENU_CMD+=("--sysbackup-user" "$SYSBACKUP_USER")
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")

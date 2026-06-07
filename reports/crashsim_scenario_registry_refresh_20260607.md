@@ -38,8 +38,8 @@ ORDS, or lab object prerequisites are missing.
 Plan-only scenarios remain intentionally guarded when the safe action requires
 external infrastructure steps or an unvalidated topology, especially FSFO
 observer outage, RAC VIP movement, OCR/voting disk operations, ASM SPFILE loss,
-ASM single-disk failure in redundant failgroups, ORDS service/config control,
-and APEX browser-session continuity.
+ASM single-disk failure in redundant failgroups, and production load-balancer
+validation for ORDS node-outage drills.
 
 ## Next Validation Targets
 
@@ -49,7 +49,9 @@ and APEX browser-session continuity.
   AC/TAC observations.
 - Validate scenario `72` only after provisioning a purpose-built NORMAL/HIGH
   redundancy ASM disk group with clear failgroups.
-- Validate APEX/ORDS scenarios `73`, `74`, `76`, `77`, and `79` after ORDS
-  service/config/static-resource privileges and an ORDS load-balancer URL are
-  approved; design a seeded APEX browser-session driver for `80`.
+- Re-run APEX/ORDS scenario `79` with a production load-balancer URL when one is
+  available; the current 26ai lab evidence uses a peer-continuity endpoint.
+- Add a seeded APEX browser-session driver for richer end-user behavior capture
+  around scenario `80`; the current implementation generates read-only
+  continuity evidence.
 - Re-render promotional screenshots after any future scenario registry change.

@@ -190,6 +190,7 @@ Example:
 unzip crashsimulator-main.zip
 cd crashsimulator-main
 chmod +x CrashSimulatorV2.sh
+chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh
 ```
 
 CrashSimulator V2 requires:
@@ -224,7 +225,7 @@ point is to run the commands from the directory containing `CrashSimulatorV2.sh`
 Recommended first checks after unzipping:
 
 ```bash
-ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
+ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_ords_priv_helper.sh seed_crashsim_lab.sql verify_crashsim_lab.sql
 ./CrashSimulatorV2.sh --help
 ./CrashSimulatorV2.sh --list
 ./CrashSimulatorV2.sh --discover
@@ -435,7 +436,7 @@ Automated recovery currently covers scenarios `1`, `2`, `3`, `4`, `5`, `6`,
 `7`, `8`, `9`, `10`, `12`, `13`, `14`, `15`, `16`, `17`, `18`, `19`, `20`,
 `21`, `22`, `23`, `24`, `25`, `26`, `27`, `30`, `31`, `32`, `33`, `34`,
 `35`, `37`, `38`, `39`, `40`, `41`, `42`, `50`, `51`, `55`, `56`, `57`,
-`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `76`, `77`, and
+`58`, `59`, `61`, `62`, `67`, `68`, `71`, `73`, `74`, `75`, `76`, `77`, and
 `79`.
 
 For unsupported scenarios, use `--runbook <id>` and the generated target
@@ -549,11 +550,19 @@ Scenarios `73` through `82` cover APEX and ORDS failures and validations:
 - `81`: APEX mail queue and configuration validation.
 - `82`: APEX upgrade or patch rollback readiness.
 
-Scenarios `73`, `74`, `76`, `77`, and `79` have automated recovery helpers when
-the target is reversible and the current OS user has safe permissions. Scenarios
-`75` and `80` are plan-only until the lab supplies a target-specific ORDS pool
-mutation or APEX session script. Scenarios `78`, `81`, and `82` are read-only
-evidence/report drills.
+Scenarios `73`, `74`, `75`, `76`, `77`, and `79` have automated recovery
+helpers when the target is reversible and the current OS user has safe
+permissions. Scenario `75` changes the ORDS pool `db.servicename` to a lab-bad
+value and restores the original value during recovery. Scenario `79` can use a
+real `--ords-lb-url` or a lab peer-continuity URL, but only a real load balancer
+proves production health-check and routing behavior. Scenarios `78`, `80`,
+`81`, and `82` are read-only evidence/report drills.
+
+If ORDS service/config control requires elevated OS privileges, install the
+restricted helper `crashsim_ords_priv_helper.sh` as root-owned
+`/usr/local/bin/crashsim_ords_priv` and grant only that helper through sudoers.
+Use `--ords-priv-helper` or `CRASHSIM_ORDS_PRIV_HELPER` to override the helper
+path.
 
 ### Fresh Baseline Backup
 
@@ -920,13 +929,13 @@ Scope meanings:
 | 71 | RAC service placement failure | RAC | RAC | logical | Service placement, instance-level service stop/start, FAN/ONS, AC/TAC behavior, and recovery validation. | Uses `srvctl` against one running service instance. Recovery helper validates/starts the service. |
 | 72 | ASM single disk failure | ASM | ASM | destructive | Single-disk failure planning, ASM redundancy, failgroups, rebalance monitoring, and disk replacement. | Plan-only external action. Requires NORMAL/HIGH/FLEX/EXTENDED redundancy; EXTERN redundancy is rejected. |
 | 73 | ORDS service unavailable | APEX/ORDS | Application | logical | ORDS outage detection, service restart, HTTP smoke validation, and user-facing recovery timing. | Automatable when the current OS user can control the ORDS systemd service. Recovery helper starts ORDS and writes smoke evidence. |
-| 74 | ORDS configuration unavailable | APEX/ORDS | Application | destructive | Restoring ORDS configuration, wallets, pools, static mappings, and connection settings. | Renames the ORDS config directory only when it is writable and reversible; otherwise plan-only. Recovery helper restores the rename backup. |
-| 75 | ORDS database pool misconfiguration | APEX/ORDS | Application | logical | Diagnosing bad service names, wallets, users, passwords, pool settings, and ORDS logs. | Plan-only until a target-specific reversible pool mutation is approved for the ORDS version and lab. |
+| 74 | ORDS configuration unavailable | APEX/ORDS | Application | destructive | Restoring ORDS configuration, wallets, pools, static mappings, and connection settings. | Renames the ORDS config directory when writable or through the restricted helper; recovery restores the rename backup. |
+| 75 | ORDS database pool misconfiguration | APEX/ORDS | Application | logical | Diagnosing bad service names, wallets, users, passwords, pool settings, and ORDS logs. | Reversible `db.servicename` mutation when ORDS restart privileges are approved. Recovery restores the original service name and restarts ORDS. |
 | 76 | APEX/ORDS runtime account locked | APEX/ORDS | Application | logical | Recovering from locked or expired APEX/ORDS runtime users and validating application access. | Locks an available runtime account in the selected container. Recovery helper unlocks it. |
 | 77 | APEX static resources unavailable | APEX/ORDS | Application | destructive | Restoring APEX images/static files and validating page CSS, JavaScript, image, and login behavior. | Requires `--apex-images-dir` or a detected static path. Recovery helper restores the rename backup when executed. |
 | 78 | APEX application availability validation after recovery | APEX/ORDS | Application | logical | Proving the user-facing APEX/ORDS path after database, PDB, service, or ORDS recovery. | Read-only smoke evidence using `--ords-url` and optional load-balancer URL. |
-| 79 | ORDS node unavailable behind load balancer | APEX/ORDS | Application | logical | One-node ORDS outage, load-balancer health, session behavior, and service continuity. | Requires ORDS service control and `--ords-lb-url`. Recovery helper starts the local ORDS service and records smoke evidence. |
-| 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Plan-only until a seeded APEX application and session-driving script are supplied. |
+| 79 | ORDS node unavailable behind load balancer | APEX/ORDS | Application | logical | One-node ORDS outage, load-balancer health, session behavior, and service continuity. | Requires ORDS service control and a continuity URL. `--ords-lb-url` proves a real load balancer; a peer URL is acceptable for lab continuity practice. |
+| 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Read-only continuity evidence; pair with a live browser session or seeded script for full end-user behavior capture. |
 | 81 | APEX mail queue and configuration validation | APEX/ORDS | Application | logical | SMTP, wallet/TLS, network ACL, failed mail queue, and notification recovery checks. | Read-only report/evidence drill. |
 | 82 | APEX upgrade or patch rollback readiness | APEX/ORDS | Application | logical | Pre/post APEX version, invalid object, ORDS config, runtime-user, and application smoke evidence. | Read-only readiness/runbook drill for APEX/ORDS patching and rollback decisions. |
 
@@ -945,8 +954,8 @@ Good first drills:
 - `64` and `65`: read-only RTO/RPO validation reporting after objectives are
   supplied.
 - `69`: read-only standby redo log review in any Data Guard topology.
-- `73`, `78`, `81`, and `82`: APEX/ORDS service, smoke, mail, and patch
-  readiness checks when ORDS/APEX are installed.
+- `73`, `78`, `80`, `81`, and `82`: APEX/ORDS service, smoke, session
+  continuity, mail, and patch readiness checks when ORDS/APEX are installed.
 
 Higher-risk drills:
 
@@ -958,8 +967,8 @@ Higher-risk drills:
 - Data Guard state changes: `67` and `68`, because they intentionally create
   apply or transport lag until recovered.
 - Infrastructure: `28`, `46`, `47`, `48`, `49`, `55`, `58`, `70`, `71`, `72`.
-- Application access path: `73`, `74`, `76`, `77`, and `79`, because they can
-  interrupt ORDS/APEX user access until recovered.
+- Application access path: `73`, `74`, `75`, `76`, `77`, and `79`, because they
+  can interrupt ORDS/APEX user access until recovered.
 
 Data Guard, Active Data Guard, and RAC service scenarios should be tested only
 in topologies that actually include those capabilities.
