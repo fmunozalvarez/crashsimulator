@@ -33,6 +33,31 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
     coverage for every registered scenario.
   - HTML copy: `scenario_lifecycle_coverage_reference.md.html`
 
+## Oracle AI Database 26ai Validation References
+
+The `26ai/` subdirectory contains reference artifacts from a live two-node RAC
+Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
+`RECO`, CDB `CRASHDB`, and PDB `CRASHDB_PDB1`.
+
+- `26ai/26ai_scenario_readiness_reference.md`
+  - Generated with `./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html`
+  - Shows 39 runnable scenarios, 23 plan-only scenarios, and 10 not-runnable
+    scenarios for the RAC/ASM/no-Data-Guard topology.
+- `26ai/26ai_backup_strategy_recoverability_reference.md`
+  - Generated after a fresh baseline backup tagged `C26AI_260607031353`.
+  - Shows Level 0/full backup detection, archived redo backup evidence, and
+    RTO/RPO planning estimates from 26ai RMAN metadata.
+- `26ai/26ai_config_report_reference.md`
+  - Captures the target configuration after redo and control file
+    multiplexing.
+- `26ai/26ai_maa_readiness_reference.md`
+  - Shows the MAA readiness review for the prepared 26ai RAC/ASM lab.
+- `26ai/26ai_service_ha_review_reference.md`
+  - Shows Oracle service HA, AC/TAC, FSFO, DML redirection, and role-based
+    service awareness evidence for the lab.
+- `26ai/26ai_scenario_lifecycle_reference.md`
+  - Shows lifecycle coverage for the 72-scenario registry from the 26ai run.
+
 ## HTML Reference Files
 
 The `.html` files were generated from the sanitized Markdown reference reports

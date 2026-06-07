@@ -21,6 +21,40 @@ Current framework registry snapshot:
   `68`, and `71`; `66`, `69`, `70`, and `72` are intentionally plan-only or
   review-only until a matching DG/RAC/ASM lab topology is explicitly approved.
 
+Oracle AI Database 26ai RAC/ASM validation environment:
+
+- Oracle AI Database 26ai EE Extreme Perf Release `23.26.2.0.0`
+- Two-node RAC primary database `CRASHDB`, DB unique name `crashdb_26ai`
+- CDB with PDB `CRASHDB_PDB1`
+- ASM storage with `DATA` and `RECO` diskgroups
+- No standby database and no Active Data Guard in this lab
+- Lab objects reseeded with `seed_crashsim_lab.sql`; the script now detects
+  `CRASHPDB` when present, otherwise the first read-write user PDB
+- Online redo groups multiplexed across `+RECO` and `+DATA`
+- Control files multiplexed across `+RECO` and `+DATA`
+- Fresh RMAN baseline backup completed with tag `C26AI_260607031353`
+- MAA readiness report detected Silver posture with baseline checks passed
+- Backup report detected Level 0/full datafile backup strategy with archived
+  redo backups after patching full/non-incremental backup detection
+
+26ai scenario readiness result:
+
+- `39` scenarios runnable in this RAC/ASM/no-Data-Guard topology
+- `23` scenarios plan-only because they require ASM/GI/provider-specific
+  destructive handlers, a disposable PDB, explicit backup-piece selection, or
+  external restore practice
+- `10` scenarios not runnable because this lab has no Data Guard/Active Data
+  Guard topology and no NORMAL/HIGH/FLEX ASM diskgroup for single-disk failure
+  practice
+- All `39` runnable scenarios completed `--dry-run` validation successfully:
+  `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`, `14`, `15`, `17`, `22`,
+  `27`, `30`, `31`, `32`, `33`, `34`, `35`, `36`, `37`, `38`, `39`, `40`,
+  `41`, `42`, `43`, `44`, `55`, `56`, `57`, `58`, `60`, `61`, `63`, `64`,
+  `65`, and `71`.
+- Post-validation health check showed CDB/PDB open read write, no
+  `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
+- Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
+
 First OCI Base DB Service validation environment:
 
 - Oracle Database 19.31 Enterprise Edition

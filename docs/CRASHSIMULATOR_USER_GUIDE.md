@@ -24,10 +24,12 @@ auditors who need a simple explanation of what CrashSimulator does and how to us
 it safely.
 
 The tool is designed for Oracle Database 12c and later, including non-CDB and
-CDB/PDB environments. Current validation has focused on Oracle Database 19c, with
-work covering standalone, OCI Base Database Service, RAC One Node or
-GI-managed single-database, filesystem/LVM, ASM, and early Data Guard/Active Data
-Guard scenario registration.
+CDB/PDB environments. Current project validation evidence includes Oracle
+Database 19c and Oracle AI Database 26ai RAC/ASM labs, with work covering
+standalone, OCI Base Database Service, RAC One Node, two-node RAC,
+GI-managed single-database, filesystem/LVM, ASM, and early Data Guard/Active
+Data Guard scenario registration. This is CrashSimulator project validation,
+not an official Oracle product certification.
 
 ## Safety Model
 
@@ -627,6 +629,26 @@ tables, schemas, or indexes.
 sqlplus / as sysdba @seed_crashsim_lab.sql
 sqlplus / as sysdba @verify_crashsim_lab.sql
 ```
+
+The seed and verify scripts use `CRASHPDB` when it exists; otherwise they use
+the first read-write user PDB detected in `V$PDBS`.
+
+### RAC/ASM Redundancy Lab Helpers
+
+For RAC/ASM labs, these optional SQL helpers can prepare safer targets for redo
+and control-file scenarios:
+
+```bash
+sqlplus / as sysdba @prepare_crashsim_redundancy.sql
+sqlplus / as sysdba @prepare_crashsim_controlfile_multiplex.sql
+```
+
+`prepare_crashsim_redundancy.sql` adds a missing `+DATA` online redo member to
+redo groups with fewer than two members. `prepare_crashsim_controlfile_multiplex.sql`
+updates the spfile `CONTROL_FILES` value to include a `+DATA` control file
+alias. After running the control-file helper, stop the database, copy the
+surviving control file to the new ASM alias, and start the database with
+`srvctl`; validate `V$CONTROLFILE` before running control-file scenarios.
 
 ## Best Practices For Running Drills
 

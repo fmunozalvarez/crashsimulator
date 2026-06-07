@@ -11,6 +11,11 @@ CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
 
+Compatibility target: Oracle Database 12c and later. Project validation
+evidence now includes live Oracle Database 19c and Oracle AI Database 26ai
+RAC/ASM labs. This is CrashSimulator project validation rather than an official
+Oracle product certification.
+
 ## Documentation
 
 For end-user guidance, terminology, safety practices, feature descriptions, and
@@ -617,7 +622,12 @@ For automated lab runs only:
 - `seed_crashsim_lab.sql` reseeds controlled CDB-root read-only/index-only
   targets for scenarios 9 and 10, plus PDB lab users, table/schema/index
   targets, and read-only/index-only PDB tablespaces for safer target selection
-  practice.
+  practice. It uses `CRASHPDB` when present; otherwise it selects the first
+  read-write user PDB detected in `V$PDBS`.
+- `prepare_crashsim_redundancy.sql` and
+  `prepare_crashsim_controlfile_multiplex.sql` help RAC/ASM labs add redo
+  multiplexing and prepare a `+DATA` control-file alias before manual
+  stop/copy/start validation.
 - SQL*Plus script execution is isolated from parent shell stdin; repository SQL
   helper scripts also end with `exit` so automation wrappers do not continue
   inside SQL*Plus after a script completes.

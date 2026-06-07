@@ -1,0 +1,1436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crashsim_config_report_20260607_031506.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>crashsim_config_report_20260607_031506.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.md<br>Generated UTC: 2026-06-07T03:15:25Z</div></header>
+<pre>
+# CrashSimulator Target Database Configuration Report
+
+- Generated UTC: `2026-06-07T03:15:07Z`
+- Host: `crashdb26ai1`
+- OS user: `oracle`
+- Database: `CRASHDB`
+- DB unique name: `crashdb_26ai`
+- Instance/SID: `crashdb1`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- CDB: `YES`
+- Storage: `ASM`
+- Cluster type: `RAC`
+- Oracle home: `/u01/app/oracle/product/23.0.0.0/dbhome_1`
+- Deep RMAN validation: `disabled`
+- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.sql`
+
+Backup and recoverability notes: this report includes RMAN metadata, backup coverage by datafile, corruption views, and an RMAN restore preview. External schedulers or OCI backup policies may need separate inspection when they are not visible in target database RMAN history.
+
+## SQL Database, PDB, Storage, Backup, TDE, Data Guard, And Corruption Evidence
+
+Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus -s /\ as\ sysdba @/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.sql
+
+```text
+# SQL Evidence
+
+## Database Identity
+
+NAME                               DB_UNIQUE_NAME                                 DBID PLATFORM_NAME                                                                                         DATABASE_ROLE    OPEN_MODE            CDB LOG_MODE
+---------------------------------- ------------------------------ -------------------- ----------------------------------------------------------------------------------------------------- ---------------- -------------------- --- ------------
+FORCE_LOGGING                           FLASHBACK_ON       PROTECTION_MODE      SWITCHOVER_STATUS
+--------------------------------------- ------------------ -------------------- --------------------
+CRASHDB                            crashdb_26ai                             1275113611 Linux x86 64-bit                                                                                      PRIMARY          READ WRITE           YES ARCHIVELOG
+YES                                     NO                 MAXIMUM PERFORMANCE  NOT ALLOWED
+
+
+1 row selected.
+
+## Instance Identity
+
+INSTANCE_NAME    HOST_NAME                                                        VERSION           STATUS       DATABASE_STATUS   ACTIVE_ST PAR              THREAD# ARCHIVE STARTUP_TIME
+---------------- ---------------------------------------------------------------- ----------------- ------------ ----------------- --------- --- -------------------- ------- -------------------
+crashdb1         crashdb26ai1                                                     23.0.0.0.0        OPEN         ACTIVE            NORMAL    YES                    1 STARTED 2026-06-07 03:13:08
+
+1 row selected.
+
+## Database Version
+
+no rows selected
+
+## Key Paths And Parameters
+
+NAME                               DISPLAY_VALUE
+---------------------------------- ------------------------------------------------------------------------------------------------------------------------
+adg_redirect_dml                   FALSE
+audit_file_dest                    /u01/app/oracle/product/23.0.0.0/dbhome_1/rdbms/audit
+cluster_database                   TRUE
+compatible                         23.6.0
+control_files                      +RECO/CRASHDB_26AI/CONTROLFILE/current.256.1235269387, +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl
+db_create_file_dest                +DATA
+db_create_online_log_dest_1        +RECO
+db_create_online_log_dest_2
+db_name                            crashdb
+db_recovery_file_dest              +RECO
+db_recovery_file_dest_size         255G
+db_unique_name                     crashdb_26ai
+diagnostic_dest                    /u01/app/oracle
+enable_pluggable_database          TRUE
+remote_login_passwordfile          EXCLUSIVE
+spfile                             +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
+tde_configuration                  keystore_configuration=FILE
+wallet_root                        /opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+
+18 rows selected.
+
+## Non-Default Database Parameters
+
+PARAMETER_NAME                                             TYPE ISDEFAULT ISMODIFIED ISSYS_MOD ISPDB DISPLAY_VALUE
+------------------------------------------ -------------------- --------- ---------- --------- ----- ------------------------------------------------------------------------------------------------------------------------
+_datafile_write_errors_crash_instance                         1 FALSE     FALSE      IMMEDIATE FALSE FALSE
+_db_writer_coalesce_area_size                                 6 FALSE     FALSE      FALSE     FALSE 16M
+_disable_interface_checking                                   1 FALSE     FALSE      FALSE     FALSE TRUE
+_enable_NUMA_support                                          1 FALSE     FALSE      FALSE     FALSE FALSE
+_file_size_increase_increment                                 6 FALSE     FALSE      IMMEDIATE TRUE  2044M
+_fix_control                                                  2 FALSE     FALSE      IMMEDIATE TRUE  18960760:on
+_gc_policy_time                                               3 FALSE     FALSE      FALSE     FALSE 20
+_gc_undo_affinity                                             1 FALSE     FALSE      FALSE     FALSE TRUE
+_instance_recovery_bloom_filter_size                          3 FALSE     FALSE      IMMEDIATE FALSE 2097152
+cluster_database                                              1 FALSE     FALSE      FALSE     FALSE TRUE
+compatible                                                    2 FALSE     FALSE      IMMEDIATE FALSE 23.6.0
+control_file_record_keep_time                                 3 FALSE     FALSE      IMMEDIATE FALSE 39
+control_files                                                 2 FALSE     FALSE      FALSE     FALSE +RECO/CRASHDB_26AI/CONTROLFILE/current.256.1235269387, +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl
+control_management_pack_access                                2 FALSE     FALSE      IMMEDIATE FALSE DIAGNOSTIC+TUNING
+cpu_count                                                     2 FALSE     FALSE      IMMEDIATE TRUE  8
+cursor_sharing                                                2 FALSE     FALSE      IMMEDIATE TRUE  EXACT
+db_block_checking                                             2 FALSE     FALSE      IMMEDIATE TRUE  OFF
+db_block_checksum                                             2 FALSE     FALSE      IMMEDIATE FALSE TYPICAL
+db_block_size                                                 3 FALSE     FALSE      FALSE     FALSE 8192
+db_create_file_dest                                           2 FALSE     FALSE      IMMEDIATE TRUE  +DATA
+db_create_online_log_dest_1                                   2 FALSE     FALSE      IMMEDIATE TRUE  +RECO
+db_domain                                                     2 FALSE     FALSE      FALSE     TRUE  sub05260219130.operationsvcn.oraclevcn.com
+db_files                                                      3 FALSE     FALSE      FALSE     TRUE  1024
+db_lost_write_protect                                         2 FALSE     FALSE      IMMEDIATE TRUE  TYPICAL
+db_name                                                       2 FALSE     FALSE      FALSE     FALSE crashdb
+db_recovery_file_dest                                         2 FALSE     FALSE      IMMEDIATE FALSE +RECO
+db_recovery_file_dest_size                                    6 FALSE     FALSE      IMMEDIATE FALSE 255G
+db_unique_name                                                2 FALSE     FALSE      FALSE     FALSE crashdb_26ai
+diagnostic_dest                                               2 FALSE     FALSE      IMMEDIATE FALSE /u01/app/oracle
+dispatchers                                                   2 FALSE     FALSE      IMMEDIATE FALSE (PROTOCOL=TCP) (SERVICE=crashdbXDB)
+enable_ddl_logging                                            1 FALSE     FALSE      IMMEDIATE TRUE  TRUE
+enable_pluggable_database                                     1 FALSE     FALSE      FALSE     FALSE TRUE
+fast_start_mttr_target                                        3 FALSE     FALSE      IMMEDIATE FALSE 300
+filesystemio_options                                          2 FALSE     FALSE      FALSE     FALSE setall
+global_names                                                  1 FALSE     FALSE      IMMEDIATE TRUE  TRUE
+inmemory_size                                                 6 FALSE     FALSE      IMMEDIATE TRUE  0
+instance_number                                               3 FALSE     FALSE      FALSE     FALSE 1
+local_listener                                                2 FALSE     SYSTEM_MOD IMMEDIATE TRUE   (ADDRESS=(PROTOCOL=TCP)(HOST=10.0.0.144)(PORT=1521)), (ADDRESS=(PROTOCOL=TCPS)(HOST=10.0.0.144)(PORT=2484))
+log_archive_format                                            2 FALSE     FALSE      FALSE     FALSE %t_%s_%r.dbf
+log_buffer                                                    6 FALSE     FALSE      FALSE     FALSE 128M
+nls_language                                                  2 FALSE     FALSE      FALSE     TRUE  AMERICAN
+nls_territory                                                 2 FALSE     FALSE      FALSE     TRUE  AMERICA
+open_cursors                                                  3 FALSE     FALSE      IMMEDIATE TRUE  1000
+os_authent_prefix                                             2 FALSE     FALSE      FALSE     FALSE ops$
+parallel_execution_message_size                               3 FALSE     FALSE      FALSE     FALSE 16384
+parallel_threads_per_cpu                                      3 FALSE     FALSE      IMMEDIATE FALSE 2
+pga_aggregate_limit                                           6 FALSE     FALSE      IMMEDIATE TRUE  15616M
+pga_aggregate_target                                          6 FALSE     FALSE      IMMEDIATE TRUE  7808M
+processes                                                     3 FALSE     FALSE      IMMEDIATE FALSE 800
+remote_login_passwordfile                                     2 FALSE     FALSE      FALSE     FALSE EXCLUSIVE
+session_cached_cursors                                        3 FALSE     FALSE      DEFERRED  TRUE  100
+sga_target                                                    6 FALSE     FALSE      IMMEDIATE TRUE  31232M
+spatial_vector_acceleration                                   1 FALSE     FALSE      IMMEDIATE TRUE  TRUE
+sql92_security                                                1 FALSE     FALSE      FALSE     TRUE  TRUE
+tablespace_encryption                                         2 FALSE     FALSE      FALSE     FALSE AUTO_ENABLE
+tde_configuration                                             2 FALSE     FALSE      IMMEDIATE TRUE  keystore_configuration=FILE
+thread                                                        3 FALSE     FALSE      IMMEDIATE FALSE 1
+undo_retention                                                3 FALSE     FALSE      IMMEDIATE TRUE  900
+undo_tablespace                                               2 FALSE     FALSE      IMMEDIATE TRUE  UNDOTBS1
+use_large_pages                                               2 FALSE     FALSE      FALSE     FALSE only
+wallet_root                                                   2 FALSE     FALSE      FALSE     FALSE /opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+
+61 rows selected.
+
+## Diagnostic And Trace Locations
+
+NAME                               VALUE
+---------------------------------- ------------------------------------------------------------------------------------------------------------------------
+ADR Base                           /u01/app/oracle
+ADR Home                           /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1
+Active Incident Count              0
+Active Problem Count               0
+Attention Log                      /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace/attention_crashdb1.log
+Default Trace File                 /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace/crashdb1_ora_91694.trc
+Diag Alert                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/alert
+Diag Cdump                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/cdump
+Diag Enabled                       TRUE
+Diag Incident                      /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/incident
+Diag Trace                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace
+Health Monitor                     /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/hm
+ORACLE_HOME                        /u01/app/oracle/product/23.0.0.0/dbhome_1
+
+13 rows selected.
+
+## Control Files
+
+NAME
+----------------------------------
++DATA/CRASHDB_26AI/CONTROLFILE/cur
+rent01.ctl
+
++RECO/CRASHDB_26AI/CONTROLFILE/cur
+rent.256.1235269387
+
+
+2 rows selected.
+
+## Redo Log Groups
+
+              GROUP#              THREAD#            SEQUENCE#              SIZE_MB            BLOCKSIZE              MEMBERS ARC STATUS
+-------------------- -------------------- -------------------- -------------------- -------------------- -------------------- --- ----------------
+                   1                    1                    9                 1024                  512                    2 NO  CURRENT
+                   2                    1                    6                 1024                  512                    2 YES INACTIVE
+                   3                    1                    7                 1024                  512                    2 YES ACTIVE
+                   4                    1                    8                 1024                  512                    2 YES ACTIVE
+                   5                    2                    5                 1024                  512                    2 YES INACTIVE
+                   6                    2                    6                 1024                  512                    2 YES ACTIVE
+                   7                    2                    7                 1024                  512                    2 YES ACTIVE
+                   8                    2                    8                 1024                  512                    2 NO  CURRENT
+
+8 rows selected.
+
+## Redo Log Members
+
+              GROUP#              THREAD# STATUS           TYPE    IS_ MEMBER
+-------------------- -------------------- ---------------- ------- --- ------------------------------------------------------------------------------------------------------------------------------------------------------
+                   1                    1 CURRENT          ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227
+                   1                    1 CURRENT          ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_1.257.1235269389
+                   2                    1 INACTIVE         ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233
+                   2                    1 INACTIVE         ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_2.258.1235269389
+                   3                    1 ACTIVE           ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241
+                   3                    1 ACTIVE           ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_3.259.1235269389
+                   4                    1 ACTIVE           ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_4.288.1235272247
+                   4                    1 ACTIVE           ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_4.260.1235269389
+                   5                    2 INACTIVE         ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_5.289.1235272255
+                   5                    2 INACTIVE         ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_5.261.1235269729
+                   6                    2 ACTIVE           ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_6.290.1235272261
+                   6                    2 ACTIVE           ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_6.262.1235269735
+                   7                    2 ACTIVE           ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_7.291.1235272269
+                   7                    2 ACTIVE           ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_7.263.1235269743
+                   8                    2 CURRENT          ONLINE  NO  +DATA/CRASHDB_26AI/ONLINELOG/group_8.292.1235272275
+                   8                    2 CURRENT          ONLINE  NO  +RECO/CRASHDB_26AI/ONLINELOG/group_8.264.1235269749
+
+16 rows selected.
+
+## Database Size Summary
+
+COMPONENT             FILE_COUNT              SIZE_GB
+----------- -------------------- --------------------
+DATAFILES                     17                 4.17
+TEMPFILES                      3                  .45
+ONLINE REDO                    8                    8
+
+3 rows selected.
+
+## SYSTEM And UNDO Datafiles
+
+               FILE# TABLESPACE_NAME                TABLES              SIZE_MB STATUS  ENABLED    FILE_NAME
+-------------------- ------------------------------ ------ -------------------- ------- ---------- ------------------------------------------------------------------------------------------------------------------------------------------------------
+                   1 SYSTEM                         SYSTEM                 1180 SYSTEM  READ WRITE +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617
+                   4 UNDOTBS1                       UNDO                    125 ONLINE  READ WRITE +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641
+                   9 UNDOTBS2                       UNDO                     60 ONLINE  READ WRITE +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599
+                   5 SYSTEM                         SYSTEM                  370 SYSTEM  READ WRITE +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431
+                   8 UNDOTBS1                       UNDO                     50 ONLINE  READ WRITE +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431
+                  10 SYSTEM                         SYSTEM                  380 SYSTEM  READ WRITE +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875
+                  12 UNDOTBS1                       UNDO                     50 ONLINE  READ WRITE +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893
+                  13 UNDO_5                         UNDO                     50 ONLINE  READ WRITE +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897
+
+8 rows selected.
+
+## Temporary Files
+
+               FILE# TABLESPACE_NAME                             SIZE_MB STATUS  ENABLED    FILE_NAME
+-------------------- ------------------------------ -------------------- ------- ---------- ------------------------------------------------------------------------------------------------------------------------------------------------------
+                   1 TEMP                                             84 ONLINE  READ WRITE +DATA/CRASHDB_26AI/TEMPFILE/temp.267.1235269657
+                   2 TEMP                                            190 ONLINE  READ WRITE +DATA/CRASHDB_26AI/53A1958360E42D49E0630500000A8F3B/TEMPFILE/temp.271.1235269449
+                   4 TEMP                                            190 ONLINE  READ WRITE +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/TEMPFILE/temp.277.1235269867
+
+3 rows selected.
+
+## FRA Destination And Usage
+
+NAME                                     SPACE_LIMIT_GB        SPACE_USED_GB SPACE_RECLAIMABLE_GB      NUMBER_OF_FILES
+---------------------------------- -------------------- -------------------- -------------------- --------------------
++RECO                                               255                  .39                  .35                   16
+
+1 row selected.
+
+## FRA Usage By File Type
+
+FILE_TYPE                 PERCENT_SPACE_USED PERCENT_SPACE_RECLAIMABLE      NUMBER_OF_FILES
+----------------------- -------------------- ------------------------- --------------------
+ARCHIVED LOG                             .14                       .14                   14
+AUXILIARY DATAFILE COPY                    0                         0                    0
+BACKUP PIECE                             .01                         0                    1
+CONTROL FILE                             .01                         0                    1
+FLASHBACK LOG                              0                         0                    0
+FOREIGN ARCHIVED LOG                       0                         0                    0
+IMAGE COPY                                 0                         0                    0
+REDO LOG                                   0                         0                    0
+
+8 rows selected.
+
+## RMAN Configuration
+
+NAME                               VALUE
+---------------------------------- ------------------------------------------------------------------------------------------------------------------------
+BACKUP OPTIMIZATION                OFF
+CHANNEL                            DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=<redacted-opc-pfile>)'
+
+COMPRESSION ALGORITHM              'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE
+CONTROLFILE AUTOBACKUP             ON
+DEFAULT DEVICE TYPE TO             'SBT_TAPE'
+DEVICE TYPE                        'SBT_TAPE' BACKUP TYPE TO COMPRESSED BACKUPSET PARALLELISM 4
+ENCRYPTION ALGORITHM               'AES256'
+ENCRYPTION FOR DATABASE            ON
+RETENTION POLICY                   TO RECOVERY WINDOW OF 30 DAYS
+SNAPSHOT CONTROLFILE NAME          TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f'
+
+10 rows selected.
+
+## Recent RMAN Backup Jobs
+
+         SESSION_KEY INPUT_TYPE    STATUS                  START_TIME           END_TIME                  ELAPSED_SECONDS OUTPUT_DEVICE_TYP
+-------------------- ------------- ----------------------- -------------------- -------------------- -------------------- -----------------
+INPUT_BYTES_DISPLAY
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+OUTPUT_BYTES_DISPLAY
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                  15 DB FULL       COMPLETED               2026-06-07 03:13:57  2026-06-07 03:14:45                    48 SBT_TAPE
+    4.23G
+    1.11G
+
+
+1 row selected.
+
+## Backup Set Summary
+
+    BACKUP_SET_RECID            SET_STAMP            SET_COUNT B    INCREMENTAL_LEVEL CON          PIECE_COUNT START_TIME           COMPLETION_TIME
+-------------------- -------------------- -------------------- - -------------------- --- -------------------- -------------------- --------------------
+                  21           1235272484                   21 D                      YES                    1 2026-06-07 03:14:44  2026-06-07 03:14:44
+                  20           1235272483                   20 D                      NO                     1 2026-06-07 03:14:43  2026-06-07 03:14:43
+                  19           1235272480                   19 D                      YES                    1 2026-06-07 03:14:40  2026-06-07 03:14:42
+                  17           1235272473                   18 L                      NO                     1 2026-06-07 03:14:33  2026-06-07 03:14:33
+                  18           1235272472                   14 L                      NO                     1 2026-06-07 03:14:32  2026-06-07 03:14:33
+                  14           1235272472                   17 L                      NO                     1 2026-06-07 03:14:32  2026-06-07 03:14:32
+                  16           1235272472                   15 L                      NO                     1 2026-06-07 03:14:32  2026-06-07 03:14:32
+                  15           1235272472                   16 L                      NO                     1 2026-06-07 03:14:32  2026-06-07 03:14:32
+                  13           1235272466                   13 D                      YES                    1 2026-06-07 03:14:26  2026-06-07 03:14:26
+                  12           1235272459                   10 D                      NO                     1 2026-06-07 03:14:19  2026-06-07 03:14:23
+                   9           1235272459                   11 D                      NO                     1 2026-06-07 03:14:19  2026-06-07 03:14:20
+                  11           1235272456                    9 D                      NO                     1 2026-06-07 03:14:16  2026-06-07 03:14:20
+                  10           1235272459                   12 D                      NO                     1 2026-06-07 03:14:19  2026-06-07 03:14:20
+                   6           1235272456                    8 D                      NO                     1 2026-06-07 03:14:16  2026-06-07 03:14:17
+                   7           1235272437                    2 D                      NO                     1 2026-06-07 03:13:57  2026-06-07 03:14:16
+                   8           1235272437                    3 D                      NO                     1 2026-06-07 03:13:57  2026-06-07 03:14:16
+                   4           1235272440                    6 D                      NO                     1 2026-06-07 03:14:00  2026-06-07 03:14:11
+                   5           1235272440                    7 D                      NO                     1 2026-06-07 03:14:00  2026-06-07 03:14:10
+                   3           1235272437                    4 D                      NO                     1 2026-06-07 03:13:57  2026-06-07 03:13:59
+                   2           1235272437                    5 D                      NO                     1 2026-06-07 03:13:57  2026-06-07 03:13:58
+                   1           1235270535                    1 D                      YES                    1 2026-06-07 02:42:15  2026-06-07 02:42:15
+
+21 rows selected.
+
+## Observed Backup Methodology From RMAN History
+
+INPUT_TYPE    STATUS                             JOB_COUNT FIRST_OBSERVED      LAST_OBSERVED
+------------- ----------------------- -------------------- ------------------- -------------------
+DB FULL       COMPLETED                                  1 2026-06-07 03:13:57 2026-06-07 03:13:57
+
+1 row selected.
+
+## Datafile Backup Coverage
+
+               FILE# FILE_NAME                                                                                                                                              LAST_BACKUP_TIME    BACKUP_STATUS
+-------------------- ------------------------------------------------------------------------------------------------------------------------------------------------------ ------------------- ----------------------------------
+                   1 +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617                                                                                                      2026-06-07 03:14:16 BACKUP METADATA FOUND
+                   3 +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601                                                                                                      2026-06-07 03:14:16 BACKUP METADATA FOUND
+                   4 +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641                                                                                                    2026-06-07 03:13:59 BACKUP METADATA FOUND
+                   5 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431                                                                     2026-06-07 03:14:10 BACKUP METADATA FOUND
+                   6 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/sysaux.268.1235269431                                                                     2026-06-07 03:14:11 BACKUP METADATA FOUND
+                   7 +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643                                                                                                       2026-06-07 03:13:58 BACKUP METADATA FOUND
+                   8 +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431                                                                   2026-06-07 03:14:17 BACKUP METADATA FOUND
+                   9 +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599                                                                                                    2026-06-07 03:13:58 BACKUP METADATA FOUND
+                  10 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875                                                                     2026-06-07 03:14:23 BACKUP METADATA FOUND
+                  11 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885                                                                     2026-06-07 03:14:20 BACKUP METADATA FOUND
+                  12 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893                                                                   2026-06-07 03:14:20 BACKUP METADATA FOUND
+                  13 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897                                                                     2026-06-07 03:14:20 BACKUP METADATA FOUND
+                  14 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875                                                                      2026-06-07 03:14:20 BACKUP METADATA FOUND
+                  17 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137                                                                                        2026-06-07 03:13:58 BACKUP METADATA FOUND
+                  18 +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139                                                                                     2026-06-07 03:13:58 BACKUP METADATA FOUND
+                  19 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139                                                            2026-06-07 03:14:20 BACKUP METADATA FOUND
+                  20 +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139                                                         2026-06-07 03:14:20 BACKUP METADATA FOUND
+
+17 rows selected.
+
+## Backup Piece Status
+
+S DEVICE_TYPE                PIECE_COUNT LATEST_COMPLETION
+- ----------------- -------------------- -------------------
+A DISK                                 1 2026-06-07 02:42:15
+A SBT_TAPE                            20 2026-06-07 03:14:45
+
+2 rows selected.
+
+## Recoverability Indicators
+
+               FILE#   CHECKPOINT_CHANGE# CHECKPOINT_TIME     UNRECOVERABLE_CHANGE# UNRECOVERABLE_TIME  NAME
+-------------------- -------------------- ------------------- --------------------- ------------------- ----------------------------------
+                   1              1296754 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/system
+                                                                                                        .264.1235269617
+
+                   3              1296758 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/sysaux
+                                                                                                        .273.1235269601
+
+                   4              1296762 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/undotb
+                                                                                                        s1.263.1235269641
+
+                   5              1258718 2026-06-07 02:33:06                     0                     +DATA/CRASHDB_26AI/50A6AE8A641D26E
+                                                                                                        6E0635E02F40A3B6E/DATAFILE/system.
+                                                                                                        269.1235269431
+
+                   6              1258718 2026-06-07 02:33:06                     0                     +DATA/CRASHDB_26AI/50A6AE8A641D26E
+                                                                                                        6E0635E02F40A3B6E/DATAFILE/sysaux.
+                                                                                                        268.1235269431
+
+                   7              1296766 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/users.
+                                                                                                        265.1235269643
+
+                   8              1258718 2026-06-07 02:33:06                     0                     +DATA/CRASHDB_26AI/50A6AE8A641D26E
+                                                                                                        6E0635E02F40A3B6E/DATAFILE/undotbs
+                                                                                                        1.270.1235269431
+
+                   9              1296766 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/undotb
+                                                                                                        s2.272.1235269599
+
+                  10              1297729 2026-06-07 03:14:19                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/system.
+                                                                                                        280.1235269875
+
+                  11              1297722 2026-06-07 03:14:16                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/sysaux.
+                                                                                                        275.1235269885
+
+                  12              1297737 2026-06-07 03:14:19                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/undotbs
+                                                                                                        1.276.1235269893
+
+                  13              1297733 2026-06-07 03:14:19                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/undo_5.
+                                                                                                        274.1235269897
+
+                  14              1297729 2026-06-07 03:14:19                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/users.2
+                                                                                                        79.1235269875
+
+                  17              1280575 2026-06-07 03:08:58                     0                     +DATA/CRASHDB_26AI/DATAFILE/crashs
+                                                                                                        im_root_ro_tbs.278.1235272137
+
+                  18              1296758 2026-06-07 03:13:57                     0                     +DATA/CRASHDB_26AI/DATAFILE/crashs
+                                                                                                        im_root_index_tbs.281.1235272139
+
+                  19              1280882 2026-06-07 03:08:58                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/crashsi
+                                                                                                        m_ro_tbs.282.1235272139
+
+                  20              1297733 2026-06-07 03:14:19                     0                     +DATA/CRASHDB_26AI/53A1ADBFCEF966E
+                                                                                                        7E0630500000AB462/DATAFILE/crashsi
+                                                                                                        m_index_tbs.283.1235272139
+
+
+17 rows selected.
+
+## Files Requiring Media Recovery
+
+no rows selected
+
+## Database Block Corruption
+
+no rows selected
+
+## Copy Corruption
+
+no rows selected
+
+## Backup Corruption
+
+no rows selected
+
+## Restore Points
+
+no rows selected
+
+## Data Guard Role And FSFO Columns
+
+DATABASE_ROLE    PROTECTION_MODE      PROTECTION_LEVEL     SWITCHOVER_STATUS    FS_FAILOVER_STATUS     FS_FAILOVER_CURRENT_TARGET     FS_FAILOVER_THRESHOLD FS_FAIL
+---------------- -------------------- -------------------- -------------------- ---------------------- ------------------------------ --------------------- -------
+PRIMARY          MAXIMUM PERFORMANCE  MAXIMUM PERFORMANCE  NOT ALLOWED          DISABLED                                                                  0
+
+1 row selected.
+
+## Data Guard Destinations
+
+             DEST_ID STATUS    TARGET           DESTINATION                                                                                                              DB_UNIQUE_NAME                 VALID_NOW
+-------------------- --------- ---------------- ------------------------------------------------------------------------------------------------------------------------ ------------------------------ ----------------
+ERROR
+------------------------------------------------------------------------------------------------------------------------
+                   1 VALID     PRIMARY          USE_DB_RECOVERY_FILE_DEST                                                                                                                               YES
+
+
+
+1 row selected.
+
+## Archive Gaps
+
+no rows selected
+
+## Data Guard Stats
+
+no rows selected
+
+## TDE Wallet Status
+
+WRL_TYPE
+--------------------
+WRL_PARAMETER
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+STATUS                         WALLET_TYPE          WALLET_OR KEYSTORE FULLY_BAC               CON_ID
+------------------------------ -------------------- --------- -------- --------- --------------------
+FILE
+/opt/oracle/dcs/commonstore/wallets/crashdb_26ai/tde/
+OPEN                           AUTOLOGIN            SINGLE    NONE     NO                           1
+
+FILE
+
+OPEN                           AUTOLOGIN            SINGLE    UNITED   NO                           2
+
+FILE
+
+OPEN                           AUTOLOGIN            SINGLE    UNITED   NO                           3
+
+
+3 rows selected.
+
+## Encrypted Tablespaces
+
+TABLESPACE_NAME                ENC
+------------------------------ ---
+CRASHSIM_ROOT_INDEX_TBS        YES
+CRASHSIM_ROOT_RO_TBS           YES
+SYSAUX                         YES
+SYSTEM                         YES
+TEMP                           YES
+UNDOTBS1                       YES
+UNDOTBS2                       YES
+USERS                          YES
+
+8 rows selected.
+
+## Encrypted Columns
+
+no rows selected
+
+## PDB State And Size
+
+PDB_NAME                                     CON_ID OPEN_MODE  RES        TOTAL_SIZE_GB OPEN_TIME
+------------------------------ -------------------- ---------- --- -------------------- -------------------
+PDB$SEED                                          2 READ ONLY  NO                  1.04 2026-06-07 03:13:15
+CRASHDB_PDB1                                      3 READ WRITE NO                  1.14 2026-06-07 03:13:16
+
+2 rows selected.
+
+## Datafile Count And Size By Container
+
+PDB_NAME                                     CON_ID       DATAFILE_COUNT          DATAFILE_GB          TEMPFILE_GB
+------------------------------ -------------------- -------------------- -------------------- --------------------
+CDB$ROOT                                          1                    7                 2.35                  .08
+PDB$SEED                                          2                    3                  .86                  .19
+CRASHDB_PDB1                                      3                    7                  .96                  .19
+
+3 rows selected.
+
+## Tablespaces By Container
+
+PDB_NAME                       TABLESPACE_NAME                CONTENTS              STATUS    BIG LOGGING   EXTENT_MAN ALLOCATIO SEGMEN              DATA_MB              TEMP_MB
+------------------------------ ------------------------------ --------------------- --------- --- --------- ---------- --------- ------ -------------------- --------------------
+CDB$ROOT                       CRASHSIM_ROOT_INDEX_TBS        PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                     16                    0
+CDB$ROOT                       CRASHSIM_ROOT_RO_TBS           PERMANENT             READ ONLY YES LOGGING   LOCAL      SYSTEM    AUTO                     16                    0
+CDB$ROOT                       SYSAUX                         PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                    910                    0
+CDB$ROOT                       SYSTEM                         PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                 1180                    0
+CDB$ROOT                       TEMP                           TEMPORARY             ONLINE    YES NOLOGGING LOCAL      UNIFORM   MANUAL                    0                   84
+CDB$ROOT                       UNDOTBS1                       UNDO                  ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                  125                    0
+CDB$ROOT                       UNDOTBS2                       UNDO                  ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                   60                    0
+CDB$ROOT                       USERS                          PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                    100                    0
+CRASHDB_PDB1                   CRASHSIM_INDEX_TBS             PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                     16                    0
+CRASHDB_PDB1                   CRASHSIM_RO_TBS                PERMANENT             READ ONLY YES LOGGING   LOCAL      SYSTEM    AUTO                     16                    0
+CRASHDB_PDB1                   SYSAUX                         PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                    460                    0
+CRASHDB_PDB1                   SYSTEM                         PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                  380                    0
+CRASHDB_PDB1                   TEMP                           TEMPORARY             ONLINE    YES NOLOGGING LOCAL      UNIFORM   MANUAL                    0                  190
+CRASHDB_PDB1                   UNDOTBS1                       UNDO                  ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                   50                    0
+CRASHDB_PDB1                   UNDO_5                         UNDO                  ONLINE    YES LOGGING   LOCAL      SYSTEM    MANUAL                   50                    0
+CRASHDB_PDB1                   USERS                          PERMANENT             ONLINE    YES LOGGING   LOCAL      SYSTEM    AUTO                      7                    0
+
+16 rows selected.
+
+## Datafiles By Container
+
+PDB_NAME                                    FILE_ID TABLESPACE_NAME                             SIZE_MB STATUS    ONLINE_ AUT
+------------------------------ -------------------- ------------------------------ -------------------- --------- ------- ---
+FILE_NAME
+------------------------------------------------------------------------------------------------------------------------------------------------------
+CDB$ROOT                                          1 SYSTEM                                         1180 AVAILABLE SYSTEM  YES
++DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617
+
+CDB$ROOT                                          3 SYSAUX                                          910 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601
+
+CDB$ROOT                                          4 UNDOTBS1                                        125 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641
+
+CDB$ROOT                                          7 USERS                                           100 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
+
+CDB$ROOT                                          9 UNDOTBS2                                         60 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599
+
+CDB$ROOT                                         17 CRASHSIM_ROOT_RO_TBS                             16 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137
+
+CDB$ROOT                                         18 CRASHSIM_ROOT_INDEX_TBS                          16 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139
+
+CRASHDB_PDB1                                     10 SYSTEM                                          380 AVAILABLE SYSTEM  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875
+
+CRASHDB_PDB1                                     11 SYSAUX                                          460 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885
+
+CRASHDB_PDB1                                     12 UNDOTBS1                                         50 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893
+
+CRASHDB_PDB1                                     13 UNDO_5                                           50 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897
+
+CRASHDB_PDB1                                     14 USERS                                             7 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875
+
+CRASHDB_PDB1                                     19 CRASHSIM_RO_TBS                                  16 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139
+
+CRASHDB_PDB1                                     20 CRASHSIM_INDEX_TBS                               16 AVAILABLE ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139
+
+
+14 rows selected.
+
+## Tempfiles By Container
+
+PDB_NAME                                    FILE_ID TABLESPACE_NAME                             SIZE_MB STATUS  AUT
+------------------------------ -------------------- ------------------------------ -------------------- ------- ---
+FILE_NAME
+------------------------------------------------------------------------------------------------------------------------------------------------------
+CDB$ROOT                                          1 TEMP                                             84 ONLINE  YES
++DATA/CRASHDB_26AI/TEMPFILE/temp.267.1235269657
+
+CRASHDB_PDB1                                      4 TEMP                                            190 ONLINE  YES
++DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/TEMPFILE/temp.277.1235269867
+
+
+2 rows selected.
+
+## Encrypted Tablespaces By Container
+
+PDB_NAME                       TABLESPACE_NAME                ENC
+------------------------------ ------------------------------ ---
+CDB$ROOT                       CRASHSIM_ROOT_INDEX_TBS        YES
+CDB$ROOT                       CRASHSIM_ROOT_RO_TBS           YES
+CDB$ROOT                       SYSAUX                         YES
+CDB$ROOT                       SYSTEM                         YES
+CDB$ROOT                       TEMP                           YES
+CDB$ROOT                       UNDOTBS1                       YES
+CDB$ROOT                       UNDOTBS2                       YES
+CDB$ROOT                       USERS                          YES
+CRASHDB_PDB1                   CRASHSIM_INDEX_TBS             YES
+CRASHDB_PDB1                   CRASHSIM_RO_TBS                YES
+CRASHDB_PDB1                   SYSAUX                         YES
+CRASHDB_PDB1                   SYSTEM                         YES
+CRASHDB_PDB1                   TEMP                           YES
+CRASHDB_PDB1                   UNDOTBS1                       YES
+CRASHDB_PDB1                   UNDO_5                         YES
+CRASHDB_PDB1                   USERS                          YES
+
+16 rows selected.
+
+```
+
+## RMAN Catalog And Restore Preview
+
+The report invokes RMAN with `target /` only. If the output says it is using the target control file, no recovery catalog was used by this report session. This does not prove that an external scheduler never uses a catalog; it reports what is detectable from the target host/session.
+
+
+## RMAN SHOW ALL
+
+Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/rman target / cmdfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506_show_all.rman
+
+```text
+
+Recovery Manager: Release 23.26.2.0.0 - Production on Sun Jun 7 03:15:08 2026
+Version 23.26.2.0.0
+
+Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
+
+connected to target database: CRASHDB (DBID=1275113611)
+
+RMAN&gt; show all;
+2&gt; exit
+using target database control file instead of recovery catalog
+RMAN configuration parameters for database with db_unique_name CRASHDB_26AI are:
+CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 30 DAYS;
+CONFIGURE BACKUP OPTIMIZATION OFF;
+CONFIGURE DEFAULT DEVICE TYPE TO 'SBT_TAPE';
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE SBT_TAPE TO '%F'; # default
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '%F'; # default
+CONFIGURE DEVICE TYPE 'SBT_TAPE' BACKUP TYPE TO COMPRESSED BACKUPSET PARALLELISM 4;
+CONFIGURE DEVICE TYPE DISK PARALLELISM 1 BACKUP TYPE TO BACKUPSET; # default
+CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE SBT_TAPE TO 1; # default
+CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE SBT_TAPE TO 1; # default
+CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+CONFIGURE CHANNEL DEVICE TYPE 'SBT_TAPE' PARMS  'SBT_LIBRARY=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib/libopc.so ENV=(OPC_PFILE=<redacted-opc-pfile>)';
+CONFIGURE MAXSETSIZE TO UNLIMITED; # default
+CONFIGURE ENCRYPTION FOR DATABASE ON;
+CONFIGURE ENCRYPTION ALGORITHM 'AES256';
+CONFIGURE COMPRESSION ALGORITHM 'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE;
+CONFIGURE RMAN OUTPUT TO KEEP FOR 7 DAYS; # default
+CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f';
+
+Recovery Manager complete.
+```
+
+## RMAN RESTORE DATABASE PREVIEW SUMMARY
+
+Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/rman target / cmdfile=/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506_restore_preview.rman
+
+```text
+
+Recovery Manager: Release 23.26.2.0.0 - Production on Sun Jun 7 03:15:10 2026
+Version 23.26.2.0.0
+
+Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
+
+connected to target database: CRASHDB (DBID=1275113611)
+
+RMAN&gt; restore database preview summary;
+2&gt; exit
+Starting restore at 07-JUN-26
+using target database control file instead of recovery catalog
+allocated channel: ORA_SBT_TAPE_1
+channel ORA_SBT_TAPE_1: SID=1096 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_SBT_TAPE_2
+channel ORA_SBT_TAPE_2: SID=23 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_SBT_TAPE_3
+channel ORA_SBT_TAPE_3: SID=634 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_SBT_TAPE_4
+channel ORA_SBT_TAPE_4: SID=335 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_4: Oracle Database Backup Service Library VER 23.0.0.1
+allocated channel: ORA_DISK_1
+channel ORA_DISK_1: SID=635 instance=crashdb1 device type=DISK
+
+
+List of Backups
+===============
+Key     TY LV S Device Type Completion Time #Pieces #Copies Compressed Tag
+------- -- -- - ----------- --------------- ------- ------- ---------- ---
+7       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+8       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+3       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+5       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+4       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+2       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+6       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+12      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+11      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+10      B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+9       B  F  A SBT_TAPE    07-JUN-26       1       1       YES        C26AI_260607031353
+using channel ORA_SBT_TAPE_1
+using channel ORA_SBT_TAPE_2
+using channel ORA_SBT_TAPE_3
+using channel ORA_SBT_TAPE_4
+using channel ORA_DISK_1
+
+List of Archived Log Copies for database with db_unique_name CRASHDB_26AI
+=====================================================================
+
+Key     Thrd Seq     S Low Time
+------- ---- ------- - ---------
+11      1    7       A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_7.278.1235272469
+
+13      1    8       A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_8.280.1235272471
+
+12      2    6       A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_6.279.1235272469
+
+14      2    7       A 07-JUN-26
+        Name: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_2_seq_7.281.1235272471
+
+recovery will be done up to SCN 1297845
+Media recovery start SCN is 1296754
+Recovery must be done beyond SCN 1297737 to clear datafile fuzziness
+validation succeeded for backup piece
+Finished restore at 07-JUN-26
+
+Recovery Manager complete.
+```
+
+## Deep RMAN Validation
+
+Skipped by default. Re-run with `--deep-validate` or set `CRASHSIM_REPORT_DEEP_VALIDATE=1` to run RMAN restore/database validation. Those checks are read-only but can be I/O intensive.
+
+## Operating System And Oracle Environment
+
+Command: env | sort with secret redaction
+
+```text
+}
+BASH_FUNC_which%%=() {  ( alias;
+ eval ${which_declare} ) | /usr/bin/which --tty-only --read-alias --read-functions --show-tilde --show-dot $@
+HISTCONTROL=ignoredups
+HISTSIZE=1000
+HOME=/home/oracle
+HOSTNAME=crashdb26ai1
+LANG=en_US.utf-8
+LC_CTYPE=C.UTF-8
+LD_LIBRARY_PATH=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib
+LESSOPEN=||/usr/bin/lesspipe.sh %s
+LOGNAME=oracle
+MAIL=/var/spool/mail/oracle
+OLDPWD=/home/opc
+ORACLE_HOME=/u01/app/oracle/product/23.0.0.0/dbhome_1
+ORACLE_SID=crashdb1
+ORACLE_UNQNAME=crashdb_26ai
+PATH=/u01/app/oracle/product/23.0.0.0/dbhome_1/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:/home/oracle/.local/bin:/home/oracle/bin:/home/opc/.local/bin:/home/opc/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin
+PWD=/tmp/crashsimulator
+S_COLORS=auto
+SHELL=/bin/bash
+SHLVL=2
+SUDO_COMMAND=/usr/bin/bash -lc export ORACLE_HOME=/u01/app/oracle/product/23.0.0.0/dbhome_1; export ORACLE_SID=crashdb1; export ORACLE_UNQNAME=crashdb_26ai; export PATH=$ORACLE_HOME/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:$PATH; cd /tmp/crashsimulator; ./CrashSimulatorV2.sh --config-report --pdb CRASHDB_PDB1 --html
+SUDO_GID=1000
+SUDO_UID=1000
+SUDO_USER=opc
+TERM=unknown
+USER=oracle
+_=/usr/bin/env
+which_declare=declare -f
+```
+
+## Host Kernel And Identity
+
+Command: uname -a
+
+```text
+Linux crashdb26ai1 5.15.0-319.201.4.6.el8uek.x86_64 #2 SMP Fri May 8 21:13:59 PDT 2026 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+## ORACLE_HOME Directory
+
+Command: bash -lc ls\ -ld\ \'/u01/app/oracle/product/23.0.0.0/dbhome_1\'\ 2\&gt;\&amp;1\;\ du\ -sh\ \'/u01/app/oracle/product/23.0.0.0/dbhome_1\'\ 2\&gt;\&amp;1
+
+```text
+drwxr-xr-x 67 oracle oinstall 4096 Jun  7 02:30 /u01/app/oracle/product/23.0.0.0/dbhome_1
+6.1G	/u01/app/oracle/product/23.0.0.0/dbhome_1
+```
+
+## OPatch LSPatches
+
+Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/OPatch/opatch lspatches
+
+```text
+35221462;TRACKING BUG TO SHIP IAM AUTHSDK FOR 26AI CODELINE FOR CLOUD
+39093738;OCW RELEASE UPDATE 23.26.2.0.0 (39093738) Gold Image
+39093711;Database Release Update : 23.26.2.0.0 (39093711) Gold Image
+
+OPatch succeeded.
+```
+
+## Listener Status
+
+Command: lsnrctl status
+
+```text
+
+LSNRCTL for Linux: Version 23.26.2.0.0 - Production on 07-JUN-2026 03:15:17
+
+Copyright (c) 1991, 2026, Oracle.  All rights reserved.
+
+Connecting to (ADDRESS=(PROTOCOL=tcp)(HOST=)(PORT=1521))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 23.26.2.0.0 - Production
+Start Date                07-JUN-2026 02:21:07
+Uptime                    0 days 0 hr. 54 min. 10 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /u01/app/23.0.0.0/grid/network/admin/listener.ora
+Listener Log File         /u01/app/grid/diag/tnslsnr/crashdb26ai1/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=10.0.0.144)(PORT=2484)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=10.0.0.5)(PORT=1521)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=10.0.0.144)(PORT=1521)))
+Services Summary...
+Service "+APX" has 1 instance(s).
+  Instance "+APX1", status READY, has 1 handler(s) for this service...
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "+ASM_DATA" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "+ASM_RECO" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+Service "50a6ae8a641c26e6e0635e02f40a3b6e.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "53a1adbfcef966e7e0630500000ab462.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "crashdbXDB.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "crashdb_26ai.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "crashdb_CRASHDB_PDB1.paas.oracle.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "crashdb_crashdb_pdb1.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "crashdb_pdb1.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+The command completed successfully
+```
+
+## Listener Services
+
+Command: lsnrctl services
+
+```text
+
+LSNRCTL for Linux: Version 23.26.2.0.0 - Production on 07-JUN-2026 03:15:17
+
+Copyright (c) 1991, 2026, Oracle.  All rights reserved.
+
+Connecting to (ADDRESS=(PROTOCOL=tcp)(HOST=)(PORT=1521))
+Services Summary...
+Service "+APX" has 1 instance(s).
+  Instance "+APX1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:0 refused:0 state:ready
+         LOCAL SERVER
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:0 refused:0 state:ready
+         LOCAL SERVER
+Service "+ASM_DATA" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:0 refused:0 state:ready
+         LOCAL SERVER
+Service "+ASM_RECO" has 1 instance(s).
+  Instance "+ASM1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:0 refused:0 state:ready
+         LOCAL SERVER
+Service "50a6ae8a641c26e6e0635e02f40a3b6e.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+Service "53a1adbfcef966e7e0630500000ab462.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+Service "crashdbXDB.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "D000" established:0 refused:0 current:0 max:1022 state:ready
+         DISPATCHER &lt;machine: crashdb26ai1, pid: 86167&gt;
+         (ADDRESS=(PROTOCOL=tcp)(HOST=crashdb26ai1.sub05260219130.operationsvcn.oraclevcn.com)(PORT=34465))
+Service "crashdb_26ai.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+Service "crashdb_CRASHDB_PDB1.paas.oracle.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+Service "crashdb_crashdb_pdb1.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+Service "crashdb_pdb1.sub05260219130.operationsvcn.oraclevcn.com" has 1 instance(s).
+  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+    Handler(s):
+      "DEDICATED" established:20 refused:0 state:ready
+         LOCAL SERVER
+The command completed successfully
+```
+
+## Network config: /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/listener.ora
+
+File not found: `/u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/listener.ora`
+
+## Network config: /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora
+
+File: `/u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora`
+
+```text
+# tnsnames.ora Network Configuration File: /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora
+# Generated by Oracle configuration tools.
+CRASHDB_26AI=
+	(DESCRIPTION=
+	  (ADDRESS=
+	    (PROTOCOL= TCP)
+
+	    (HOST= crashdb26ai-scan.sub05260219130.operationsvcn.oraclevcn.com)
+
+	    (PORT= 1521)
+	    )
+
+	  (CONNECT_DATA=
+	    (SERVER= DEDICATED)
+
+	    (SERVICE_NAME= crashdb_26ai.sub05260219130.operationsvcn.oraclevcn.com)
+	    )
+	  )
+
+CRASHDB_PDB1=
+	(DESCRIPTION=
+	  (ADDRESS=
+	    (PROTOCOL=TCP)
+
+	    (HOST=crashdb26ai-scan.sub05260219130.operationsvcn.oraclevcn.com)
+
+	    (PORT=1521)
+	    )
+
+	  (CONNECT_DATA=
+	    (SERVER=DEDICATED)
+
+	    (SERVICE_NAME=crashdb_crashdb_pdb1.sub05260219130.operationsvcn.oraclevcn.com)
+
+	    (FAILOVER_MODE=
+	      (TYPE=select)
+
+	      (METHOD=basic)
+	      )
+	    )
+	  )
+
+
+```
+
+## Network config: /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/sqlnet.ora
+
+File: `/u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/sqlnet.ora`
+
+```text
+# ENCRYPTION_WALLET_LOCATION=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/opt/oracle/dcs/commonstore/wallets/tde/$ORACLE_UNQNAME)))
+WALLET_LOCATION=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/opt/oracle/dcs/commonstore/tcps_wallet)))
+SSL_CLIENT_AUTHENTICATION=FALSE
+ENCRYPTION_WALLET_LOCATION=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/opt/oracle/dcs/commonstore/wallets/$ORACLE_UNQNAME/tde)))
+
+SQLNET.ENCRYPTION_SERVER=REQUIRED
+SQLNET.CRYPTO_CHECKSUM_SERVER=REQUIRED
+SQLNET.ENCRYPTION_TYPES_SERVER=(AES256,AES192,AES128)
+SQLNET.CRYPTO_CHECKSUM_TYPES_SERVER=(SHA256,SHA384,SHA512,SHA1)
+SQLNET.ENCRYPTION_CLIENT=REQUIRED
+SQLNET.CRYPTO_CHECKSUM_CLIENT=REQUIRED
+SQLNET.ENCRYPTION_TYPES_CLIENT=(AES256,AES192,AES128)
+SQLNET.CRYPTO_CHECKSUM_TYPES_CLIENT=(SHA256,SHA384,SHA512,SHA1)
+SQLNET.EXPIRE_TIME=10
+```
+
+## srvctl config database
+
+Command: srvctl config database -d crashdb_26ai
+
+```text
+Database unique name: crashdb_26ai
+Database name: crashdb
+Oracle home: /u01/app/oracle/product/23.0.0.0/dbhome_1
+Oracle user: oracle
+Spfile: +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
+Password file: &lt;redacted&gt;
+Domain: sub05260219130.operationsvcn.oraclevcn.com
+Start options: open
+Stop options: immediate
+Database role: PRIMARY
+Management policy: AUTOMATIC
+Server pools:
+Disk Groups: RECO,DATA
+Mount point paths: /opt/oracle/dcs/commonstore
+Services: crashdb_CRASHDB_PDB1.paas.oracle.com,crashdb_crashdb_pdb1
+Type: RAC
+Start concurrency:
+Stop concurrency:
+OSDBA group: dba
+OSOPER group: dbaoper
+Database instances: crashdb1,crashdb2
+Configured nodes: crashdb26ai1,crashdb26ai2
+CSS critical: no
+CPU count: 0
+Memory target: 0
+Maximum memory: 0
+Default network number for database services:
+Database is administrator managed
+```
+
+## srvctl status database
+
+Command: srvctl status database -d crashdb_26ai
+
+```text
+Instance crashdb1 is running on node crashdb26ai1
+Instance crashdb2 is running on node crashdb26ai2
+```
+
+## srvctl config services
+
+Command: srvctl config service -d crashdb_26ai
+
+```text
+Service name: crashdb_CRASHDB_PDB1.paas.oracle.com
+Cardinality: 2
+Service role: PRIMARY
+Management policy: AUTOMATIC
+DTP transaction: FALSE
+AQ HA notifications: FALSE
+Global: FALSE
+Commit Outcome: FALSE
+Commit Outcome Fastpath: FALSE
+Reset State: NONE
+Failover type: NONE
+Failover method: NONE
+Failover retries:
+Failover delay:
+Failover restore: NONE
+Connection Load Balancing Goal: LONG
+Runtime Load Balancing Goal: NONE
+TAF policy specification: NONE
+Edition:
+Pluggable database name: CRASHDB_PDB1
+True Cache service:
+Maximum lag time: ANY
+SQL Translation Profile:
+Retention: 86400 seconds
+Failback :  no
+Replay Initiation Time: 300 seconds
+Drain timeout:
+Template timeout: 86400 seconds
+Stop option:
+Session State Consistency:
+Auto Connection Rebalance: DEFAULT
+GSM Flags: 0
+Service is enabled
+Preferred instances: crashdb1,crashdb2
+Available instances:
+CSS critical: no
+
+Service name: crashdb_crashdb_pdb1
+Cardinality: 2
+Service role: PRIMARY
+Management policy: AUTOMATIC
+DTP transaction: FALSE
+AQ HA notifications: FALSE
+Global: FALSE
+Commit Outcome: FALSE
+Commit Outcome Fastpath: FALSE
+Reset State: NONE
+Failover type: NONE
+Failover method:
+Failover retries:
+Failover delay:
+Failover restore: NONE
+Connection Load Balancing Goal: LONG
+Runtime Load Balancing Goal: NONE
+TAF policy specification: NONE
+Edition:
+Pluggable database name: CRASHDB_PDB1
+True Cache service:
+Maximum lag time: ANY
+SQL Translation Profile:
+Retention: 86400 seconds
+Failback :  no
+Replay Initiation Time: 300 seconds
+Drain timeout:
+Template timeout: 86400 seconds
+Stop option:
+Session State Consistency:
+Auto Connection Rebalance: DEFAULT
+GSM Flags: 0
+Service is enabled
+Preferred instances: crashdb1,crashdb2
+Available instances:
+CSS critical: no
+```
+
+## srvctl status services
+
+Command: srvctl status service -d crashdb_26ai
+
+```text
+Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances crashdb1,crashdb2
+Service crashdb_crashdb_pdb1 is running on instances crashdb1,crashdb2
+```
+
+## srvctl config asm
+
+Command: srvctl config asm
+
+```text
+ASM home: &lt;CRS home&gt;
+Password file: &lt;redacted&gt;
+Backup of Password file: &lt;redacted&gt;
+ASM listener: LISTENER
+ASM instance count: 2
+Cluster ASM listener: ASMNET1LSNR_ASM
+```
+
+## srvctl status asm
+
+Command: srvctl status asm
+
+```text
+ASM is running on crashdb26ai2,crashdb26ai1
+```
+
+## Grid Infrastructure CRS Check
+
+Command: crsctl check crs
+
+```text
+CRS-4638: Oracle High Availability Services is online
+CRS-4537: Cluster Ready Services is online
+CRS-4529: Cluster Synchronization Services is online
+CRS-4533: Event Manager is online
+```
+
+## Grid Infrastructure Resource Status
+
+Command: crsctl stat res -t
+
+```text
+--------------------------------------------------------------------------------
+Name           Target  State        Server                   State details
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.DATA.COMMONSTORE.advm
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.chad
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.data.commonstore.acfs
+               ONLINE  ONLINE       crashdb26ai1             mounted on /opt/orac
+                                                             le/dcs/commonstore,S
+                                                             TABLE
+               ONLINE  ONLINE       crashdb26ai2             mounted on /opt/orac
+                                                             le/dcs/commonstore,S
+                                                             TABLE
+ora.helper
+               OFFLINE OFFLINE      crashdb26ai1             IDLE,STABLE
+               OFFLINE OFFLINE      crashdb26ai2             IDLE,STABLE
+ora.net1.network
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.ons
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.proxy_advm
+               ONLINE  ONLINE       crashdb26ai1             STABLE
+               ONLINE  ONLINE       crashdb26ai2             STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.ASMNET1LSNR_ASM.lsnr(ora.asmgroup)
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.DATA.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+ora.RECO.dg(ora.asmgroup)
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.asm(ora.asmgroup)
+      1        ONLINE  ONLINE       crashdb26ai1             Started,STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             Started,STABLE
+ora.asmnet1.asmnetwork(ora.asmgroup)
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.cdp1.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp2.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp3.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.crashdb26ai1.vip
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+ora.crashdb26ai2.vip
+      1        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.crashdb_26ai.crashdb_crashdb_pdb1.paas.oracle.com.svc
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.crashdb_26ai.crashdb_crashdb_pdb1.svc
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.crashdb_26ai.crashdb_pdb1.pdb
+      1        ONLINE  ONLINE       crashdb26ai1             READ WRITE,STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             READ WRITE,STABLE
+ora.crashdb_26ai.db
+      1        ONLINE  ONLINE       crashdb26ai1             Open,HOME=/u01/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+      2        ONLINE  ONLINE       crashdb26ai2             Open,HOME=/u01/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+ora.cvu
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+ora.cvuhelper
+      1        OFFLINE OFFLINE                               STABLE
+ora.rhpserver
+      1        OFFLINE OFFLINE                               STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       crashdb26ai2             STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+--------------------------------------------------------------------------------
+```
+
+## Voting Disk Status
+
+Command: crsctl query css votedisk
+
+```text
+##  STATE    File Universal Id                File Name Disk group
+--  -----    -----------------                --------- ---------
+ 1. ONLINE   e5c6214ca8024fccbff1426bea65c241 (/dev/DATADISK3) [DATA]
+Located 1 voting disk(s).
+```
+
+## OCR Check
+
+Command: ocrcheck
+
+```text
+Status of Oracle Cluster Registry is as follows :
+	 Version                  :          4
+	 Total space (kbytes)     :     901284
+	 Used space (kbytes)      :      85144
+	 Available space (kbytes) :     816140
+	 ID                       :  216061144
+	 Device/File Name         :      +DATA
+                                    Device/File integrity check succeeded
+
+                                    Device/File not configured
+
+                                    Device/File not configured
+
+                                    Device/File not configured
+
+                                    Device/File not configured
+
+	 Cluster registry integrity check succeeded
+
+	 Logical corruption check bypassed due to non-privileged user
+
+```
+
+## OCR Backups
+
+Command: ocrconfig -showbackup
+
+```text
+
+crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/backup00.ocr.258.1235268739     3598864773
+
+crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/day.ocr.259.1235268741     3598864773
+
+crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/week.ocr.260.1235268741     3598864773
+PROT-25: Manual backups for the Oracle Cluster Registry are not available
+```
+
+## ASM Disk Groups
+
+Command: env ORACLE_HOME=/u01/app/23.0.0.0/grid ORACLE_SID=+ASM1 PATH=/u01/app/23.0.0.0/grid/bin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:/home/oracle/.local/bin:/home/oracle/bin:/home/opc/.local/bin:/home/opc/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin /u01/app/23.0.0.0/grid/bin/asmcmd lsdg
+
+```text
+Connected to an idle instance.
+ASMCMD-8102: no connection to Oracle ASM; command requires Oracle ASM to run
+
+[command exited with status 255]
+```
+
+## ASM SPFILE
+
+Command: env ORACLE_HOME=/u01/app/23.0.0.0/grid ORACLE_SID=+ASM1 PATH=/u01/app/23.0.0.0/grid/bin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:/home/oracle/.local/bin:/home/oracle/bin:/home/opc/.local/bin:/home/opc/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin /u01/app/23.0.0.0/grid/bin/asmcmd spget
+
+```text
+Connected to an idle instance.
+ASMCMD-8102: no connection to Oracle ASM; command requires Oracle ASM to run
+
+[command exited with status 255]
+```
+
+## Data Guard Broker Configuration
+
+Command: bash -lc printf\ \'show\ configuration\ verbose\;\\nshow\ fast_start\ failover\;\\nexit\\n\'\ \|\ dgmgrl\ -silent\ /
+
+```text
+Connected to "crashdb_26ai"
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+```
+</pre>
+</main></body></html>

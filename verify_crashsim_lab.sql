@@ -27,7 +27,16 @@ from dba_tablespaces
 where tablespace_name like 'CRASHSIM_ROOT\_%' escape '\'
 order by tablespace_name;
 
-alter session set container = crashpdb;
+column crashsim_target_pdb new_value crashsim_target_pdb noprint
+select coalesce(
+         max(case when name = 'CRASHPDB' and open_mode = 'READ WRITE' then name end),
+         min(case when name <> 'PDB$SEED' and open_mode = 'READ WRITE' then name end)
+       ) crashsim_target_pdb
+from v$pdbs;
+
+prompt === Target PDB: &&crashsim_target_pdb ===
+
+alter session set container = &&crashsim_target_pdb;
 
 prompt === PDB CRASHSIM users ===
 select username, account_status

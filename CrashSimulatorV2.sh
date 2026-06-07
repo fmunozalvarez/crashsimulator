@@ -6180,11 +6180,13 @@ from v$backup_datafile;
 select 'CSIM_BKP|last_level0_backup_time|' ||
        nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
 from v$backup_datafile
-where incremental_level = 0;
+where incremental_level = 0
+   or incremental_level is null;
 select 'CSIM_BKP|last_level0_backup_age_hours|' ||
        nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
 from v$backup_datafile
-where incremental_level = 0;
+where incremental_level = 0
+   or incremental_level is null;
 select 'CSIM_BKP|last_level1_backup_time|' ||
        nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
 from v$backup_datafile
@@ -6198,7 +6200,7 @@ select 'CSIM_BKP|level0_count_30d|' || count(*)
 from (
   select distinct set_stamp, set_count
   from v$backup_datafile
-  where incremental_level = 0
+  where (incremental_level = 0 or incremental_level is null)
     and completion_time >= sysdate - 30
 );
 select 'CSIM_BKP|level1_count_30d|' || count(*)
@@ -6216,7 +6218,7 @@ from (
   from (
     select distinct completion_time
     from v$backup_datafile
-    where incremental_level = 0
+    where (incremental_level = 0 or incremental_level is null)
       and completion_time >= sysdate - 90
   )
 )

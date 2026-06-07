@@ -42,19 +42,19 @@ function wrapLine(line, width) {
 }
 
 function lineClass(line) {
-  if (/^(CrashSimulator V2|Aleatory scenario|Reports|Guided Workflow|# CrashSimulator Oracle MAA|MAA readiness)/.test(line)) {
+  if (/^(CrashSimulator V2|Aleatory scenario|Reports|Guided Workflow|# CrashSimulator Oracle MAA|# CrashSimulator Scenario Readiness|MAA readiness)/.test(line)) {
     return "accent";
   }
-  if (/^(Database:|Instance:|Topology:|PDB target context:|Mode:|Manifest:|Detected MAA posture:|Readiness status:)/.test(line)) {
+  if (/^(Database:|DB unique name:|Instance:|Topology:|PDB target context:|Mode:|Manifest:|Detected MAA posture:|Readiness status:)/.test(line)) {
     return "info";
   }
   if (/^(Scenario|Group:|Scope:|Impact:|Requires:|Notes:)/.test(line)) {
     return "strong";
   }
-  if (/DRY-RUN|Recovery runbook|Planned actions|Generate target|Oracle MAA readiness|MAA readiness report generated|Baseline checks passed/.test(line)) {
+  if (/DRY-RUN|RUNNABLE|Recovery runbook|Planned actions|Generate target|Oracle MAA readiness|MAA readiness report generated|Baseline checks passed|Oracle AI Database 26ai/.test(line)) {
     return "success";
   }
-  if (/destructive|requires|abort|external|GAP|WARN/.test(line)) {
+  if (/PLAN-ONLY|NOT-RUNNABLE|destructive|requires|abort|external|GAP|WARN/.test(line)) {
     return "warn";
   }
   if (/Choice:/.test(line)) {
@@ -998,6 +998,27 @@ async function renderMaaSummary(browser) {
         prompt: "",
         height: 1900,
         lineLimit: 52,
+        wrap: 120,
+      },
+      {
+        input: "captures/26ai/26ai_topology_latest.txt",
+        html: "26ai_topology_latest.html",
+        output: "crashsim_26ai_topology.png",
+        title: "Oracle AI Database 26ai RAC/ASM",
+        subtitle: "Validated lab | CDB, RAC, ASM, PDB",
+        prompt: "$ ./CrashSimulatorV2.sh --discover --pdb CRASHDB_PDB1 --html",
+        height: 1600,
+        lineLimit: 36,
+      },
+      {
+        input: "docs/reference/26ai/26ai_scenario_readiness_reference.md",
+        html: "26ai_scenario_readiness.html",
+        output: "crashsim_26ai_scenario_readiness.png",
+        title: "26ai Scenario Readiness",
+        subtitle: "39 runnable dry-runs | 72-scenario registry",
+        prompt: "$ ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html",
+        height: 1900,
+        lineLimit: 56,
         wrap: 120,
       },
     ];

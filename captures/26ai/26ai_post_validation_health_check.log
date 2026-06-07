@@ -1,0 +1,32 @@
+=== Database state ===
+
+NAME                                                                             DB_UNIQUE_NAME                 OPEN_MODE            DATABASE_ROLE    CDB
+-------------------------------------------------------------------------------- ------------------------------ -------------------- ---------------- ---
+CRASHDB                                                                          crashdb_26ai                   READ WRITE           PRIMARY          YES
+
+1 row selected.
+
+=== PDB state ===
+
+NAME                                                                             OPEN_MODE
+-------------------------------------------------------------------------------- ----------
+PDB$SEED                                                                         READ ONLY
+CRASHDB_PDB1                                                                     READ WRITE
+
+2 rows selected.
+
+=== Files needing media recovery ===
+
+no rows selected
+
+=== Datafile status for drill targets ===
+
+PDB_NAME                                                                                                                             CON_ID    FILE_NO TABLESPACE_NAME                STATUS    ONLINE_ FILE_NAME
+-------------------------------------------------------------------------------------------------------------------------------- ---------- ---------- ------------------------------ --------- ------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                          1          7 USERS                          AVAILABLE ONLINE  +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
+
+1 row selected.
+
+=== Block corruption view ===
+
+no rows selected

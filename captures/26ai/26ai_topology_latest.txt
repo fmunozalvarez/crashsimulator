@@ -1,0 +1,26 @@
+CrashSimulator V2 discovery
+  Version:           2.0.0-dev
+  Generated UTC:     2026-06-07T03:46:13Z
+  Host:              crashdb26ai1
+  OS user:           oracle
+  Oracle home:       /u01/app/oracle/product/23.0.0.0/dbhome_1
+  SQL*Plus:          /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  Database name:     CRASHDB
+  DB unique name:    crashdb_26ai
+  Version family:    12c or later required by v2
+  CDB:               YES
+  Open mode:         READ WRITE
+  Database role:     PRIMARY
+  Protection mode:   MAXIMUM PERFORMANCE
+  Switchover status: NOT ALLOWED
+  Instance:          crashdb1
+  Thread:            1
+  RAC parallel:      YES
+  Cluster type:      RAC
+  GI managed:        1
+  Storage type:      ASM
+  SPFILE:            +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
+  Password file:     +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335
+  FRA:               +RECO
+  PDBs:
+    CRASHDB_PDB1 (CON_ID=3, OPEN_MODE=READ WRITE)

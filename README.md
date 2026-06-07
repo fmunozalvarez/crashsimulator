@@ -19,6 +19,11 @@ topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
 
+Compatibility statement: CrashSimulator is designed for Oracle Database 12c and
+later, and the project validation evidence now includes live Oracle Database
+19c and Oracle AI Database 26ai RAC/ASM labs. This is CrashSimulator project
+validation, not an official Oracle product certification.
+
 For the full end-user documentation, read:
 
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
@@ -29,6 +34,7 @@ For the full end-user documentation, read:
 - [Guided Reports menu narrated tutorial video](assets/tutorial/crashsimulator_guided_reports_menu_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
+- [26ai RAC/ASM validation summary](reports/crashsim_26ai_validation_20260607.md)
 - [Detailed V2 notes](README_V2.md)
 - [Reference report examples](docs/reference/README.md)
 

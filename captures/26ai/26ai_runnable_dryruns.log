@@ -1,0 +1,1417 @@
+### Scenario 5 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034323_31073
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 5: Loss of one non-system datafile
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Does not assume USERS exists.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s5_20260607_034323.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034323_31073
+### Scenario 6 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034327_31834
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 6: Loss of one temporary file
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets a database temporary file.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s6_20260607_034327.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Temporary file/tablespace loss:
+    1. Tempfiles usually do not require media recovery.
+    2. Drop the missing tempfile metadata if needed, then add a new tempfile to the temporary tablespace.
+    3. Confirm DBA_TEMP_FILES, V$TEMPFILE, temp tablespace defaults, and representative sort/temp workloads.
+
+Planned actions:
+ 1. asm_tempfile_rm +DATA/CRASHDB_26AI/TEMPFILE/temp.267.1235269657 (ASM tempfile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034327_31834
+### Scenario 7 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034331_32669
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 7: Loss of one SYSTEM datafile
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: High-impact SYSTEM datafile scenario.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s7_20260607_034331.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SYSTEM/all-datafile database recovery:
+    1. Expect MOUNT-mode recovery for SYSTEM or whole-database datafile loss.
+    2. Restore and recover with RMAN:
+       rman target /
+       startup mount;
+       restore database;
+       recover database;
+       alter database open;
+    3. If incomplete recovery is required, document the chosen UNTIL SCN/TIME and use OPEN RESETLOGS.
+    4. Validate dictionary health, components, invalid objects, listener/services, and take a new baseline backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034331_32669
+### Scenario 8 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034334_33460
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 8: Loss of one UNDO datafile
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets an online UNDO tablespace file.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s8_20260607_034334.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034334_33460
+### Scenario 9 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034338_34423
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 9: Loss of a read-only tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all files in one read-only tablespace.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s9_20260607_034338.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034338_34423
+### Scenario 10 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034341_35219
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 10: Loss of an index-only tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets a tablespace with indexes and no tables.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s10_20260607_034341.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034341_35219
+### Scenario 11 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034345_36031
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 11: Drop non-unique indexes outside Oracle schemas
+Group: Logical
+Scope: CDB/non-CDB
+Impact: logical
+Requires: primary
+Notes: Logical object loss for rebuild practice.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s11_20260607_034345.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-unique index loss:
+    1. Identify dropped indexes from DDL repository, recycle bin/flashback metadata, schema export, or application deployment scripts.
+    2. Rebuild with CREATE INDEX or application DDL. For unusable indexes, use ALTER INDEX ... REBUILD.
+    3. Gather statistics if needed and validate execution plans for affected queries.
+
+Planned actions:
+ 1. sql
+begin
+  for rec in (
+    select i.owner, i.index_name
+    from dba_indexes i
+    join dba_users u on u.username = i.owner
+    where i.uniqueness = 'NONUNIQUE'
+      and i.owner not in ('SYS','SYSTEM')
+      and u.oracle_maintained = 'N'
+      and 1 = 1
+      and rownum <= 20
+  ) loop
+    execute immediate 'drop index "' || rec.owner || '"."' || rec.index_name || '"';
+  end loop;
+end;
+/
+ (drop non-unique indexes (1 candidates))
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034345_36031
+### Scenario 12 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034348_36797
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 12: Loss of a non-system tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all files in one non-system permanent tablespace.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s12_20260607_034348.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034348_36797
+### Scenario 13 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034352_37537
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 13: Loss of a temporary tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all files in one temporary tablespace.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s13_20260607_034352.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Temporary file/tablespace loss:
+    1. Tempfiles usually do not require media recovery.
+    2. Drop the missing tempfile metadata if needed, then add a new tempfile to the temporary tablespace.
+    3. Confirm DBA_TEMP_FILES, V$TEMPFILE, temp tablespace defaults, and representative sort/temp workloads.
+
+Planned actions:
+ 1. asm_tempfile_rm +DATA/CRASHDB_26AI/TEMPFILE/temp.267.1235269657 (ASM tempfile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034352_37537
+### Scenario 14 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034356_38381
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 14: Loss of SYSTEM tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all SYSTEM datafiles.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s14_20260607_034356.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SYSTEM/all-datafile database recovery:
+    1. Expect MOUNT-mode recovery for SYSTEM or whole-database datafile loss.
+    2. Restore and recover with RMAN:
+       rman target /
+       startup mount;
+       restore database;
+       recover database;
+       alter database open;
+    3. If incomplete recovery is required, document the chosen UNTIL SCN/TIME and use OPEN RESETLOGS.
+    4. Validate dictionary health, components, invalid objects, listener/services, and take a new baseline backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034356_38381
+### Scenario 15 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034400_39803
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 15: Loss of UNDO tablespace
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Targets all files in one UNDO tablespace.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s15_20260607_034400.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034400_39803
+### Scenario 17 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034403_40743
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 17: Loss of all datafiles
+Group: Core
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Very high-impact full database restore practice.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s17_20260607_034403.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SYSTEM/all-datafile database recovery:
+    1. Expect MOUNT-mode recovery for SYSTEM or whole-database datafile loss.
+    2. Restore and recover with RMAN:
+       rman target /
+       startup mount;
+       restore database;
+       recover database;
+       alter database open;
+    3. If incomplete recovery is required, document the chosen UNTIL SCN/TIME and use OPEN RESETLOGS.
+    4. Validate dictionary health, components, invalid objects, listener/services, and take a new baseline backup.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617 (ASM datafile loss via asmcmd rm)
+ 2. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601 (ASM datafile loss via asmcmd rm)
+ 3. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641 (ASM datafile loss via asmcmd rm)
+ 4. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643 (ASM datafile loss via asmcmd rm)
+ 5. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599 (ASM datafile loss via asmcmd rm)
+ 6. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137 (ASM datafile loss via asmcmd rm)
+ 7. asm_rm         +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139 (ASM datafile loss via asmcmd rm)
+ 8. asm_rm         +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/system.269.1235269431 (ASM datafile loss via asmcmd rm)
+ 9. asm_rm         +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/sysaux.268.1235269431 (ASM datafile loss via asmcmd rm)
+10. asm_rm         +DATA/CRASHDB_26AI/50A6AE8A641D26E6E0635E02F40A3B6E/DATAFILE/undotbs1.270.1235269431 (ASM datafile loss via asmcmd rm)
+11. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875 (ASM datafile loss via asmcmd rm)
+12. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885 (ASM datafile loss via asmcmd rm)
+13. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893 (ASM datafile loss via asmcmd rm)
+14. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897 (ASM datafile loss via asmcmd rm)
+15. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875 (ASM datafile loss via asmcmd rm)
+16. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139 (ASM datafile loss via asmcmd rm)
+17. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034403_40743
+### Scenario 22 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034410_43837
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 22: Datafile header corruption
+Group: Corrupt
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Overwrites one block in a SYSTEM datafile.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s22_20260607_034410.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-SYSTEM datafile/tablespace or archived-log recovery:
+    1. Identify FILE#, TABLESPACE_NAME, CHECKPOINT_CHANGE#, and ONLINE_STATUS from V$DATAFILE, DBA_DATA_FILES, and V$RECOVER_FILE.
+    2. If the database can stay open, offline the affected datafile or tablespace.
+    3. Restore and recover the datafile/tablespace:
+       rman target /
+       sql "alter database datafile <file#> offline";
+       restore datafile <file#>;
+       recover datafile <file#>;
+       sql "alter database datafile <file#> online";
+    4. For missing archived redo, restore the archived log first or decide whether incomplete recovery is acceptable.
+    5. Validate with RMAN VALIDATE, V$DATABASE_BLOCK_CORRUPTION, application checks, and a fresh backup.
+
+Planned actions:
+ 1. asm_corrupt_header +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617 (ASM header-corruption surrogate: remove ASM datafile and recover FILE#)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034410_43837
+### Scenario 27 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034413_44612
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 27: Loss of SQL*Net config files
+Group: Config
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: any
+Notes: Targets listener.ora, tnsnames.ora, sqlnet.ora if present.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s27_20260607_034413.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SQL*Net/listener config loss:
+    1. Restore listener.ora, tnsnames.ora, sqlnet.ora, and wallet/network includes from config backup or automation.
+    2. Reload or restart listener: lsnrctl reload/start.
+    3. Validate local bequeath, service registration, client TNS aliases, SCAN/VIP names if clustered, and Data Guard transport aliases.
+
+Planned actions:
+ 1. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora
+ 2. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/sqlnet.ora
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034413_44612
+### Scenario 30 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034417_45615
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 30: PDB loss of one non-system datafile
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s30_20260607_034417.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034417_45615
+### Scenario 31 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034420_46537
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 31: PDB loss of one temporary file
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s31_20260607_034420.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Temporary file/tablespace loss:
+    1. Tempfiles usually do not require media recovery.
+    2. Drop the missing tempfile metadata if needed, then add a new tempfile to the temporary tablespace.
+    3. Confirm DBA_TEMP_FILES, V$TEMPFILE, temp tablespace defaults, and representative sort/temp workloads.
+
+Planned actions:
+ 1. asm_tempfile_rm +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/TEMPFILE/temp.277.1235269867 (ASM tempfile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034420_46537
+### Scenario 32 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034424_47416
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 32: PDB loss of one SYSTEM datafile
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s32_20260607_034424.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034424_47416
+### Scenario 33 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034427_48183
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 33: PDB loss of one UNDO datafile
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires local undo and --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s33_20260607_034427.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034427_48183
+### Scenario 34 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034431_48892
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 34: PDB loss of read-only tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s34_20260607_034431.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034431_48892
+### Scenario 35 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034434_49618
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 35: PDB loss of index-only tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s35_20260607_034434.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034434_49618
+### Scenario 36 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034438_50439
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 36: PDB drop non-unique indexes
+Group: PDB
+Scope: PDB
+Impact: logical
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s36_20260607_034438.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Non-unique index loss:
+    1. Identify dropped indexes from DDL repository, recycle bin/flashback metadata, schema export, or application deployment scripts.
+    2. Rebuild with CREATE INDEX or application DDL. For unusable indexes, use ALTER INDEX ... REBUILD.
+    3. Gather statistics if needed and validate execution plans for affected queries.
+
+Planned actions:
+ 1. sql
+alter session set container = CRASHDB_PDB1;
+begin
+  for rec in (
+    select i.owner, i.index_name
+    from dba_indexes i
+    join dba_users u on u.username = i.owner
+    where i.uniqueness = 'NONUNIQUE'
+      and i.owner not in ('SYS','SYSTEM')
+      and u.oracle_maintained = 'N'
+      and 1 = 1
+      and rownum <= 20
+  ) loop
+    execute immediate 'drop index "' || rec.owner || '"."' || rec.index_name || '"';
+  end loop;
+end;
+/
+alter session set container = CDB$ROOT;
+ (drop PDB non-unique indexes (2 candidates))
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034438_50439
+### Scenario 37 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034441_51051
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 37: PDB loss of non-system tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s37_20260607_034441.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034441_51051
+### Scenario 38 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034445_51745
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 38: PDB loss of temporary tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s38_20260607_034445.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Temporary file/tablespace loss:
+    1. Tempfiles usually do not require media recovery.
+    2. Drop the missing tempfile metadata if needed, then add a new tempfile to the temporary tablespace.
+    3. Confirm DBA_TEMP_FILES, V$TEMPFILE, temp tablespace defaults, and representative sort/temp workloads.
+
+Planned actions:
+ 1. asm_tempfile_rm +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/TEMPFILE/temp.277.1235269867 (ASM tempfile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034445_51745
+### Scenario 39 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034449_52686
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 39: PDB loss of SYSTEM tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s39_20260607_034449.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034449_52686
+### Scenario 40 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034452_53414
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 40: PDB loss of UNDO tablespace
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s40_20260607_034452.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893 (ASM datafile loss via asmcmd rm)
+ 2. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034452_53414
+### Scenario 41 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034456_54549
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 41: PDB loss of all datafiles
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s41_20260607_034456.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875 (ASM datafile loss via asmcmd rm)
+ 2. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885 (ASM datafile loss via asmcmd rm)
+ 3. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893 (ASM datafile loss via asmcmd rm)
+ 4. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897 (ASM datafile loss via asmcmd rm)
+ 5. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875 (ASM datafile loss via asmcmd rm)
+ 6. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139 (ASM datafile loss via asmcmd rm)
+ 7. asm_rm         +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139 (ASM datafile loss via asmcmd rm)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034456_54549
+### Scenario 42 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034500_56128
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 42: PDB SYSTEM file header corruption
+Group: PDB
+Scope: PDB
+Impact: destructive
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s42_20260607_034500.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB datafile/tablespace recovery:
+    1. Identify target PDB, FILE#, tablespace, and whether local undo is enabled.
+    2. Close the affected PDB if needed:
+       alter pluggable database <pdb_name> close immediate;
+    3. Restore/recover at PDB or datafile granularity:
+       rman target /
+       restore pluggable database <pdb_name>;
+       recover pluggable database <pdb_name>;
+       sql "alter pluggable database <pdb_name> open";
+    4. For single datafiles, restore/recover DATAFILE <file#> where possible.
+    5. Validate PDB open mode, application services, invalid objects, and PDB-local backup posture.
+
+Planned actions:
+ 1. asm_corrupt_header +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875 (ASM header-corruption surrogate: remove ASM datafile and recover FILE#)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+DRY-RUN: would abort target instance crashdb1
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034500_56128
+### Scenario 43 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034504_56931
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 43: PDB loss of one user table
+Group: PDB
+Scope: PDB
+Impact: logical
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260607_034504.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB table loss:
+    1. Try FLASHBACK TABLE if recycle bin/flashback requirements are met.
+    2. Otherwise recover via Data Pump import, table-level RMAN recovery, PDB PITR clone, or application DDL/data reload.
+    3. Validate dependent indexes, constraints, grants, triggers, statistics, and application row counts.
+
+Planned actions:
+ 1. sql
+alter session set container = CRASHDB_PDB1;
+drop table "CRASHSIM_INDEX_LAB"."INDEX_TARGET" purge;
+alter session set container = CDB$ROOT;
+ (drop PDB table CRASHSIM_INDEX_LAB.INDEX_TARGET)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034504_56931
+### Scenario 44 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034507_57519
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 44: PDB loss of one user schema
+Group: PDB
+Scope: PDB
+Impact: logical
+Requires: cdb,pdb,primary
+Notes: Requires --pdb.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s44_20260607_034507.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - PDB schema loss:
+    1. Prefer Data Pump schema import if exports are part of the DR design.
+    2. Otherwise practice PDB point-in-time recovery to an auxiliary location and extract/import the schema.
+    3. Recreate grants, synonyms, jobs, scheduler objects, statistics, and application credentials.
+
+Planned actions:
+ 1. sql
+alter session set container = CRASHDB_PDB1;
+drop user "C##CRASHSIM_ROOT_LAB" cascade;
+alter session set container = CDB$ROOT;
+ (drop PDB schema C##CRASHSIM_ROOT_LAB)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034507_57519
+### Scenario 55 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034511_58123
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 55: RAC abort one instance
+Group: RAC
+Scope: RAC
+Impact: destructive
+Requires: rac
+Notes: Uses srvctl where available.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s55_20260607_034511.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - RAC instance/service recovery:
+    1. Check crsctl stat res -t, srvctl status database, srvctl status service, and alert logs on all nodes.
+    2. Restart the failed instance, relocate VIP/services, or start services with srvctl as appropriate.
+    3. Validate FAN/ONS, TAF/Application Continuity/TAC behavior, connection pool response, and service placement after recovery.
+    4. For VIP drills, validate SCAN/VIP listener behavior and client retry timing from outside the cluster.
+
+Planned actions:
+ 1. srvctl_abort_instance crashdb1 (abort current RAC instance)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034511_58123
+### Scenario 56 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034514_58661
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 56: RAC service relocation failure practice
+Group: RAC
+Scope: RAC
+Impact: logical
+Requires: rac
+Notes: Relocates a singleton service when possible, or stop/start validates an all-instances service.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s56_20260607_034514.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - RAC instance/service recovery:
+    1. Check crsctl stat res -t, srvctl status database, srvctl status service, and alert logs on all nodes.
+    2. Restart the failed instance, relocate VIP/services, or start services with srvctl as appropriate.
+    3. Validate FAN/ONS, TAF/Application Continuity/TAC behavior, connection pool response, and service placement after recovery.
+    4. For VIP drills, validate SCAN/VIP listener behavior and client retry timing from outside the cluster.
+
+srvctl config service -d crashdb_26ai -s crashdb_CRASHDB_PDB1.paas.oracle.com:
+  Service name: crashdb_CRASHDB_PDB1.paas.oracle.com
+  Cardinality: 2
+  Service role: PRIMARY
+  Management policy: AUTOMATIC
+  DTP transaction: FALSE
+  AQ HA notifications: FALSE
+  Global: FALSE
+  Commit Outcome: FALSE
+  Commit Outcome Fastpath: FALSE
+  Reset State: NONE
+  Failover type: NONE
+  Failover method: NONE
+  Failover retries:
+  Failover delay:
+  Failover restore: NONE
+  Connection Load Balancing Goal: LONG
+  Runtime Load Balancing Goal: NONE
+  TAF policy specification: NONE
+  Edition:
+  Pluggable database name: CRASHDB_PDB1
+  True Cache service:
+  Maximum lag time: ANY
+  SQL Translation Profile:
+  Retention: 86400 seconds
+  Failback :  no
+  Replay Initiation Time: 300 seconds
+  Drain timeout:
+  Template timeout: 86400 seconds
+  Stop option:
+  Session State Consistency:
+  Auto Connection Rebalance: DEFAULT
+  GSM Flags: 0
+  Service is enabled
+  Preferred instances: crashdb1,crashdb2
+  Available instances:
+  CSS critical: no
+
+srvctl status service -d crashdb_26ai -s crashdb_CRASHDB_PDB1.paas.oracle.com:
+  Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances crashdb1,crashdb2
+
+Planned actions:
+ 1. srvctl_relocate_service crashdb_CRASHDB_PDB1.paas.oracle.com (Servicecrashdb_CRASHDB_PDB1.paas.oracle.comisrunningoninstancescrashdb1|crashdb1)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034514_58661
+WARN: Multiple services were found; using first service 'crashdb_CRASHDB_PDB1.paas.oracle.com'. Use --service-name to choose another service.
+### Scenario 57 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034521_59863
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 57: Listener config unavailable
+Group: Network
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: any
+Notes: Alias for network file loss.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s57_20260607_034521.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SQL*Net/listener config loss:
+    1. Restore listener.ora, tnsnames.ora, sqlnet.ora, and wallet/network includes from config backup or automation.
+    2. Reload or restart listener: lsnrctl reload/start.
+    3. Validate local bequeath, service registration, client TNS aliases, SCAN/VIP names if clustered, and Data Guard transport aliases.
+
+Planned actions:
+ 1. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora
+ 2. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/sqlnet.ora
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034521_59863
+### Scenario 58 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034525_60630
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 58: TDE wallet or keystore unavailable
+Group: Security
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Renames detected wallet root if configured.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s58_20260607_034525.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - TDE wallet/keystore loss:
+    1. Restore wallet/keystore files from secure backup, preserving permissions and wallet_root layout.
+    2. Open the keystore and validate encrypted tablespaces/backups.
+    3. In RAC/Data Guard, synchronize wallet material to every required node/site and test redo apply.
+
+Planned actions:
+ 1. fs_rename      /opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034525_60630
+### Scenario 60 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034529_61342
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 60: Recovery catalog unavailable
+Group: Backup
+Scope: External
+Impact: logical
+Requires: any
+Notes: Validates catalog connectivity and NOCATALOG fallback behavior.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s60_20260607_034529.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Backup/FRA/catalog loss:
+    1. Run CROSSCHECK and LIST BACKUP/ARCHIVELOG to separate missing local files from object-storage/catalog metadata.
+    2. Restore missing local autobackups or backup pieces from secondary/object storage if available.
+    3. If FRA was moved/lost, recreate the directory, permissions, and DB_RECOVERY_FILE_DEST capacity.
+    4. For FRA pressure/full drills, restore DB_RECOVERY_FILE_DEST_SIZE, free reclaimable space safely, and confirm archiving resumes.
+    5. For catalog outage, practice NOCATALOG recovery using control-file metadata, then resync when the catalog returns.
+    6. Finish by running RESTORE VALIDATE DATABASE and taking a fresh backup.
+
+Recovery catalog drill
+Catalog connect string: not configured
+Purpose: validate catalog resync/reporting, then validate target-control-file NOCATALOG fallback.
+
+No recovery catalog connect string was supplied.
+Set --rman-catalog or CRASHSIM_RMAN_CATALOG to validate the catalog phase.
+DRY-RUN: would still validate NOCATALOG fallback against the target control file.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034529_61342
+### Scenario 61 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034532_61918
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 61: FRA reaches critical utilization
+Group: Backup
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: primary
+Notes: Safely simulates FRA pressure by shrinking DB_RECOVERY_FILE_DEST_SIZE near current usage.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s61_20260607_034532.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Backup/FRA/catalog loss:
+    1. Run CROSSCHECK and LIST BACKUP/ARCHIVELOG to separate missing local files from object-storage/catalog metadata.
+    2. Restore missing local autobackups or backup pieces from secondary/object storage if available.
+    3. If FRA was moved/lost, recreate the directory, permissions, and DB_RECOVERY_FILE_DEST capacity.
+    4. For FRA pressure/full drills, restore DB_RECOVERY_FILE_DEST_SIZE, free reclaimable space safely, and confirm archiving resumes.
+    5. For catalog outage, practice NOCATALOG recovery using control-file metadata, then resync when the catalog returns.
+    6. Finish by running RESTORE VALIDATE DATABASE and taking a fresh backup.
+
+Planned actions:
+ 1. sqlfile        /tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_034532_fra_pressure.sql (/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_034532_fra_pressure.log)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034532_61918
+### Scenario 63 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034535_62528
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 63: TEMP tablespace exhaustion
+Group: Core
+Scope: CDB/non-CDB
+Impact: logical
+Requires: primary
+Notes: Runs a controlled disposable TEMP-consuming workload; optional --pdb context is supported.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s63_20260607_034535.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - TEMP exhaustion:
+    1. Confirm which SQL, module, user, or PDB consumed TEMP from V$TEMPSEG_USAGE and ASH/AWR evidence where licensed.
+    2. Relieve pressure by stopping the runaway workload, adding TEMP capacity, or adjusting workload/resource manager limits.
+    3. Validate temporary tablespace defaults, tempfile autoextend/maxsize posture, and alerts for ORA-01652.
+    4. Clean up disposable lab objects and confirm representative reporting/ETL workloads can complete.
+
+Planned actions:
+ 1. sqlfile        /tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_034535_temp_exhaustion.sql (/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_034535_temp_exhaustion.log)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034535_62528
+### Scenario 64 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034539_63174
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 64: RTO validation drill
+Group: Compliance
+Scope: CDB/non-CDB
+Impact: logical
+Requires: any
+Notes: Read-only report comparing latest recovery manifest timing to supplied RTO objectives.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s64_20260607_034539.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - RTO/RPO validation drill:
+    1. Supply realistic objectives with --maa-local-rto/--maa-local-rpo, --maa-dr-rto/--maa-dr-rpo, or guided MAA/SLA context.
+    2. For RTO, run a scenario recovery first so CrashSimulator has measured recovery start/complete timestamps.
+    3. For RPO, review archived redo, backed-up archived redo, Data Guard lag, and archive-gap evidence.
+    4. Treat PASS/FAIL as an operational drill result, then update backup cadence, Data Guard transport/apply, monitoring, and runbooks.
+
+Planned actions:
+ 1. report         RTO validation (/tmp/crashsimulator/crashsimulator_logs/crashsim_rto_validation_20260607_034539.md)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034539_63174
+### Scenario 65 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034542_63763
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 65: RPO validation drill
+Group: Compliance
+Scope: CDB/non-CDB
+Impact: logical
+Requires: any
+Notes: Read-only report estimating recoverable-data window from archived redo, backups, and DG evidence.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s65_20260607_034542.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - RTO/RPO validation drill:
+    1. Supply realistic objectives with --maa-local-rto/--maa-local-rpo, --maa-dr-rto/--maa-dr-rpo, or guided MAA/SLA context.
+    2. For RTO, run a scenario recovery first so CrashSimulator has measured recovery start/complete timestamps.
+    3. For RPO, review archived redo, backed-up archived redo, Data Guard lag, and archive-gap evidence.
+    4. Treat PASS/FAIL as an operational drill result, then update backup cadence, Data Guard transport/apply, monitoring, and runbooks.
+
+Planned actions:
+ 1. report         RPO validation (/tmp/crashsimulator/crashsimulator_logs/crashsim_rpo_validation_20260607_034542.md)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034542_63763
+### Scenario 71 dry-run
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034545_64301
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 71: RAC service placement failure
+Group: RAC
+Scope: RAC
+Impact: logical
+Requires: rac
+Notes: Stops/starts one running service on an instance to validate placement recovery.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s71_20260607_034545.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - RAC instance/service recovery:
+    1. Check crsctl stat res -t, srvctl status database, srvctl status service, and alert logs on all nodes.
+    2. Restart the failed instance, relocate VIP/services, or start services with srvctl as appropriate.
+    3. Validate FAN/ONS, TAF/Application Continuity/TAC behavior, connection pool response, and service placement after recovery.
+    4. For VIP drills, validate SCAN/VIP listener behavior and client retry timing from outside the cluster.
+
+srvctl config service -d crashdb_26ai -s crashdb_CRASHDB_PDB1.paas.oracle.com:
+  Service name: crashdb_CRASHDB_PDB1.paas.oracle.com
+  Cardinality: 2
+  Service role: PRIMARY
+  Management policy: AUTOMATIC
+  DTP transaction: FALSE
+  AQ HA notifications: FALSE
+  Global: FALSE
+  Commit Outcome: FALSE
+  Commit Outcome Fastpath: FALSE
+  Reset State: NONE
+  Failover type: NONE
+  Failover method: NONE
+  Failover retries:
+  Failover delay:
+  Failover restore: NONE
+  Connection Load Balancing Goal: LONG
+  Runtime Load Balancing Goal: NONE
+  TAF policy specification: NONE
+  Edition:
+  Pluggable database name: CRASHDB_PDB1
+  True Cache service:
+  Maximum lag time: ANY
+  SQL Translation Profile:
+  Retention: 86400 seconds
+  Failback :  no
+  Replay Initiation Time: 300 seconds
+  Drain timeout:
+  Template timeout: 86400 seconds
+  Stop option:
+  Session State Consistency:
+  Auto Connection Rebalance: DEFAULT
+  GSM Flags: 0
+  Service is enabled
+  Preferred instances: crashdb1,crashdb2
+  Available instances:
+  CSS critical: no
+
+srvctl status service -d crashdb_26ai -s crashdb_CRASHDB_PDB1.paas.oracle.com:
+  Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances crashdb1,crashdb2
+Planned actions:
+ 1. srvctl_stop_start_service_instance crashdb_CRASHDB_PDB1.paas.oracle.com (Servicecrashdb_CRASHDB_PDB1.paas.oracle.comisrunningoninstancescrashdb1)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_034545_64301
