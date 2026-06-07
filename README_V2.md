@@ -29,7 +29,7 @@ Oracle database host and unzip it:
 ```bash
 unzip crashsimulator-main.zip
 cd crashsimulator-main
-chmod +x CrashSimulatorV2.sh
+chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh
 ```
 
 Run it as the Oracle software owner, or as an OS user that can connect locally
@@ -435,15 +435,24 @@ Automated recovery helpers are currently enabled for:
   by RMAN `validate spfile`.
 - Scenario 27 and 57: SQL*Net/listener configuration restore from filesystem
   rename backups, followed by database/PDB health validation.
+- Scenario 50 and 67: managed standby recovery restart and apply-lag catch-up
+  validation.
+- Scenario 51 and 68: re-enable deferred redo transport destinations, force log
+  generation, and validate transport/apply status.
 - Scenario 55: GI/RAC instance or GI-managed single-database restart validation
   with `srvctl`, service status checks, and health validation.
-- Scenario 56: RAC service relocation/failure validation. Singleton services
-  can be relocated when an idle target exists; all-instances services are
-  stop/start validated on one instance, with `--recover 56` service validation.
+- Scenario 56 and 71: RAC service relocation, placement, or stop/start
+  validation. Singleton services can be relocated when an idle target exists;
+  all-instances services are stop/start validated on one instance, and recovery
+  helpers validate or restart the service as needed.
 - Scenario 58: TDE wallet/keystore filesystem or ACFS wallet-root restore from
   rename backup, followed by database/PDB health validation.
 - Scenario 59: archived-log crosscheck, restore from the scenario backup,
   validation, and final backup cleanup.
+- Scenario 61: restore the original `DB_RECOVERY_FILE_DEST_SIZE` after FRA
+  pressure simulation and validate FRA posture.
+- Scenario 62: restore/crosscheck the targeted archived log and generate
+  required-log recovery decision evidence.
 
 For scenario 30, recovery creates a SQL*Plus post-step that opens the target PDB
 only when it is not already open, avoiding the ORA-65019 issue observed during
@@ -619,13 +628,24 @@ For automated lab runs only:
 
 ## Current Status
 
-The framework has been validated in the first OCI Base DB Service lab for a
-subset of control-file, redo, datafile, tempfile, password-file, SPFILE,
-backup-piece, PDB, and archived-log scenarios, and initial RAC One Node/GI/ASM
-validation has started with scenario 55 and ASM dry-run/protection planning.
-Additional high-value resilience/compliance drills are now registered for FRA
-critical utilization, missing required archived logs during recovery, TEMP
-exhaustion, and RTO/RPO validation reporting.
+The framework currently registers `72` scenarios across Core, PDB, Backup,
+Config, Corrupt, Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network,
+Security, and Compliance groups.
+
+The first OCI Base DB Service lab validated representative control-file, redo,
+datafile, tempfile, password-file, SPFILE, backup-piece, PDB, and archived-log
+scenarios. RAC/GI/ASM labs added RAC service drills, SQL*Net and wallet
+recovery, recovery-catalog practice, logical reseeding, controlled
+read-only/index-only targets, ASM-aware datafile/tablespace dry-runs and
+recoveries, and MAA/service/backup/readiness reporting.
+
+The latest scenario layer adds high-value resilience/compliance drills for FRA
+critical utilization, required archived-log recovery gaps, TEMP exhaustion, RTO
+validation, and RPO validation, plus DG/RAC/ASM-specific drills for FSFO
+observer outage planning, Data Guard apply lag, Data Guard transport
+partitioning, standby redo log review, RAC VIP relocation planning, RAC service
+placement failure, and redundant ASM single-disk failure planning.
+
 See `SCENARIO_STATUS.md` for the current validation matrix, known environment
 gaps, and the next RAC, ASM, Data Guard, and Active Data Guard validation
 targets.

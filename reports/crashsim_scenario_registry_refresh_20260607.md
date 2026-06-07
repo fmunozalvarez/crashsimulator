@@ -11,6 +11,7 @@
 | --- | --- |
 | Scenario status | `SCENARIO_STATUS.md` now summarizes the 72-scenario registry and the newly added resilience/DG/RAC/ASM layer. |
 | End-user guide | `docs/CRASHSIMULATOR_USER_GUIDE.md` now reports 72 scenarios and the current protection/recovery helper coverage. |
+| V2 notes | `README_V2.md` now reflects the 72-scenario registry, helper-script ZIP permissions, and new recovery helper coverage. |
 | Captures | `captures/scenarios_available.txt` was regenerated from the current script registry; menu captures were aligned to the current Guided Workflow labels. |
 | Screenshots | `tools/render_promo_screenshots.cjs` was updated so the generated scenario catalog includes the new Compliance group. |
 | References | `docs/reference/scenario_registry_72_reference.md` was added as a sanitized scenario registry reference. |
