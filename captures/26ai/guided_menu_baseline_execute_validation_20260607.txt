@@ -1,0 +1,145 @@
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Reports
+  1. Generate target configuration report
+  2. Generate target configuration report with deep RMAN validation (read-only, heavier)
+  3. Generate Oracle MAA readiness report
+  4. Set MAA / SLA planning context
+  5. Generate Oracle service HA best-practice review
+  6. Generate backup strategy and recoverability report
+  7. Generate backup report with deep RMAN validation (read-only, heavier)
+  8. Dry-run fresh RMAN baseline backup
+  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)
+ 10. Generate scenario lifecycle coverage report
+ 11. Generate APEX / ORDS readiness report
+  b. Back
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --baseline-backup --tag-prefix CSIM_BASE --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --execute
+
+CrashSimulator fresh baseline backup
+Mode: EXECUTE
+Tag prefix: CSIM_BASE
+Backup tag: CSIM_BASE_260607112827
+RMAN catalog: not configured
+RMAN command file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_baseline_backup_20260607_112827.rman
+RMAN log file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_baseline_backup_20260607_112827.log
+
+
+About to run a fresh RMAN baseline backup.
+Backup tag: CSIM_BASE_260607112827
+This is not destructive, but it can consume I/O, backup storage, and SBT/Object Storage bandwidth.
+Type BASELINE-BACKUP to continue:
+RMAN> 2> 3> 4> 5> 6> 7> 8> 9> 10> 11> 12> 13> 14> Baseline backup completed successfully.
+Backup tag: CSIM_BASE_260607112827
+Log file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_baseline_backup_20260607_112827.log
+Command file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_baseline_backup_20260607_112827.rman
+
+Command completed successfully.
+
+Press Enter to continue...
+
+Reports
+  1. Generate target configuration report
+  2. Generate target configuration report with deep RMAN validation (read-only, heavier)
+  3. Generate Oracle MAA readiness report
+  4. Set MAA / SLA planning context
+  5. Generate Oracle service HA best-practice review
+  6. Generate backup strategy and recoverability report
+  7. Generate backup report with deep RMAN validation (read-only, heavier)
+  8. Dry-run fresh RMAN baseline backup
+  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)
+ 10. Generate scenario lifecycle coverage report
+ 11. Generate APEX / ORDS readiness report
+  b. Back
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

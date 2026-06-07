@@ -293,11 +293,22 @@ The menu provides options to:
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
 
+When a scenario is selected, the menu header shows lifecycle coverage for that
+scenario: validation, protection, and recovery. If an operator chooses
+protection or recovery for a scenario where the lifecycle report says the step
+is not automated or not required, the menu now stops before launching a child
+command and explains which runbook or baseline action should be used instead.
+
 The menu groups safe planning actions separately from execution actions that
 require typed confirmation tokens such as `EXECUTE-30`, `PROTECT-30`, or
 `RECOVER-30`. Menu-launched child commands keep sensitive values out of the
 printed command line; RMAN catalog connect strings and SYS passwords are shown
 only as redacted environment values.
+
+Reports launched from the Guided Workflow Reports menu generate the normal
+Markdown/log artifacts and an additional `.html` copy where the report type
+supports HTML rendering. Fresh baseline backup execution still requires the
+`BASELINE-BACKUP` confirmation token.
 
 ## Functional Capabilities
 

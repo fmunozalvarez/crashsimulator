@@ -1,0 +1,378 @@
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+Available PDBs:
+   1. CRASHDB_PDB1                   CON_ID=3     OPEN_MODE=READ WRITE
+
+Enter PDB name or number, c to clear, or blank to keep [CRASHDB_PDB1]:
+PDB target set to CRASHDB_PDB1.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter schema, c to clear, or blank to keep [not set]:
+schema set to CRASHSIM_LAB.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter FILE#, c to clear, or blank to keep [not set]:
+FILE# set to 9.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter manifest path, c to clear, or blank to keep [not set]:
+manifest path set to /tmp/nonexistent.manifest.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter PFILE path, c to clear, or blank to keep [not set]:
+PFILE path set to /tmp/init.ora.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+Scenario 25 backup-piece guardrails
+Current local-only: 0
+Set local-only? [y/N, blank keeps current]:
+Enter max targets, c to clear, or blank to keep [not set]:
+Enter backup-piece handle, c to clear, or blank to keep [not set]:
+backup-piece handle set to /tmp/piece.bkp.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+Password-file recovery options
+Enter SYS password for this menu session, c to clear, or blank to keep current:
+
+Enter listener service name, c to clear, or blank to keep [not set]:
+Enter SYSBACKUP user, c to clear, or blank to keep [C##DBLCMUSER]:
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter log directory, c to clear, or blank to keep [/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607]:
+log directory set to /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter RMAN recovery catalog connect string, c to clear, or blank to keep [not-set]:
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Enter baseline backup tag prefix, c to clear, or blank to keep [CSIM_BASE]:
+baseline backup tag prefix set to MENUQA.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+FRA / TEMP / RTO-RPO drill options
+Enter scenario 61 FRA target used percentage, or blank to keep [98]:
+scenario 61 FRA target used percentage set to 95.
+Enter scenario 61 FRA free headroom MB, or blank to keep [64]:
+scenario 61 FRA free headroom MB set to 128.
+Enter scenario 63 TEMP workload MB, or blank to keep [512]:
+scenario 63 TEMP workload MB set to 64.
+
+Use the MAA/SLA context menu to set RTO/RPO objectives consumed by scenarios 64 and 65.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+Scenario and target context cleared.
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

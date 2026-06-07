@@ -141,6 +141,14 @@ actions. Menu-launched child commands keep sensitive values out of the printed
 command line; RMAN catalog connect strings and SYS passwords are shown only as
 redacted environment values.
 
+When a scenario is selected, the menu header shows lifecycle coverage for
+validation, protection, and recovery. Menu protection/recovery choices are
+guarded with the same lifecycle-capability checks used by the coverage report,
+so users see a clear runbook/baseline message instead of a failing child
+command when a step is not automated or not required. Reports launched from the
+Reports menu also request HTML output automatically where supported, while
+keeping the normal Markdown/log artifacts.
+
 ## Review Center And HTML Output
 
 CrashSimulator stores generated evidence in the configured log directory and,

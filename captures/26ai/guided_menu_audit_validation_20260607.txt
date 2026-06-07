@@ -1,0 +1,271 @@
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --audit-status --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+
+CrashSimulator audit status
+Audit retain: disabled
+Audit directory: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Retention days: 365
+Audit directory does not exist yet.
+
+Command completed successfully.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --purge-audit-logs --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --dry-run
+
+CrashSimulator audit purge
+Mode: DRY-RUN
+Audit directory: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Retention days: 365
+Audit directory does not exist. Nothing to purge.
+
+Command completed successfully.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Retain per-run audit logs? [y/N, blank keeps current 0]:
+Audit retain set to 1.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=1 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=1 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --audit-status --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit/2026-06-07/crashsim_audit_20260607_105202_60544
+CrashSimulator audit status
+Audit retain: enabled
+Audit directory: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Retention days: 365
+Audit run folders: 1
+Purge candidates: 0
+Disk usage: 12K
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit/2026-06-07/crashsim_audit_20260607_105202_60544
+
+Command completed successfully.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=1 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Retain per-run audit logs? [y/N, blank keeps current 1]:
+Audit retain set to 0.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Enter audit retention days, or blank to keep [365]:
+Audit retention days set to 30.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=30 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Enter audit directory, c to clear, or blank to keep [/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit]:
+audit directory set to /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=30 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=30 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --purge-audit-logs --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --dry-run
+
+CrashSimulator audit purge
+Mode: DRY-RUN
+Audit directory: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Retention days: 30
+No audit run folders are older than the retention policy.
+
+Command completed successfully.
+
+Press Enter to continue...
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  b. Back
+
+Current retain=0 retention_days=30 audit_dir=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 30  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

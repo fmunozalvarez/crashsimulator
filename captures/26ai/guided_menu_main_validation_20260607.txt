@@ -1,0 +1,1056 @@
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+CrashSimulator V2 discovery
+  Version:           2.0.0-dev
+  Generated UTC:     2026-06-07T11:24:12Z
+  Host:              crashdb26ai1
+  OS user:           oracle
+  Oracle home:       /u01/app/oracle/product/23.0.0.0/dbhome_1
+  SQL*Plus:          /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  Database name:     CRASHDB
+  DB unique name:    crashdb_26ai
+  Version family:    12c or later required by v2
+  CDB:               YES
+  Open mode:         READ WRITE
+  Database role:     PRIMARY
+  Protection mode:   MAXIMUM PERFORMANCE
+  Switchover status: NOT ALLOWED
+  Instance:          crashdb1
+  Thread:            1
+  RAC parallel:      YES
+  Cluster type:      RAC
+  GI managed:        1
+  Storage type:      ASM
+  SPFILE:            +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
+  Password file:     +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335
+  FRA:               +RECO
+  PDBs:
+    CRASHDB_PDB1 (CON_ID=3, OPEN_MODE=READ WRITE)
+
+Topology snapshot: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_20260607_112411.txt
+Latest topology snapshot: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_latest.txt
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+ID   Group        Scope         Impact       Scenario
+--   -----        -----         ------       --------
+1    Core         CDB/non-CDB   destructive  Loss of one control file
+2    Core         CDB/non-CDB   destructive  Loss of all control files
+3    Core         CDB/non-CDB   destructive  Loss of one member from current redo group
+4    Core         CDB/non-CDB   destructive  Loss of all members from current redo group
+5    Core         CDB/non-CDB   destructive  Loss of one non-system datafile
+6    Core         CDB/non-CDB   destructive  Loss of one temporary file
+7    Core         CDB/non-CDB   destructive  Loss of one SYSTEM datafile
+8    Core         CDB/non-CDB   destructive  Loss of one UNDO datafile
+9    Core         CDB/non-CDB   destructive  Loss of a read-only tablespace
+10   Core         CDB/non-CDB   destructive  Loss of an index-only tablespace
+11   Logical      CDB/non-CDB   logical      Drop non-unique indexes outside Oracle schemas
+12   Core         CDB/non-CDB   destructive  Loss of a non-system tablespace
+13   Core         CDB/non-CDB   destructive  Loss of a temporary tablespace
+14   Core         CDB/non-CDB   destructive  Loss of SYSTEM tablespace
+15   Core         CDB/non-CDB   destructive  Loss of UNDO tablespace
+16   Config       CDB/non-CDB   destructive  Loss of password file
+17   Core         CDB/non-CDB   destructive  Loss of all datafiles
+18   Core         CDB/non-CDB   destructive  Loss of one member from multiplexed redo group
+19   Core         CDB/non-CDB   destructive  Loss of all inactive redo groups
+20   Core         CDB/non-CDB   destructive  Loss of all active redo groups
+21   Core         CDB/non-CDB   destructive  Loss of all current redo group members
+22   Corrupt      CDB/non-CDB   destructive  Datafile header corruption
+23   Corrupt      CDB/non-CDB   destructive  Control file corruption
+24   Corrupt      CDB/non-CDB   destructive  Redo log corruption
+25   Backup       CDB/non-CDB   destructive  Loss of RMAN backup pieces
+26   Config       CDB/non-CDB   destructive  Loss of SPFILE
+27   Config       CDB/non-CDB   destructive  Loss of SQL*Net config files
+28   Config       CDB/non-CDB   destructive  Loss of ORACLE_HOME
+29   Backup       CDB/non-CDB   destructive  Loss of FRA destination
+30   PDB          PDB           destructive  PDB loss of one non-system datafile
+31   PDB          PDB           destructive  PDB loss of one temporary file
+32   PDB          PDB           destructive  PDB loss of one SYSTEM datafile
+33   PDB          PDB           destructive  PDB loss of one UNDO datafile
+34   PDB          PDB           destructive  PDB loss of read-only tablespace
+35   PDB          PDB           destructive  PDB loss of index-only tablespace
+36   PDB          PDB           logical      PDB drop non-unique indexes
+37   PDB          PDB           destructive  PDB loss of non-system tablespace
+38   PDB          PDB           destructive  PDB loss of temporary tablespace
+39   PDB          PDB           destructive  PDB loss of SYSTEM tablespace
+40   PDB          PDB           destructive  PDB loss of UNDO tablespace
+41   PDB          PDB           destructive  PDB loss of all datafiles
+42   PDB          PDB           destructive  PDB SYSTEM file header corruption
+43   PDB          PDB           logical      PDB loss of one user table
+44   PDB          PDB           logical      PDB loss of one user schema
+45   PDB          PDB           destructive  Drop selected PDB including datafiles
+46   ASM          ASM           destructive  ASM data disk group unavailable
+47   GI           Cluster       destructive  OCR loss or restore drill
+48   GI           Cluster       destructive  Voting disk loss or restore drill
+49   ASM          ASM           destructive  ASM SPFILE loss
+50   DataGuard    Standby       logical      Standby managed recovery cancelled
+51   DataGuard    Primary       logical      Primary transport destination deferred
+52   DataGuard    DG            logical      Data Guard broker configuration unavailable
+53   ADG          Standby       logical      Active Data Guard read-only session pressure
+54   DataGuard    Standby       logical      Snapshot standby conversion practice
+55   RAC          RAC           destructive  RAC abort one instance
+56   RAC          RAC           logical      RAC service relocation failure practice
+57   Network      CDB/non-CDB   destructive  Listener config unavailable
+58   Security     CDB/non-CDB   destructive  TDE wallet or keystore unavailable
+59   Backup       CDB/non-CDB   destructive  Missing archived redo log
+60   Backup       External      logical      Recovery catalog unavailable
+61   Backup       CDB/non-CDB   destructive  FRA reaches critical utilization
+62   Backup       CDB/non-CDB   destructive  Missing required archived log during recovery
+63   Core         CDB/non-CDB   logical      TEMP tablespace exhaustion
+64   Compliance   CDB/non-CDB   logical      RTO validation drill
+65   Compliance   CDB/non-CDB   logical      RPO validation drill
+66   DataGuard    DG            logical      FSFO observer unavailable
+67   DataGuard    Standby       logical      Data Guard apply lag exceeds SLA
+68   DataGuard    Primary       logical      Data Guard transport network partition
+69   DataGuard    DG            logical      Standby redo log misconfiguration review
+70   RAC          RAC           logical      RAC VIP relocation drill
+71   RAC          RAC           logical      RAC service placement failure
+72   ASM          ASM           destructive  ASM single disk failure
+73   APEX/ORDS    Application   logical      ORDS service unavailable
+74   APEX/ORDS    Application   destructive  ORDS configuration unavailable
+75   APEX/ORDS    Application   logical      ORDS database pool misconfiguration
+76   APEX/ORDS    Application   logical      APEX/ORDS runtime account locked
+77   APEX/ORDS    Application   destructive  APEX static resources unavailable
+78   APEX/ORDS    Application   logical      APEX application availability validation after recovery
+79   APEX/ORDS    Application   logical      ORDS node unavailable behind load balancer
+80   APEX/ORDS    Application   logical      APEX session continuity test
+81   APEX/ORDS    Application   logical      APEX mail queue and configuration validation
+82   APEX/ORDS    Application   logical      APEX upgrade or patch rollback readiness
+
+Enter scenario id to select, or blank to keep current:
+Selected scenario 80: APEX session continuity test
+Readiness: RUNNABLE - Requirements passed and target selection produced executable actions.
+Use menu option 17 to generate the full topology-versus-scenario readiness report.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation.
+Generated UTC: 2026-06-07T11:24:12Z
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - APEX application/session availability:
+    1. Validate the ORDS landing page and a real APEX application URL after database/PDB/ORDS recovery.
+    2. For session continuity, keep an active test session open during ORDS, RAC service, Data Guard, or database recovery drills.
+    3. When possible, use the seeded browser-session driver with a disposable APEX app and a stable success selector such as #CRASHSIM_SESSION_OK.
+    4. Record whether users see retry, relogin, lost state, failed transaction, or seamless continuation.
+    5. Feed findings into service AC/TAC, FAN/ONS, pool retry, and APEX session timeout design.
+
+Runbook artifact: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_runbook_s80_20260607_112411.txt
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --validate-scenario 80 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-lb-url http://localhost:18080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-images-dir /opt/oracle/apex/images --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba
+
+Scenario readiness validation
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+
+Command completed successfully.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --scenario 80 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-lb-url http://localhost:18080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-images-dir /opt/oracle/apex/images --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba --dry-run
+
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112414.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - APEX application/session availability:
+    1. Validate the ORDS landing page and a real APEX application URL after database/PDB/ORDS recovery.
+    2. For session continuity, keep an active test session open during ORDS, RAC service, Data Guard, or database recovery drills.
+    3. When possible, use the seeded browser-session driver with a disposable APEX app and a stable success selector such as #CRASHSIM_SESSION_OK.
+    4. Record whether users see retry, relogin, lost state, failed transaction, or seamless continuation.
+    5. Feed findings into service AC/TAC, FAN/ONS, pool retry, and APEX session timeout design.
+
+Planned actions:
+ 1. report         APEX session continuity evidence (/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_apex_session_continuity_s80_20260607_112414.md)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+
+Command completed successfully.
+Current recovery manifest set to: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112414.manifest
+For destructive recovery, make sure this is the executed scenario manifest, not only a dry-run manifest.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112414.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --scenario 80 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-lb-url http://localhost:18080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-images-dir /opt/oracle/apex/images --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba --execute
+
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation.
+Mode: EXECUTE
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - APEX application/session availability:
+    1. Validate the ORDS landing page and a real APEX application URL after database/PDB/ORDS recovery.
+    2. For session continuity, keep an active test session open during ORDS, RAC service, Data Guard, or database recovery drills.
+    3. When possible, use the seeded browser-session driver with a disposable APEX app and a stable success selector such as #CRASHSIM_SESSION_OK.
+    4. Record whether users see retry, relogin, lost state, failed transaction, or seamless continuation.
+    5. Feed findings into service AC/TAC, FAN/ONS, pool retry, and APEX session timeout design.
+
+
+About to execute scenario 80: APEX session continuity test
+Database: crashdb_26ai (PRIMARY, READ WRITE)
+PDB: CRASHDB_PDB1
+Type EXECUTE-80 to continue:
+Planned actions:
+ 1. report         APEX session continuity evidence (/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_apex_session_continuity_s80_20260607_112418.md)
+
+Report action: APEX session continuity evidence /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_apex_session_continuity_s80_20260607_112418.md
+# CrashSimulator APEX Session Continuity Evidence
+
+- Generated UTC: `2026-06-07T11:24:21Z`
+- Target PDB: `CRASHDB_PDB1`
+- ORDS URL: `http://localhost:8080/ords/`
+- Continuity URL: `http://localhost:18080/ords/`
+- Continuity URL status: `OK`
+
+| Check | Result |
+| --- | --- |
+| ORDS/APEX smoke URL | `OK` |
+| Continuity or peer URL | `OK` |
+
+No seeded browser-session driver was configured. Use `--apex-session-driver` with a seeded APEX application URL when full end-user behavior capture is needed.
+
+Use this report during a live APEX browser session. Record whether the user sees seamless continuation, retry, relogin, lost page state, or failed transaction after ORDS/RAC/service/database failover.
+
+Command completed successfully.
+Current recovery manifest set to: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+For destructive recovery, make sure this is the executed scenario manifest, not only a dry-run manifest.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --health-check --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba
+
+Running health check
+SQL file: /tmp/crashsimulator/drill_health_check.sql
+Log file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_health_check_20260607_112421.log
+
+  === Database state ===
+
+  NAME                                                                             DB_UNIQUE_NAME                 OPEN_MODE            DATABASE_ROLE    CDB
+  -------------------------------------------------------------------------------- ------------------------------ -------------------- ---------------- ---
+  CRASHDB                                                                          crashdb_26ai                   READ WRITE           PRIMARY          YES
+
+  1 row selected.
+
+  === PDB state ===
+
+  NAME                                                                             OPEN_MODE
+  -------------------------------------------------------------------------------- ----------
+  PDB$SEED                                                                         READ ONLY
+  CRASHDB_PDB1                                                                     READ WRITE
+
+  2 rows selected.
+
+  === Files needing media recovery ===
+
+  no rows selected
+
+  === Datafile status for drill targets ===
+
+  PDB_NAME                                                                                                                             CON_ID    FILE_NO TABLESPACE_NAME                STATUS    ONLINE_ FILE_NAME
+  -------------------------------------------------------------------------------------------------------------------------------- ---------- ---------- ------------------------------ --------- ------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                            1          7 USERS                          AVAILABLE ONLINE  +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
+
+  1 row selected.
+
+  === Block corruption view ===
+
+  no rows selected
+
+
+Command completed successfully.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Recent files in /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607:
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_backup_report_20260607_104536_repository.log
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_backup_report_20260607_104536_repository.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_backup_report_20260607_104536_validate.log
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_backup_report_20260607_104536_validate.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_baseline_backup_20260607_104701.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104347.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104347.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104347_restore_preview.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104347_show_all.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104347.sql
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406_database_validate.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406_restore_preview.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406_restore_validate.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406_show_all.rman
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_config_report_20260607_104406.sql
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_health_check_20260607_112421.log
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_maa_report_20260607_104342.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_maa_report_20260607_104342.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_maa_report_20260607_104342.sql
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_review_index_20260607_110043.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_review_index_20260607_110043.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_runbook_s80_20260607_093735.txt
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_runbook_s80_20260607_112411.txt
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_lifecycle_20260607_104701.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_lifecycle_20260607_104701.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_lifecycle_latest.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_lifecycle_latest.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_093739.manifest
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_093742.manifest
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112414.manifest
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_service_review_20260607_104525.md
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_service_review_20260607_104525.md.html
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_service_review_20260607_104525.sql
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_20260607_093735.txt
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_20260607_112411.txt
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_latest.txt
+  /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_topology_latest.txt.html
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 80 - APEX session continuity test
+Lifecycle: validation=Automated readiness validation | protection=Not required: logical drill | recovery=Not required: read-only report
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s80_20260607_112418.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Aleatory scenario selected from 72 topology-compatible scenarios after target planning checks:
+  27: Loss of SQL*Net config files
+Topology: role=PRIMARY, cdb=YES, storage=ASM, cluster=RAC
+PDB target context: CRASHDB_PDB1
+
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --scenario 27 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-lb-url http://localhost:18080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-images-dir /opt/oracle/apex/images --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba --dry-run
+
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 27: Loss of SQL*Net config files
+Group: Config
+Scope: CDB/non-CDB
+Impact: destructive
+Requires: any
+Notes: Targets listener.ora, tnsnames.ora, sqlnet.ora if present.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s27_20260607_112422.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - SQL*Net/listener config loss:
+    1. Restore listener.ora, tnsnames.ora, sqlnet.ora, and wallet/network includes from config backup or automation.
+    2. Reload or restart listener: lsnrctl reload/start.
+    3. Validate local bequeath, service registration, client TNS aliases, SCAN/VIP names if clustered, and Data Guard transport aliases.
+
+Planned actions:
+ 1. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/tnsnames.ora
+ 2. fs_rename      /u01/app/oracle/product/23.0.0.0/dbhome_1/network/admin/sqlnet.ora
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+
+Command completed successfully.
+Current recovery manifest set to: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s27_20260607_112422.manifest
+For destructive recovery, make sure this is the executed scenario manifest, not only a dry-run manifest.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 27 - Loss of SQL*Net config files
+Lifecycle: validation=Automated readiness validation | protection=Manual baseline/runbook | recovery=Automated --recover helper
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s27_20260607_112422.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Running: CRASHSIM_AUDIT_RETAIN=0 CRASHSIM_AUDIT_RETENTION_DAYS=365 CRASHSIM_AUDIT_DIR=/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-lb-url http://localhost:18080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-images-dir /opt/oracle/apex/images --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607 --sqlplus-logon /\ as\ sysdba --html
+
+Scenario readiness report generated: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_readiness_20260607_112425.md
+Latest scenario readiness report: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_readiness_latest.md
+
+# CrashSimulator Scenario Readiness Report
+
+- Generated UTC: `2026-06-07T11:24:39Z`
+- Tool version: `2.0.0-dev`
+- Log directory: `/tmp/crashsimulator/crashsimulator_logs/menuqa_20260607`
+- Target PDB context: `CRASHDB_PDB1`
+- Target schema context: `not set`
+- Target FILE# context: `not set`
+
+This report validates the discovered target environment against the CrashSimulator scenario registry. The same requirement checks, topology gates, target selection, and execution guardrails are used by scenario execution, so unavailable scenarios are blocked before destructive code runs.
+
+## Current Topology
+
+| Signal | Value |
+| --- | --- |
+| Host | crashdb26ai1 |
+| OS user | oracle |
+| Oracle home | /u01/app/oracle/product/23.0.0.0/dbhome_1 |
+| SQL*Plus | /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus |
+| Database name | CRASHDB |
+| DB unique name | crashdb_26ai |
+| Database role | PRIMARY |
+| Open mode | READ WRITE |
+| CDB | YES |
+| Instance | crashdb1 |
+| Thread | 1 |
+| RAC parallel | YES |
+| Cluster type | RAC |
+| GI managed | 1 |
+| Storage type | ASM |
+| Protection mode | MAXIMUM PERFORMANCE |
+| Switchover status | NOT ALLOWED |
+| SPFILE | +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757 |
+| Password file | +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335 |
+| FRA | +RECO |
+
+## PDBs
+
+| PDB | CON_ID | Open mode |
+| --- | --- | --- |
+| CRASHDB_PDB1 | 3 | READ WRITE |
+
+## Readiness Summary
+
+| Status | Count | Meaning |
+| --- | ---: | --- |
+| RUNNABLE | 49 | Scenario can be selected for dry-run and, when requested, execution. |
+| PLAN-ONLY | 23 | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |
+| NOT-RUNNABLE | 10 | Scenario is not available in the current topology or target context. |
+| TOTAL | 82 | Registered scenarios evaluated. |
+
+## Runnable Scenarios
+
+| ID | Group | Scope | Impact | Scenario | Reason |
+| --- | --- | --- | --- | --- | --- |
+| `5` | Core | CDB/non-CDB | destructive | Loss of one non-system datafile | Requirements passed and target selection produced executable actions. |
+| `6` | Core | CDB/non-CDB | destructive | Loss of one temporary file | Requirements passed and target selection produced executable actions. |
+| `7` | Core | CDB/non-CDB | destructive | Loss of one SYSTEM datafile | Requirements passed and target selection produced executable actions. |
+| `8` | Core | CDB/non-CDB | destructive | Loss of one UNDO datafile | Requirements passed and target selection produced executable actions. |
+| `9` | Core | CDB/non-CDB | destructive | Loss of a read-only tablespace | Requirements passed and target selection produced executable actions. |
+| `10` | Core | CDB/non-CDB | destructive | Loss of an index-only tablespace | Requirements passed and target selection produced executable actions. |
+| `11` | Logical | CDB/non-CDB | logical | Drop non-unique indexes outside Oracle schemas | Requirements passed and target selection produced executable actions. |
+| `12` | Core | CDB/non-CDB | destructive | Loss of a non-system tablespace | Requirements passed and target selection produced executable actions. |
+| `13` | Core | CDB/non-CDB | destructive | Loss of a temporary tablespace | Requirements passed and target selection produced executable actions. |
+| `14` | Core | CDB/non-CDB | destructive | Loss of SYSTEM tablespace | Requirements passed and target selection produced executable actions. |
+| `15` | Core | CDB/non-CDB | destructive | Loss of UNDO tablespace | Requirements passed and target selection produced executable actions. |
+| `17` | Core | CDB/non-CDB | destructive | Loss of all datafiles | Requirements passed and target selection produced executable actions. |
+| `22` | Corrupt | CDB/non-CDB | destructive | Datafile header corruption | Requirements passed and target selection produced executable actions. |
+| `27` | Config | CDB/non-CDB | destructive | Loss of SQL*Net config files | Requirements passed and target selection produced executable actions. |
+| `30` | PDB | PDB | destructive | PDB loss of one non-system datafile | Requirements passed and target selection produced executable actions. |
+| `31` | PDB | PDB | destructive | PDB loss of one temporary file | Requirements passed and target selection produced executable actions. |
+| `32` | PDB | PDB | destructive | PDB loss of one SYSTEM datafile | Requirements passed and target selection produced executable actions. |
+| `33` | PDB | PDB | destructive | PDB loss of one UNDO datafile | Requirements passed and target selection produced executable actions. |
+| `34` | PDB | PDB | destructive | PDB loss of read-only tablespace | Requirements passed and target selection produced executable actions. |
+| `35` | PDB | PDB | destructive | PDB loss of index-only tablespace | Requirements passed and target selection produced executable actions. |
+| `36` | PDB | PDB | logical | PDB drop non-unique indexes | Requirements passed and target selection produced executable actions. |
+| `37` | PDB | PDB | destructive | PDB loss of non-system tablespace | Requirements passed and target selection produced executable actions. |
+| `38` | PDB | PDB | destructive | PDB loss of temporary tablespace | Requirements passed and target selection produced executable actions. |
+| `39` | PDB | PDB | destructive | PDB loss of SYSTEM tablespace | Requirements passed and target selection produced executable actions. |
+| `40` | PDB | PDB | destructive | PDB loss of UNDO tablespace | Requirements passed and target selection produced executable actions. |
+| `41` | PDB | PDB | destructive | PDB loss of all datafiles | Requirements passed and target selection produced executable actions. |
+| `42` | PDB | PDB | destructive | PDB SYSTEM file header corruption | Requirements passed and target selection produced executable actions. |
+| `43` | PDB | PDB | logical | PDB loss of one user table | Requirements passed and target selection produced executable actions. |
+| `44` | PDB | PDB | logical | PDB loss of one user schema | Requirements passed and target selection produced executable actions. |
+| `55` | RAC | RAC | destructive | RAC abort one instance | Requirements passed and target selection produced executable actions. |
+| `56` | RAC | RAC | logical | RAC service relocation failure practice | Requirements passed and target selection produced executable actions. |
+| `57` | Network | CDB/non-CDB | destructive | Listener config unavailable | Requirements passed and target selection produced executable actions. |
+| `58` | Security | CDB/non-CDB | destructive | TDE wallet or keystore unavailable | Requirements passed and target selection produced executable actions. |
+| `60` | Backup | External | logical | Recovery catalog unavailable | Requirements passed and target selection produced executable actions. |
+| `61` | Backup | CDB/non-CDB | destructive | FRA reaches critical utilization | Requirements passed and target selection produced executable actions. |
+| `63` | Core | CDB/non-CDB | logical | TEMP tablespace exhaustion | Requirements passed and target selection produced executable actions. |
+| `64` | Compliance | CDB/non-CDB | logical | RTO validation drill | Requirements passed and target selection produced executable actions. |
+| `65` | Compliance | CDB/non-CDB | logical | RPO validation drill | Requirements passed and target selection produced executable actions. |
+| `71` | RAC | RAC | logical | RAC service placement failure | Requirements passed and target selection produced executable actions. |
+| `73` | APEX/ORDS | Application | logical | ORDS service unavailable | Requirements passed and target selection produced executable actions. |
+| `74` | APEX/ORDS | Application | destructive | ORDS configuration unavailable | Requirements passed and target selection produced executable actions. |
+| `75` | APEX/ORDS | Application | logical | ORDS database pool misconfiguration | Requirements passed and target selection produced executable actions. |
+| `76` | APEX/ORDS | Application | logical | APEX/ORDS runtime account locked | Requirements passed and target selection produced executable actions. |
+| `77` | APEX/ORDS | Application | destructive | APEX static resources unavailable | Requirements passed and target selection produced executable actions. |
+| `78` | APEX/ORDS | Application | logical | APEX application availability validation after recovery | Requirements passed and target selection produced executable actions. |
+| `79` | APEX/ORDS | Application | logical | ORDS node unavailable behind load balancer | Requirements passed and target selection produced executable actions. |
+| `80` | APEX/ORDS | Application | logical | APEX session continuity test | Requirements passed and target selection produced executable actions. |
+| `81` | APEX/ORDS | Application | logical | APEX mail queue and configuration validation | Requirements passed and target selection produced executable actions. |
+| `82` | APEX/ORDS | Application | logical | APEX upgrade or patch rollback readiness | Requirements passed and target selection produced executable actions. |
+
+## Dry-Run Planning Only
+
+| ID | Group | Scope | Impact | Scenario | Reason |
+| --- | --- | --- | --- | --- | --- |
+| `1` | Core | CDB/non-CDB | destructive | Loss of one control file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `2` | Core | CDB/non-CDB | destructive | Loss of all control files | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `3` | Core | CDB/non-CDB | destructive | Loss of one member from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `4` | Core | CDB/non-CDB | destructive | Loss of all members from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `16` | Config | CDB/non-CDB | destructive | Loss of password file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `18` | Core | CDB/non-CDB | destructive | Loss of one member from multiplexed redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `19` | Core | CDB/non-CDB | destructive | Loss of all inactive redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `20` | Core | CDB/non-CDB | destructive | Loss of all active redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `21` | Core | CDB/non-CDB | destructive | Loss of all current redo group members | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `23` | Corrupt | CDB/non-CDB | destructive | Control file corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
+| `24` | Corrupt | CDB/non-CDB | destructive | Redo log corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_2.285.1235272233 (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
+| `25` | Backup | CDB/non-CDB | destructive | Loss of RMAN backup pieces | Scenario 25 can see local and object-storage backup handles; execution requires --piece-handle or --local-only --max-targets <n>. |
+| `26` | Config | CDB/non-CDB | destructive | Loss of SPFILE | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `28` | Config | CDB/non-CDB | destructive | Loss of ORACLE_HOME | Scenario 28 ORACLE_HOME loss requires an external restore/reinstall plan and is intentionally dry-run/manual only in this framework. |
+| `29` | Backup | CDB/non-CDB | destructive | Loss of FRA destination | Selected target requires a provider-specific or manual handler before safe execution: +RECO (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `45` | PDB | PDB | destructive | Drop selected PDB including datafiles | Scenario 45 can only execute against a disposable PDB whose name starts with CRASHSIM_. Current PDB: CRASHDB_PDB1. |
+| `46` | ASM | ASM | destructive | ASM data disk group unavailable | Selected target requires a provider-specific or manual handler before safe execution: +DATA (ASM disk group outage requires explicit ASM-aware fault injection and restore/rebalance steps) |
+| `47` | GI | Cluster | destructive | OCR loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: OCR (OCR restore practice must use a root/Grid procedure, verified OCR backups, and CRS validation) |
+| `48` | GI | Cluster | destructive | Voting disk loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: VOTING_DISK (Voting disk replacement practice must use a root/Grid procedure and cluster membership validation) |
+| `49` | ASM | ASM | destructive | ASM SPFILE loss | Selected target requires a provider-specific or manual handler before safe execution: +ASM_SPFILE (ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation) |
+| `59` | Backup | CDB/non-CDB | destructive | Missing archived redo log | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_21.306.1235301207 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `62` | Backup | CDB/non-CDB | destructive | Missing required archived log during recovery | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_21.306.1235301207 (ASM archived-log removal requires an ASM-aware handler; RMAN decision file: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_s62_20260607_112425_recovery_decision.rman) |
+| `70` | RAC | RAC | logical | RAC VIP relocation drill | Selected target requires a provider-specific or manual handler before safe execution: ora.crashdb26ai1.vip (Relocate VIP with srvctl/crsctl under Grid owner approval, then validate client connect strings, FAN/ONS, and service failover. CrashSimulator keeps VIP movement plan-only.) |
+
+## Not Runnable Now
+
+| ID | Group | Scope | Impact | Scenario | Reason |
+| --- | --- | --- | --- | --- | --- |
+| `50` | DataGuard | Standby | logical | Standby managed recovery cancelled | Scenario 50 requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V$MANAGED_STANDBY. |
+| `51` | DataGuard | Primary | logical | Primary transport destination deferred | Scenario 51 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation. |
+| `52` | DataGuard | DG | logical | Data Guard broker configuration unavailable | Scenario 52 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
+| `53` | ADG | Standby | logical | Active Data Guard read-only session pressure | Scenario 53 requires an Active Data Guard standby opened READ ONLY WITH APPLY. Run it on an ADG standby after confirming open mode and apply status. |
+| `54` | DataGuard | Standby | logical | Snapshot standby conversion practice | Scenario 54 requires a Data Guard physical standby that is approved for snapshot-standby conversion practice. Run it on the standby after confirming flashback, broker/transport posture, and restore-point policy. |
+| `66` | DataGuard | DG | logical | FSFO observer unavailable | Scenario 66 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
+| `67` | DataGuard | Standby | logical | Data Guard apply lag exceeds SLA | Scenario 67 requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V$MANAGED_STANDBY. |
+| `68` | DataGuard | Primary | logical | Data Guard transport network partition | Scenario 68 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation. |
+| `69` | DataGuard | DG | logical | Standby redo log misconfiguration review | Scenario 69 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
+| `72` | ASM | ASM | destructive | ASM single disk failure | No redundant ASM disk candidate was found. Scenario 72 requires a NORMAL/HIGH/FLEX/EXTENDED redundancy ASM disk group with online disks; EXTERN redundancy remains plan-only unsuitable for single-disk failure practice. |
+
+## How CrashSimulator Uses This Result
+
+- `--scenario <id> --execute`, `--protect <id> --execute`, and aleatory scenario execution run readiness validation before confirmation or destructive actions.
+- Guided Workflow scenario selection now shows the selected scenario readiness status immediately.
+- Use only `RUNNABLE` scenarios for execution drills. Review `PLAN-ONLY` and `NOT-RUNNABLE` reasons before changing topology, targets, or helper coverage.
+- Re-run this report after changing database topology, adding PDBs, multiplexing redo/control files, configuring Data Guard, adding ASM/GI lab disks, reseeding logical objects, or taking fresh backups.
+
+## Recommended Next Commands
+
+```bash
+./CrashSimulatorV2.sh --validate-scenario <id> --pdb CRASHDB_PDB1
+./CrashSimulatorV2.sh --scenario <id> --pdb CRASHDB_PDB1 --dry-run
+./CrashSimulatorV2.sh --runbook <id> --pdb CRASHDB_PDB1
+./CrashSimulatorV2.sh --health-check --pdb CRASHDB_PDB1
+```
+HTML artifact generated: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_readiness_20260607_112425.md.html
+HTML artifact generated: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_readiness_latest.md.html
+
+Command completed successfully.
+
+Press Enter to continue...
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: 27 - Loss of SQL*Net config files
+Lifecycle: validation=Automated readiness validation | protection=Manual baseline/runbook | recovery=Automated --recover helper
+PDB: CRASHDB_PDB1  Schema: not set  FILE#: not set
+Manifest: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/crashsim_scenario_s27_20260607_112422.manifest
+Log dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/menuqa_20260607/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

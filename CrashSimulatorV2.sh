@@ -12301,6 +12301,9 @@ menu_print_header() {
   echo "Instance: ${INSTANCE_NAME:-unknown}  Storage: ${STORAGE_TYPE:-unknown}  Cluster: ${CLUSTER_TYPE:-unknown}"
   echo
   echo "Selected scenario: $(menu_selected_scenario_label)"
+  if [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]]; then
+    echo "Lifecycle: validation=$(scenario_validation_capability) | protection=$(scenario_protection_capability "$SCENARIO_ID") | recovery=$(scenario_recovery_capability "$SCENARIO_ID")"
+  fi
   echo "PDB: ${TARGET_PDB:-not set}  Schema: ${TARGET_SCHEMA:-not set}  FILE#: ${TARGET_FILE_NO:-not set}"
   echo "Manifest: ${MANIFEST_FILE:-not set}"
   echo "Log dir: ${LOG_DIR}"
@@ -12822,7 +12825,7 @@ menu_run_child_command() {
 menu_run_child_action() {
   local action="$1"
   local run_mode="$2"
-  local latest status
+  local latest status capability
 
   menu_require_scenario || {
     warn "No scenario selected."
@@ -12835,9 +12838,19 @@ menu_run_child_action() {
       MENU_CMD+=("--scenario" "$SCENARIO_ID")
       ;;
     protect)
+      if ! supports_file_recovery_automation "$SCENARIO_ID"; then
+        capability="$(scenario_protection_capability "$SCENARIO_ID")"
+        warn "Automated protection is not available for scenario ${SCENARIO_ID}: ${capability}. Use menu option 4 for the runbook and refresh the backup baseline where appropriate."
+        return "$FAIL"
+      fi
       MENU_CMD+=("--protect" "$SCENARIO_ID")
       ;;
     recover)
+      if ! supports_recovery_automation "$SCENARIO_ID"; then
+        capability="$(scenario_recovery_capability "$SCENARIO_ID")"
+        warn "Automated recovery is not available for scenario ${SCENARIO_ID}: ${capability}. Use menu option 4 for the recovery runbook and evidence guidance."
+        return "$FAIL"
+      fi
       menu_choose_recovery_manifest
       MENU_CMD+=("--recover" "$SCENARIO_ID")
       [[ -n "$MANIFEST_FILE" ]] && MENU_CMD+=("--manifest" "$MANIFEST_FILE")
@@ -12920,6 +12933,7 @@ menu_run_health_check() {
 menu_run_configuration_report() {
   MENU_CMD=("$0" "--config-report")
   [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
+  MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -12929,6 +12943,7 @@ menu_run_configuration_report() {
 menu_run_backup_report() {
   MENU_CMD=("$0" "--backup-report")
   [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
+  MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -12958,6 +12973,7 @@ menu_run_maa_report() {
   [[ -n "$MAA_DR_RPO" ]] && MENU_CMD+=("--maa-dr-rpo" "$MAA_DR_RPO")
   [[ -n "$MAA_PLANNED_RTO" ]] && MENU_CMD+=("--maa-planned-rto" "$MAA_PLANNED_RTO")
   [[ -n "$MAA_PLANNED_RPO" ]] && MENU_CMD+=("--maa-planned-rpo" "$MAA_PLANNED_RPO")
+  MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -12966,7 +12982,7 @@ menu_run_maa_report() {
 
 menu_run_service_review() {
   MENU_CMD=("$0" "--service-review")
-  [[ "$HTML_OUTPUT" -eq 1 ]] && MENU_CMD+=("--html")
+  MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -13194,7 +13210,7 @@ menu_reports() {
     echo "  6. Generate backup strategy and recoverability report"
     echo "  7. Generate backup report with deep RMAN validation (read-only, heavier)"
     echo "  8. Dry-run fresh RMAN baseline backup"
-    echo "  9. Run fresh RMAN baseline backup"
+    echo "  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)"
     echo " 10. Generate scenario lifecycle coverage report"
     echo " 11. Generate APEX / ORDS readiness report"
     echo "  b. Back"
