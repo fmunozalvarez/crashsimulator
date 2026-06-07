@@ -16,6 +16,7 @@
 | Screenshots | `tools/render_promo_screenshots.cjs` was updated so the generated scenario catalog includes the new Compliance group. |
 | References | `docs/reference/scenario_registry_72_reference.md` was added as a sanitized scenario registry reference. |
 | Reports | This report records the refresh baseline for review and audit. |
+| Lifecycle coverage | `--scenario-lifecycle-report` now records validation, protection, execution, recovery, and runbook/evidence coverage for every scenario. |
 
 ## New Scenario Layer
 

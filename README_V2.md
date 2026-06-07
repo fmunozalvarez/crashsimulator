@@ -156,8 +156,9 @@ review, and artifact commands to create an additional `.html` file next to the
 normal text, Markdown, RMAN, or log output. The original report/log format is
 kept unchanged. `--render-html <path|latest:kind>` can convert an existing
 artifact later. Supported `latest:<kind>` shortcuts include `topology`,
-`config`, `backup`, `scenario-readiness`, `maa`, `health`, `scenario`,
-`protect`, `recover`, `runbook`, `baseline`, `review`, `audit`, and `latest`.
+`config`, `backup`, `scenario-readiness`, `lifecycle`, `maa`, `health`,
+`scenario`, `protect`, `recover`, `runbook`, `baseline`, `review`, `audit`,
+and `latest`.
 
 ## Scenario Readiness Validation
 
@@ -216,6 +217,23 @@ selection; those scenarios may still show planning evidence in `--dry-run`, but
 execution remains blocked until the reason is resolved. Aleatory scenario
 selection also uses this validation so random drills select only runnable
 scenarios.
+
+## Scenario Lifecycle Coverage
+
+Use `--scenario-lifecycle-report` to review framework coverage for every
+registered scenario without connecting to a database:
+
+```bash
+./CrashSimulatorV2.sh --scenario-lifecycle-report
+./CrashSimulatorV2.sh --scenario-lifecycle-report --html
+./CrashSimulatorV2.sh --show-artifact latest:lifecycle
+```
+
+The report shows whether each scenario has automated validation, automated or
+manual protection, guarded execution, automated or manual recovery, and
+runbook/evidence artifacts. It deliberately distinguishes automated helpers
+from manual/runbook and plan-only infrastructure drills so gaps remain visible
+without overstating safety.
 
 ## Configuration Report
 

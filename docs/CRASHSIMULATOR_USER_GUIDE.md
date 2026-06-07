@@ -369,6 +369,24 @@ for example ASM/GI provider-specific targets or broad scenario 25 backup-piece
 selection. Aleatory scenario selection also uses readiness validation, so random
 drills choose only scenarios that are runnable in the current topology.
 
+### Scenario Lifecycle Coverage
+
+`--scenario-lifecycle-report` creates a static coverage report for the whole
+scenario registry. It does not require a database connection. For every
+scenario it records whether validation, protection, execution, recovery, and
+runbook/evidence reporting are automated, manual/runbook based, plan-only, or
+not applicable.
+
+```bash
+./CrashSimulatorV2.sh --scenario-lifecycle-report
+./CrashSimulatorV2.sh --scenario-lifecycle-report --html
+./CrashSimulatorV2.sh --show-artifact latest:lifecycle
+```
+
+Use this report after adding or changing scenarios to keep lifecycle gaps
+visible. Then use `--scenario-readiness-report` against a live target to check
+whether the current topology can actually run the desired drills.
+
 ### Runbook Hints
 
 `--runbook <id>` prints scenario-specific recovery guidance. The same hints are
@@ -569,8 +587,8 @@ not replace the existing `.log`, `.md`, `.txt`, `.rman`, `.sql`, or `.manifest`
 files. Use `--render-html <path>` to convert one known artifact, or
 `--render-html latest:<kind>` to convert the latest artifact of a type.
 Supported shortcuts include `topology`, `config`, `backup`,
-`scenario-readiness`, `maa`, `health`, `scenario`, `protect`, `recover`,
-`runbook`, `baseline`, `review`, `audit`, and `latest`.
+`scenario-readiness`, `lifecycle`, `maa`, `health`, `scenario`, `protect`,
+`recover`, `runbook`, `baseline`, `review`, `audit`, and `latest`.
 
 ### MAA Readiness Report
 

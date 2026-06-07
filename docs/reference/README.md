@@ -27,6 +27,11 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
     resilience/DG/RAC/ASM scenarios, and current protection/recovery helper
     coverage.
   - HTML copy: `scenario_registry_72_reference.md.html`
+- `scenario_lifecycle_coverage_reference.md`
+  - Generated with `./CrashSimulatorV2.sh --scenario-lifecycle-report --html`
+  - Shows validation, protection, execution, recovery, and runbook/evidence
+    coverage for every registered scenario.
+  - HTML copy: `scenario_lifecycle_coverage_reference.md.html`
 
 ## HTML Reference Files
 
@@ -38,6 +43,7 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_recovery_catalog_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_deep_validate_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_72_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/scenario_lifecycle_coverage_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ```
 
 They are intended for demos and visual review. The original Markdown examples

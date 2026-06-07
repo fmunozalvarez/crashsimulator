@@ -154,6 +154,7 @@ Usage:
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --scenario-readiness-report [--pdb <pdb_name>] [--schema <owner>] [--html]
+  ./${PROGRAM} --scenario-lifecycle-report [--html]
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -206,6 +207,9 @@ Options:
                           Validate every registered scenario for this topology.
   --scenario-readiness-report
                           Generate a topology-aware scenario availability report.
+  --scenario-lifecycle-report
+                          Generate static validation/protection/execution/recovery
+                          coverage for every registered scenario.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -2281,6 +2285,213 @@ supports_recovery_automation() {
     1|2|3|4|5|6|7|8|9|10|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|30|31|32|33|34|35|37|38|39|40|41|42|50|51|55|56|57|58|59|61|62|67|68|71) return "$SUCCESS" ;;
     *) return "$FAIL" ;;
   esac
+}
+
+scenario_validation_capability() {
+  printf "Automated readiness validation"
+}
+
+scenario_protection_capability() {
+  local id="$1"
+  if supports_file_recovery_automation "$id"; then
+    printf "Automated --protect RMAN backup"
+    return "$SUCCESS"
+  fi
+
+  case "$id" in
+    64|65|69)
+      printf "Not required: read-only report"
+      ;;
+    *)
+      if [[ "${SCENARIO_IMPACT[$id]}" == "logical" ]]; then
+        printf "Not required: logical drill"
+      else
+        printf "Manual baseline/runbook"
+      fi
+      ;;
+  esac
+}
+
+scenario_execution_capability() {
+  local id="$1"
+  if [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]]; then
+    printf "Placeholder: manual lab design pending"
+    return "$SUCCESS"
+  fi
+
+  case "$id" in
+    28)
+      printf "Manual-only external restore plan"
+      ;;
+    46|47|48|49|66|70|72)
+      printf "Plan-only evidence; external approved action"
+      ;;
+    64|65|69)
+      printf "Automated read-only report"
+      ;;
+    *)
+      printf "Automated dry-run/execute with guardrails"
+      ;;
+  esac
+}
+
+scenario_recovery_capability() {
+  local id="$1"
+  if supports_recovery_automation "$id"; then
+    printf "Automated --recover helper"
+    return "$SUCCESS"
+  fi
+
+  case "$id" in
+    64|65|69)
+      printf "Not required: read-only report"
+      ;;
+    11|36|43|44)
+      printf "Manual logical restore/reseed runbook"
+      ;;
+    28|29|45|46|47|48|49|52|53|54|60|63|66|70|72)
+      printf "Manual/external runbook"
+      ;;
+    *)
+      printf "Manual runbook"
+      ;;
+  esac
+}
+
+scenario_runbook_capability() {
+  printf "Automated --runbook artifact"
+}
+
+scenario_evidence_capability() {
+  local id="$1"
+  case "$id" in
+    64|65|69)
+      printf "Markdown report, SQL evidence, manifest, audit"
+      ;;
+    52|53|54)
+      printf "Readiness/runbook evidence; execution evidence pending"
+      ;;
+    *)
+      printf "Manifest, audit, runbook; SQL/RMAN/report evidence when used"
+      ;;
+  esac
+}
+
+scenario_lifecycle_next_step() {
+  local id="$1"
+  if [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]]; then
+    printf "Implement scenario handler and lab validation."
+    return "$SUCCESS"
+  fi
+  if ! supports_recovery_automation "$id"; then
+    case "$id" in
+      64|65|69)
+        printf "No recovery helper required; keep report evidence current."
+        ;;
+      11|36|43|44)
+        printf "Keep logical seed/reseed and restore guidance current."
+        ;;
+      *)
+        printf "Add automated recovery helper when safe and repeatable."
+        ;;
+    esac
+    return "$SUCCESS"
+  fi
+  if [[ "${SCENARIO_IMPACT[$id]}" == "destructive" ]] && ! supports_file_recovery_automation "$id"; then
+    printf "Use baseline backup/runbook; add --protect only where target-specific backup is meaningful."
+    return "$SUCCESS"
+  fi
+  printf "Lifecycle covered where topology prerequisites are met."
+}
+
+generate_scenario_lifecycle_report() {
+  local id report_file latest_file protection execution recovery next_step
+  local total_count=0 auto_protect_count=0 auto_recover_count=0 plan_only_count=0 placeholder_count=0 read_only_count=0
+
+  for id in "${SCENARIO_IDS[@]}"; do
+    total_count=$((total_count + 1))
+    supports_file_recovery_automation "$id" && auto_protect_count=$((auto_protect_count + 1))
+    supports_recovery_automation "$id" && auto_recover_count=$((auto_recover_count + 1))
+    [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder_count=$((placeholder_count + 1))
+    case "$id" in
+      46|47|48|49|66|70|72) plan_only_count=$((plan_only_count + 1)) ;;
+      64|65|69) read_only_count=$((read_only_count + 1)) ;;
+    esac
+  done
+
+  report_file="${LOG_DIR}/crashsim_scenario_lifecycle_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_scenario_lifecycle_latest.md"
+
+  {
+    printf "# CrashSimulator Scenario Lifecycle Coverage Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf -- '- Log directory: `%s`\n' "$LOG_DIR"
+    printf -- '- Registered scenarios: `%s`\n' "$total_count"
+    printf '%s\n' ""
+    printf '%s\n' 'This static report shows what lifecycle support the framework provides for each registered scenario. It complements `--scenario-readiness-report`, which checks whether a scenario can run in the current database topology.'
+    printf '%s\n' ""
+
+    printf '%s\n\n' "## Lifecycle Policy"
+    printf '%s\n' "| Phase | Framework expectation |"
+    printf '%s\n' "| --- | --- |"
+    printf '%s\n' '| Validation | Every registered scenario has a readiness validator through `--validate-scenario`; live blockers are reported before destructive execution. |'
+    printf '%s\n' '| Protection | Datafile/tablespace media drills use automated `--protect` when a targeted RMAN backup is meaningful. Other destructive drills require baseline backup, configuration backup, or manual pre-checks documented by the runbook. Logical/read-only drills do not require protection. |'
+    printf '%s\n' "| Execution | Scenarios use automated dry-run and guarded execution where safe. External infrastructure drills remain plan-only until a matching lab and approval path exist. |"
+    printf '%s\n' '| Recovery | Automated `--recover` is available where repeatable. Other scenarios provide manual recovery guidance and evidence targets. |'
+    printf '%s\n' "| Runbook/evidence | Every scenario can generate a runbook artifact; scenario/protection/recovery actions write manifests and audit records, with SQL/RMAN/Markdown evidence where applicable. |"
+
+    printf '%s\n\n' ""
+    printf '%s\n\n' "## Summary"
+    printf '%s\n' "| Metric | Count |"
+    printf '%s\n' "| --- | ---: |"
+    printf '| Registered scenarios | %s |\n' "$total_count"
+    printf '| Automated `--protect` support | %s |\n' "$auto_protect_count"
+    printf '| Automated `--recover` support | %s |\n' "$auto_recover_count"
+    printf '| Plan-only external-action scenarios | %s |\n' "$plan_only_count"
+    printf '| Placeholder scenarios awaiting implementation | %s |\n' "$placeholder_count"
+    printf '| Read-only report/review scenarios | %s |\n' "$read_only_count"
+
+    printf '%s\n\n' ""
+    printf '%s\n\n' "## Scenario Lifecycle Matrix"
+    printf '%s\n' "| ID | Group | Impact | Scenario | Validation | Protection | Execution | Recovery | Runbook / Evidence | Next step |"
+    printf '%s\n' "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    for id in "${SCENARIO_IDS[@]}"; do
+      protection="$(scenario_protection_capability "$id")"
+      execution="$(scenario_execution_capability "$id")"
+      recovery="$(scenario_recovery_capability "$id")"
+      next_step="$(scenario_lifecycle_next_step "$id")"
+      printf '| `%s` | %s | %s | %s | %s | %s | %s | %s | %s / %s | %s |\n' \
+        "$id" \
+        "$(md_escape "${SCENARIO_GROUP[$id]}")" \
+        "$(md_escape "${SCENARIO_IMPACT[$id]}")" \
+        "$(md_escape "${SCENARIO_TITLE[$id]}")" \
+        "$(md_escape "$(scenario_validation_capability "$id")")" \
+        "$(md_escape "$protection")" \
+        "$(md_escape "$execution")" \
+        "$(md_escape "$recovery")" \
+        "$(md_escape "$(scenario_runbook_capability "$id")")" \
+        "$(md_escape "$(scenario_evidence_capability "$id")")" \
+        "$(md_escape "$next_step")"
+    done
+
+    printf '%s\n\n' ""
+    printf '%s\n\n' "## Recommended Use"
+    printf -- '- Generate this report after new scenarios are added so lifecycle coverage stays visible.\n'
+    printf -- '- Use `--scenario-readiness-report --pdb <pdb>` next to check the live target topology.\n'
+    printf -- '- Use `--runbook <id> --html` before drills to produce scenario-specific recovery guidance and evidence expectations.\n'
+    printf -- '- Treat manual/external entries as backlog candidates only after the required lab topology and safe recovery procedure exist.\n'
+  } >"$report_file" || die "Unable to write scenario lifecycle report: $report_file"
+
+  cp "$report_file" "$latest_file" || die "Unable to update latest scenario lifecycle report: $latest_file"
+  echo "Scenario lifecycle coverage report generated: ${report_file}"
+  echo "Latest scenario lifecycle coverage report: ${latest_file}"
+  echo
+  cat "$report_file"
+  maybe_render_html "$report_file"
+  if [[ "$HTML_OUTPUT" -eq 1 ]]; then
+    render_artifact_html "$latest_file"
+  fi
 }
 
 plan_scenario_actions() {
@@ -4529,6 +4740,13 @@ find_latest_artifact() {
         latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_readiness_*.md' 2>/dev/null | sort | tail -n 1)"
       fi
       ;;
+    lifecycle|scenario-lifecycle|lifecycle-report|scenario-coverage)
+      if [[ -f "${LOG_DIR}/crashsim_scenario_lifecycle_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_scenario_lifecycle_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_lifecycle_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
     maa|maa-report)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_maa_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
@@ -4636,7 +4854,7 @@ review_append_file_list() {
 }
 
 generate_review_index() {
-  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_maa latest_health latest_review
+  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_lifecycle latest_maa latest_health latest_review
   local manifest audit_dir metadata command status started mode
 
   report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
@@ -4645,6 +4863,7 @@ generate_review_index() {
   latest_backup="$(find_latest_artifact backup 2>/dev/null || true)"
   latest_service="$(find_latest_artifact service 2>/dev/null || true)"
   latest_readiness="$(find_latest_artifact scenario-readiness 2>/dev/null || true)"
+  latest_lifecycle="$(find_latest_artifact lifecycle 2>/dev/null || true)"
   latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
   latest_health="$(find_latest_artifact health 2>/dev/null || true)"
 
@@ -4665,6 +4884,7 @@ generate_review_index() {
     [[ -n "$latest_backup" ]] && printf -- '- Latest backup/recoverability report: `%s`\n' "$latest_backup"
     [[ -n "$latest_service" ]] && printf -- '- Latest service HA review: `%s`\n' "$latest_service"
     [[ -n "$latest_readiness" ]] && printf -- '- Latest scenario readiness report: `%s`\n' "$latest_readiness"
+    [[ -n "$latest_lifecycle" ]] && printf -- '- Latest scenario lifecycle coverage report: `%s`\n' "$latest_lifecycle"
     [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
     [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
 
@@ -4684,6 +4904,7 @@ generate_review_index() {
   review_append_file_list "$report_file" "Backup Strategy / Recoverability Reports" 20 -name 'crashsim_backup_report_*.md'
   review_append_file_list "$report_file" "Service HA Reviews" 20 -name 'crashsim_service_review_*.md'
   review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
+  review_append_file_list "$report_file" "Scenario Lifecycle Coverage Reports" 20 -name 'crashsim_scenario_lifecycle_*.md'
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
   review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
@@ -4712,6 +4933,7 @@ generate_review_index() {
     printf "\n## Access Shortcuts\n\n"
     printf -- '- Show latest topology: `./%s --review-topology`\n' "$PROGRAM"
     printf -- '- Show latest scenario readiness report: `./%s --show-artifact latest:scenario-readiness`\n' "$PROGRAM"
+    printf -- '- Show latest scenario lifecycle report: `./%s --show-artifact latest:lifecycle`\n' "$PROGRAM"
     printf -- '- Show latest health check: `./%s --show-artifact latest:health`\n' "$PROGRAM"
     printf -- '- Generate HTML for latest review index: `./%s --render-html latest:review`\n' "$PROGRAM"
     printf -- '- Generate HTML for a specific artifact: `./%s --render-html /path/to/artifact`\n' "$PROGRAM"
@@ -10320,6 +10542,11 @@ parse_args() {
         SCENARIO_ID=""
         shift
         ;;
+      --scenario-lifecycle-report|--scenario-lifecycle|--lifecycle-report|--scenario-coverage-report|--lifecycle-coverage-report)
+        MODE="scenario_lifecycle_report"
+        SCENARIO_ID=""
+        shift
+        ;;
       --runbook)
         [[ "$#" -ge 2 ]] || die "--runbook requires an id"
         MODE="runbook"
@@ -11120,6 +11347,14 @@ menu_run_scenario_readiness_report() {
   menu_run_child_command
 }
 
+menu_run_scenario_lifecycle_report() {
+  MENU_CMD=("$0" "--scenario-lifecycle-report")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  MENU_CMD+=("--html")
+  menu_run_child_command
+}
+
 menu_run_random_scenario() {
   local run_mode="$1"
   select_random_scenario || return "$FAIL"
@@ -11245,7 +11480,7 @@ menu_prompt_artifact_reference() {
   local answer
 
   echo "Enter artifact path or latest:<kind> reference."
-  echo "Kinds: topology, config, backup, service, scenario-readiness, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Kinds: topology, config, backup, service, scenario-readiness, lifecycle, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
   echo "Blank uses latest:any:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || answer="latest:any"
@@ -11405,6 +11640,7 @@ menu_reports() {
     echo "  7. Generate backup report with deep RMAN validation (read-only, heavier)"
     echo "  8. Dry-run fresh RMAN baseline backup"
     echo "  9. Run fresh RMAN baseline backup"
+    echo " 10. Generate scenario lifecycle coverage report"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -11448,6 +11684,10 @@ menu_reports() {
         ;;
       9)
         menu_run_baseline_backup "execute"
+        menu_pause
+        ;;
+      10)
+        menu_run_scenario_lifecycle_report
         menu_pause
         ;;
       b|B|q|Q)
@@ -11658,6 +11898,9 @@ main() {
       ;;
     scenario_readiness_report)
       generate_scenario_readiness_report
+      ;;
+    scenario_lifecycle_report)
+      generate_scenario_lifecycle_report
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."

@@ -34,6 +34,7 @@ Reports
   7. Generate backup report with deep RMAN validation (read-only, heavier)
   8. Dry-run fresh RMAN baseline backup
   9. Run fresh RMAN baseline backup
+ 10. Generate scenario lifecycle coverage report
   b. Back
 
 Choice: 3
