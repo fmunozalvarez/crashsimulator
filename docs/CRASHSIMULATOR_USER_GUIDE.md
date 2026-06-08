@@ -782,6 +782,19 @@ observable evidence to Bronze, Silver, Gold, Platinum, or Diamond-style
 capability levels, includes AC/TAC, FSFO, ADG DML redirection, and role-based
 service awareness, and records RTO/RPO planning context.
 
+For FSFO-enabled Data Guard configurations, the MAA and service review reports
+also collect Data Guard Broker evidence and check observer best-practice
+posture:
+
+- An active FSFO observer is present.
+- Multiple observers are configured where possible.
+- `PreferredObserverHosts` is configured to guide observer placement after role
+  transitions.
+- Observer placement is treated conservatively: prefer an external site; if no
+  external site exists, use the primary site and keep a secondary-site observer
+  ready after transition; never intentionally place the active observer with the
+  standby database.
+
 Example:
 
 ```bash
@@ -920,7 +933,7 @@ For Data Guard and Active Data Guard drills, include:
 - Broker configuration.
 - Transport and apply lag.
 - Archive gaps.
-- FSFO observer status.
+- FSFO observer status, count, `PreferredObserverHosts`, and placement posture.
 - Role-based services for primary write workloads and standby/ADG read-only
   workloads.
 - AC/TAC, FAN/ONS, drain timeout, and client replay behavior.

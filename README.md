@@ -10,7 +10,7 @@ planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
 readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
-FSFO, ADG DML redirection, and role-based services. It also includes targeted
+FSFO observer placement, ADG DML redirection, and role-based services. It also includes targeted
 FRA pressure, TEMP exhaustion, and RTO/RPO validation drills, plus Data Guard,
 RAC, ASM, and APEX/ORDS-specific practice for FSFO, transport/apply lag,
 standby redo logs, VIP/service placement, ASM disk failure planning, ORDS

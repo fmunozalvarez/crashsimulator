@@ -291,6 +291,12 @@ and `RECO`.
   GI-managed single-database environment, with baseline backup/recoverability
   checks passing and expected gaps for Gold-or-higher posture because no Data
   Guard, FSFO, or standby topology is configured.
+- FSFO observer best-practice awareness added to MAA/service reports. When
+  FSFO is enabled, CrashSimulator now collects Data Guard Broker evidence,
+  checks active observer evidence, multiple-observer posture,
+  `PreferredObserverHosts`, and reports conservative placement guidance:
+  external site preferred, primary site fallback if no external site exists,
+  never colocate the active observer with the standby database.
 
 ## Two-Node RAC/GI/ASM Follow-Up Validation
 

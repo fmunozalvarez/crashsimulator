@@ -1413,6 +1413,14 @@ ensure_rman() {
   die "rman was not found. Set ORACLE_HOME or RMAN."
 }
 
+find_dgmgrl_bin() {
+  if [[ -n "${ORACLE_HOME:-}" && -x "${ORACLE_HOME}/bin/dgmgrl" ]]; then
+    printf "%s" "${ORACLE_HOME}/bin/dgmgrl"
+    return "$SUCCESS"
+  fi
+  command -v dgmgrl 2>/dev/null || true
+}
+
 ensure_orapwd() {
   if [[ -n "${ORACLE_HOME:-}" && -x "${ORACLE_HOME}/bin/orapwd" ]]; then
     printf "%s\n" "${ORACLE_HOME}/bin/orapwd"
@@ -7033,6 +7041,190 @@ collect_srvctl_service_evidence() {
   done <"$summary_file"
 }
 
+maa_observer_csv_add_unique() {
+  local csv="$1"
+  local value="$2"
+
+  value="$(strip_config_quotes "$value")"
+  value="${value%%[[:space:]](*}"
+  value="${value%%[[:space:]]-*}"
+  value="$(trim_value "$value")"
+  [[ -n "$value" ]] || printf "%s" "$csv"
+  [[ -n "$value" ]] || return "$SUCCESS"
+  [[ "$value" == "(none)" || "$value" == "none" || "$value" == "UNKNOWN" ]] && {
+    printf "%s" "$csv"
+    return "$SUCCESS"
+  }
+
+  case ",${csv}," in
+    *,"${value}",*) printf "%s" "$csv" ;;
+    *)
+      if [[ -n "$csv" ]]; then
+        printf "%s,%s" "$csv" "$value"
+      else
+        printf "%s" "$value"
+      fi
+      ;;
+  esac
+}
+
+maa_count_csv_values() {
+  local csv="$1"
+  local old_ifs count=0 item
+  [[ -n "$csv" ]] || {
+    printf "0"
+    return "$SUCCESS"
+  }
+  old_ifs="$IFS"
+  IFS=','
+  for item in $csv; do
+    item="$(trim_value "$item")"
+    [[ -n "$item" ]] && count=$((count + 1))
+  done
+  IFS="$old_ifs"
+  printf "%s" "$count"
+}
+
+maa_reset_fsfo_observer_evidence() {
+  MAA_EVIDENCE["dgmgrl_available"]="NO"
+  MAA_EVIDENCE["dgmgrl_fsfo_status"]="UNAVAILABLE"
+  MAA_EVIDENCE["dgmgrl_fsfo_evidence_file"]="UNAVAILABLE"
+  MAA_EVIDENCE["dgmgrl_bin"]="UNAVAILABLE"
+  MAA_EVIDENCE["dgmgrl_fsfo_state"]="UNKNOWN"
+  MAA_EVIDENCE["fsfo_active_observer"]="UNKNOWN"
+  MAA_EVIDENCE["fsfo_observer_names"]="NONE"
+  MAA_EVIDENCE["fsfo_observer_count"]="0"
+  MAA_EVIDENCE["fsfo_preferred_observer_hosts"]="NONE"
+  MAA_EVIDENCE["fsfo_preferred_observer_hosts_configured"]="NO"
+}
+
+parse_maa_dgmgrl_fsfo_evidence() {
+  local output_file="$1"
+  local line normalized lower value observer_names="" active_observer=""
+  local observer_count=0 in_observers=0 preferred_lines="" preferred_configured="NO"
+  local preferred_entry preferred_value
+  local observer_list_re='^"?([^"[:space:]]+)"?[[:space:]]*[-(]'
+
+  [[ -f "$output_file" ]] || return "$SUCCESS"
+
+  while IFS= read -r line; do
+    line="${line//$'\r'/}"
+    normalized="$(trim_value "$line")"
+    if [[ -z "$normalized" ]]; then
+      in_observers=0
+      continue
+    fi
+
+    if [[ "$normalized" =~ ^Fast-Start[[:space:]]+Failover:[[:space:]]*(.*)$ ]]; then
+      MAA_EVIDENCE["dgmgrl_fsfo_state"]="$(trim_value "${BASH_REMATCH[1]}")"
+      continue
+    fi
+
+    if [[ "$normalized" =~ ^Observers:[[:space:]]*$ ]]; then
+      in_observers=1
+      continue
+    fi
+
+    if [[ "$normalized" =~ ^Observer:[[:space:]]*(.*)$ ]]; then
+      value="$(strip_config_quotes "${BASH_REMATCH[1]}")"
+      value="$(trim_value "$value")"
+      if [[ -n "$value" && "$value" != "(none)" && "$value" != "NONE" ]]; then
+        active_observer="$value"
+        observer_names="$(maa_observer_csv_add_unique "$observer_names" "$value")"
+      fi
+      continue
+    fi
+
+    if [[ "$in_observers" -eq 1 && "$normalized" =~ $observer_list_re ]]; then
+      value="${BASH_REMATCH[1]}"
+      observer_names="$(maa_observer_csv_add_unique "$observer_names" "$value")"
+      if [[ "$normalized" =~ [Mm]aster|[Aa]ctive ]] && [[ -z "$active_observer" ]]; then
+        active_observer="$(strip_config_quotes "$value")"
+      fi
+      continue
+    fi
+
+    if [[ "$normalized" =~ Preferred[[:space:]_]*Observer[[:space:]_]*Hosts ]]; then
+      preferred_entry="$normalized"
+      if [[ "$normalized" == *"="* ]]; then
+        preferred_value="$(strip_config_quotes "${normalized#*=}")"
+        preferred_value="$(trim_value "$preferred_value")"
+        [[ -n "$preferred_value" ]] || preferred_value="EMPTY"
+        preferred_entry="$preferred_value"
+      fi
+      if [[ -z "$preferred_lines" ]]; then
+        preferred_lines="$preferred_entry"
+      elif [[ "; ${preferred_lines}; " != *"; ${preferred_entry}; "* ]]; then
+        preferred_lines="${preferred_lines}; ${preferred_entry}"
+      fi
+      lower="$(printf "%s" "$normalized" | tr '[:upper:]' '[:lower:]')"
+      if [[ ! "$lower" =~ "''" &&
+            ! "$lower" =~ "\(none\)" &&
+            ! "$lower" =~ "not set" &&
+            ! "$lower" =~ "null" &&
+            ! "$lower" =~ "unknown" &&
+            ! "$lower" =~ =[[:space:]]*$ &&
+            ! "$lower" =~ :[[:space:]]*$ ]]; then
+        preferred_configured="YES"
+      fi
+      continue
+    fi
+  done <"$output_file"
+
+  observer_count="$(maa_count_csv_values "$observer_names")"
+  MAA_EVIDENCE["fsfo_active_observer"]="${active_observer:-UNKNOWN}"
+  MAA_EVIDENCE["fsfo_observer_names"]="${observer_names:-NONE}"
+  MAA_EVIDENCE["fsfo_observer_count"]="$observer_count"
+  MAA_EVIDENCE["fsfo_preferred_observer_hosts"]="${preferred_lines:-NONE}"
+  MAA_EVIDENCE["fsfo_preferred_observer_hosts_configured"]="$preferred_configured"
+}
+
+collect_maa_dgmgrl_fsfo_evidence() {
+  local output_file="$1"
+  local status target current_db target_db dgmgrl_bin
+
+  maa_reset_fsfo_observer_evidence
+  MAA_EVIDENCE["dgmgrl_fsfo_evidence_file"]="$output_file"
+
+  dgmgrl_bin="$(find_dgmgrl_bin)"
+  if [[ -z "$dgmgrl_bin" || ! -x "$dgmgrl_bin" ]]; then
+    printf "dgmgrl not found in ORACLE_HOME/bin or PATH.\n" >"$output_file" || true
+    return "$SUCCESS"
+  fi
+
+  MAA_EVIDENCE["dgmgrl_available"]="YES"
+  MAA_EVIDENCE["dgmgrl_bin"]="$dgmgrl_bin"
+  current_db="${DB_UNIQUE_NAME:-$(maa_value db_unique_name "")}"
+  target="$(maa_value fsfo_target NONE)"
+  case "$target" in
+    NONE|UNKNOWN|"") target_db="" ;;
+    *) target_db="$target" ;;
+  esac
+
+  {
+    printf 'show configuration verbose;\n'
+    printf 'show fast_start failover;\n'
+    if [[ -n "$current_db" ]]; then
+      printf 'show database verbose "%s";\n' "$current_db"
+    fi
+    if [[ -n "$target_db" && "$target_db" != "$current_db" ]]; then
+      printf 'show database verbose "%s";\n' "$target_db"
+    fi
+    printf 'exit\n'
+  } | "$dgmgrl_bin" -silent / >"$output_file" 2>&1
+  status=$?
+
+  if [[ "$status" -eq 0 ]]; then
+    MAA_EVIDENCE["dgmgrl_fsfo_status"]="OK"
+  else
+    MAA_EVIDENCE["dgmgrl_fsfo_status"]="ERROR"
+    printf "\n[dgmgrl exited with status %s]\n" "$status" >>"$output_file" || true
+  fi
+
+  parse_maa_dgmgrl_fsfo_evidence "$output_file"
+  return "$SUCCESS"
+}
+
 append_service_awareness_sections() {
   local report_file="$1"
   local dg_detected=0
@@ -7040,6 +7232,9 @@ append_service_awareness_sections() {
   local ac_count tac_count replay_gap user_services role_services
   local fan_count rlb_count drain_count commit_count state_count restore_count
   local dml_redirect fsfo_status fsfo_observer db_role open_mode
+  local fsfo_observer_count fsfo_observer_names fsfo_active_observer
+  local fsfo_pref_hosts fsfo_pref_configured dgmgrl_fsfo_status dgmgrl_available
+  local fsfo_enabled=0
 
   db_role="$(maa_value db_role UNKNOWN)"
   open_mode="$(maa_value open_mode UNKNOWN)"
@@ -7065,6 +7260,18 @@ append_service_awareness_sections() {
   dml_redirect="$(maa_value adg_redirect_dml UNAVAILABLE)"
   fsfo_status="$(maa_value fsfo_status UNKNOWN)"
   fsfo_observer="$(maa_value fsfo_observer_present UNKNOWN)"
+  fsfo_observer_count="$(maa_value fsfo_observer_count 0)"
+  fsfo_observer_names="$(maa_value fsfo_observer_names NONE)"
+  fsfo_active_observer="$(maa_value fsfo_active_observer UNKNOWN)"
+  fsfo_pref_hosts="$(maa_value fsfo_preferred_observer_hosts NONE)"
+  fsfo_pref_configured="$(maa_value fsfo_preferred_observer_hosts_configured NO)"
+  dgmgrl_fsfo_status="$(maa_value dgmgrl_fsfo_status UNAVAILABLE)"
+  dgmgrl_available="$(maa_value dgmgrl_available NO)"
+  if [[ "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED ]] ||
+     [[ "$fsfo_observer" == "YES" ]] ||
+     [[ "$(maa_value dgmgrl_fsfo_state UNKNOWN)" =~ Enabled|enabled ]]; then
+    fsfo_enabled=1
+  fi
 
   append_report_section "$report_file" "Application Continuity, TAC, FSFO, DML Redirection, And Services Review"
   {
@@ -7085,6 +7292,11 @@ append_service_awareness_sections() {
       "$(md_escape "$dg_detected")" "$(md_escape "$fsfo_status")" \
       "$(md_escape "$(maa_value fsfo_target NONE)")" "$(md_escape "$fsfo_observer")" \
       "$(md_escape "$(maa_value fsfo_threshold UNKNOWN)")"
+    printf '| FSFO observer best-practice evidence | DGMGRL `%s/%s` from `%s`, active observer `%s`, observer count `%s`, observers `%s`, PreferredObserverHosts `%s` |\n' \
+      "$(md_escape "$dgmgrl_available")" "$(md_escape "$dgmgrl_fsfo_status")" \
+      "$(md_escape "$(maa_value dgmgrl_bin UNAVAILABLE)")" \
+      "$(md_escape "$fsfo_active_observer")" "$(md_escape "$fsfo_observer_count")" \
+      "$(md_escape "$fsfo_observer_names")" "$(md_escape "$fsfo_pref_configured")"
     printf '| Active Data Guard DML redirection | adg_redirect_dml `%s`, ADG standby context `%s` |\n' \
       "$(md_escape "$dml_redirect")" "$(md_escape "$adg_standby")"
     printf '| srvctl service metadata | srvctl `%s`, status `%s`, services `%s`, role-based `%s`, primary-role `%s`, standby-role `%s`, automatic `%s` |\n' \
@@ -7168,13 +7380,43 @@ append_service_awareness_sections() {
   fi
 
   if [[ "$dg_detected" -eq 1 ]]; then
-    if [[ "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED ]] || [[ "$fsfo_observer" == "YES" ]]; then
+    if [[ "$fsfo_enabled" -eq 1 ]]; then
       maa_append_check "$report_file" "OK" "FSFO" "Fast-Start Failover awareness" "fsfo=${fsfo_status}, observer=${fsfo_observer}, threshold=$(maa_value fsfo_threshold UNKNOWN)" "Validate observer location, failover threshold, target, reinstate/failback runbook, and application service movement."
     else
       maa_append_check "$report_file" "INFO" "FSFO" "Fast-Start Failover awareness" "fsfo=${fsfo_status}, observer=${fsfo_observer}" "For low RTO Data Guard designs, evaluate FSFO and rehearse observer failure/failback handling."
     fi
   else
     maa_append_check "$report_file" "INFO" "FSFO" "Fast-Start Failover awareness" "dg_detected=0" "FSFO applies after a broker-managed Data Guard configuration is in place."
+  fi
+
+  if [[ "$dg_detected" -eq 1 && "$fsfo_enabled" -eq 1 ]]; then
+    if [[ "$fsfo_observer" == "YES" || "$fsfo_active_observer" != "UNKNOWN" || ( "$fsfo_observer_count" =~ ^[0-9]+$ && "$fsfo_observer_count" -gt 0 ) ]]; then
+      maa_append_check "$report_file" "OK" "FSFO observer" "Active observer present" "observer_present=${fsfo_observer}, active=${fsfo_active_observer}, count=${fsfo_observer_count}" "Keep the active observer on an external site when possible; if no external site exists, run it with the primary site and keep a secondary-site observer ready after role transition."
+    else
+      maa_append_check "$report_file" "GAP" "FSFO observer" "Active observer present" "observer_present=${fsfo_observer}, active=${fsfo_active_observer}, count=${fsfo_observer_count}" "Start an FSFO observer before relying on automatic failover."
+    fi
+
+    if [[ "$fsfo_observer_count" =~ ^[0-9]+$ && "$fsfo_observer_count" -ge 2 ]]; then
+      maa_append_check "$report_file" "OK" "FSFO observer" "Multiple observers configured" "observers=${fsfo_observer_names}" "Use multiple observers for observer high availability and validate master/backup observer behavior."
+    else
+      maa_append_check "$report_file" "WARN" "FSFO observer" "Multiple observers configured" "observer_count=${fsfo_observer_count}, observers=${fsfo_observer_names}" "Configure at least two observers when possible so observer availability does not become a single operational dependency."
+    fi
+
+    if [[ "$fsfo_pref_configured" == "YES" ]]; then
+      maa_append_check "$report_file" "OK" "FSFO observer" "PreferredObserverHosts configured" "preferred_hosts=${fsfo_pref_hosts}" "Use PreferredObserverHosts to prefer external/primary-site observer hosts and avoid running the observer with the standby database."
+    else
+      maa_append_check "$report_file" "WARN" "FSFO observer" "PreferredObserverHosts configured" "preferred_hosts=${fsfo_pref_hosts}, dgmgrl=${dgmgrl_available}/${dgmgrl_fsfo_status}" "Configure PreferredObserverHosts on Data Guard members so the active observer is not placed with the standby database after role transitions."
+    fi
+
+    if [[ "$fsfo_pref_configured" == "YES" ]]; then
+      maa_append_check "$report_file" "INFO" "FSFO observer" "Observer site placement" "active=${fsfo_active_observer}, preferred_hosts_configured=YES" "Confirm the preferred-host list maps to an external site first, primary site second, and does not prefer the standby database site."
+    else
+      maa_append_check "$report_file" "WARN" "FSFO observer" "Observer site placement" "active=${fsfo_active_observer}, preferred_hosts_configured=NO" "CrashSimulator cannot prove external/primary/standby site placement without PreferredObserverHosts or site metadata; never intentionally place the active observer with the standby database."
+    fi
+  elif [[ "$dg_detected" -eq 1 ]]; then
+    maa_append_check "$report_file" "INFO" "FSFO observer" "Observer best-practice placement" "fsfo_enabled=${fsfo_enabled}, observer=${fsfo_observer}" "When FSFO is enabled, prefer external-site observers, avoid standby-site placement, configure multiple observers, and set PreferredObserverHosts."
+  else
+    maa_append_check "$report_file" "INFO" "FSFO observer" "Observer best-practice placement" "dg_detected=0" "Observer placement checks become applicable after Data Guard Broker and FSFO are configured."
   fi
 
   if [[ "$adg_standby" -eq 1 ]]; then
@@ -7214,7 +7456,7 @@ run_maa_report() {
   discover_environment
   ensure_sqlplus
 
-  local report_file sql_file evidence_file srvctl_service_file generated_at
+  local report_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
   local detected_level detected_reason readiness_status sla_hint
   local has_silver=0 has_gold=0 has_platinum=0 has_diamond=0 baseline_gap=0
   local version_major app_continuity capture_count apply_count
@@ -7224,12 +7466,14 @@ run_maa_report() {
   sql_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.sql"
   evidence_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.evidence"
   srvctl_service_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_srvctl_services.out"
+  dgmgrl_fsfo_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_dgmgrl_fsfo.out"
   write_maa_assessment_sql_file "$sql_file"
 
   "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "MAA assessment SQL failed: $sql_file (evidence: $evidence_file)"
   parse_maa_evidence_file "$evidence_file"
   collect_srvctl_service_evidence "$srvctl_service_file"
+  collect_maa_dgmgrl_fsfo_evidence "$dgmgrl_fsfo_file"
 
   case "$CLUSTER_TYPE" in
     RAC|RACONE|RACONENODE|RAC_ONE_NODE)
@@ -7299,6 +7543,7 @@ run_maa_report() {
     printf -- '- Detected MAA posture: `%s`\n' "$detected_level"
     printf -- '- Readiness status: `%s`\n' "$readiness_status"
     printf -- '- Raw SQL evidence file: `%s`\n' "$evidence_file"
+    printf -- '- Data Guard Broker FSFO evidence file: `%s`\n' "$dgmgrl_fsfo_file"
     printf "\n"
     printf "This report is a best-effort posture assessment, not an Oracle certification. It maps observable database, Grid Infrastructure, backup, Data Guard, and security evidence to the MAA reference architecture model and highlights gaps that should be validated with timed drills.\n\n"
   } >"$report_file" || die "Unable to write MAA report file: $report_file"
@@ -7468,6 +7713,7 @@ run_maa_report() {
     printf -- '- Oracle MAA Reference Architectures Overview: https://docs.oracle.com/en/database/oracle/oracle-database/26/haiad/maa_overview.html\n'
     printf -- '- Oracle HA requirements, RTO/RPO, and MAA architecture mapping: https://docs.oracle.com/en/database/oracle/oracle-database/19/haovw/ha-requirements-architecture.html\n'
     printf -- '- User RTO/RPO planning reference: https://oraclemaa.com/from-downtime-to-data-loss-getting-rto-and-rpo-right-for-high-availability-and-disaster-recovery\n'
+    printf -- '- FSFO observer placement reference: https://www.ludovicocaldara.net/blog/video-where-should-i-put-the-observer-in-a-fast-start-failover-configuration/\n'
   } >>"$report_file"
 
   append_report_section "$report_file" "Raw MAA Evidence"
@@ -7478,12 +7724,7 @@ run_maa_report() {
     printf '```\n'
   } >>"$report_file"
 
-  if command -v dgmgrl >/dev/null 2>&1; then
-    append_report_command "$report_file" "Data Guard Broker Evidence" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
-  else
-    append_report_section "$report_file" "Data Guard Broker Evidence"
-    append_report_text "$report_file" "dgmgrl was not found in PATH."
-  fi
+  append_report_file "$report_file" "Data Guard Broker Evidence" "$dgmgrl_fsfo_file"
   if command -v srvctl >/dev/null 2>&1 && [[ -n "$DB_UNIQUE_NAME" ]]; then
     append_report_command "$report_file" "srvctl Database And Service Evidence" bash -lc "srvctl config database -d '${DB_UNIQUE_NAME}' 2>&1; srvctl status database -d '${DB_UNIQUE_NAME}' 2>&1; srvctl config service -d '${DB_UNIQUE_NAME}' 2>&1; srvctl status service -d '${DB_UNIQUE_NAME}' 2>&1"
   fi
@@ -7498,18 +7739,20 @@ run_service_review() {
   discover_environment
   ensure_sqlplus
 
-  local report_file sql_file evidence_file srvctl_service_file generated_at
+  local report_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.md"
   sql_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.sql"
   evidence_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}.evidence"
   srvctl_service_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}_srvctl_services.out"
+  dgmgrl_fsfo_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}_dgmgrl_fsfo.out"
 
   write_maa_assessment_sql_file "$sql_file"
   "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "Service review SQL failed: $sql_file (evidence: $evidence_file)"
   parse_maa_evidence_file "$evidence_file"
   collect_srvctl_service_evidence "$srvctl_service_file"
+  collect_maa_dgmgrl_fsfo_evidence "$dgmgrl_fsfo_file"
 
   {
     printf "# CrashSimulator Oracle Service HA Best-Practice Review\n\n"
@@ -7524,6 +7767,7 @@ run_service_review() {
     printf -- '- Storage type: `%s`\n' "$STORAGE_TYPE"
     printf -- '- SQL evidence file: `%s`\n' "$evidence_file"
     printf -- '- srvctl service evidence file: `%s`\n' "$srvctl_service_file"
+    printf -- '- Data Guard Broker FSFO evidence file: `%s`\n' "$dgmgrl_fsfo_file"
     printf "\n"
     printf "This report is read-only. It reviews Oracle Database service metadata, AC/TAC readiness signals, FAN/client HA attributes, Data Guard FSFO posture, Active Data Guard DML redirection configuration, and role-based service evidence when srvctl is available.\n"
   } >"$report_file" || die "Unable to write service review file: $report_file"
@@ -7550,15 +7794,17 @@ run_service_review() {
     printf 'srvctl service evidence file: `%s`\n\n' "$srvctl_service_file"
     printf '```text\n'
     cat "$srvctl_service_file" 2>/dev/null || true
+    printf '```\n\n'
+    printf 'Data Guard Broker FSFO evidence file: `%s`\n\n' "$dgmgrl_fsfo_file"
+    printf '```text\n'
+    cat "$dgmgrl_fsfo_file" 2>/dev/null || true
     printf '```\n'
   } >>"$report_file"
 
   if command -v srvctl >/dev/null 2>&1 && [[ -n "$DB_UNIQUE_NAME" ]]; then
     append_report_command "$report_file" "srvctl Service Status" srvctl status service -d "$DB_UNIQUE_NAME"
   fi
-  if command -v dgmgrl >/dev/null 2>&1; then
-    append_report_command "$report_file" "Data Guard Broker FSFO Evidence" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
-  fi
+  append_report_file "$report_file" "Data Guard Broker FSFO Evidence" "$dgmgrl_fsfo_file"
 
   echo "Oracle service HA review generated: ${report_file}"
   maybe_render_html "$report_file"
@@ -8928,7 +9174,7 @@ run_configuration_report() {
   discover_environment
   ensure_sqlplus
 
-  local report_file sql_file generated_at grid_home crsctl_bin asm_sid
+  local report_file sql_file generated_at grid_home crsctl_bin asm_sid dgmgrl_bin
   local rman_show_file rman_preview_file rman_restore_validate_file rman_db_validate_file
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_config_report_${RUN_ID}.md"
@@ -9046,11 +9292,12 @@ run_configuration_report() {
     append_report_command "$report_file" "ASM SPFILE" run_asmcmd_with_grid_env spget
   fi
 
-  if command -v dgmgrl >/dev/null 2>&1; then
-    append_report_command "$report_file" "Data Guard Broker Configuration" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | dgmgrl -silent /"
+  dgmgrl_bin="$(find_dgmgrl_bin)"
+  if [[ -n "$dgmgrl_bin" && -x "$dgmgrl_bin" ]]; then
+    append_report_command "$report_file" "Data Guard Broker Configuration" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | \"${dgmgrl_bin}\" -silent /"
   else
     append_report_section "$report_file" "Data Guard Broker Configuration"
-    append_report_text "$report_file" "dgmgrl was not found in PATH. SQL Data Guard/FSFO evidence is still included above."
+    append_report_text "$report_file" "dgmgrl was not found in ORACLE_HOME/bin or PATH. SQL Data Guard/FSFO evidence is still included above."
   fi
 
   echo "Configuration report generated: ${report_file}"
@@ -11507,12 +11754,15 @@ scenario_asm_spfile_loss() {
 
 collect_dgmgrl_fsfo_evidence() {
   local output_file="$1"
-  if ! command -v dgmgrl >/dev/null 2>&1; then
-    printf "dgmgrl not found in PATH.\n" >"$output_file" || true
+  local dgmgrl_bin
+
+  dgmgrl_bin="$(find_dgmgrl_bin)"
+  if [[ -z "$dgmgrl_bin" || ! -x "$dgmgrl_bin" ]]; then
+    printf "dgmgrl not found in ORACLE_HOME/bin or PATH.\n" >"$output_file" || true
     return "$FAIL"
   fi
   printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' |
-    dgmgrl -silent / >"$output_file" 2>&1 || return "$FAIL"
+    "$dgmgrl_bin" -silent / >"$output_file" 2>&1 || return "$FAIL"
 }
 
 plan_dg_transport_defer() {
