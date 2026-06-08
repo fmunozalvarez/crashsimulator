@@ -1,0 +1,41 @@
+CrashSimulator active startup configuration
+  Loaded config: ./crashsimulator.conf
+  Config disabled: 0
+
+Oracle environment:
+  ORACLE_SID=crashdb1
+  ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+  ORACLE_BASE=/u02/app/oracle
+  TNS_ADMIN=/u02/app/oracle/product/23.0.0.0/dbhome_1/network/admin
+  SQLPLUS=not set
+  RMAN=not set
+  CRASHSIM_GRID_HOME=/u01/app/23.0.0.0/gridhome_1
+  CRASHSIM_ASM_SID=not set
+
+CrashSimulator defaults:
+  PDB=CRASHPDB
+  Schema=not set
+  FILE#=not set
+  Log dir=/tmp/crashsimulator/crashsimulator_logs
+  SQL*Plus logon=/ as sysdba
+  Audit retain=0
+  Audit retention days=90
+  Audit dir=/tmp/crashsimulator/crashsimulator_logs/audit
+  RMAN catalog=not set
+  Baseline tag prefix=CSIM_BASE
+  ORDS URL=http://localhost:8080/ords/
+  ORDS config dir=/etc/ords/config
+  APEX session URL=not set
+
+Config values applied:
+  - ORACLE_SID=crashdb1
+  - ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+  - ORACLE_BASE=/u02/app/oracle
+  - TNS_ADMIN=/u02/app/oracle/product/23.0.0.0/dbhome_1/network/admin
+  - CRASHSIM_GRID_HOME=/u01/app/23.0.0.0/gridhome_1
+  - CRASHSIM_GRID_USER=grid
+  - CRASHSIM_PDB=CRASHPDB
+  - CRASHSIM_LOG_DIR=/tmp/crashsimulator/crashsimulator_logs
+  - CRASHSIM_AUDIT_RETAIN=yes
+  - CRASHSIM_AUDIT_RETENTION_DAYS=90
+  - CRASHSIM_BASELINE_TAG_PREFIX=CSIM_BASE

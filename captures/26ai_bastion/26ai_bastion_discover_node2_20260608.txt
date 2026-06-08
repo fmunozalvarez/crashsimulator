@@ -1,0 +1,29 @@
+CrashSimulator V2 discovery
+  Version:           2.0.0-dev
+  Generated UTC:     2026-06-08T08:55:27Z
+  Host:              crashrac2-picqh
+  OS user:           oracle
+  Oracle home:       /u02/app/oracle/product/23.0.0.0/dbhome_1
+  SQL*Plus:          /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  Database name:     CRASHDB
+  DB unique name:    crashrdb
+  Version family:    12c or later required by v2
+  CDB:               YES
+  Open mode:         READ WRITE
+  Database role:     PRIMARY
+  Protection mode:   MAXIMUM PERFORMANCE
+  Switchover status: TO STANDBY
+  Instance:          crashdb2
+  Thread:            2
+  RAC parallel:      YES
+  Cluster type:      RAC
+  GI managed:        1
+  Storage type:      FILESYSTEM
+  SPFILE:            @rJOnB8bM/CREASHRAC-A4FEA717C5C96F3BFFC46A6348A21A9F/CRASHRDB/PARAMETERFILE/spfile.OMF.37A52C57
+  Password file:     @rJOnB8bM/CREASHRAC-A4FEA717C5C96F3BFFC46A6348A21A9F/CRASHRDB/PASSWORD/pwdCRASHRDB.4B81E94C
+  FRA:               @rJOnB8bM(RECO_HC_HIGHREDUNDANCY)
+  PDBs:
+    CRASHPDB (CON_ID=3, OPEN_MODE=READ WRITE)
+
+Topology snapshot: /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_085525.txt
+Latest topology snapshot: /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_latest.txt
