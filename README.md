@@ -5,7 +5,7 @@ simulation, recoverability analysis, Oracle MAA assessment, SLA-driven readiness
 operational runbooks, compliance evidence collection, and recovery validation to continuously
 measure and improve database resilience.
 
-CrashSimulator V2 is the current single-script framework. It supports dry-run
+CrashSimulator V2.0.1 beta is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
@@ -30,6 +30,7 @@ validation, not an official Oracle product certification.
 
 For the full end-user documentation, read:
 
+- [CrashSimulator v2.0.1 Beta Product Overview](docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md)
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
 - [CLI setup and scenario narrated tutorial video](assets/tutorial/crashsimulator_cli_tutorial_with_audio.mp4)
 - [Guided Workflow scenario narrated tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial_with_audio.mp4)
