@@ -103,6 +103,12 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 - `../../captures/26ai/26ai_apex_session_driver_s80_design_validation.txt`
   - Shows scenario `80` default readiness in the 26ai lab, driver self-check
     guardrail behavior, and local Playwright smoke-test evidence.
+- `../../captures/26ai_retirement_final_20260608/extracted/`
+  - Final pre-termination evidence synchronized from the 26ai RAC primary,
+    standby, and bastion hosts before retiring the OCI test environment.
+  - Includes final MAA/FSFO observer evidence, scenario readiness/lifecycle
+    reports, standby ADG pressure evidence, topology snapshots, and ADB
+    readiness output.
 
 ## Autonomous Database Readiness References
 
