@@ -1,0 +1,49 @@
+
+NAME      DB_UNIQUE_NAME                 OPEN_MODE            DATABASE_ROLE    PROTECTION_MODE      SWITCHOVER_STATUS    GUARD_S FORCE_LOGGING                           FLASHBACK_ON
+--------- ------------------------------ -------------------- ---------------- -------------------- -------------------- ------- --------------------------------------- ------------------
+CRASHDB   crashdr                        READ ONLY WITH APPLY PHYSICAL STANDBY MAXIMUM PERFORMANCE  NOT ALLOWED          NONE    YES                                     YES
+
+
+   INST_ID INSTANCE_NAME    HOST_NAME                                                        STATUS       DATABASE_STATUS
+---------- ---------------- ---------------------------------------------------------------- ------------ -----------------
+         1 crashdb1         crashstby1-msjgs                                                 OPEN         ACTIVE
+         2 crashdb2         crashstby2-vicdd                                                 OPEN         ACTIVE
+
+
+NAME                                                                                                                             OPEN_MODE  RES
+-------------------------------------------------------------------------------------------------------------------------------- ---------- ---
+PDB$SEED                                                                                                                         READ ONLY  NO
+CRASHPDB                                                                                                                         READ ONLY  NO
+
+
+NAME                             VALUE                                                            UNIT                           TIME_COMPUTED
+-------------------------------- ---------------------------------------------------------------- ------------------------------ ------------------------------
+apply finish time                +00 00:00:00.000                                                 day(2) to second(3) interval   06/08/2026 09:09:50
+apply lag                        +00 00:00:00                                                     day(2) to second(0) interval   06/08/2026 09:09:50
+estimated startup time           18                                                               second                         06/08/2026 09:09:50
+transport lag                    +00 00:00:00                                                     day(2) to second(0) interval   06/08/2026 09:09:50
+
+
+PROCESS   STATUS                  THREAD#  SEQUENCE#     BLOCK#     BLOCKS
+--------- -------------------- ---------- ---------- ---------- ----------
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CONNECTED                     0          0          0          0
+ARCH      CLOSING                       1         15       6146       1641
+DGRD      ALLOCATED                     0          0          0          0
+DGRD      ALLOCATED                     0          0          0          0
+MRP0      APPLYING_LOG                  1         20       3543    8192000
+RFS       IDLE                          1          0          0          0
+
+12 rows selected.
+
+
+    CON_ID WALLET_TYPE          STATUS                         WALLET_OR
+---------- -------------------- ------------------------------ ---------
+         1 AUTOLOGIN            OPEN                           SINGLE
+         2 AUTOLOGIN            OPEN                           SINGLE
+         3 AUTOLOGIN            OPEN                           SINGLE

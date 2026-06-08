@@ -1,0 +1,151 @@
+Connected to "crashrdb"
+
+Configuration - crashdb_dgconf
+
+  Protection Mode: MaxPerformance
+  Members:
+  crashrdb - Primary database
+    crashdr  - Physical standby database
+
+Fast-Start Failover:  Disabled
+
+Configuration Status:
+SUCCESS   (status updated 54 seconds ago)
+
+
+Database - crashrdb
+
+  Role:                PRIMARY
+  Intended State:      TRANSPORT-ON
+  Redo Rate:           629 Byte/s  in 15 seconds (computed 9 seconds ago)
+  Instance(s):
+    crashdb1
+    crashdb2
+
+  Properties:
+    AlternateLocation               = ''
+    ApplyInstanceTimeout            = '0'
+    ApplyInstances                  = '0'
+    ApplyLagThreshold               = '30'
+    ApplyParallel                   = 'AUTO'
+    ArchiveLocation                 = ''
+    Binding                         = 'OPTIONAL'
+    DGConnectIdentifier             = 'crashrdb'
+    DelayMins                       = '0'
+    FastStartFailoverTarget         = 'crashdr'
+    InconsistentLogXptProps         = '(monitor)'
+    LogShipping                     = 'ON'
+    LogXptMode                      = 'ASYNC'
+    LogXptStatus                    = '(monitor)'
+    MaxFailure                      = '0'
+    NetTimeout                      = '30'
+    ObserverConnectIdentifier       = ''
+    PreferredApplyInstance          = ''
+    PreferredObserverHosts          = ''
+    RecvQEntries                    = '(monitor)'
+    RedoCompression                 = 'DISABLE'
+    RedoRoutes                      = ''
+    ReopenSecs                      = '300'
+    SendQEntries                    = '(monitor)'
+    SidName(*)
+    StandbyAlternateLocation        = ''
+    StandbyArchiveLocation          = ''
+    StaticConnectIdentifier(*)
+    TopWaitEvents(*)
+    TransportDisconnectedThreshold  = '30'
+    TransportLagThreshold           = '30'
+    UserManagedParams               = ''
+    (*) - Please check specific instance for the property value
+
+  Log file locations(*):
+    (*) - Check specific instance for log file locations.
+
+Database Status:
+SUCCESS
+
+
+Database - crashdr
+
+  Role:                PHYSICAL STANDBY
+  Intended State:      APPLY-ON
+  Transport Lag:       0 seconds (computed 1 second ago)
+  Apply Lag:           0 seconds (computed 1 second ago)
+  Average Apply Rate:  18.00 KByte/s
+  Active Apply Rate:   1.31 MByte/s
+  Maximum Apply Rate:  1.43 MByte/s
+  Real Time Query:     ON
+  Instance(s):
+    crashdb1 (apply instance)
+    crashdb2
+
+  Properties:
+    AlternateLocation               = ''
+    ApplyInstanceTimeout            = '0'
+    ApplyInstances                  = '0'
+    ApplyLagThreshold               = '30'
+    ApplyParallel                   = 'AUTO'
+    ArchiveLocation                 = ''
+    Binding                         = 'OPTIONAL'
+    DGConnectIdentifier             = 'crashdr'
+    DelayMins                       = '0'
+    FastStartFailoverTarget         = 'crashrdb'
+    InconsistentLogXptProps         = '(monitor)'
+    LogShipping                     = 'ON'
+    LogXptMode                      = 'ASYNC'
+    LogXptStatus                    = '(monitor)'
+    MaxFailure                      = '0'
+    NetTimeout                      = '30'
+    ObserverConnectIdentifier       = ''
+    PreferredApplyInstance          = ''
+    PreferredObserverHosts          = ''
+    RecvQEntries                    = '(monitor)'
+    RedoCompression                 = 'DISABLE'
+    RedoRoutes                      = ''
+    ReopenSecs                      = '300'
+    SendQEntries                    = '(monitor)'
+    SidName(*)
+    StandbyAlternateLocation        = ''
+    StandbyArchiveLocation          = ''
+    StaticConnectIdentifier(*)
+    TopWaitEvents(*)
+    TransportDisconnectedThreshold  = '30'
+    TransportLagThreshold           = '30'
+    UserManagedParams               = ''
+    (*) - Please check specific instance for the property value
+
+  Log file locations(*):
+    (*) - Check specific instance for log file locations.
+
+Database Status:
+SUCCESS
+
+
+Fast-Start Failover:  Disabled
+
+  Protection Mode:    MaxPerformance
+  Lag Limit:          30 seconds
+  Lag Type:           APPLY
+
+  Threshold:          30 seconds
+  Ping Interval:      3000 milliseconds
+  Ping Retry:         0
+  Active Target:      (none)
+  Potential Targets:  "crashdr"
+    crashdr    valid
+  Observer:           (none)
+  Shutdown Primary:   TRUE
+  Auto-reinstate:     TRUE
+  Observer Reconnect: (none)
+  Observer Override:  FALSE
+  Lag Grace Time:     0 seconds
+
+Configurable Failover Conditions
+  Health Conditions:
+    Corrupted Controlfile          YES
+    Corrupted Dictionary           YES
+    Inaccessible Logfile            NO
+    Stuck Archiver                  NO
+    Datafile Write Errors          YES
+
+  Oracle Error Conditions:
+    (none)
