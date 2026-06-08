@@ -1,0 +1,240 @@
+Review index generated: /tmp/crashsimulator/crashsimulator_logs/crashsim_review_index_20260608_021346.md
+# CrashSimulator Review Center
+
+- Generated UTC: `2026-06-08T02:13:47Z`
+- Log directory: `/tmp/crashsimulator/crashsimulator_logs`
+- Audit directory: `/tmp/crashsimulator/crashsimulator_logs/audit`
+
+This index lists previously collected CrashSimulator topology snapshots, scenario manifests, runbooks, dry-run/execution audit records, health checks, and reports. It does not reconnect to the database.
+
+## Latest Collected Topology
+
+- Latest topology artifact: `/tmp/crashsimulator/crashsimulator_logs/crashsim_topology_latest.txt`
+- Latest configuration report: `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.md`
+- Latest backup/recoverability report: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408.md`
+- Latest service HA review: `/tmp/crashsimulator/crashsimulator_logs/crashsim_service_review_20260607_034612.md`
+- Latest scenario readiness report: `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md`
+- Latest scenario lifecycle coverage report: `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md`
+- Latest MAA readiness report: `/tmp/crashsimulator/crashsimulator_logs/crashsim_maa_report_20260607_031506.md`
+- Latest health check: `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260608_005348.log`
+
+## Scenario / Protection / Recovery Manifests
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260607_034504.manifest` - scenario | 43 | 2026-06-07T03:45:07Z | PDB loss of one user table
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_001611.manifest` - scenario | 43 | 2026-06-08T00:16:15Z | PDB loss of one user table
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_005259.manifest` - scenario | 43 | 2026-06-08T00:53:03Z | PDB loss of one user table
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s44_20260607_034507.manifest` - scenario | 44 | 2026-06-07T03:45:11Z | PDB loss of one user schema
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s5_20260607_034323.manifest` - scenario | 5 | 2026-06-07T03:43:26Z | Loss of one non-system datafile
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s55_20260607_034511.manifest` - scenario | 55 | 2026-06-07T03:45:14Z | RAC abort one instance
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s56_20260607_034514.manifest` - scenario | 56 | 2026-06-07T03:45:19Z | RAC service relocation failure practice
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s57_20260607_034521.manifest` - scenario | 57 | 2026-06-07T03:45:25Z | Listener config unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s58_20260607_034525.manifest` - scenario | 58 | 2026-06-07T03:45:28Z | TDE wallet or keystore unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s60_20260607_034529.manifest` - scenario | 60 | 2026-06-07T03:45:32Z | Recovery catalog unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s61_20260607_034532.manifest` - scenario | 61 | 2026-06-07T03:45:35Z | FRA reaches critical utilization
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s6_20260607_034327.manifest` - scenario | 6 | 2026-06-07T03:43:30Z | Loss of one temporary file
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s63_20260607_034535.manifest` - scenario | 63 | 2026-06-07T03:45:38Z | TEMP tablespace exhaustion
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s64_20260607_034539.manifest` - scenario | 64 | 2026-06-07T03:45:42Z | RTO validation drill
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s65_20260607_034542.manifest` - scenario | 65 | 2026-06-07T03:45:45Z | RPO validation drill
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s71_20260607_034545.manifest` - scenario | 71 | 2026-06-07T03:45:50Z | RAC service placement failure
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s7_20260607_034331.manifest` - scenario | 7 | 2026-06-07T03:43:34Z | Loss of one SYSTEM datafile
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s73_20260607_081240.manifest` - scenario | 73 | 2026-06-07T08:12:43Z | ORDS service unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s73_20260607_081243.manifest` - scenario | 73 | 2026-06-07T08:12:46Z | ORDS service unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s74_20260607_081326.manifest` - scenario | 74 | 2026-06-07T08:13:29Z | ORDS configuration unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s74_20260607_081329.manifest` - scenario | 74 | 2026-06-07T08:13:32Z | ORDS configuration unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081405.manifest` - scenario | 75 | 2026-06-07T08:14:08Z | ORDS database pool misconfiguration
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081408.manifest` - scenario | 75 | 2026-06-07T08:14:11Z | ORDS database pool misconfiguration
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s76_20260607_073852.manifest` - scenario | 76 | 2026-06-07T07:38:55Z | APEX/ORDS runtime account locked
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s76_20260607_073913.manifest` - scenario | 76 | 2026-06-07T07:39:16Z | APEX/ORDS runtime account locked
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s77_20260607_074223.manifest` - scenario | 77 | 2026-06-07T07:42:26Z | APEX static resources unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s77_20260607_074239.manifest` - scenario | 77 | 2026-06-07T07:42:42Z | APEX static resources unavailable
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s78_20260607_071708.manifest` - scenario | 78 | 2026-06-07T07:17:11Z | APEX application availability validation after recovery
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s78_20260607_071849.manifest` - scenario | 78 | 2026-06-07T07:18:52Z | APEX application availability validation after recovery
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s78_20260607_074204.manifest` - scenario | 78 | 2026-06-07T07:42:07Z | APEX application availability validation after recovery
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081458.manifest` - scenario | 79 | 2026-06-07T08:15:01Z | ORDS node unavailable behind load balancer
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081501.manifest` - scenario | 79 | 2026-06-07T08:15:05Z | ORDS node unavailable behind load balancer
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081543.manifest` - scenario | 80 | 2026-06-07T08:15:46Z | APEX session continuity test
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081546.manifest` - scenario | 80 | 2026-06-07T08:15:50Z | APEX session continuity test
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090007.manifest` - scenario | 80 | 2026-06-07T09:00:11Z | APEX session continuity test
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090114.manifest` - scenario | 80 | 2026-06-07T09:01:17Z | APEX session continuity test
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s81_20260607_071711.manifest` - scenario | 81 | 2026-06-07T07:17:15Z | APEX mail queue and configuration validation
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s8_20260607_034334.manifest` - scenario | 8 | 2026-06-07T03:43:37Z | Loss of one UNDO datafile
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s82_20260607_071715.manifest` - scenario | 82 | 2026-06-07T07:17:18Z | APEX upgrade or patch rollback readiness
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s9_20260607_034338.manifest` - scenario | 9 | 2026-06-07T03:43:41Z | Loss of a read-only tablespace
+
+## Runbooks
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_runbook_s43_20260608_004345.txt`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_runbook_s61_20260607_101853.txt`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_runbook_s66_20260607_102839.txt`
+
+## Health Checks
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_030717.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_031343.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_034612.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_071916.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_073722.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_074203.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_074258.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081346.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081609.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_082136.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260608_005348.log`
+
+## Configuration Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.md`
+
+## Backup Strategy / Recoverability Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031506.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_031614.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260607_074408.md`
+
+## Service HA Reviews
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_service_review_20260607_034612.md`
+
+## APEX / ORDS Readiness Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_041710.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_041855.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_073320.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_074349.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.md`
+
+## Scenario Readiness Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_031506.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_072635.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_074355.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_081631.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260608_004553.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md`
+
+## Scenario Lifecycle Coverage Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_034612.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_081643.md`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md`
+
+## MAA Readiness Reports
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_maa_report_20260607_031506.md`
+
+## Baseline Backup Plans And Logs
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_031343.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_031353.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_031353.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_073734.log`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_073734.rman`
+
+## RMAN And SQL Helper Files
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_031343.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_031353.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260607_073734.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506_restore_preview.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506_show_all.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_config_report_20260607_031506.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_maa_report_20260607_031506.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_073928_unlock_runtime_user.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s76_20260607_074144_unlock_runtime_user.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_031506_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_031636_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_034532_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_072635_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_074355_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_081631_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260608_004553_fra_pressure.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_031506_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_031636_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_072635_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_074355_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_081631_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260608_004553_recovery_decision.rman`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_031506_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_031636_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_034535_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_072635_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_074355_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_081631_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260608_004553_temp_exhaustion.sql`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_service_review_20260607_034612.sql`
+
+## Audit Records
+
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_234334_85486` - mode `discover`, started `2026-06-07T23:43:35Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --discover`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_234349_85814` - mode `menu`, started `2026-06-07T23:43:49Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_234713_89894` - mode `menu`, started `2026-06-07T23:47:13Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235122_93581` - mode `menu`, started `2026-06-07T23:51:22Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235455_96927` - mode `menu`, started `2026-06-07T23:54:56Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235538_97857` - mode `menu`, started `2026-06-07T23:55:38Z`, exit `0`
+  Command: `/tmp/crashsimulator/CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235600_98354` - mode `discover`, started `2026-06-07T23:56:00Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --discover`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235635_99199` - mode `menu`, started `2026-06-07T23:56:35Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235943_2224` - mode `menu`, started `2026-06-07T23:59:43Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_001539_23969` - mode `menu`, started `2026-06-08T00:15:39Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_001610_24733` - mode `menu`, started `2026-06-08T00:16:10Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_001611_24991` - mode `scenario`, started `2026-06-08T00:16:12Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --scenario 43 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs --sqlplus-logon /\ as\ sysdba --dry-run`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_001638_26094` - mode `menu`, started `2026-06-08T00:16:38Z`, exit `1`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_001816_27717` - mode `menu`, started `2026-06-08T00:18:16Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_002006_29638` - mode `menu`, started `2026-06-08T00:20:06Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_002310_32328` - mode `menu`, started `2026-06-08T00:23:10Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_002808_36544` - mode `menu`, started `2026-06-08T00:28:08Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_002809_36961` - mode `menu`, started `2026-06-08T00:28:09Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003941_49317` - mode `menu`, started `2026-06-08T00:39:41Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684` - mode `menu`, started `2026-06-08T00:39:42Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --menu`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538` - mode `menu`, started `2026-06-08T00:42:23Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850` - mode `menu`, started `2026-06-08T00:43:45Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758` - mode `scenario_readiness_report`, started `2026-06-08T00:45:53Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs --sqlplus-logon /\ as\ sysdba --html`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731` - mode `validate`, started `2026-06-08T00:52:35Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --validate-scenario 43 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs --sqlplus-logon /\ as\ sysdba`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457` - mode `scenario`, started `2026-06-08T00:52:59Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --scenario 43 --pdb CRASHDB_PDB1 --ords-service ords --ords-config-dir /etc/ords/config --ords-url http://localhost:8080/ords/ --ords-priv-helper /usr/local/bin/crashsim_ords_priv --apex-session-duration 90 --apex-session-interval 10 --apex-session-headless 1 --sysbackup-user C##DBLCMUSER --fra-pressure-target-pct 98 --fra-pressure-headroom-mb 64 --temp-exhaust-mb 512 --log-dir /tmp/crashsimulator/crashsimulator_logs --sqlplus-logon /\ as\ sysdba --dry-run`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747` - mode `health`, started `2026-06-08T00:53:48Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh --health-check --log-dir /tmp/crashsimulator/crashsimulator_logs --sqlplus-logon /\ as\ sysdba`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876` - mode `menu`, started `2026-06-08T01:08:33Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329` - mode `menu`, started `2026-06-08T01:12:23Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054` - mode `menu`, started `2026-06-08T01:15:15Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+- `/tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_013220_18229` - mode `menu`, started `2026-06-08T01:32:20Z`, exit `0`
+  Command: `./CrashSimulatorV2.sh`
+
+## Access Shortcuts
+
+- Show latest topology: `./CrashSimulatorV2.sh --review-topology`
+- Show latest scenario readiness report: `./CrashSimulatorV2.sh --show-artifact latest:scenario-readiness`
+- Show latest scenario lifecycle report: `./CrashSimulatorV2.sh --show-artifact latest:lifecycle`
+- Show latest health check: `./CrashSimulatorV2.sh --show-artifact latest:health`
+- Generate HTML for latest review index: `./CrashSimulatorV2.sh --render-html latest:review`
+- Generate HTML for a specific artifact: `./CrashSimulatorV2.sh --render-html /path/to/artifact`
+HTML artifact generated: /tmp/crashsimulator/crashsimulator_logs/crashsim_review_index_20260608_021346.md.html

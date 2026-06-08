@@ -1,0 +1,170 @@
+NODE=crashdb26ai2
+DIRECTORY=/tmp/crashsimulator
+SCRIPT_SHA256
+c931a9ec01bcc146195354f7a4ebe5fadd7c5ecfaec2a4a41730ef4bb7bab984  CrashSimulatorV2.sh
+3ff1f993601809e2f1ed878aac813334ea5bf04971d0e34b122c38faaf55cdc2  config/crashsimulator.conf.example
+FILE_TREE
+./._.
+./._assets
+./assets/._.DS_Store
+./assets/.DS_Store
+./assets/._screenshots
+./assets/._tutorial
+./._captures
+./captures/._cli_aleatory_dry_run.txt
+./captures/cli_aleatory_dry_run.txt
+./captures/._.DS_Store
+./captures/.DS_Store
+./captures/._guided_reports_menu.txt
+./captures/guided_reports_menu.txt
+./captures/._guided_workflow_menu.txt
+./captures/guided_workflow_menu.txt
+./captures/._html
+./captures/._maa_cli_report.txt
+./captures/maa_cli_report.txt
+./captures/._maa_guided_reports_menu.txt
+./captures/maa_guided_reports_menu.txt
+./captures/._maa_report_latest.md
+./captures/maa_report_latest.md
+./captures/._scenarios_available.txt
+./captures/scenarios_available.txt
+./config/crashsimulator.conf.example
+./crashsim_ords_priv_helper.sh
+./._crashsim_prepare_redundant_gi_lab.sh
+./crashsim_prepare_redundant_gi_lab.sh
+./._crashsim_run_baseline_backup.sh
+./crashsim_run_baseline_backup.sh
+./crashsimulator
+./._crashsimulator_logs
+./crashsimulator_logs/._audit
+./crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.evidence
+./crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.md
+./crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.md.html
+./crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.sql
+./crashsimulator_logs/._crashsim_recover_s67_20260607_102903.manifest
+./crashsimulator_logs/crashsim_recover_s67_20260607_102903.manifest
+./crashsimulator_logs/._crashsim_runbook_s61_20260607_101853.txt
+./crashsimulator_logs/crashsim_runbook_s61_20260607_101853.txt
+./crashsimulator_logs/._crashsim_runbook_s66_20260607_102839.txt
+./crashsimulator_logs/crashsim_runbook_s66_20260607_102839.txt
+./crashsimulator_logs/crashsim_topology_20260608_015959.txt
+./crashsimulator_logs/crashsim_topology_latest.txt
+./crashsimulator_logs/._.DS_Store
+./crashsimulator_logs/.DS_Store
+./._CrashSimulatorV2.sh
+./CrashSimulatorV2.sh
+./._docs
+./docs/._CRASHSIMULATOR_USER_GUIDE.md
+./docs/CRASHSIMULATOR_USER_GUIDE.md
+./docs/._.DS_Store
+./docs/.DS_Store
+./docs/._REDUNDANT_GI_LAB_RUNBOOK.md
+./docs/REDUNDANT_GI_LAB_RUNBOOK.md
+./docs/._reference
+./._drill_health_check.sql
+./drill_health_check.sql
+./._drill_identify_targets.sql
+./drill_identify_targets.sql
+./._drill_open_pdbs_if_needed.sql
+./drill_open_pdbs_if_needed.sql
+./._drill_post_stabilize_full_backup.rman
+./drill_post_stabilize_full_backup.rman
+./._drill_post_stabilize_validate.rman
+./drill_post_stabilize_validate.rman
+./._drill_protect_30_5.rman
+./drill_protect_30_5.rman
+./._drill_protect_s05_post30.rman
+./drill_protect_s05_post30.rman
+./._drill_recover_s05.rman
+./drill_recover_s05.rman
+./._drill_recover_s30.rman
+./drill_recover_s30.rman
+./._drill_validate_targets.rman
+./drill_validate_targets.rman
+./._.DS_Store
+./.DS_Store
+./._.gitignore
+./.gitignore
+./._LICENSE
+./LICENSE
+./prepare_crashsim_controlfile_multiplex.sql
+./prepare_crashsim_redundancy.sql
+./._README.md
+./README.md
+./._README_V2.md
+./README_V2.md
+./._reports
+./reports/._crashsim_drill_report_20260603T043753Z.md
+./reports/crashsim_drill_report_20260603T043753Z.md
+./reports/._crashsim_postdrill_full_backup_20260603T043753Z.log
+./reports/crashsim_postdrill_full_backup_20260603T043753Z.log
+./reports/._crashsim_postdrill_validate_20260603T043753Z.log
+./reports/crashsim_postdrill_validate_20260603T043753Z.log
+./reports/._crashsim_rac_asm_prep_20260604.md
+./reports/crashsim_rac_asm_prep_20260604.md
+./reports/._crashsim_scenario_registry_refresh_20260607.md
+./reports/crashsim_scenario_registry_refresh_20260607.md
+./reports/._crashsim_scenario_registry_refresh_20260607.md.html
+./reports/crashsim_scenario_registry_refresh_20260607.md.html
+./._SCENARIO_STATUS.md
+./SCENARIO_STATUS.md
+./._seed_crashsim_lab.sql
+./seed_crashsim_lab.sql
+./._tools
+./tools/._add_tutorial_audio.py
+./tools/add_tutorial_audio.py
+./tools/crashsim_apex_session_driver.cjs
+./tools/._render_audit_retention_tutorial_video.py
+./tools/render_audit_retention_tutorial_video.py
+./tools/._render_cli_tutorial_video.py
+./tools/render_cli_tutorial_video.py
+./tools/._render_guided_reports_menu_tutorial_video.py
+./tools/render_guided_reports_menu_tutorial_video.py
+./tools/._render_guided_workflow_tutorial_video.py
+./tools/render_guided_workflow_tutorial_video.py
+./tools/._render_promo_screenshots.cjs
+./tools/render_promo_screenshots.cjs
+./tools/._render_scenario_readiness_tutorial_video.py
+./tools/render_scenario_readiness_tutorial_video.py
+./._verify_crashsim_lab.sql
+./verify_crashsim_lab.sql
+LOG_FILES
+1780884001.3329385420|2026-06-08 02:00:01.3329385420 UTC|965|crashsimulator_logs/crashsim_topology_20260608_015959.txt
+1780884001.3329385420|2026-06-08 02:00:01.3329385420 UTC|965|crashsimulator_logs/crashsim_topology_latest.txt
+1780816418.7230211100|2026-06-07 07:13:38.7230211100 UTC|48394|crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.md.html
+1780816418.7050205460|2026-06-07 07:13:38.7050205460 UTC|45706|crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.md
+1780816413.6158610250|2026-06-07 07:13:33.6158610250 UTC|1237|crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.evidence
+1780816412.5948290200|2026-06-07 07:13:32.5948290200 UTC|5811|crashsimulator_logs/crashsim_apex_ords_report_20260607_071331.sql
+1780792679.0726327910|2026-06-07 00:37:59.0726327910 UTC|6148|crashsimulator_logs/.DS_Store
+1780792679.0000000000|2026-06-07 00:37:59.0000000000 UTC|120|crashsimulator_logs/._.DS_Store
+1780792143.8915982840|2026-06-07 00:29:03.8915982840 UTC|635|crashsimulator_logs/crashsim_recover_s67_20260607_102903.manifest
+1780792143.0000000000|2026-06-07 00:29:03.0000000000 UTC|163|crashsimulator_logs/._crashsim_recover_s67_20260607_102903.manifest
+1780792119.2255181500|2026-06-07 00:28:39.2255181500 UTC|1181|crashsimulator_logs/crashsim_runbook_s66_20260607_102839.txt
+1780792119.0000000000|2026-06-07 00:28:39.0000000000 UTC|163|crashsimulator_logs/._crashsim_runbook_s66_20260607_102839.txt
+1780791534.2277580350|2026-06-07 00:18:54.2277580350 UTC|1414|crashsimulator_logs/crashsim_runbook_s61_20260607_101853.txt
+1780791534.0000000000|2026-06-07 00:18:54.0000000000 UTC|163|crashsimulator_logs/._crashsim_runbook_s61_20260607_101853.txt
+1780791473.0000000000|2026-06-07 00:17:53.0000000000 UTC|163|crashsimulator_logs/._audit
+AUDIT_DIRS
+1780879180.5999481890|2026-06-08 00:39:40.5999481890 UTC|crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003939_84397
+1780878267.1033443110|2026-06-08 00:24:27.1033443110 UTC|crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_002425_71354
+1780876595.5918968620|2026-06-07 23:56:35.5918968620 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235634_44738
+1780876539.2060598190|2026-06-07 23:55:39.2060598190 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_235538_43375
+1780874743.5067419150|2026-06-07 23:25:43.5067419150 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_232542_17596
+1780834436.6695664660|2026-06-07 12:13:56.6695664660 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_121355_31633
+1780834198.3751186280|2026-06-07 12:09:58.3751186280 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_120957_27789
+1780834107.1882686050|2026-06-07 12:08:27.1882686050 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_120825_26147
+1780834107.1672679480|2026-06-07 12:08:27.1672679480 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_120825_26195
+1780801605.7700174280|2026-06-07 03:06:45.7700174280 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_101753_83644
+1780801605.7700174280|2026-06-07 03:06:45.7700174280 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_101853_84984
+1780801605.7700174280|2026-06-07 03:06:45.7700174280 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_102903_92890
+1780801605.7700174280|2026-06-07 03:06:45.7700174280 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_102937_93755
+1780801605.7690173960|2026-06-07 03:06:45.7690173960 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_101853_84980
+1780801605.7690173960|2026-06-07 03:06:45.7690173960 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_101853_84981
+1780801605.7690173960|2026-06-07 03:06:45.7690173960 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_101853_84986
+1780801605.7690173960|2026-06-07 03:06:45.7690173960 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_102838_92406
+1780801605.7680173650|2026-06-07 03:06:45.7680173650 UTC|crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_183334_90146
+1780801605.7680173650|2026-06-07 03:06:45.7680173650 UTC|crashsimulator_logs/audit/2026-06-06/crashsim_audit_20260606_210517_8099
+1780801605.7680173650|2026-06-07 03:06:45.7680173650 UTC|crashsimulator_logs/audit/2026-06-06/crashsim_audit_20260606_210837_11529
+1780792136.4195068500|2026-06-07 00:28:56.4195068500 UTC|crashsimulator_logs/audit/2026-06-07/crashsim_audit_20260607_102839_92422
+1780744053.0540943410|2026-06-06 11:07:33.0540943410 UTC|crashsimulator_logs/audit/2026-06-06/crashsim_audit_20260606_210717_9928
+1780643785.3447514390|2026-06-05 07:16:25.3447514390 UTC|crashsimulator_logs/audit/2026-06-05/crashsim_audit_20260605_171606_62675
