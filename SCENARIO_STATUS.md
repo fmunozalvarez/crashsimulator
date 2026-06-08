@@ -1,6 +1,6 @@
 # CrashSimulator Scenario Status
 
-Snapshot date: 2026-06-07
+Snapshot date: 2026-06-08
 
 This status reflects the first OCI Base DB Service validation environment and
 the RAC/GI/ASM validation environments, including the current two-node RAC lab.
@@ -27,6 +27,32 @@ Current framework registry snapshot:
   ORDS node unavailable behind a load balancer, `80` APEX session continuity
   evidence, `81` APEX mail configuration validation, and `82` APEX
   upgrade/patch rollback readiness.
+- Autonomous Database coverage is tracked as a separate cloud-service scenario
+  catalog, `ADB01` through `ADB15`, rather than as host-level destructive
+  scenario IDs. `--adb-readiness-report` validates wallet/client connectivity,
+  SQL evidence, APEX visibility, Flashback Archive posture, OCI control-plane
+  gaps, and ADB-specific scenario readiness for logical recovery, clone/PITR,
+  wallet rotation, private endpoint, resource pressure, Autonomous Data Guard,
+  IAM, and Object Storage drills.
+
+Autonomous Database validation environment:
+
+- Live ADB target reached through the bastion client path with the supplied
+  wallet and `python-oracledb` 4.0.1.
+- SQL probe connected as `ADMIN` to Oracle AI Database 26ai
+  `23.26.2.2.0`, database `FCEYFTL6`, open read write, primary role,
+  ARCHIVELOG, and CDB enabled.
+- APEX registry is `24.2.17:VALID`, invalid object count is `0`, Flashback
+  Archive retention is `60` days, encrypted tablespaces detected: `6`, and
+  reported segment size is `165.09 GB`.
+- ADB readiness score from the first implementation layer is `85%`: client
+  wallet, `python-oracledb`, SQL connectivity, APEX visibility, Flashback
+  Archive, and user-facing URLs passed; OCI CLI/ADB OCID metadata is still
+  required for backup/PITR/clone/ADG/IAM/Object Storage proof.
+- Reference artifacts:
+  `reports/crashsim_adb_readiness_20260608.md`,
+  `reports/crashsim_adb_readiness_20260608.md.html`, and
+  `reports/crashsim_adb_readiness_20260608.evidence`.
 
 Oracle AI Database 26ai RAC/ASM validation environment:
 

@@ -11,7 +11,10 @@ CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
 It also treats APEX/ORDS as an application access-path dependency when ORDS is
-installed on the target host.
+installed on the target host, and adds an Autonomous Database readiness report
+for client/bastion validation of wallet connectivity, logical recovery posture,
+clone/PITR readiness, Autonomous Data Guard/IAM/Object Storage dependencies, and
+ADB-specific scenario coverage.
 
 Compatibility target: Oracle Database 12c and later. Project validation
 evidence now includes live Oracle Database 19c and Oracle AI Database 26ai
@@ -25,6 +28,8 @@ the full scenario catalog, read:
 
 - `README.md` for the short project entry point.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
+- `docs/AUTONOMOUS_DATABASE_COVERAGE.md` for the ADB coverage model and
+  scenario family.
 - `SCENARIO_STATUS.md` for current validation status and known gaps.
 - `docs/reference/README.md` for sanitized report examples.
 
@@ -100,6 +105,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --apex-ords-report --pdb crashpdb --html
+./CrashSimulatorV2.sh --adb-readiness-report --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb

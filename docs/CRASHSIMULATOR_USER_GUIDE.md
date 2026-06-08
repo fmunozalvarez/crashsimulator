@@ -121,6 +121,11 @@ Database schema and is commonly exposed to users through ORDS.
 Database Actions, REST-enabled SQL, and REST APIs. ORDS can be installed on one
 or more mid-tier/database hosts.
 
+`Autonomous Database` or `ADB`: Oracle-managed database service in OCI. The
+customer manages schemas, users, application connectivity, wallets, IAM,
+network access, clones, and service configuration, while Oracle manages the OS,
+storage, ASM, Grid Infrastructure, patching, backups, and infrastructure.
+
 `APEX static resources`: JavaScript, CSS, images, and other files normally
 served under a path such as `/i/`. If these files are missing, the database may
 be open but APEX pages can still be unusable.
@@ -202,6 +207,10 @@ CrashSimulator V2 requires:
 - Optional Grid Infrastructure tools such as `srvctl`, `crsctl`, `ocrcheck`, and
   `asmcmd` for RAC, GI, and ASM scenarios.
 
+The Autonomous Database readiness report is different: it can run from a client
+or bastion host without local SQL*Plus, RMAN, Oracle OS ownership, ASM, or Grid
+Infrastructure access when Python and `python-oracledb` are available.
+
 For a typical Oracle Linux database host:
 
 ```bash
@@ -222,8 +231,9 @@ cd /path/to/crashsimulator-main
 
 You can also use a CrashSimulator startup configuration file to fill missing
 Oracle and CrashSimulator defaults automatically. This is useful on RAC, ASM,
-Data Guard, APEX/ORDS, and repeatable lab hosts where the same `ORACLE_SID`,
-`ORACLE_HOME`, PDB, log directory, Grid home, or ORDS settings are reused.
+Data Guard, APEX/ORDS, Autonomous Database client hosts, and repeatable lab
+hosts where the same `ORACLE_SID`, `ORACLE_HOME`, PDB, log directory, Grid
+home, ORDS settings, ADB wallet path, or ADB service alias are reused.
 
 ```bash
 cp config/crashsimulator.conf.example crashsimulator.conf
@@ -276,6 +286,7 @@ ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_ords_priv_helper
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --backup-report --deep-validate
 ./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
+./CrashSimulatorV2.sh --adb-readiness-report --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
@@ -317,7 +328,8 @@ The menu provides options to:
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.
 - Generate configuration, backup strategy/recoverability, Oracle service HA,
-  APEX/ORDS readiness, MAA readiness, and scenario lifecycle coverage reports.
+  APEX/ORDS readiness, Autonomous Database readiness, MAA readiness, and
+  scenario lifecycle coverage reports.
 - Configure audit retention, show audit status, browse retained audit logs, and
   purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
@@ -594,6 +606,51 @@ The report checks:
 - Optional ORDS load-balancer URL status.
 
 The Guided Workflow Reports menu includes the same APEX/ORDS readiness option.
+
+### Autonomous Database Readiness Report
+
+`--adb-readiness-report` reviews an Oracle Autonomous Database target from a
+client or bastion perspective. It does not try to run host-level scenarios that
+customers cannot perform in ADB, such as removing datafiles, control files,
+redo logs, ASM disks, SPFILEs, password files, or ORACLE_HOME. Instead it
+focuses on realistic ADB resilience practice: logical/user-error recovery,
+clone and point-in-time recovery readiness, wallet rotation, private endpoint
+diagnostics, connection/resource pressure, Autonomous Data Guard, IAM, Object
+Storage dependencies, and APEX/Database Actions URLs.
+
+```bash
+export CRASHSIM_ADB_PASSWORD='<database password>'
+export CRASHSIM_ADB_WALLET_PASSWORD='<wallet password if required>'
+
+./CrashSimulatorV2.sh \
+  --adb-readiness-report \
+  --adb-wallet-dir /path/to/Wallet_myadb \
+  --adb-connect-alias myadb_low \
+  --adb-user ADMIN \
+  --adb-python /path/to/python \
+  --html
+```
+
+For repeatable use, put non-secret ADB defaults in `crashsimulator.conf`, such
+as wallet directory, alias, service level, user, Python path, ADB OCID, OCI
+region/profile, APEX URL, Database Actions URL, and private endpoint label.
+Keep passwords, wallet passphrases, API keys, and wallet files outside the
+repository and outside the config file.
+
+The report works in two levels:
+
+- Config-only mode shows what is configured, what is missing, and which ADB
+  scenario groups are blocked.
+- Live SQL mode uses `python-oracledb` plus the wallet/descriptor/password
+  environment variables to collect database identity, service, APEX, encrypted
+  tablespace, Flashback Archive, object, and application-user evidence.
+
+OCI control-plane checks for backups, PITR window, clones, Autonomous Data
+Guard, IAM, and Object Storage need OCI CLI/profile/OCID context. SQL evidence
+alone cannot prove those managed-service dependencies.
+
+The Guided Workflow Reports menu includes options to set Autonomous Database
+report context and generate the ADB readiness report with HTML output.
 
 ### APEX/ORDS Scenarios
 

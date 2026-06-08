@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crashsim_adb_readiness_20260608_134423.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>crashsim_adb_readiness_20260608_134423.md</h1><div class="meta">Source: /home/opc/crashsim_adb/logs/crashsim_adb_readiness_20260608_134423.md<br>Generated UTC: 2026-06-08T13:44:24Z</div></header>
+<pre>
+# CrashSimulator Autonomous Database Readiness Report
+
+- Generated UTC: `2026-06-08T13:44:23Z`
+- Tool version: `2.0.0-dev`
+- Host: `crashbastian`
+- OS user: `opc`
+- ADB user: `ADMIN`
+- TLS mode: `mTLS`
+- Evidence file: `/home/opc/crashsim_adb/logs/crashsim_adb_readiness_20260608_134423.evidence`
+
+Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, redo files, SPFILE, password file, and managed-backup internals from customers. This report therefore separates traditional CrashSimulator database-host scenarios from cloud-service scenarios that are realistic for ADB: logical/user-error recovery, clone/PITR, wallet/connectivity, service limits, Autonomous Data Guard, IAM, and Object Storage dependencies.
+
+## Connection And Configuration
+
+| Signal | Value |
+| --- | --- |
+| Wallet directory | `/home/opc/crashsim_adb/wallet` |
+| Wallet state | `present` |
+| tnsnames.ora | `present` |
+| Wallet aliases | `crashautonomous_high, crashautonomous_low, crashautonomous_medium, crashautonomous_tp, crashautonomous_tpurgent` |
+| Connect alias / descriptor | `crashautonomous_low` |
+| Service-level hint | `low` |
+| Password env var | `CRASHSIM_ADB_PASSWORD` |
+| Wallet password env var | `CRASHSIM_ADB_WALLET_PASSWORD` |
+| Python executable | `/home/opc/crashsim_adb/venv/bin/python` |
+| python-oracledb | `4.0.1` |
+| SQL connection | `OK` |
+| OCI CLI | `not found` |
+| OCI control-plane posture | `not configured` |
+| APEX URL | `https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/apex` |
+| Database Actions URL | `https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/sql-developer` |
+| Private endpoint expectation | `not configured` |
+
+## Live SQL Evidence Summary
+
+| Signal | Value |
+| --- | --- |
+| DB identity | `FCEYFTL6\|READ WRITE\|PRIMARY\|YES\|ARCHIVELOG\|YES\|` |
+| Version | `Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0` |
+| Version number | `23.26.2.2.0` |
+| Services | `KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous` |
+| APEX registry | `24.2.17:VALID` |
+| Tablespaces | `7` |
+| Encrypted tablespaces | `6` |
+| Segment size GB | `165.09` |
+| Flashback archive count | `1` |
+| Flashback archive retention days | `60` |
+| Open application users | `2` |
+| Application users | `ADBSNMP:LOCKED, ADB_APP_STORE:LOCKED, ADMIN:OPEN, DCAT_ADMIN:LOCKED, GGADMIN:LOCKED, RMAN$CATALOG:OPEN` |
+| Invalid objects | `0` |
+| Recycle bin rows | `0` |
+| Resource plan | `OLTP_PLAN` |
+
+## Readiness Checks
+
+| Status | Area | Check | Evidence | Recommendation |
+| --- | --- | --- | --- | --- |
+| `OK` | Client connectivity | mTLS wallet available | wallet=/home/opc/crashsim_adb/wallet, aliases=crashautonomous_high, crashautonomous_low, crashautonomous_medium, crashautonomous_tp, crashautonomous_tpurgent | Keep wallet rotation, expiry review, and application redeploy steps in the runbook. |
+| `OK` | Client connectivity | python-oracledb available | python=/home/opc/crashsim_adb/venv/bin/python, version=4.0.1 | Pin driver/runtime versions in automation hosts used for readiness reporting. |
+| `OK` | Database access | Live SQL probe connects | user=ADMIN, db=FCEYFTL6, open=READ WRITE, role=PRIMARY | Use this same client path for logical recovery drills and application smoke tests. |
+| `OK` | Application access | APEX component visible | APEX=24.2.17:VALID | Add APEX smoke/session checks for user-facing ADB applications. |
+| `OK` | Logical recovery | Flashback Archive evidence | archives=1, retention_days=60 | Use flashback query/table and clone/PITR drills for logical user-error recovery validation. |
+| `WARN` | OCI control plane | ADB OCID and OCI CLI configured | state=not configured | Configure CRASHSIM_ADB_OCID plus OCI CLI/profile when backup/PITR/ADG/IAM readiness must be proven. |
+| `OK` | Application access | User-facing URLs recorded | apex=https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/apex, database_actions=https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/sql-developer | Use URL smoke checks and application-specific login validation after clone/PITR or wallet rotation. |
+| `INFO` | Network | Private endpoint expectation documented | not configured | Set CRASHSIM_ADB_PRIVATE_ENDPOINT when ADB uses private endpoints. |
+
+## Readiness Summary
+
+| Metric | Value |
+| --- | ---: |
+| Readiness score | 85% |
+| OK checks | 6 |
+| Warnings | 1 |
+| Gaps | 0 |
+| Informational checks | 1 |
+
+## Autonomous Scenario Coverage
+
+| ID | Scenario | Status | Validation process | Recovery/runbook focus |
+| --- | --- | --- | --- | --- |
+| `ADB01` | Drop critical application table | `RUNNABLE after disposable lab seed` | Confirm target table ownership, flashback eligibility, and clone/export fallback. | Flashback Table, PITR clone, Data Pump/object merge, application validation. |
+| `ADB02` | Drop application schema | `PLAN/RUNBOOK` | Require disposable schema, grants/object inventory, export or clone/PITR recovery path. | Recover from clone/export; recreate users/grants; validate application access. |
+| `ADB03` | Mass DELETE without WHERE clause | `RUNNABLE after disposable lab seed` | Confirm target lab table, before/after row counts, and flashback query window. | Flashback Query/Table, clone comparison, data merge. |
+| `ADB04` | Incorrect UPDATE corrupts business data | `RUNNABLE after disposable lab seed` | Confirm lab table and validation query; collect before image evidence. | Flashback Versions Query, object restore, data comparison. |
+| `ADB10` | Connection pool saturation | `PLAN/RUNBOOK` | Requires approved client workload limits and service-level target. | Tune pool limits, retries, service class, and application backoff. |
+| `ADB11` | Resource Manager / concurrency pressure | `PLAN/RUNBOOK` | Requires approved workload generator and metrics threshold. | Review service class, scaling posture, consumer limits, and workload scheduling. |
+| `ADB05-07` | Clone, PITR, backup recoverability | `OCI CONFIG NEEDED` | Set ADB OCID and OCI CLI/profile to inspect backup and restore metadata. | Use clone-to-time or restore workflows; collect elapsed-time evidence. |
+| `ADB12-15` | ADG/IAM/Object Storage scenarios | `OCI CONFIG NEEDED` | Control-plane metadata is required; SQL alone cannot prove these dependencies. | Configure OCI evidence collection before drills. |
+| `ADB08` | Expired or rotated client wallet | `PLAN/RUNBOOK` | Confirm wallet path, aliases, expiry/rotation owner, and application distribution points. | Download new wallet, update clients, reconnect, and validate application smoke checks. |
+| `ADB09` | Private endpoint connectivity loss | `CONFIG NEEDED` | Confirm endpoint DNS, bastion path, route tables, NSGs/security lists, and approved fault boundary. | Restore network/DNS/security-list path and validate client reconnect. |
+
+## Traditional CrashSimulator Scenarios Not Applicable To ADB
+
+Autonomous Database customers cannot directly remove/corrupt managed OS files, ASM disks, Grid Infrastructure resources, control files, redo logs, password files, SPFILEs, ORACLE_HOME, or RMAN backup pieces. For ADB, those failure classes should be represented as OCI service/readiness checks, clone/PITR validation, Autonomous Data Guard drills, and application access-path tests rather than destructive host actions.
+
+## Recommended Configuration File Keys
+
+Use non-secret keys in `crashsimulator.conf`, and keep passwords in environment variables named by the config keys.
+
+```text
+CRASHSIM_ADB_WALLET_DIR=/path/to/wallet
+CRASHSIM_ADB_CONNECT_ALIAS=myadb_low
+CRASHSIM_ADB_SERVICE_LEVEL=low
+CRASHSIM_ADB_USER=ADMIN
+CRASHSIM_ADB_PASSWORD_ENV=&lt;redacted&gt;
+CRASHSIM_ADB_WALLET_PASSWORD_ENV=&lt;redacted&gt;
+CRASHSIM_ADB_PYTHON=/path/to/python
+CRASHSIM_ADB_OCID=ocid1.autonomousdatabase...
+CRASHSIM_ADB_REGION=us-ashburn-1
+CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex
+```
+
+## Raw ADB Evidence
+
+Evidence file: `/home/opc/crashsim_adb/logs/crashsim_adb_readiness_20260608_134423.evidence`
+
+```text
+CSIM_ADB|generated_utc|2026-06-08T13:44:23Z
+CSIM_ADB|host|crashbastian
+CSIM_ADB|os_user|opc
+CSIM_ADB|python_executable|/home/opc/crashsim_adb/venv/bin/python
+CSIM_ADB|dsn_source|alias
+CSIM_ADB|dsn_label|crashautonomous_low
+CSIM_ADB|python_status|OK
+CSIM_ADB|python_oracledb_version|4.0.1
+CSIM_ADB|connect_status|OK
+CSIM_ADB|current_user|ADMIN
+CSIM_ADB|db_identity|FCEYFTL6|READ WRITE|PRIMARY|YES|ARCHIVELOG|YES|
+CSIM_ADB|db_name|FCEYFTL6
+CSIM_ADB|open_mode|READ WRITE
+CSIM_ADB|database_role|PRIMARY
+CSIM_ADB|cdb|YES
+CSIM_ADB|log_mode|ARCHIVELOG
+CSIM_ADB|flashback_on|YES
+CSIM_ADB|protection_mode|UNKNOWN
+CSIM_ADB|version|Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0
+CSIM_ADB|version_number|23.26.2.2.0
+CSIM_ADB|service_count|6
+CSIM_ADB|services|KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous
+CSIM_ADB|apex_registry_count|1
+CSIM_ADB|apex_version_status|24.2.17:VALID
+CSIM_ADB|invalid_object_count|0
+CSIM_ADB|admin_object_count|2
+CSIM_ADB|user_table_count|0
+CSIM_ADB|recyclebin_count|0
+CSIM_ADB|tablespace_count|7
+CSIM_ADB|encrypted_tablespace_count|6
+CSIM_ADB|segment_size_gb|165.09
+CSIM_ADB|flashback_archive_count|1
+CSIM_ADB|flashback_archive_retention_days|60
+CSIM_ADB|open_application_user_count|2
+CSIM_ADB|application_users|ADBSNMP:LOCKED, ADB_APP_STORE:LOCKED, ADMIN:OPEN, DCAT_ADMIN:LOCKED, GGADMIN:LOCKED, RMAN$CATALOG:OPEN
+CSIM_ADB|resource_plan|OLTP_PLAN
+```
+</pre>
+</main></body></html>

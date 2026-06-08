@@ -9,13 +9,16 @@ CrashSimulator V2 is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
-readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
+readiness reporting, Autonomous Database readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
 FSFO observer placement, ADG DML redirection, and role-based services. It also includes targeted
 FRA pressure, TEMP exhaustion, and RTO/RPO validation drills, plus Data Guard,
 RAC, ASM, and APEX/ORDS-specific practice for FSFO, transport/apply lag,
 standby redo logs, VIP/service placement, ASM disk failure planning, ORDS
 service/config outages, APEX runtime-user lockouts, static-resource loss, and
-application access-path validation. It can also review previously collected
+application access-path validation. For Oracle Autonomous Database, it uses a
+separate cloud-service coverage model focused on logical/user-error recovery,
+clone/PITR readiness, wallet/connectivity, private endpoint, Autonomous Data
+Guard, IAM, Object Storage, and resource-limit drills. It can also review previously collected
 topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
@@ -36,6 +39,7 @@ For the full end-user documentation, read:
 - [APEX/ORDS scenario 80 narrated tutorial video](assets/tutorial/crashsimulator_apex_session_driver_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario 80 APEX browser-session driver design](docs/APEX_SESSION_DRIVER_DESIGN.md)
+- [Autonomous Database coverage guide](docs/AUTONOMOUS_DATABASE_COVERAGE.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
 - [26ai RAC/ASM validation summary](reports/crashsim_26ai_validation_20260607.md)
 - [Detailed V2 notes](README_V2.md)
@@ -117,6 +121,7 @@ menu modes.
 ./CrashSimulatorV2.sh --backup-report
 ./CrashSimulatorV2.sh --service-review --html
 ./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
+./CrashSimulatorV2.sh --adb-readiness-report --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report

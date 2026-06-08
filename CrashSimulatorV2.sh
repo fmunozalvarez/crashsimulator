@@ -70,6 +70,23 @@ MAA_DR_RTO="${CRASHSIM_MAA_DR_RTO:-}"
 MAA_DR_RPO="${CRASHSIM_MAA_DR_RPO:-}"
 MAA_PLANNED_RTO="${CRASHSIM_MAA_PLANNED_RTO:-}"
 MAA_PLANNED_RPO="${CRASHSIM_MAA_PLANNED_RPO:-}"
+ADB_WALLET_DIR="${CRASHSIM_ADB_WALLET_DIR:-}"
+ADB_CONNECT_ALIAS="${CRASHSIM_ADB_CONNECT_ALIAS:-}"
+ADB_CONNECT_DESCRIPTOR="${CRASHSIM_ADB_CONNECT_DESCRIPTOR:-}"
+ADB_SERVICE_LEVEL="${CRASHSIM_ADB_SERVICE_LEVEL:-low}"
+ADB_USER="${CRASHSIM_ADB_USER:-ADMIN}"
+ADB_PASSWORD_ENV="${CRASHSIM_ADB_PASSWORD_ENV:-CRASHSIM_ADB_PASSWORD}"
+ADB_WALLET_PASSWORD_ENV="${CRASHSIM_ADB_WALLET_PASSWORD_ENV:-CRASHSIM_ADB_WALLET_PASSWORD}"
+ADB_PYTHON="${CRASHSIM_ADB_PYTHON:-python3}"
+ADB_TLS_MODE="${CRASHSIM_ADB_TLS_MODE:-mTLS}"
+ADB_OCID="${CRASHSIM_ADB_OCID:-}"
+ADB_COMPARTMENT_OCID="${CRASHSIM_ADB_COMPARTMENT_OCID:-}"
+ADB_REGION="${CRASHSIM_ADB_REGION:-}"
+ADB_OCI_PROFILE="${CRASHSIM_ADB_OCI_PROFILE:-DEFAULT}"
+ADB_OCI_CONFIG_FILE="${CRASHSIM_ADB_OCI_CONFIG_FILE:-}"
+ADB_APEX_URL="${CRASHSIM_ADB_APEX_URL:-}"
+ADB_DATABASE_ACTIONS_URL="${CRASHSIM_ADB_DATABASE_ACTIONS_URL:-}"
+ADB_PRIVATE_ENDPOINT="${CRASHSIM_ADB_PRIVATE_ENDPOINT:-}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
 CONFIG_FILE="${CRASHSIM_CONFIG:-}"
 CONFIG_SOURCE=""
@@ -158,6 +175,7 @@ declare -A MAA_EVIDENCE=()
 declare -A BACKUP_EVIDENCE=()
 declare -A RPO_EVIDENCE=()
 declare -A APEX_ORDS_EVIDENCE=()
+declare -A ADB_EVIDENCE=()
 
 SCENARIO_VALIDATION_STATUS=""
 SCENARIO_VALIDATION_REASON=""
@@ -176,6 +194,7 @@ Usage:
   ./${PROGRAM} --backup-report [--deep-validate]
   ./${PROGRAM} --service-review [--html]
   ./${PROGRAM} --apex-ords-report [--pdb <pdb_name>] [--html]
+  ./${PROGRAM} --adb-readiness-report [--html]
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
@@ -217,6 +236,9 @@ Options:
   --apex-ords-report      Generate APEX/ORDS readiness and user access-path report.
   --apex-report           Alias for --apex-ords-report.
   --ords-report           Alias for --apex-ords-report.
+  --adb-readiness-report  Generate Autonomous Database readiness and scenario
+                          coverage report.
+  --adb-discover          Alias for --adb-readiness-report.
   --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
   --fresh-baseline-backup Alias for --baseline-backup.
   --audit-retain <yes|no> Enable or disable per-run audit log retention.
@@ -314,6 +336,30 @@ Options:
   --maa-dr-rpo <value>    Optional disaster/site-outage RPO objective.
   --maa-planned-rto <val> Optional planned-maintenance RTO objective.
   --maa-planned-rpo <val> Optional planned-maintenance RPO objective.
+  --adb-wallet-dir <dir>  Autonomous Database wallet directory for mTLS.
+  --adb-connect-alias <a> Autonomous Database TNS alias.
+  --adb-service-level <l> Autonomous service level alias hint: low, medium,
+                          high, tp, or tpurgent. Default: low.
+  --adb-connect-descriptor <d>
+                          Autonomous Database descriptor or Easy Connect string.
+  --adb-user <user>       Autonomous Database user. Default: ADMIN.
+  --adb-password-env <e>  Environment variable containing ADB password.
+  --adb-wallet-password-env <e>
+                          Environment variable containing wallet password.
+  --adb-python <path>     Python executable with python-oracledb installed.
+  --adb-tls-mode <mode>   ADB client TLS mode: mTLS or TLS. Default: mTLS.
+  --adb-ocid <ocid>       Autonomous Database OCID for OCI control-plane checks.
+  --adb-compartment-ocid <ocid>
+                          Compartment OCID for OCI control-plane checks.
+  --adb-region <region>   OCI region for ADB control-plane checks.
+  --adb-oci-profile <p>   OCI CLI profile. Default: DEFAULT.
+  --adb-oci-config-file <path>
+                          OCI CLI config file.
+  --adb-apex-url <url>    Autonomous APEX URL.
+  --adb-database-actions-url <url>
+                          Autonomous Database Actions URL.
+  --adb-private-endpoint <value>
+                          Expected private endpoint/DNS/network label.
   --dry-run               Plan only. This is the default.
   --execute               Execute destructive actions after confirmation.
   --yes                   Skip interactive confirmation. Use only in labs.
@@ -371,6 +417,23 @@ Environment:
   CRASHSIM_MAA_DR_RPO           Disaster/site-outage RPO objective.
   CRASHSIM_MAA_PLANNED_RTO      Planned-maintenance RTO objective.
   CRASHSIM_MAA_PLANNED_RPO      Planned-maintenance RPO objective.
+  CRASHSIM_ADB_WALLET_DIR       Autonomous Database wallet directory.
+  CRASHSIM_ADB_CONNECT_ALIAS    Autonomous Database TNS alias.
+  CRASHSIM_ADB_CONNECT_DESCRIPTOR Autonomous Database descriptor/Easy Connect.
+  CRASHSIM_ADB_SERVICE_LEVEL    Service-level alias hint: low/medium/high/tp/tpurgent.
+  CRASHSIM_ADB_USER             Autonomous Database user. Default: ADMIN.
+  CRASHSIM_ADB_PASSWORD_ENV     Env var name containing ADB password.
+  CRASHSIM_ADB_WALLET_PASSWORD_ENV Env var name containing wallet password.
+  CRASHSIM_ADB_PYTHON           Python with python-oracledb. Default: python3.
+  CRASHSIM_ADB_TLS_MODE         ADB client TLS mode: mTLS or TLS.
+  CRASHSIM_ADB_OCID             Autonomous Database OCID for OCI checks.
+  CRASHSIM_ADB_COMPARTMENT_OCID Compartment OCID for OCI checks.
+  CRASHSIM_ADB_REGION           OCI region for ADB control-plane checks.
+  CRASHSIM_ADB_OCI_PROFILE      OCI CLI profile. Default: DEFAULT.
+  CRASHSIM_ADB_OCI_CONFIG_FILE  OCI CLI config file.
+  CRASHSIM_ADB_APEX_URL         Autonomous APEX URL.
+  CRASHSIM_ADB_DATABASE_ACTIONS_URL Autonomous Database Actions URL.
+  CRASHSIM_ADB_PRIVATE_ENDPOINT Expected private endpoint/DNS/network label.
   CRASHSIM_MANIFEST             Default manifest path.
   CRASHSIM_LOG_DIR              Default log directory.
   CRASHSIM_SQLPLUS_LOGON        Default SQL*Plus logon string.
@@ -721,6 +784,59 @@ apply_config_entry() {
     CRASHSIM_MAA_PLANNED_RPO|MAA_PLANNED_RPO)
       config_set_value_if_env_unset "$key" "CRASHSIM_MAA_PLANNED_RPO" MAA_PLANNED_RPO "$value"
       ;;
+    CRASHSIM_ADB_WALLET_DIR|ADB_WALLET_DIR)
+      config_validate_path_value "$key" "$value" || return "$SUCCESS"
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_WALLET_DIR" ADB_WALLET_DIR "$value"
+      ;;
+    CRASHSIM_ADB_CONNECT_ALIAS|ADB_CONNECT_ALIAS)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_CONNECT_ALIAS" ADB_CONNECT_ALIAS "$value"
+      ;;
+    CRASHSIM_ADB_CONNECT_DESCRIPTOR|ADB_CONNECT_DESCRIPTOR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_CONNECT_DESCRIPTOR" ADB_CONNECT_DESCRIPTOR "$value"
+      ;;
+    CRASHSIM_ADB_SERVICE_LEVEL|ADB_SERVICE_LEVEL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_SERVICE_LEVEL" ADB_SERVICE_LEVEL "$value"
+      ;;
+    CRASHSIM_ADB_USER|ADB_USER)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_USER" ADB_USER "$(normalize_name "$value")"
+      ;;
+    CRASHSIM_ADB_PASSWORD_ENV|ADB_PASSWORD_ENV)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_PASSWORD_ENV" ADB_PASSWORD_ENV "$value"
+      ;;
+    CRASHSIM_ADB_WALLET_PASSWORD_ENV|ADB_WALLET_PASSWORD_ENV)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_WALLET_PASSWORD_ENV" ADB_WALLET_PASSWORD_ENV "$value"
+      ;;
+    CRASHSIM_ADB_PYTHON|ADB_PYTHON)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_PYTHON" ADB_PYTHON "$value"
+      ;;
+    CRASHSIM_ADB_TLS_MODE|ADB_TLS_MODE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_TLS_MODE" ADB_TLS_MODE "$value"
+      ;;
+    CRASHSIM_ADB_OCID|ADB_OCID)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_OCID" ADB_OCID "$value"
+      ;;
+    CRASHSIM_ADB_COMPARTMENT_OCID|ADB_COMPARTMENT_OCID)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_COMPARTMENT_OCID" ADB_COMPARTMENT_OCID "$value"
+      ;;
+    CRASHSIM_ADB_REGION|ADB_REGION)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_REGION" ADB_REGION "$value"
+      ;;
+    CRASHSIM_ADB_OCI_PROFILE|ADB_OCI_PROFILE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_OCI_PROFILE" ADB_OCI_PROFILE "$value"
+      ;;
+    CRASHSIM_ADB_OCI_CONFIG_FILE|ADB_OCI_CONFIG_FILE)
+      config_validate_path_value "$key" "$value" || return "$SUCCESS"
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_OCI_CONFIG_FILE" ADB_OCI_CONFIG_FILE "$value"
+      ;;
+    CRASHSIM_ADB_APEX_URL|ADB_APEX_URL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_APEX_URL" ADB_APEX_URL "$value"
+      ;;
+    CRASHSIM_ADB_DATABASE_ACTIONS_URL|ADB_DATABASE_ACTIONS_URL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_DATABASE_ACTIONS_URL" ADB_DATABASE_ACTIONS_URL "$value"
+      ;;
+    CRASHSIM_ADB_PRIVATE_ENDPOINT|ADB_PRIVATE_ENDPOINT)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_PRIVATE_ENDPOINT" ADB_PRIVATE_ENDPOINT "$value"
+      ;;
     CRASHSIM_MANIFEST|MANIFEST_FILE)
       config_set_value_if_env_unset "$key" "CRASHSIM_MANIFEST" MANIFEST_FILE "$value"
       [[ -n "$MANIFEST_FILE" ]] && MANIFEST_FROM_ARG=1
@@ -734,7 +850,7 @@ apply_config_entry() {
     CRASHSIM_ORACLE_USER_REQUIRED|ORACLE_USER_REQUIRED)
       config_set_value_if_env_unset "$key" "CRASHSIM_ORACLE_USER_REQUIRED" ORACLE_USER_REQUIRED "$value"
       ;;
-    CRASHSIM_SYS_PASSWORD|SYS_PASSWORD|CRASHSIM_APEX_SESSION_PASSWORD|APEX_SESSION_PASSWORD)
+    CRASHSIM_SYS_PASSWORD|SYS_PASSWORD|CRASHSIM_APEX_SESSION_PASSWORD|APEX_SESSION_PASSWORD|CRASHSIM_ADB_PASSWORD|ADB_PASSWORD|CRASHSIM_ADB_WALLET_PASSWORD|ADB_WALLET_PASSWORD)
       config_record_warning "${key}: sensitive values are intentionally ignored in config files; use environment variables, wallets, or guided prompts"
       ;;
     PATH|HOME|LD_LIBRARY_PATH)
@@ -869,6 +985,25 @@ show_active_config() {
   echo "  ORDS config dir=${ORDS_CONFIG_DIR:-not set}"
   echo "  APEX session URL=${APEX_SESSION_URL:-not set}"
   echo
+  echo "Autonomous Database defaults:"
+  echo "  ADB wallet dir=${ADB_WALLET_DIR:-not set}"
+  echo "  ADB connect alias=${ADB_CONNECT_ALIAS:-not set}"
+  echo "  ADB connect descriptor=$([[ -n "$ADB_CONNECT_DESCRIPTOR" ]] && printf configured || printf "not set")"
+  echo "  ADB service level=${ADB_SERVICE_LEVEL:-not set}"
+  echo "  ADB user=${ADB_USER:-not set}"
+  echo "  ADB TLS mode=${ADB_TLS_MODE:-not set}"
+  echo "  ADB password env=${ADB_PASSWORD_ENV:-not set}"
+  echo "  ADB wallet password env=${ADB_WALLET_PASSWORD_ENV:-not set}"
+  echo "  ADB Python=${ADB_PYTHON:-not set}"
+  echo "  ADB OCID=${ADB_OCID:-not set}"
+  echo "  ADB compartment OCID=${ADB_COMPARTMENT_OCID:-not set}"
+  echo "  ADB region=${ADB_REGION:-not set}"
+  echo "  ADB OCI profile=${ADB_OCI_PROFILE:-not set}"
+  echo "  ADB OCI config file=${ADB_OCI_CONFIG_FILE:-not set}"
+  echo "  ADB APEX URL=${ADB_APEX_URL:-not set}"
+  echo "  ADB Database Actions URL=${ADB_DATABASE_ACTIONS_URL:-not set}"
+  echo "  ADB private endpoint=${ADB_PRIVATE_ENDPOINT:-not set}"
+  echo
   if [[ "${#CONFIG_APPLIED[@]}" -gt 0 ]]; then
     echo "Config values applied:"
     for item in "${CONFIG_APPLIED[@]}"; do
@@ -973,6 +1108,36 @@ validate_config_runtime() {
     fi
   fi
 
+  if [[ -n "$ADB_WALLET_DIR" ]]; then
+    if [[ -d "$ADB_WALLET_DIR" ]]; then
+      echo "  OK: ADB wallet directory exists"
+      if [[ -f "${ADB_WALLET_DIR}/tnsnames.ora" ]]; then
+        echo "  OK: ADB tnsnames.ora exists"
+      else
+        echo "  WARN: ADB wallet directory does not contain tnsnames.ora"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  WARN: ADB wallet directory does not exist: $ADB_WALLET_DIR"
+      warnings=$((warnings + 1))
+    fi
+  fi
+  if [[ -n "$ADB_PYTHON" ]]; then
+    if command -v "$ADB_PYTHON" >/dev/null 2>&1 || [[ -x "$ADB_PYTHON" ]]; then
+      echo "  OK: ADB Python executable found"
+    else
+      echo "  WARN: ADB Python executable was not found: $ADB_PYTHON"
+      warnings=$((warnings + 1))
+    fi
+  fi
+  if [[ -n "$ADB_PASSWORD_ENV" ]]; then
+    if [[ -n "${!ADB_PASSWORD_ENV:-}" ]]; then
+      echo "  OK: ADB password environment variable is set"
+    else
+      echo "  INFO: ADB password environment variable is not set: $ADB_PASSWORD_ENV"
+    fi
+  fi
+
   echo "  Summary: errors=${errors} warnings=${warnings}"
   [[ "$errors" -eq 0 ]]
 }
@@ -1024,6 +1189,27 @@ CRASHSIM_ORDS_LB_URL=${ORDS_LB_URL}
 CRASHSIM_APEX_IMAGES_DIR=${APEX_IMAGES_DIR}
 CRASHSIM_APEX_SESSION_URL=${APEX_SESSION_URL}
 CRASHSIM_APEX_SESSION_USERNAME=${APEX_SESSION_USERNAME}
+
+# Optional Autonomous Database defaults. Keep passwords in environment
+# variables named by CRASHSIM_ADB_PASSWORD_ENV and
+# CRASHSIM_ADB_WALLET_PASSWORD_ENV.
+CRASHSIM_ADB_WALLET_DIR=${ADB_WALLET_DIR}
+CRASHSIM_ADB_CONNECT_ALIAS=${ADB_CONNECT_ALIAS}
+CRASHSIM_ADB_CONNECT_DESCRIPTOR=${ADB_CONNECT_DESCRIPTOR}
+CRASHSIM_ADB_SERVICE_LEVEL=${ADB_SERVICE_LEVEL}
+CRASHSIM_ADB_USER=${ADB_USER}
+CRASHSIM_ADB_PASSWORD_ENV=${ADB_PASSWORD_ENV}
+CRASHSIM_ADB_WALLET_PASSWORD_ENV=${ADB_WALLET_PASSWORD_ENV}
+CRASHSIM_ADB_PYTHON=${ADB_PYTHON}
+CRASHSIM_ADB_TLS_MODE=${ADB_TLS_MODE}
+CRASHSIM_ADB_OCID=${ADB_OCID}
+CRASHSIM_ADB_COMPARTMENT_OCID=${ADB_COMPARTMENT_OCID}
+CRASHSIM_ADB_REGION=${ADB_REGION}
+CRASHSIM_ADB_OCI_PROFILE=${ADB_OCI_PROFILE}
+CRASHSIM_ADB_OCI_CONFIG_FILE=${ADB_OCI_CONFIG_FILE}
+CRASHSIM_ADB_APEX_URL=${ADB_APEX_URL}
+CRASHSIM_ADB_DATABASE_ACTIONS_URL=${ADB_DATABASE_ACTIONS_URL}
+CRASHSIM_ADB_PRIVATE_ENDPOINT=${ADB_PRIVATE_ENDPOINT}
 EOF
 
   chmod 600 "$file" 2>/dev/null || true
@@ -1047,6 +1233,10 @@ normalize_targets() {
     SYSBACKUP_USER="$(normalize_name "$SYSBACKUP_USER")"
     validate_oracle_name "$SYSBACKUP_USER" || die "Invalid SYSBACKUP user name: $SYSBACKUP_USER"
   fi
+  if [[ -n "$ADB_USER" ]]; then
+    ADB_USER="$(normalize_name "$ADB_USER")"
+    validate_oracle_name "$ADB_USER" || die "Invalid ADB user name: $ADB_USER"
+  fi
   validate_tempfile_size "$TEMPFILE_SIZE" || die "Invalid tempfile size: $TEMPFILE_SIZE"
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
   REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
@@ -1066,6 +1256,18 @@ normalize_targets() {
     die "Invalid APEX session interval seconds: $APEX_SESSION_INTERVAL"
   APEX_SESSION_HEADLESS="$(normalize_bool "$APEX_SESSION_HEADLESS")" ||
     die "Invalid APEX session headless value: $APEX_SESSION_HEADLESS"
+  [[ "$ADB_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
+    die "Invalid ADB password environment variable name: $ADB_PASSWORD_ENV"
+  [[ "$ADB_WALLET_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
+    die "Invalid ADB wallet password environment variable name: $ADB_WALLET_PASSWORD_ENV"
+  case "$(printf "%s" "$ADB_SERVICE_LEVEL" | tr '[:upper:]' '[:lower:]')" in
+    low|medium|high|tp|tpurgent) ;;
+    *) die "Invalid ADB service level: $ADB_SERVICE_LEVEL" ;;
+  esac
+  case "$(printf "%s" "$ADB_TLS_MODE" | tr '[:upper:]' '[:lower:]')" in
+    tls|mtls) ;;
+    *) die "Invalid ADB TLS mode: $ADB_TLS_MODE" ;;
+  esac
   if [[ -n "$MAX_TARGETS" && ! "$MAX_TARGETS" =~ ^[1-9][0-9]*$ ]]; then
     die "Invalid max targets value: $MAX_TARGETS"
   fi
@@ -1096,9 +1298,9 @@ audit_redact_stream() {
     -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_SYS_PASSWORD=)[^[:space:]]+#\1<redacted>#g' \
-    -e 's#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
-    -e 's#([Tt][Oo][Kk][Ee][Nn][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
-    -e 's#([Ss][Ee][Cc][Rr][Ee][Tt][^=:]*[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g'
+    -e 's#(([A-Za-z0-9_.-]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z0-9_.-]*|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd])[[:space:]_-]{0,20}[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
+    -e 's#(([A-Za-z0-9_.-]*[Tt][Oo][Kk][Ee][Nn][A-Za-z0-9_.-]*|[Tt][Oo][Kk][Ee][Nn])[[:space:]_-]{0,20}[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g' \
+    -e 's#(([A-Za-z0-9_.-]*[Ss][Ee][Cc][Rr][Ee][Tt][A-Za-z0-9_.-]*|[Ss][Ee][Cc][Rr][Ee][Tt])[[:space:]_-]{0,20}[=:][[:space:]]*)[^[:space:]]+#\1<redacted>#g'
 }
 
 audit_print_redacted_command() {
@@ -5828,6 +6030,13 @@ find_latest_artifact() {
     apex-ords|apex|ords|apex-report|ords-report|apex-ords-report)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_apex_ords_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
+    adb|autonomous|autonomous-database|adb-report|adb-readiness)
+      if [[ -f "${LOG_DIR}/crashsim_adb_readiness_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_adb_readiness_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_adb_readiness_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
     scenario-readiness|readiness|scenario-availability|topology-scenarios)
       if [[ -f "${LOG_DIR}/crashsim_scenario_readiness_latest.md" ]]; then
         latest="${LOG_DIR}/crashsim_scenario_readiness_latest.md"
@@ -5949,7 +6158,7 @@ review_append_file_list() {
 }
 
 generate_review_index() {
-  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_lifecycle latest_maa latest_health latest_review
+  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_lifecycle latest_maa latest_adb latest_health latest_review
   local manifest audit_dir metadata command status started mode
 
   report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
@@ -5960,6 +6169,7 @@ generate_review_index() {
   latest_readiness="$(find_latest_artifact scenario-readiness 2>/dev/null || true)"
   latest_lifecycle="$(find_latest_artifact lifecycle 2>/dev/null || true)"
   latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
+  latest_adb="$(find_latest_artifact adb 2>/dev/null || true)"
   latest_health="$(find_latest_artifact health 2>/dev/null || true)"
 
   {
@@ -5981,6 +6191,7 @@ generate_review_index() {
     [[ -n "$latest_readiness" ]] && printf -- '- Latest scenario readiness report: `%s`\n' "$latest_readiness"
     [[ -n "$latest_lifecycle" ]] && printf -- '- Latest scenario lifecycle coverage report: `%s`\n' "$latest_lifecycle"
     [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
+    [[ -n "$latest_adb" ]] && printf -- '- Latest Autonomous Database readiness report: `%s`\n' "$latest_adb"
     [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
 
     printf "\n## Scenario / Protection / Recovery Manifests\n\n"
@@ -6002,6 +6213,7 @@ generate_review_index() {
   review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
   review_append_file_list "$report_file" "Scenario Lifecycle Coverage Reports" 20 -name 'crashsim_scenario_lifecycle_*.md'
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
+  review_append_file_list "$report_file" "Autonomous Database Readiness Reports" 20 -name 'crashsim_adb_readiness_*.md'
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
   review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
 
@@ -6030,6 +6242,7 @@ generate_review_index() {
     printf -- '- Show latest topology: `./%s --review-topology`\n' "$PROGRAM"
     printf -- '- Show latest scenario readiness report: `./%s --show-artifact latest:scenario-readiness`\n' "$PROGRAM"
     printf -- '- Show latest scenario lifecycle report: `./%s --show-artifact latest:lifecycle`\n' "$PROGRAM"
+    printf -- '- Show latest Autonomous Database readiness report: `./%s --show-artifact latest:adb`\n' "$PROGRAM"
     printf -- '- Show latest health check: `./%s --show-artifact latest:health`\n' "$PROGRAM"
     printf -- '- Generate HTML for latest review index: `./%s --render-html latest:review`\n' "$PROGRAM"
     printf -- '- Generate HTML for a specific artifact: `./%s --render-html /path/to/artifact`\n' "$PROGRAM"
@@ -6095,6 +6308,547 @@ md_escape() {
   value="${value//\\/\\\\}"
   value="${value//|/\\|}"
   printf "%s" "$value"
+}
+
+adb_python_bin() {
+  if [[ -n "$ADB_PYTHON" && -x "$ADB_PYTHON" ]]; then
+    printf "%s" "$ADB_PYTHON"
+    return "$SUCCESS"
+  fi
+  command -v "$ADB_PYTHON" 2>/dev/null || return "$FAIL"
+}
+
+adb_wallet_tnsnames() {
+  [[ -n "$ADB_WALLET_DIR" && -f "${ADB_WALLET_DIR}/tnsnames.ora" ]] || return "$FAIL"
+  printf "%s" "${ADB_WALLET_DIR}/tnsnames.ora"
+}
+
+adb_wallet_aliases() {
+  local tns
+  tns="$(adb_wallet_tnsnames)" || return "$FAIL"
+  awk '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*=/ {
+      alias=$0
+      sub(/=.*/, "", alias)
+      gsub(/[[:space:]]/, "", alias)
+      if (alias != "" && alias !~ /^\(/) print alias
+    }
+  ' "$tns" | sort -u
+}
+
+adb_default_alias() {
+  local alias wanted first_alias
+
+  if [[ -n "$ADB_CONNECT_ALIAS" ]]; then
+    printf "%s" "$ADB_CONNECT_ALIAS"
+    return "$SUCCESS"
+  fi
+
+  wanted="_$(printf "%s" "$ADB_SERVICE_LEVEL" | tr '[:upper:]' '[:lower:]')"
+  while IFS= read -r alias; do
+    [[ -n "$alias" ]] || continue
+    [[ -n "$first_alias" ]] || first_alias="$alias"
+    if [[ "$(printf "%s" "$alias" | tr '[:upper:]' '[:lower:]')" == *"${wanted}" ]]; then
+      printf "%s" "$alias"
+      return "$SUCCESS"
+    fi
+  done < <(adb_wallet_aliases 2>/dev/null || true)
+
+  [[ -n "$first_alias" ]] || return "$FAIL"
+  printf "%s" "$first_alias"
+}
+
+adb_effective_dsn() {
+  if [[ -n "$ADB_CONNECT_DESCRIPTOR" ]]; then
+    printf "%s" "$ADB_CONNECT_DESCRIPTOR"
+    return "$SUCCESS"
+  fi
+  adb_default_alias
+}
+
+adb_value() {
+  local key="$1"
+  local default_value="${2:-UNKNOWN}"
+  local value="${ADB_EVIDENCE[$key]:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  else
+    printf "%s" "$default_value"
+  fi
+}
+
+adb_positive() {
+  local key="$1"
+  local value
+  value="$(adb_value "$key" "0")"
+  [[ "$value" =~ ^[0-9]+$ && "$value" -gt 0 ]]
+}
+
+parse_adb_evidence_file() {
+  local evidence_file="$1"
+  local prefix key value
+
+  ADB_EVIDENCE=()
+  [[ -f "$evidence_file" ]] || return "$FAIL"
+  while IFS='|' read -r prefix key value; do
+    [[ "$prefix" == "CSIM_ADB" && -n "$key" ]] || continue
+    ADB_EVIDENCE["$key"]="${value:-}"
+  done <"$evidence_file"
+}
+
+adb_check_ok=0
+adb_check_warn=0
+adb_check_gap=0
+adb_check_info=0
+
+adb_append_check() {
+  local report_file="$1"
+  local status="$2"
+  local area="$3"
+  local check_name="$4"
+  local evidence="$5"
+  local recommendation="$6"
+
+  case "$status" in
+    OK) adb_check_ok=$((adb_check_ok + 1)) ;;
+    WARN) adb_check_warn=$((adb_check_warn + 1)) ;;
+    GAP) adb_check_gap=$((adb_check_gap + 1)) ;;
+    INFO) adb_check_info=$((adb_check_info + 1)) ;;
+  esac
+
+  printf '| `%s` | %s | %s | %s | %s |\n' \
+    "$(md_escape "$status")" \
+    "$(md_escape "$area")" \
+    "$(md_escape "$check_name")" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+run_adb_sql_probe() {
+  local evidence_file="$1"
+  local python_bin dsn db_password wallet_password wallet_dir_arg tls_mode probe_script status
+
+  : >"$evidence_file" || die "Unable to write ADB evidence file: $evidence_file"
+  {
+    printf 'CSIM_ADB|generated_utc|%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'CSIM_ADB|host|%s\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf 'CSIM_ADB|os_user|%s\n' "$(id -un 2>/dev/null || printf unknown)"
+  } >>"$evidence_file"
+
+  python_bin="$(adb_python_bin 2>/dev/null || true)"
+  if [[ -z "$python_bin" ]]; then
+    printf 'CSIM_ADB|python_status|NOT_FOUND\n' >>"$evidence_file"
+    printf 'CSIM_ADB|connect_status|SKIPPED\n' >>"$evidence_file"
+    printf 'CSIM_ADB|connect_reason|Python executable not found: %s\n' "$ADB_PYTHON" >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+  printf 'CSIM_ADB|python_executable|%s\n' "$python_bin" >>"$evidence_file"
+
+  dsn="$(adb_effective_dsn 2>/dev/null || true)"
+  if [[ -z "$dsn" ]]; then
+    printf 'CSIM_ADB|connect_status|SKIPPED\n' >>"$evidence_file"
+    printf 'CSIM_ADB|connect_reason|No ADB connect descriptor or wallet TNS alias was configured.\n' >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+  printf 'CSIM_ADB|dsn_source|%s\n' "$([[ -n "$ADB_CONNECT_DESCRIPTOR" ]] && printf descriptor || printf alias)" >>"$evidence_file"
+  printf 'CSIM_ADB|dsn_label|%s\n' "$([[ -n "$ADB_CONNECT_DESCRIPTOR" ]] && printf configured_descriptor || printf "%s" "$dsn")" >>"$evidence_file"
+
+  db_password="${!ADB_PASSWORD_ENV:-}"
+  wallet_password="${!ADB_WALLET_PASSWORD_ENV:-}"
+  [[ -n "$wallet_password" ]] || wallet_password="$db_password"
+  if [[ -z "$db_password" ]]; then
+    printf 'CSIM_ADB|connect_status|SKIPPED\n' >>"$evidence_file"
+    printf 'CSIM_ADB|connect_reason|Database password environment variable is not set: %s\n' "$ADB_PASSWORD_ENV" >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+
+  wallet_dir_arg=""
+  if [[ -n "$ADB_WALLET_DIR" ]]; then
+    wallet_dir_arg="$ADB_WALLET_DIR"
+  fi
+  tls_mode="$(printf "%s" "$ADB_TLS_MODE" | tr '[:upper:]' '[:lower:]')"
+  probe_script="${WORK_DIR}/adb_probe.py"
+  cat >"$probe_script" <<'PY' || die "Unable to write ADB probe script: $probe_script"
+import os
+import sys
+
+wallet_dir = sys.argv[1]
+dsn = sys.argv[2]
+user = sys.argv[3]
+tls_mode = sys.argv[4].lower()
+db_password = sys.stdin.readline().rstrip("\n")
+wallet_password = sys.stdin.readline().rstrip("\n")
+
+def clean(value):
+    if value is None:
+        return "UNKNOWN"
+    return str(value).replace("\n", " ").replace("\r", " ")[:4000]
+
+def emit(key, value):
+    print(f"CSIM_ADB|{key}|{clean(value)}")
+
+try:
+    import oracledb
+except Exception as exc:
+    emit("python_status", "ORACLEDB_IMPORT_FAILED")
+    emit("connect_status", "SKIPPED")
+    emit("connect_reason", exc)
+    sys.exit(0)
+
+emit("python_status", "OK")
+emit("python_oracledb_version", getattr(oracledb, "__version__", "UNKNOWN"))
+
+kwargs = {
+    "user": user,
+    "password": db_password,
+    "dsn": dsn,
+    "tcp_connect_timeout": 5,
+    "retry_count": 0,
+    "retry_delay": 0,
+}
+if wallet_dir:
+    os.environ["TNS_ADMIN"] = wallet_dir
+    kwargs["config_dir"] = wallet_dir
+    if tls_mode == "mtls":
+        kwargs["wallet_location"] = wallet_dir
+        if wallet_password:
+            kwargs["wallet_password"] = wallet_password
+
+try:
+    conn = oracledb.connect(**kwargs)
+except Exception as exc:
+    emit("connect_status", "ERROR")
+    emit("connect_reason", exc)
+    sys.exit(0)
+
+emit("connect_status", "OK")
+
+def scalar(key, sql, default="UNKNOWN"):
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            row = cur.fetchone()
+            emit(key, row[0] if row and row[0] is not None else default)
+    except Exception as exc:
+        emit(key, "ERROR: " + clean(exc))
+
+def list_value(key, sql, sep=", "):
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            values = [clean(row[0]) for row in cur.fetchall() if row and row[0] is not None]
+            emit(key, sep.join(values) if values else "NONE")
+    except Exception as exc:
+        emit(key, "ERROR: " + clean(exc))
+
+scalar("current_user", "select user from dual")
+scalar("db_identity", "select name || '|' || open_mode || '|' || database_role || '|' || cdb || '|' || log_mode || '|' || flashback_on || '|' || protection_mode from v$database")
+scalar("db_name", "select name from v$database")
+scalar("open_mode", "select open_mode from v$database")
+scalar("database_role", "select database_role from v$database")
+scalar("cdb", "select cdb from v$database")
+scalar("log_mode", "select log_mode from v$database")
+scalar("flashback_on", "select flashback_on from v$database")
+scalar("protection_mode", "select protection_mode from v$database")
+scalar("version", "select banner_full from v$version where banner_full like 'Oracle%' fetch first 1 row only")
+scalar("version_number", "select version_full from v$instance")
+scalar("service_count", "select count(*) from v$services")
+list_value("services", "select name from v$services order by name")
+scalar("apex_registry_count", "select count(*) from dba_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%'")
+scalar("apex_version_status", "select nvl(max(version || ':' || status), 'NONE') from dba_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%'")
+scalar("invalid_object_count", "select count(*) from dba_objects where status <> 'VALID'")
+scalar("admin_object_count", "select count(*) from user_objects")
+scalar("user_table_count", "select count(*) from user_tables")
+scalar("recyclebin_count", "select count(*) from recyclebin")
+scalar("tablespace_count", "select count(*) from dba_tablespaces")
+scalar("encrypted_tablespace_count", "select count(*) from dba_tablespaces where encrypted = 'YES'")
+scalar("segment_size_gb", "select round(sum(bytes)/1024/1024/1024, 2) from dba_segments")
+scalar("flashback_archive_count", "select count(*) from dba_flashback_archive")
+scalar("flashback_archive_retention_days", "select nvl(max(retention_in_days),0) from dba_flashback_archive")
+scalar("open_application_user_count", "select count(*) from dba_users where oracle_maintained = 'N' and account_status like 'OPEN%'")
+list_value("application_users", "select username || ':' || account_status from dba_users where oracle_maintained = 'N' order by username")
+scalar("resource_plan", "select nvl(name, 'NONE') from v$rsrc_plan where is_top_plan = 'TRUE' fetch first 1 row only")
+conn.close()
+PY
+
+  if { printf "%s\n%s\n" "$db_password" "$wallet_password"; } |
+    "$python_bin" "$probe_script" "$wallet_dir_arg" "$dsn" "$ADB_USER" "$tls_mode" >>"$evidence_file" 2>&1; then
+    status=0
+  else
+    status=$?
+    printf 'CSIM_ADB|probe_exit_status|%s\n' "$status" >>"$evidence_file"
+  fi
+  return "$SUCCESS"
+}
+
+adb_append_scenario_row() {
+  local report_file="$1"
+  local id="$2"
+  local scenario="$3"
+  local status="$4"
+  local validation="$5"
+  local recovery="$6"
+
+  printf '| `%s` | %s | `%s` | %s | %s |\n' \
+    "$(md_escape "$id")" \
+    "$(md_escape "$scenario")" \
+    "$(md_escape "$status")" \
+    "$(md_escape "$validation")" \
+    "$(md_escape "$recovery")" >>"$report_file"
+}
+
+run_adb_readiness_report() {
+  local report_file latest_file evidence_file generated_at aliases alias_list python_bin wallet_state tns_state dsn_label oci_state control_plane_state
+  local score_den score
+
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_adb_readiness_latest.md"
+  evidence_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.evidence"
+  adb_check_ok=0
+  adb_check_warn=0
+  adb_check_gap=0
+  adb_check_info=0
+
+  aliases="$(adb_wallet_aliases 2>/dev/null | awk 'BEGIN { first=1 } { printf "%s%s", (first ? "" : ", "), $0; first=0 } END { if (first) exit 1 }' 2>/dev/null || true)"
+  [[ -n "$aliases" ]] || aliases="not available"
+  python_bin="$(adb_python_bin 2>/dev/null || true)"
+  wallet_state="not configured"
+  tns_state="not configured"
+  if [[ -n "$ADB_WALLET_DIR" ]]; then
+    if [[ -d "$ADB_WALLET_DIR" ]]; then
+      wallet_state="present"
+      [[ -f "${ADB_WALLET_DIR}/tnsnames.ora" ]] && tns_state="present" || tns_state="missing"
+    else
+      wallet_state="missing"
+      tns_state="missing"
+    fi
+  fi
+  dsn_label="$(adb_effective_dsn 2>/dev/null || true)"
+  [[ -n "$dsn_label" ]] || dsn_label="not configured"
+  [[ -z "$ADB_CONNECT_DESCRIPTOR" ]] || dsn_label="configured descriptor"
+  if command -v oci >/dev/null 2>&1; then
+    oci_state="found"
+  else
+    oci_state="not found"
+  fi
+  if [[ -n "$ADB_OCID" && "$oci_state" == "found" ]]; then
+    control_plane_state="configured"
+  elif [[ -n "$ADB_OCID" ]]; then
+    control_plane_state="OCID configured, OCI CLI not found"
+  else
+    control_plane_state="not configured"
+  fi
+
+  run_adb_sql_probe "$evidence_file"
+  parse_adb_evidence_file "$evidence_file" || true
+
+  {
+    printf "# CrashSimulator Autonomous Database Readiness Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- ADB user: `%s`\n' "$(md_escape "$ADB_USER")"
+    printf -- '- TLS mode: `%s`\n' "$(md_escape "$ADB_TLS_MODE")"
+    printf -- '- Evidence file: `%s`\n' "$evidence_file"
+    printf "\n"
+    printf "Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, redo files, SPFILE, password file, and managed-backup internals from customers. This report therefore separates traditional CrashSimulator database-host scenarios from cloud-service scenarios that are realistic for ADB: logical/user-error recovery, clone/PITR, wallet/connectivity, service limits, Autonomous Data Guard, IAM, and Object Storage dependencies.\n"
+  } >"$report_file" || die "Unable to write ADB readiness report: $report_file"
+
+  append_report_section "$report_file" "Connection And Configuration"
+  {
+    printf '| Signal | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Wallet directory | `%s` |\n' "$(md_escape "${ADB_WALLET_DIR:-not configured}")"
+    printf '| Wallet state | `%s` |\n' "$(md_escape "$wallet_state")"
+    printf '| tnsnames.ora | `%s` |\n' "$(md_escape "$tns_state")"
+    printf '| Wallet aliases | `%s` |\n' "$(md_escape "$aliases")"
+    printf '| Connect alias / descriptor | `%s` |\n' "$(md_escape "$dsn_label")"
+    printf '| Service-level hint | `%s` |\n' "$(md_escape "$ADB_SERVICE_LEVEL")"
+    printf '| Password env var | `%s` |\n' "$(md_escape "$ADB_PASSWORD_ENV")"
+    printf '| Wallet password env var | `%s` |\n' "$(md_escape "$ADB_WALLET_PASSWORD_ENV")"
+    printf '| Python executable | `%s` |\n' "$(md_escape "${python_bin:-not found}")"
+    printf '| python-oracledb | `%s` |\n' "$(md_escape "$(adb_value python_oracledb_version "$(adb_value python_status "not checked")")")"
+    printf '| SQL connection | `%s` |\n' "$(md_escape "$(adb_value connect_status UNKNOWN)")"
+    printf '| OCI CLI | `%s` |\n' "$(md_escape "$oci_state")"
+    printf '| OCI control-plane posture | `%s` |\n' "$(md_escape "$control_plane_state")"
+    printf '| APEX URL | `%s` |\n' "$(md_escape "${ADB_APEX_URL:-not configured}")"
+    printf '| Database Actions URL | `%s` |\n' "$(md_escape "${ADB_DATABASE_ACTIONS_URL:-not configured}")"
+    printf '| Private endpoint expectation | `%s` |\n' "$(md_escape "${ADB_PRIVATE_ENDPOINT:-not configured}")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Live SQL Evidence Summary"
+  {
+    printf '| Signal | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| DB identity | `%s` |\n' "$(md_escape "$(adb_value db_identity "not connected")")"
+    printf '| Version | `%s` |\n' "$(md_escape "$(adb_value version "not connected")")"
+    printf '| Version number | `%s` |\n' "$(md_escape "$(adb_value version_number "not connected")")"
+    printf '| Services | `%s` |\n' "$(md_escape "$(adb_value services "not connected")")"
+    printf '| APEX registry | `%s` |\n' "$(md_escape "$(adb_value apex_version_status "not connected")")"
+    printf '| Tablespaces | `%s` |\n' "$(md_escape "$(adb_value tablespace_count "not connected")")"
+    printf '| Encrypted tablespaces | `%s` |\n' "$(md_escape "$(adb_value encrypted_tablespace_count "not connected")")"
+    printf '| Segment size GB | `%s` |\n' "$(md_escape "$(adb_value segment_size_gb "not connected")")"
+    printf '| Flashback archive count | `%s` |\n' "$(md_escape "$(adb_value flashback_archive_count "not connected")")"
+    printf '| Flashback archive retention days | `%s` |\n' "$(md_escape "$(adb_value flashback_archive_retention_days "not connected")")"
+    printf '| Open application users | `%s` |\n' "$(md_escape "$(adb_value open_application_user_count "not connected")")"
+    printf '| Application users | `%s` |\n' "$(md_escape "$(adb_value application_users "not connected")")"
+    printf '| Invalid objects | `%s` |\n' "$(md_escape "$(adb_value invalid_object_count "not connected")")"
+    printf '| Recycle bin rows | `%s` |\n' "$(md_escape "$(adb_value recyclebin_count "not connected")")"
+    printf '| Resource plan | `%s` |\n' "$(md_escape "$(adb_value resource_plan "not connected")")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Readiness Checks"
+  {
+    printf '| Status | Area | Check | Evidence | Recommendation |\n'
+    printf '| --- | --- | --- | --- | --- |\n'
+  } >>"$report_file"
+
+  if [[ "$(printf "%s" "$ADB_TLS_MODE" | tr '[:upper:]' '[:lower:]')" == "mtls" ]]; then
+    if [[ "$wallet_state" == "present" && "$tns_state" == "present" ]]; then
+      adb_append_check "$report_file" "OK" "Client connectivity" "mTLS wallet available" "wallet=${ADB_WALLET_DIR}, aliases=${aliases}" "Keep wallet rotation, expiry review, and application redeploy steps in the runbook."
+    else
+      adb_append_check "$report_file" "GAP" "Client connectivity" "mTLS wallet available" "wallet=${wallet_state}, tnsnames=${tns_state}" "Download/extract the ADB wallet, protect it as a credential, and configure CRASHSIM_ADB_WALLET_DIR."
+    fi
+  else
+    adb_append_check "$report_file" "INFO" "Client connectivity" "TLS mode selected" "tls_mode=${ADB_TLS_MODE}" "For TLS connections, confirm walletless access, hostname verification, and network ACL/security-list posture."
+  fi
+
+  if [[ -n "$python_bin" && "$(adb_value python_status UNKNOWN)" == "OK" ]]; then
+    adb_append_check "$report_file" "OK" "Client connectivity" "python-oracledb available" "python=${python_bin}, version=$(adb_value python_oracledb_version)" "Pin driver/runtime versions in automation hosts used for readiness reporting."
+  elif [[ -n "$python_bin" ]]; then
+    adb_append_check "$report_file" "WARN" "Client connectivity" "python-oracledb available" "python=${python_bin}, status=$(adb_value python_status UNKNOWN)" "Install python-oracledb in the configured Python environment."
+  else
+    adb_append_check "$report_file" "GAP" "Client connectivity" "python-oracledb available" "python=${ADB_PYTHON} not found" "Install Python and python-oracledb on the bastion/client where ADB reports run."
+  fi
+
+  if [[ "$(adb_value connect_status UNKNOWN)" == "OK" ]]; then
+    adb_append_check "$report_file" "OK" "Database access" "Live SQL probe connects" "user=$(adb_value current_user), db=$(adb_value db_name), open=$(adb_value open_mode), role=$(adb_value database_role)" "Use this same client path for logical recovery drills and application smoke tests."
+  else
+    adb_append_check "$report_file" "GAP" "Database access" "Live SQL probe connects" "status=$(adb_value connect_status), reason=$(adb_value connect_reason not available)" "Fix wallet, alias/descriptor, password env vars, or network path before running ADB drills."
+  fi
+
+  if adb_positive apex_registry_count; then
+    adb_append_check "$report_file" "OK" "Application access" "APEX component visible" "APEX=$(adb_value apex_version_status)" "Add APEX smoke/session checks for user-facing ADB applications."
+  else
+    adb_append_check "$report_file" "INFO" "Application access" "APEX component visible" "APEX=$(adb_value apex_version_status NONE)" "If this ADB hosts APEX apps, configure ADB_APEX_URL and include APEX user-path validation."
+  fi
+
+  if adb_positive flashback_archive_count; then
+    adb_append_check "$report_file" "OK" "Logical recovery" "Flashback Archive evidence" "archives=$(adb_value flashback_archive_count), retention_days=$(adb_value flashback_archive_retention_days)" "Use flashback query/table and clone/PITR drills for logical user-error recovery validation."
+  else
+    adb_append_check "$report_file" "INFO" "Logical recovery" "Flashback Archive evidence" "archives=$(adb_value flashback_archive_count UNKNOWN)" "Validate logical-object recovery using flashback query, Data Pump exports, or restore/clone to a point in time."
+  fi
+
+  if [[ "$control_plane_state" == "configured" ]]; then
+    adb_append_check "$report_file" "OK" "OCI control plane" "ADB OCID and OCI CLI configured" "ocid=set, region=${ADB_REGION:-profile/default}, profile=${ADB_OCI_PROFILE}" "Use OCI evidence to validate backup retention, PITR window, Autonomous Data Guard, clones, and IAM posture."
+  else
+    adb_append_check "$report_file" "WARN" "OCI control plane" "ADB OCID and OCI CLI configured" "state=${control_plane_state}" "Configure CRASHSIM_ADB_OCID plus OCI CLI/profile when backup/PITR/ADG/IAM readiness must be proven."
+  fi
+
+  if [[ -n "$ADB_APEX_URL" || -n "$ADB_DATABASE_ACTIONS_URL" ]]; then
+    adb_append_check "$report_file" "OK" "Application access" "User-facing URLs recorded" "apex=${ADB_APEX_URL:-not set}, database_actions=${ADB_DATABASE_ACTIONS_URL:-not set}" "Use URL smoke checks and application-specific login validation after clone/PITR or wallet rotation."
+  else
+    adb_append_check "$report_file" "INFO" "Application access" "User-facing URLs recorded" "not configured" "Record APEX and Database Actions URLs for operational validation evidence."
+  fi
+
+  if [[ -n "$ADB_PRIVATE_ENDPOINT" ]]; then
+    adb_append_check "$report_file" "OK" "Network" "Private endpoint expectation documented" "private_endpoint=${ADB_PRIVATE_ENDPOINT}" "Pair this with DNS, route-table, NSG, and bastion evidence for private endpoint loss drills."
+  else
+    adb_append_check "$report_file" "INFO" "Network" "Private endpoint expectation documented" "not configured" "Set CRASHSIM_ADB_PRIVATE_ENDPOINT when ADB uses private endpoints."
+  fi
+
+  append_report_section "$report_file" "Readiness Summary"
+  score_den=$((adb_check_ok + adb_check_warn + adb_check_gap))
+  if [[ "$score_den" -gt 0 ]]; then
+    score=$((adb_check_ok * 100 / score_den))
+  else
+    score=0
+  fi
+  {
+    printf '| Metric | Value |\n'
+    printf '| --- | ---: |\n'
+    printf '| Readiness score | %s%% |\n' "$score"
+    printf '| OK checks | %s |\n' "$adb_check_ok"
+    printf '| Warnings | %s |\n' "$adb_check_warn"
+    printf '| Gaps | %s |\n' "$adb_check_gap"
+    printf '| Informational checks | %s |\n' "$adb_check_info"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Autonomous Scenario Coverage"
+  {
+    printf '| ID | Scenario | Status | Validation process | Recovery/runbook focus |\n'
+    printf '| --- | --- | --- | --- | --- |\n'
+  } >>"$report_file"
+  if [[ "$(adb_value connect_status UNKNOWN)" == "OK" ]]; then
+    adb_append_scenario_row "$report_file" "ADB01" "Drop critical application table" "RUNNABLE after disposable lab seed" "Confirm target table ownership, flashback eligibility, and clone/export fallback." "Flashback Table, PITR clone, Data Pump/object merge, application validation."
+    adb_append_scenario_row "$report_file" "ADB02" "Drop application schema" "PLAN/RUNBOOK" "Require disposable schema, grants/object inventory, export or clone/PITR recovery path." "Recover from clone/export; recreate users/grants; validate application access."
+    adb_append_scenario_row "$report_file" "ADB03" "Mass DELETE without WHERE clause" "RUNNABLE after disposable lab seed" "Confirm target lab table, before/after row counts, and flashback query window." "Flashback Query/Table, clone comparison, data merge."
+    adb_append_scenario_row "$report_file" "ADB04" "Incorrect UPDATE corrupts business data" "RUNNABLE after disposable lab seed" "Confirm lab table and validation query; collect before image evidence." "Flashback Versions Query, object restore, data comparison."
+    adb_append_scenario_row "$report_file" "ADB10" "Connection pool saturation" "PLAN/RUNBOOK" "Requires approved client workload limits and service-level target." "Tune pool limits, retries, service class, and application backoff."
+    adb_append_scenario_row "$report_file" "ADB11" "Resource Manager / concurrency pressure" "PLAN/RUNBOOK" "Requires approved workload generator and metrics threshold." "Review service class, scaling posture, consumer limits, and workload scheduling."
+  else
+    adb_append_scenario_row "$report_file" "ADB01-04" "Logical object/user-error scenarios" "CONFIG NEEDED" "Live SQL probe must connect before target validation can run." "Fix client connectivity first; then seed disposable ADB lab objects."
+    adb_append_scenario_row "$report_file" "ADB10-11" "Connection/resource pressure scenarios" "CONFIG NEEDED" "Live SQL probe and approved workload controls are required." "Configure client path and workload safety limits first."
+  fi
+  if [[ "$control_plane_state" == "configured" ]]; then
+    adb_append_scenario_row "$report_file" "ADB05" "Recover from clone" "OCI VALIDATION READY" "Use OCI metadata to validate clone permissions, source, timestamp, and target compartment." "Create clone, validate objects/application, merge data."
+    adb_append_scenario_row "$report_file" "ADB06" "Point-in-time recovery drill" "OCI VALIDATION READY" "Use OCI metadata to validate PITR/clone-to-time window before the drill." "Measure RTO/RPO, validate clone, extract/merge recovered data."
+    adb_append_scenario_row "$report_file" "ADB07" "Validate backup recoverability" "OCI VALIDATION READY" "Check backup retention, latest backup, PITR window, and restore/clone capability from OCI." "Evidence-only or clone-based restore validation."
+    adb_append_scenario_row "$report_file" "ADB12" "Cross-region DR validation" "OCI VALIDATION READY if ADG enabled" "Check Autonomous Data Guard and standby/peer metadata." "Failover/switchover runbook, application reconnect, RTO/RPO measurement."
+    adb_append_scenario_row "$report_file" "ADB13" "Autonomous Data Guard role transition" "OCI VALIDATION READY if ADG enabled" "Validate ADG role, region, lag, and switchover/failover eligibility." "Switchover/failover, URL/service validation, fallback plan."
+    adb_append_scenario_row "$report_file" "ADB14" "IAM administrator access misconfiguration" "PLAN/RUNBOOK" "Requires read-only IAM policy/compartment evidence and approval boundaries." "Restore IAM policies/groups; validate admin and automation access."
+    adb_append_scenario_row "$report_file" "ADB15" "Object Storage export dependency unavailable" "PLAN/RUNBOOK" "Requires bucket, credential, network, and DBMS_CLOUD evidence." "Restore bucket/policy/credential/network access; validate export/import."
+  else
+    adb_append_scenario_row "$report_file" "ADB05-07" "Clone, PITR, backup recoverability" "OCI CONFIG NEEDED" "Set ADB OCID and OCI CLI/profile to inspect backup and restore metadata." "Use clone-to-time or restore workflows; collect elapsed-time evidence."
+    adb_append_scenario_row "$report_file" "ADB12-15" "ADG/IAM/Object Storage scenarios" "OCI CONFIG NEEDED" "Control-plane metadata is required; SQL alone cannot prove these dependencies." "Configure OCI evidence collection before drills."
+  fi
+  adb_append_scenario_row "$report_file" "ADB08" "Expired or rotated client wallet" "$([[ "$wallet_state" == "present" ]] && printf PLAN/RUNBOOK || printf "CONFIG NEEDED")" "Confirm wallet path, aliases, expiry/rotation owner, and application distribution points." "Download new wallet, update clients, reconnect, and validate application smoke checks."
+  adb_append_scenario_row "$report_file" "ADB09" "Private endpoint connectivity loss" "$([[ -n "$ADB_PRIVATE_ENDPOINT" ]] && printf PLAN/RUNBOOK || printf "CONFIG NEEDED")" "Confirm endpoint DNS, bastion path, route tables, NSGs/security lists, and approved fault boundary." "Restore network/DNS/security-list path and validate client reconnect."
+
+  append_report_section "$report_file" "Traditional CrashSimulator Scenarios Not Applicable To ADB"
+  {
+    printf "Autonomous Database customers cannot directly remove/corrupt managed OS files, ASM disks, Grid Infrastructure resources, control files, redo logs, password files, SPFILEs, ORACLE_HOME, or RMAN backup pieces. For ADB, those failure classes should be represented as OCI service/readiness checks, clone/PITR validation, Autonomous Data Guard drills, and application access-path tests rather than destructive host actions.\n"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Recommended Configuration File Keys"
+  {
+    printf 'Use non-secret keys in `crashsimulator.conf`, and keep passwords in environment variables named by the config keys.\n\n'
+    printf '```text\n'
+    printf 'CRASHSIM_ADB_WALLET_DIR=/path/to/wallet\n'
+    printf 'CRASHSIM_ADB_CONNECT_ALIAS=myadb_low\n'
+    printf 'CRASHSIM_ADB_SERVICE_LEVEL=low\n'
+    printf 'CRASHSIM_ADB_USER=ADMIN\n'
+    printf 'CRASHSIM_ADB_PASSWORD_ENV=CRASHSIM_ADB_PASSWORD\n'
+    printf 'CRASHSIM_ADB_WALLET_PASSWORD_ENV=CRASHSIM_ADB_WALLET_PASSWORD\n'
+    printf 'CRASHSIM_ADB_PYTHON=/path/to/python\n'
+    printf 'CRASHSIM_ADB_OCID=ocid1.autonomousdatabase...\n'
+    printf 'CRASHSIM_ADB_REGION=us-ashburn-1\n'
+    printf 'CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex\n'
+    printf '```\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw ADB Evidence"
+  {
+    printf 'Evidence file: `%s`\n\n' "$evidence_file"
+    printf '```text\n'
+    audit_redact_stream <"$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+
+  if [[ -n "$ADB_OCID" && "$oci_state" == "found" ]]; then
+    local -a oci_cmd=(oci db autonomous-database get --autonomous-database-id "$ADB_OCID")
+    [[ -n "$ADB_OCI_PROFILE" ]] && oci_cmd+=(--profile "$ADB_OCI_PROFILE")
+    [[ -n "$ADB_OCI_CONFIG_FILE" ]] && oci_cmd+=(--config-file "$ADB_OCI_CONFIG_FILE")
+    append_report_command "$report_file" "OCI Autonomous Database Metadata" "${oci_cmd[@]}"
+  fi
+
+  cp "$report_file" "$latest_file" || die "Unable to update latest ADB readiness report: $latest_file"
+  echo "Autonomous Database readiness report generated: ${report_file}"
+  echo "Latest Autonomous Database readiness report: ${latest_file}"
+  maybe_render_html "$report_file"
 }
 
 write_apex_ords_report_sql_file() {
@@ -13010,6 +13764,10 @@ parse_args() {
         MODE="apex_ords_report"
         shift
         ;;
+      --adb-readiness-report|--adb-report|--adb-discover|--autonomous-readiness|--autonomous-report|--autonomous-database-report)
+        MODE="adb_readiness_report"
+        shift
+        ;;
       --baseline-backup|--fresh-baseline-backup|--run-baseline-backup)
         MODE="baseline_backup"
         shift
@@ -13246,6 +14004,91 @@ parse_args() {
       --apex-session-headless)
         [[ "$#" -ge 2 ]] || die "--apex-session-headless requires yes/no"
         APEX_SESSION_HEADLESS="$2"
+        shift 2
+        ;;
+      --adb-wallet-dir)
+        [[ "$#" -ge 2 ]] || die "--adb-wallet-dir requires a directory"
+        ADB_WALLET_DIR="$2"
+        shift 2
+        ;;
+      --adb-connect-alias)
+        [[ "$#" -ge 2 ]] || die "--adb-connect-alias requires an alias"
+        ADB_CONNECT_ALIAS="$2"
+        shift 2
+        ;;
+      --adb-service-level)
+        [[ "$#" -ge 2 ]] || die "--adb-service-level requires a value"
+        ADB_SERVICE_LEVEL="$2"
+        shift 2
+        ;;
+      --adb-connect-descriptor)
+        [[ "$#" -ge 2 ]] || die "--adb-connect-descriptor requires a descriptor or Easy Connect string"
+        ADB_CONNECT_DESCRIPTOR="$2"
+        shift 2
+        ;;
+      --adb-user)
+        [[ "$#" -ge 2 ]] || die "--adb-user requires a user name"
+        ADB_USER="$2"
+        shift 2
+        ;;
+      --adb-password-env)
+        [[ "$#" -ge 2 ]] || die "--adb-password-env requires an environment variable name"
+        ADB_PASSWORD_ENV="$2"
+        shift 2
+        ;;
+      --adb-wallet-password-env)
+        [[ "$#" -ge 2 ]] || die "--adb-wallet-password-env requires an environment variable name"
+        ADB_WALLET_PASSWORD_ENV="$2"
+        shift 2
+        ;;
+      --adb-python)
+        [[ "$#" -ge 2 ]] || die "--adb-python requires a Python executable"
+        ADB_PYTHON="$2"
+        shift 2
+        ;;
+      --adb-tls-mode)
+        [[ "$#" -ge 2 ]] || die "--adb-tls-mode requires TLS or mTLS"
+        ADB_TLS_MODE="$2"
+        shift 2
+        ;;
+      --adb-ocid)
+        [[ "$#" -ge 2 ]] || die "--adb-ocid requires an OCID"
+        ADB_OCID="$2"
+        shift 2
+        ;;
+      --adb-compartment-ocid)
+        [[ "$#" -ge 2 ]] || die "--adb-compartment-ocid requires an OCID"
+        ADB_COMPARTMENT_OCID="$2"
+        shift 2
+        ;;
+      --adb-region)
+        [[ "$#" -ge 2 ]] || die "--adb-region requires a region"
+        ADB_REGION="$2"
+        shift 2
+        ;;
+      --adb-oci-profile)
+        [[ "$#" -ge 2 ]] || die "--adb-oci-profile requires a profile name"
+        ADB_OCI_PROFILE="$2"
+        shift 2
+        ;;
+      --adb-oci-config-file)
+        [[ "$#" -ge 2 ]] || die "--adb-oci-config-file requires a file path"
+        ADB_OCI_CONFIG_FILE="$2"
+        shift 2
+        ;;
+      --adb-apex-url)
+        [[ "$#" -ge 2 ]] || die "--adb-apex-url requires a URL"
+        ADB_APEX_URL="$2"
+        shift 2
+        ;;
+      --adb-database-actions-url)
+        [[ "$#" -ge 2 ]] || die "--adb-database-actions-url requires a URL"
+        ADB_DATABASE_ACTIONS_URL="$2"
+        shift 2
+        ;;
+      --adb-private-endpoint)
+        [[ "$#" -ge 2 ]] || die "--adb-private-endpoint requires a value"
+        ADB_PRIVATE_ENDPOINT="$2"
         shift 2
         ;;
       --sysbackup-user)
@@ -14307,6 +15150,23 @@ menu_append_common_child_args() {
   MENU_CMD+=("--apex-session-duration" "$APEX_SESSION_DURATION")
   MENU_CMD+=("--apex-session-interval" "$APEX_SESSION_INTERVAL")
   MENU_CMD+=("--apex-session-headless" "$APEX_SESSION_HEADLESS")
+  [[ -n "$ADB_WALLET_DIR" ]] && MENU_CMD+=("--adb-wallet-dir" "$ADB_WALLET_DIR")
+  [[ -n "$ADB_CONNECT_ALIAS" ]] && MENU_CMD+=("--adb-connect-alias" "$ADB_CONNECT_ALIAS")
+  [[ -n "$ADB_CONNECT_DESCRIPTOR" ]] && MENU_CMD+=("--adb-connect-descriptor" "$ADB_CONNECT_DESCRIPTOR")
+  [[ -n "$ADB_SERVICE_LEVEL" ]] && MENU_CMD+=("--adb-service-level" "$ADB_SERVICE_LEVEL")
+  [[ -n "$ADB_USER" ]] && MENU_CMD+=("--adb-user" "$ADB_USER")
+  [[ -n "$ADB_PASSWORD_ENV" ]] && MENU_CMD+=("--adb-password-env" "$ADB_PASSWORD_ENV")
+  [[ -n "$ADB_WALLET_PASSWORD_ENV" ]] && MENU_CMD+=("--adb-wallet-password-env" "$ADB_WALLET_PASSWORD_ENV")
+  [[ -n "$ADB_PYTHON" ]] && MENU_CMD+=("--adb-python" "$ADB_PYTHON")
+  [[ -n "$ADB_TLS_MODE" ]] && MENU_CMD+=("--adb-tls-mode" "$ADB_TLS_MODE")
+  [[ -n "$ADB_OCID" ]] && MENU_CMD+=("--adb-ocid" "$ADB_OCID")
+  [[ -n "$ADB_COMPARTMENT_OCID" ]] && MENU_CMD+=("--adb-compartment-ocid" "$ADB_COMPARTMENT_OCID")
+  [[ -n "$ADB_REGION" ]] && MENU_CMD+=("--adb-region" "$ADB_REGION")
+  [[ -n "$ADB_OCI_PROFILE" ]] && MENU_CMD+=("--adb-oci-profile" "$ADB_OCI_PROFILE")
+  [[ -n "$ADB_OCI_CONFIG_FILE" ]] && MENU_CMD+=("--adb-oci-config-file" "$ADB_OCI_CONFIG_FILE")
+  [[ -n "$ADB_APEX_URL" ]] && MENU_CMD+=("--adb-apex-url" "$ADB_APEX_URL")
+  [[ -n "$ADB_DATABASE_ACTIONS_URL" ]] && MENU_CMD+=("--adb-database-actions-url" "$ADB_DATABASE_ACTIONS_URL")
+  [[ -n "$ADB_PRIVATE_ENDPOINT" ]] && MENU_CMD+=("--adb-private-endpoint" "$ADB_PRIVATE_ENDPOINT")
   [[ -n "$SYSBACKUP_USER" ]] && MENU_CMD+=("--sysbackup-user" "$SYSBACKUP_USER")
   [[ "$LOCAL_ONLY" == "1" ]] && MENU_CMD+=("--local-only")
   [[ -n "$MAX_TARGETS" ]] && MENU_CMD+=("--max-targets" "$MAX_TARGETS")
@@ -14553,6 +15413,13 @@ menu_run_apex_ords_report() {
   menu_run_child_command
 }
 
+menu_run_adb_readiness_report() {
+  MENU_CMD=("$0" "--adb-readiness-report")
+  menu_append_common_child_args
+  MENU_CMD+=("--html")
+  menu_run_child_command
+}
+
 menu_configure_maa_context() {
   echo
   echo "MAA / SLA planning context"
@@ -14563,6 +15430,30 @@ menu_configure_maa_context() {
   menu_prompt_path "disaster/site-outage RPO" MAA_DR_RPO "$MAA_DR_RPO"
   menu_prompt_path "planned-maintenance RTO" MAA_PLANNED_RTO "$MAA_PLANNED_RTO"
   menu_prompt_path "planned-maintenance RPO" MAA_PLANNED_RPO "$MAA_PLANNED_RPO"
+}
+
+menu_configure_adb_context() {
+  echo
+  echo "Autonomous Database report context"
+  menu_prompt_path "ADB wallet directory" ADB_WALLET_DIR "$ADB_WALLET_DIR"
+  menu_prompt_path "ADB connect alias" ADB_CONNECT_ALIAS "$ADB_CONNECT_ALIAS"
+  menu_prompt_path "ADB connect descriptor or Easy Connect string" ADB_CONNECT_DESCRIPTOR "$ADB_CONNECT_DESCRIPTOR"
+  menu_prompt_path "ADB service-level hint" ADB_SERVICE_LEVEL "$ADB_SERVICE_LEVEL"
+  menu_prompt_oracle_name "ADB user" ADB_USER "$ADB_USER"
+  menu_prompt_path "ADB password environment variable name" ADB_PASSWORD_ENV "$ADB_PASSWORD_ENV"
+  menu_prompt_path "ADB wallet password environment variable name" ADB_WALLET_PASSWORD_ENV "$ADB_WALLET_PASSWORD_ENV"
+  menu_prompt_path "Python executable with python-oracledb" ADB_PYTHON "$ADB_PYTHON"
+  menu_prompt_path "ADB TLS mode (mTLS or TLS)" ADB_TLS_MODE "$ADB_TLS_MODE"
+  menu_prompt_path "ADB OCID" ADB_OCID "$ADB_OCID"
+  menu_prompt_path "ADB compartment OCID" ADB_COMPARTMENT_OCID "$ADB_COMPARTMENT_OCID"
+  menu_prompt_path "OCI region" ADB_REGION "$ADB_REGION"
+  menu_prompt_path "OCI CLI profile" ADB_OCI_PROFILE "$ADB_OCI_PROFILE"
+  menu_prompt_path "OCI CLI config file" ADB_OCI_CONFIG_FILE "$ADB_OCI_CONFIG_FILE"
+  menu_prompt_path "Autonomous APEX URL" ADB_APEX_URL "$ADB_APEX_URL"
+  menu_prompt_path "Autonomous Database Actions URL" ADB_DATABASE_ACTIONS_URL "$ADB_DATABASE_ACTIONS_URL"
+  menu_prompt_path "Private endpoint/DNS label" ADB_PRIVATE_ENDPOINT "$ADB_PRIVATE_ENDPOINT"
+  echo
+  echo "Passwords are not prompted here. Set the environment variables named above before running the report."
 }
 
 menu_run_audit_status() {
@@ -14608,7 +15499,7 @@ menu_prompt_artifact_reference() {
   local answer
 
   echo "Enter artifact path or latest:<kind> reference."
-  echo "Kinds: topology, config, backup, service, apex-ords, scenario-readiness, lifecycle, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Kinds: topology, config, backup, service, apex-ords, adb, scenario-readiness, lifecycle, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
   echo "Blank uses latest:any:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || answer="latest:any"
@@ -14944,7 +15835,9 @@ menu_reports() {
     echo "  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)"
     echo " 10. Generate scenario lifecycle coverage report"
     echo " 11. Generate APEX / ORDS readiness report"
-    echo " 12. Browse generated reports and inspect contents"
+    echo " 12. Set Autonomous Database report context"
+    echo " 13. Generate Autonomous Database readiness report"
+    echo " 14. Browse generated reports and inspect contents"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -14999,6 +15892,14 @@ menu_reports() {
         menu_pause
         ;;
       12)
+        menu_configure_adb_context
+        menu_pause
+        ;;
+      13)
+        menu_run_adb_readiness_report
+        menu_pause
+        ;;
+      14)
         menu_browse_artifacts "Generated Reports And HTML Artifacts" "reports" 80
         ;;
       b|B|q|Q)
@@ -15171,6 +16072,9 @@ main() {
       ;;
     apex_ords_report)
       run_apex_ords_report
+      ;;
+    adb_readiness_report)
+      run_adb_readiness_report
       ;;
     baseline_backup)
       run_baseline_backup
