@@ -87,6 +87,7 @@ ADB_OCI_CONFIG_FILE="${CRASHSIM_ADB_OCI_CONFIG_FILE:-}"
 ADB_APEX_URL="${CRASHSIM_ADB_APEX_URL:-}"
 ADB_DATABASE_ACTIONS_URL="${CRASHSIM_ADB_DATABASE_ACTIONS_URL:-}"
 ADB_PRIVATE_ENDPOINT="${CRASHSIM_ADB_PRIVATE_ENDPOINT:-}"
+ADB_SCENARIO_ID="${CRASHSIM_ADB_SCENARIO:-}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
 CONFIG_FILE="${CRASHSIM_CONFIG:-}"
 CONFIG_SOURCE=""
@@ -176,6 +177,12 @@ declare -A BACKUP_EVIDENCE=()
 declare -A RPO_EVIDENCE=()
 declare -A APEX_ORDS_EVIDENCE=()
 declare -A ADB_EVIDENCE=()
+declare -a ADB_SCENARIO_IDS=()
+declare -A ADB_SCENARIO_TITLE=()
+declare -A ADB_SCENARIO_AREA=()
+declare -A ADB_SCENARIO_VALIDATION=()
+declare -A ADB_SCENARIO_RECOVERY=()
+declare -A ADB_SCENARIO_HELPER=()
 
 SCENARIO_VALIDATION_STATUS=""
 SCENARIO_VALIDATION_REASON=""
@@ -195,6 +202,8 @@ Usage:
   ./${PROGRAM} --service-review [--html]
   ./${PROGRAM} --apex-ords-report [--pdb <pdb_name>] [--html]
   ./${PROGRAM} --adb-readiness-report [--html]
+  ./${PROGRAM} --list-adb-scenarios
+  ./${PROGRAM} --adb-scenario <ADB01-ADB15>
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
@@ -239,6 +248,8 @@ Options:
   --adb-readiness-report  Generate Autonomous Database readiness and scenario
                           coverage report.
   --adb-discover          Alias for --adb-readiness-report.
+  --list-adb-scenarios    List ADB01-ADB15 with current readiness status.
+  --adb-scenario <id>     Show one ADB cloud-service scenario detail.
   --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
   --fresh-baseline-backup Alias for --baseline-backup.
   --audit-retain <yes|no> Enable or disable per-run audit log retention.
@@ -434,6 +445,7 @@ Environment:
   CRASHSIM_ADB_APEX_URL         Autonomous APEX URL.
   CRASHSIM_ADB_DATABASE_ACTIONS_URL Autonomous Database Actions URL.
   CRASHSIM_ADB_PRIVATE_ENDPOINT Expected private endpoint/DNS/network label.
+  CRASHSIM_ADB_SCENARIO         Optional selected ADB scenario id for CLI/menu.
   CRASHSIM_MANIFEST             Default manifest path.
   CRASHSIM_LOG_DIR              Default log directory.
   CRASHSIM_SQLPLUS_LOGON        Default SQL*Plus logon string.
@@ -837,6 +849,9 @@ apply_config_entry() {
     CRASHSIM_ADB_PRIVATE_ENDPOINT|ADB_PRIVATE_ENDPOINT)
       config_set_value_if_env_unset "$key" "CRASHSIM_ADB_PRIVATE_ENDPOINT" ADB_PRIVATE_ENDPOINT "$value"
       ;;
+    CRASHSIM_ADB_SCENARIO|ADB_SCENARIO_ID)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_SCENARIO" ADB_SCENARIO_ID "$(printf "%s" "$value" | tr '[:lower:]' '[:upper:]')"
+      ;;
     CRASHSIM_MANIFEST|MANIFEST_FILE)
       config_set_value_if_env_unset "$key" "CRASHSIM_MANIFEST" MANIFEST_FILE "$value"
       [[ -n "$MANIFEST_FILE" ]] && MANIFEST_FROM_ARG=1
@@ -1003,6 +1018,7 @@ show_active_config() {
   echo "  ADB APEX URL=${ADB_APEX_URL:-not set}"
   echo "  ADB Database Actions URL=${ADB_DATABASE_ACTIONS_URL:-not set}"
   echo "  ADB private endpoint=${ADB_PRIVATE_ENDPOINT:-not set}"
+  echo "  ADB selected scenario=${ADB_SCENARIO_ID:-not set}"
   echo
   if [[ "${#CONFIG_APPLIED[@]}" -gt 0 ]]; then
     echo "Config values applied:"
@@ -1210,6 +1226,7 @@ CRASHSIM_ADB_OCI_CONFIG_FILE=${ADB_OCI_CONFIG_FILE}
 CRASHSIM_ADB_APEX_URL=${ADB_APEX_URL}
 CRASHSIM_ADB_DATABASE_ACTIONS_URL=${ADB_DATABASE_ACTIONS_URL}
 CRASHSIM_ADB_PRIVATE_ENDPOINT=${ADB_PRIVATE_ENDPOINT}
+CRASHSIM_ADB_SCENARIO=${ADB_SCENARIO_ID}
 EOF
 
   chmod 600 "$file" 2>/dev/null || true
@@ -1236,6 +1253,10 @@ normalize_targets() {
   if [[ -n "$ADB_USER" ]]; then
     ADB_USER="$(normalize_name "$ADB_USER")"
     validate_oracle_name "$ADB_USER" || die "Invalid ADB user name: $ADB_USER"
+  fi
+  if [[ -n "$ADB_SCENARIO_ID" ]]; then
+    ADB_SCENARIO_ID="$(printf "%s" "$ADB_SCENARIO_ID" | tr '[:lower:]' '[:upper:]')"
+    adb_scenario_exists "$ADB_SCENARIO_ID" || die "Invalid ADB scenario id: $ADB_SCENARIO_ID"
   fi
   validate_tempfile_size "$TEMPFILE_SIZE" || die "Invalid tempfile size: $TEMPFILE_SIZE"
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
@@ -2983,6 +3004,244 @@ register_scenarios() {
   register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation."
   register_scenario "81" "APEX mail queue and configuration validation"       "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_mail_config_validation" "Read-only SMTP/wallet/ACL evidence for notification recovery readiness."
   register_scenario "82" "APEX upgrade or patch rollback readiness"           "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_patch_rollback_readiness" "Read-only pre/post APEX version, object, and runtime-account evidence."
+}
+
+register_adb_scenario() {
+  local id="$1"
+  local title="$2"
+  local area="$3"
+  local validation="$4"
+  local recovery="$5"
+  local helper="$6"
+
+  ADB_SCENARIO_IDS+=("$id")
+  ADB_SCENARIO_TITLE["$id"]="$title"
+  ADB_SCENARIO_AREA["$id"]="$area"
+  ADB_SCENARIO_VALIDATION["$id"]="$validation"
+  ADB_SCENARIO_RECOVERY["$id"]="$recovery"
+  ADB_SCENARIO_HELPER["$id"]="$helper"
+}
+
+register_adb_scenarios() {
+  [[ "${#ADB_SCENARIO_IDS[@]}" -eq 0 ]] || return "$SUCCESS"
+
+  register_adb_scenario "ADB01" "Drop critical application table" "Logical recovery" "Live SQL connection, disposable lab table, flashback eligibility, clone/export fallback." "Flashback Table, PITR clone, Data Pump/object merge, application validation." "Future seeded logical helper."
+  register_adb_scenario "ADB02" "Drop application schema" "Logical recovery" "Live SQL connection, disposable schema, grants/object inventory, export or clone/PITR path." "Clone/export recovery, user/grant restoration, application validation." "Plan/runbook first; destructive helper pending."
+  register_adb_scenario "ADB03" "Mass DELETE without WHERE clause" "Logical recovery" "Live SQL connection, disposable lab table, before/after row counts, flashback query window." "Flashback Query/Table, clone comparison, data merge." "Future seeded logical helper."
+  register_adb_scenario "ADB04" "Incorrect UPDATE corrupts business data" "Logical recovery" "Live SQL connection, disposable lab table, before image evidence, validation query." "Flashback Versions Query, object restore, data comparison." "Future seeded logical helper."
+  register_adb_scenario "ADB05" "Recover from clone" "Clone/PITR" "OCI metadata for clone permissions, source database, timestamp, compartment, and restore target." "Create clone, validate objects/application, merge recovered data." "OCI control-plane helper pending."
+  register_adb_scenario "ADB06" "Point-in-time recovery drill" "Clone/PITR" "OCI PITR or clone-to-time window, backup retention, timestamp selection, and validation target." "Measure RTO/RPO, validate clone, extract/merge recovered data." "OCI control-plane helper pending."
+  register_adb_scenario "ADB07" "Validate backup recoverability" "Backup readiness" "OCI backup retention, latest backup, PITR window, restore/clone capability, and evidence freshness." "Evidence-only or clone-based restore validation." "OCI control-plane helper pending."
+  register_adb_scenario "ADB08" "Expired or rotated client wallet" "Connectivity" "Wallet directory, aliases, rotation owner, application distribution points, and reconnect test path." "Download new wallet, update clients, reconnect, smoke-test applications." "Plan/runbook; reconnect helper pending."
+  register_adb_scenario "ADB09" "Private endpoint connectivity loss" "Network" "Private endpoint DNS/label, bastion path, routes, NSGs/security lists, and approved fault boundary." "Restore network/DNS/security-list path and validate client reconnect." "Plan/runbook; network evidence helper pending."
+  register_adb_scenario "ADB10" "Connection pool saturation" "Resource limits" "Live SQL connection, approved workload limits, service-level target, and application retry/backoff boundaries." "Tune pool limits, retries, service class, and application backoff." "Plan/runbook; workload helper pending."
+  register_adb_scenario "ADB11" "Resource Manager or concurrency pressure" "Resource limits" "Live SQL connection, approved workload generator, resource plan/service class, and measurable threshold." "Review service class, scaling posture, consumer limits, workload scheduling." "Plan/runbook; workload helper pending."
+  register_adb_scenario "ADB12" "Cross-region DR validation" "Autonomous Data Guard" "OCI Autonomous Data Guard metadata, peer/standby region, lag, failover eligibility, and app reconnect path." "Failover validation, reconnect, RTO/RPO measurement, fallback plan." "OCI/ADG helper pending."
+  register_adb_scenario "ADB13" "Autonomous Data Guard role transition" "Autonomous Data Guard" "OCI ADG role, region, lag, switchover/failover eligibility, URL/service validation." "Switchover/failover and fallback runbook." "OCI/ADG helper pending."
+  register_adb_scenario "ADB14" "IAM administrator access misconfiguration" "OCI/IAM" "Read-only IAM policy/group/compartment evidence, break-glass account, and approved test boundary." "Restore IAM access and validate admin and automation access." "Plan/runbook; IAM helper pending."
+  register_adb_scenario "ADB15" "Object Storage export dependency unavailable" "Object Storage" "Bucket, credential, DBMS_CLOUD object, network path, IAM policy, and export/import procedure evidence." "Restore bucket/policy/credential/network access; validate export/import." "Plan/runbook; object-storage helper pending."
+}
+
+adb_scenario_exists() {
+  local id="$1"
+  [[ -n "${ADB_SCENARIO_TITLE[$id]:-}" ]]
+}
+
+adb_latest_evidence_file() {
+  local latest=""
+
+  if [[ -f "${LOG_DIR}/crashsim_adb_readiness_latest.evidence" ]]; then
+    latest="${LOG_DIR}/crashsim_adb_readiness_latest.evidence"
+  else
+    latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_adb_readiness_*.evidence' 2>/dev/null | sort | tail -n 1)"
+  fi
+  [[ -n "$latest" && -f "$latest" ]] || return "$FAIL"
+  printf "%s\n" "$latest"
+}
+
+adb_load_latest_evidence() {
+  local evidence_file
+  evidence_file="$(adb_latest_evidence_file 2>/dev/null || true)"
+  [[ -n "$evidence_file" ]] || return "$FAIL"
+  parse_adb_evidence_file "$evidence_file"
+}
+
+adb_sql_probe_ok() {
+  [[ "$(adb_value connect_status UNKNOWN)" == "OK" ]]
+}
+
+adb_sql_probe_reason() {
+  local status reason
+  status="$(adb_value connect_status UNKNOWN)"
+  reason="$(adb_value connect_reason "")"
+  if [[ "$status" == "OK" ]]; then
+    printf "Live SQL probe connected to %s (%s/%s)." "$(adb_value db_name UNKNOWN)" "$(adb_value open_mode UNKNOWN)" "$(adb_value database_role UNKNOWN)"
+  elif [[ -n "$reason" ]]; then
+    if [[ "$reason" =~ [.!?]$ ]]; then
+      printf "Live SQL probe status %s: %s" "$status" "$reason"
+    else
+      printf "Live SQL probe status %s: %s." "$status" "$reason"
+    fi
+  else
+    printf "Live SQL probe has not connected yet. Run the ADB readiness report after configuring wallet/descriptor and password environment variables."
+  fi
+}
+
+adb_control_plane_ready() {
+  [[ -n "$ADB_OCID" ]] || return "$FAIL"
+  command -v oci >/dev/null 2>&1 || return "$FAIL"
+}
+
+adb_wallet_ready() {
+  if [[ -n "$ADB_WALLET_DIR" && -d "$ADB_WALLET_DIR" && -f "${ADB_WALLET_DIR}/tnsnames.ora" ]]; then
+    return "$SUCCESS"
+  fi
+  adb_sql_probe_ok
+}
+
+adb_private_endpoint_ready() {
+  [[ -n "$ADB_PRIVATE_ENDPOINT" ]]
+}
+
+adb_scenario_readiness() {
+  local id="$1"
+  local status_var="$2"
+  local reason_var="$3"
+  local readiness_status readiness_reason
+
+  case "$id" in
+    ADB01|ADB03|ADB04)
+      if adb_sql_probe_ok; then
+        readiness_status="RUNNABLE AFTER LAB SEED"
+        readiness_reason="Live SQL probe is healthy; seed disposable ADB lab objects before enabling execution helpers."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="$(adb_sql_probe_reason)"
+      fi
+      ;;
+    ADB02)
+      if adb_sql_probe_ok; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Live SQL probe is healthy; schema-drop automation remains manual until clone/export workflow helpers are added."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="$(adb_sql_probe_reason)"
+      fi
+      ;;
+    ADB05|ADB06|ADB07)
+      if adb_control_plane_ready; then
+        readiness_status="OCI VALIDATION READY"
+        readiness_reason="ADB OCID and OCI CLI are configured; collect clone/PITR/backup metadata before execution."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure CRASHSIM_ADB_OCID and OCI CLI/profile to validate clone, PITR, and backup recoverability."
+      fi
+      ;;
+    ADB08)
+      if adb_wallet_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Wallet/client path evidence exists; use the runbook to test rotation and reconnect."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="Configure an ADB wallet directory or working descriptor and run the readiness report."
+      fi
+      ;;
+    ADB09)
+      if adb_private_endpoint_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Private endpoint context is configured; validate DNS, routing, NSGs, and bastion path before any fault injection."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="Set CRASHSIM_ADB_PRIVATE_ENDPOINT or use the menu context option to document the expected private endpoint path."
+      fi
+      ;;
+    ADB10|ADB11)
+      if adb_sql_probe_ok; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Live SQL probe is healthy; approved workload limits and application retry boundaries are still required."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="$(adb_sql_probe_reason)"
+      fi
+      ;;
+    ADB12|ADB13)
+      if adb_control_plane_ready; then
+        readiness_status="OCI VALIDATION READY IF ADG ENABLED"
+        readiness_reason="ADB OCID and OCI CLI are configured; verify Autonomous Data Guard metadata, role, lag, and transition eligibility."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure OCI CLI/profile and ADB OCID to inspect Autonomous Data Guard metadata."
+      fi
+      ;;
+    ADB14)
+      if adb_control_plane_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="OCI metadata access is configured; keep IAM checks read-only unless an approved IAM test boundary exists."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure OCI CLI/profile and ADB OCID or compartment context to review IAM posture."
+      fi
+      ;;
+    ADB15)
+      if adb_control_plane_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="OCI metadata access is configured; add bucket, credential, DBMS_CLOUD, and network evidence before execution."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure OCI CLI/profile and ADB/compartment context to validate Object Storage dependencies."
+      fi
+      ;;
+    *)
+      readiness_status="UNKNOWN"
+      readiness_reason="Unknown ADB scenario id."
+      ;;
+  esac
+
+  printf -v "$status_var" "%s" "$readiness_status"
+  printf -v "$reason_var" "%s" "$readiness_reason"
+}
+
+print_adb_scenario_catalog() {
+  local id status reason evidence_file
+
+  evidence_file="$(adb_latest_evidence_file 2>/dev/null || true)"
+  if [[ -n "$evidence_file" ]]; then
+    parse_adb_evidence_file "$evidence_file" || true
+    echo "ADB scenario catalog using latest evidence: ${evidence_file}"
+  else
+    ADB_EVIDENCE=()
+    echo "ADB scenario catalog using current configuration only. Run --adb-readiness-report for live SQL evidence."
+  fi
+  echo
+  printf "%-6s %-30s %-28s %s\n" "ID" "Area" "Status" "Scenario"
+  printf "%-6s %-30s %-28s %s\n" "------" "------------------------------" "----------------------------" "--------"
+  for id in "${ADB_SCENARIO_IDS[@]}"; do
+    adb_scenario_readiness "$id" status reason
+    printf "%-6s %-30s %-28s %s\n" "$id" "${ADB_SCENARIO_AREA[$id]}" "$status" "${ADB_SCENARIO_TITLE[$id]}"
+  done
+}
+
+print_adb_scenario_detail() {
+  local id="$1"
+  local status reason evidence_file
+
+  id="$(printf "%s" "$id" | tr '[:lower:]' '[:upper:]')"
+  adb_scenario_exists "$id" || die "Unknown ADB scenario id: $id"
+  evidence_file="$(adb_latest_evidence_file 2>/dev/null || true)"
+  [[ -n "$evidence_file" ]] && parse_adb_evidence_file "$evidence_file" || ADB_EVIDENCE=()
+  adb_scenario_readiness "$id" status reason
+
+  echo "Autonomous Database scenario detail"
+  echo "Scenario: ${id} - ${ADB_SCENARIO_TITLE[$id]}"
+  echo "Area: ${ADB_SCENARIO_AREA[$id]}"
+  echo "Status: ${status}"
+  echo "Reason: ${reason}"
+  echo "Validation: ${ADB_SCENARIO_VALIDATION[$id]}"
+  echo "Recovery focus: ${ADB_SCENARIO_RECOVERY[$id]}"
+  echo "Execution helper: ${ADB_SCENARIO_HELPER[$id]}"
+  echo "Evidence: ${evidence_file:-not available}"
+  echo
+  echo "Run --adb-readiness-report --html to refresh readiness evidence before a drill."
 }
 
 list_scenarios() {
@@ -6599,12 +6858,13 @@ adb_append_scenario_row() {
 }
 
 run_adb_readiness_report() {
-  local report_file latest_file evidence_file generated_at aliases alias_list python_bin wallet_state tns_state dsn_label oci_state control_plane_state
-  local score_den score
+  local report_file latest_file latest_evidence_file evidence_file generated_at aliases alias_list python_bin wallet_state tns_state dsn_label oci_state control_plane_state
+  local score_den score id status reason
 
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.md"
   latest_file="${LOG_DIR}/crashsim_adb_readiness_latest.md"
+  latest_evidence_file="${LOG_DIR}/crashsim_adb_readiness_latest.evidence"
   evidence_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.evidence"
   adb_check_ok=0
   adb_check_warn=0
@@ -6782,31 +7042,10 @@ run_adb_readiness_report() {
     printf '| ID | Scenario | Status | Validation process | Recovery/runbook focus |\n'
     printf '| --- | --- | --- | --- | --- |\n'
   } >>"$report_file"
-  if [[ "$(adb_value connect_status UNKNOWN)" == "OK" ]]; then
-    adb_append_scenario_row "$report_file" "ADB01" "Drop critical application table" "RUNNABLE after disposable lab seed" "Confirm target table ownership, flashback eligibility, and clone/export fallback." "Flashback Table, PITR clone, Data Pump/object merge, application validation."
-    adb_append_scenario_row "$report_file" "ADB02" "Drop application schema" "PLAN/RUNBOOK" "Require disposable schema, grants/object inventory, export or clone/PITR recovery path." "Recover from clone/export; recreate users/grants; validate application access."
-    adb_append_scenario_row "$report_file" "ADB03" "Mass DELETE without WHERE clause" "RUNNABLE after disposable lab seed" "Confirm target lab table, before/after row counts, and flashback query window." "Flashback Query/Table, clone comparison, data merge."
-    adb_append_scenario_row "$report_file" "ADB04" "Incorrect UPDATE corrupts business data" "RUNNABLE after disposable lab seed" "Confirm lab table and validation query; collect before image evidence." "Flashback Versions Query, object restore, data comparison."
-    adb_append_scenario_row "$report_file" "ADB10" "Connection pool saturation" "PLAN/RUNBOOK" "Requires approved client workload limits and service-level target." "Tune pool limits, retries, service class, and application backoff."
-    adb_append_scenario_row "$report_file" "ADB11" "Resource Manager / concurrency pressure" "PLAN/RUNBOOK" "Requires approved workload generator and metrics threshold." "Review service class, scaling posture, consumer limits, and workload scheduling."
-  else
-    adb_append_scenario_row "$report_file" "ADB01-04" "Logical object/user-error scenarios" "CONFIG NEEDED" "Live SQL probe must connect before target validation can run." "Fix client connectivity first; then seed disposable ADB lab objects."
-    adb_append_scenario_row "$report_file" "ADB10-11" "Connection/resource pressure scenarios" "CONFIG NEEDED" "Live SQL probe and approved workload controls are required." "Configure client path and workload safety limits first."
-  fi
-  if [[ "$control_plane_state" == "configured" ]]; then
-    adb_append_scenario_row "$report_file" "ADB05" "Recover from clone" "OCI VALIDATION READY" "Use OCI metadata to validate clone permissions, source, timestamp, and target compartment." "Create clone, validate objects/application, merge data."
-    adb_append_scenario_row "$report_file" "ADB06" "Point-in-time recovery drill" "OCI VALIDATION READY" "Use OCI metadata to validate PITR/clone-to-time window before the drill." "Measure RTO/RPO, validate clone, extract/merge recovered data."
-    adb_append_scenario_row "$report_file" "ADB07" "Validate backup recoverability" "OCI VALIDATION READY" "Check backup retention, latest backup, PITR window, and restore/clone capability from OCI." "Evidence-only or clone-based restore validation."
-    adb_append_scenario_row "$report_file" "ADB12" "Cross-region DR validation" "OCI VALIDATION READY if ADG enabled" "Check Autonomous Data Guard and standby/peer metadata." "Failover/switchover runbook, application reconnect, RTO/RPO measurement."
-    adb_append_scenario_row "$report_file" "ADB13" "Autonomous Data Guard role transition" "OCI VALIDATION READY if ADG enabled" "Validate ADG role, region, lag, and switchover/failover eligibility." "Switchover/failover, URL/service validation, fallback plan."
-    adb_append_scenario_row "$report_file" "ADB14" "IAM administrator access misconfiguration" "PLAN/RUNBOOK" "Requires read-only IAM policy/compartment evidence and approval boundaries." "Restore IAM policies/groups; validate admin and automation access."
-    adb_append_scenario_row "$report_file" "ADB15" "Object Storage export dependency unavailable" "PLAN/RUNBOOK" "Requires bucket, credential, network, and DBMS_CLOUD evidence." "Restore bucket/policy/credential/network access; validate export/import."
-  else
-    adb_append_scenario_row "$report_file" "ADB05-07" "Clone, PITR, backup recoverability" "OCI CONFIG NEEDED" "Set ADB OCID and OCI CLI/profile to inspect backup and restore metadata." "Use clone-to-time or restore workflows; collect elapsed-time evidence."
-    adb_append_scenario_row "$report_file" "ADB12-15" "ADG/IAM/Object Storage scenarios" "OCI CONFIG NEEDED" "Control-plane metadata is required; SQL alone cannot prove these dependencies." "Configure OCI evidence collection before drills."
-  fi
-  adb_append_scenario_row "$report_file" "ADB08" "Expired or rotated client wallet" "$([[ "$wallet_state" == "present" ]] && printf PLAN/RUNBOOK || printf "CONFIG NEEDED")" "Confirm wallet path, aliases, expiry/rotation owner, and application distribution points." "Download new wallet, update clients, reconnect, and validate application smoke checks."
-  adb_append_scenario_row "$report_file" "ADB09" "Private endpoint connectivity loss" "$([[ -n "$ADB_PRIVATE_ENDPOINT" ]] && printf PLAN/RUNBOOK || printf "CONFIG NEEDED")" "Confirm endpoint DNS, bastion path, route tables, NSGs/security lists, and approved fault boundary." "Restore network/DNS/security-list path and validate client reconnect."
+  for id in "${ADB_SCENARIO_IDS[@]}"; do
+    adb_scenario_readiness "$id" status reason
+    adb_append_scenario_row "$report_file" "$id" "${ADB_SCENARIO_TITLE[$id]}" "$status" "${ADB_SCENARIO_VALIDATION[$id]} ${reason}" "${ADB_SCENARIO_RECOVERY[$id]}"
+  done
 
   append_report_section "$report_file" "Traditional CrashSimulator Scenarios Not Applicable To ADB"
   {
@@ -6846,8 +7085,10 @@ run_adb_readiness_report() {
   fi
 
   cp "$report_file" "$latest_file" || die "Unable to update latest ADB readiness report: $latest_file"
+  cp "$evidence_file" "$latest_evidence_file" || die "Unable to update latest ADB readiness evidence: $latest_evidence_file"
   echo "Autonomous Database readiness report generated: ${report_file}"
   echo "Latest Autonomous Database readiness report: ${latest_file}"
+  echo "Latest Autonomous Database readiness evidence: ${latest_evidence_file}"
   maybe_render_html "$report_file"
 }
 
@@ -13768,6 +14009,10 @@ parse_args() {
         MODE="adb_readiness_report"
         shift
         ;;
+      --list-adb-scenarios|--adb-scenarios|--adb-scenario-catalog|--autonomous-scenarios)
+        MODE="adb_scenarios"
+        shift
+        ;;
       --baseline-backup|--fresh-baseline-backup|--run-baseline-backup)
         MODE="baseline_backup"
         shift
@@ -13884,6 +14129,12 @@ parse_args() {
         MODE="random"
         SCENARIO_ID=""
         shift
+        ;;
+      --adb-scenario)
+        [[ "$#" -ge 2 ]] || die "--adb-scenario requires an ADB scenario id"
+        MODE="adb_scenario_detail"
+        ADB_SCENARIO_ID="$2"
+        shift 2
         ;;
       --pdb)
         [[ "$#" -ge 2 ]] || die "--pdb requires a PDB name"
@@ -14262,6 +14513,7 @@ menu_print_header() {
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
   echo "Password-file recovery: SYS password=$([[ -n "$SYS_PASSWORD" ]] && echo set || echo not-set)  service=${SERVICE_NAME:-not set}"
   echo "Scenario 61/63 knobs: FRA target=${FRA_PRESSURE_TARGET_PCT}%  FRA headroom=${FRA_PRESSURE_HEADROOM_MB}MB  TEMP workload=${TEMP_EXHAUST_MB}MB"
+  echo "ADB scenario: ${ADB_SCENARIO_ID:-not set}"
 }
 
 menu_select_scenario() {
@@ -15420,6 +15672,15 @@ menu_run_adb_readiness_report() {
   menu_run_child_command
 }
 
+menu_run_show_latest_adb_report() {
+  local html_mode="$1"
+  MENU_CMD=("$0" "--show-artifact" "latest:adb")
+  [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
 menu_configure_maa_context() {
   echo
   echo "MAA / SLA planning context"
@@ -15454,6 +15715,120 @@ menu_configure_adb_context() {
   menu_prompt_path "Private endpoint/DNS label" ADB_PRIVATE_ENDPOINT "$ADB_PRIVATE_ENDPOINT"
   echo
   echo "Passwords are not prompted here. Set the environment variables named above before running the report."
+}
+
+menu_selected_adb_scenario_label() {
+  if [[ -n "$ADB_SCENARIO_ID" && -n "${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]:-}" ]]; then
+    printf "%s - %s" "$ADB_SCENARIO_ID" "${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]}"
+  else
+    printf "none"
+  fi
+}
+
+menu_select_adb_scenario() {
+  local answer
+
+  echo
+  print_adb_scenario_catalog
+  echo
+  echo "Enter ADB scenario id to select, or blank to keep current:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  answer="$(printf "%s" "$answer" | tr '[:lower:]' '[:upper:]')"
+  if adb_scenario_exists "$answer"; then
+    ADB_SCENARIO_ID="$answer"
+    echo "Selected ADB scenario ${ADB_SCENARIO_ID}: ${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]}"
+  else
+    warn "Unknown ADB scenario id: $answer"
+    return "$FAIL"
+  fi
+}
+
+menu_require_adb_scenario() {
+  if [[ -n "$ADB_SCENARIO_ID" && -n "${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]:-}" ]]; then
+    return "$SUCCESS"
+  fi
+  menu_select_adb_scenario
+  [[ -n "$ADB_SCENARIO_ID" && -n "${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]:-}" ]]
+}
+
+menu_show_selected_adb_scenario() {
+  menu_require_adb_scenario || return "$FAIL"
+  print_adb_scenario_detail "$ADB_SCENARIO_ID"
+}
+
+menu_adb_helper_placeholder() {
+  menu_require_adb_scenario || return "$FAIL"
+  echo
+  echo "ADB helper execution placeholder"
+  echo "Scenario: ${ADB_SCENARIO_ID} - ${ADB_SCENARIO_TITLE[$ADB_SCENARIO_ID]}"
+  echo "Current helper posture: ${ADB_SCENARIO_HELPER[$ADB_SCENARIO_ID]}"
+  echo
+  echo "No ADB destructive/logical execution helper is enabled yet."
+  echo "Use the readiness report and scenario detail now; when seeded logical and OCI helpers are implemented, this menu path can call them without changing the workflow."
+}
+
+menu_adb_scenarios() {
+  local answer
+
+  while true; do
+    echo
+    echo "Autonomous Database Scenarios"
+    echo "Selected ADB scenario: $(menu_selected_adb_scenario_label)"
+    echo "  1. List ADB01-ADB15 with readiness status"
+    echo "  2. Select ADB scenario"
+    echo "  3. Show selected ADB scenario detail and validation status"
+    echo "  4. Configure Autonomous Database report context"
+    echo "  5. Run fresh Autonomous Database readiness report"
+    echo "  6. Show latest Autonomous Database readiness report"
+    echo "  7. Show latest Autonomous Database readiness report and generate HTML"
+    echo "  8. Future ADB helper placeholder for selected scenario"
+    echo "  b. Back"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1|l|L)
+        print_adb_scenario_catalog
+        menu_pause
+        ;;
+      2|s|S)
+        menu_select_adb_scenario
+        menu_pause
+        ;;
+      3|d|D)
+        menu_show_selected_adb_scenario
+        menu_pause
+        ;;
+      4|c|C)
+        menu_configure_adb_context
+        menu_pause
+        ;;
+      5|r|R)
+        menu_run_adb_readiness_report
+        menu_pause
+        ;;
+      6)
+        menu_run_show_latest_adb_report "text"
+        menu_pause
+        ;;
+      7)
+        menu_run_show_latest_adb_report "html"
+        menu_pause
+        ;;
+      8|e|E)
+        menu_adb_helper_placeholder
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown Autonomous Database menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
 }
 
 menu_run_audit_status() {
@@ -15942,6 +16317,7 @@ interactive_menu() {
     echo " 17. Generate scenario readiness report for this topology"
     echo " 18. Audit / retention settings"
     echo " 19. Review collected topology, logs, reports, and history"
+    echo " 20. Autonomous Database scenarios"
     echo
     echo "Execution actions - typed confirmation required"
     echo "  7. Execute protection for selected scenario"
@@ -16032,6 +16408,9 @@ interactive_menu() {
       19)
         menu_review_center
         ;;
+      20)
+        menu_adb_scenarios
+        ;;
       q|Q|0)
         break
         ;;
@@ -16045,6 +16424,7 @@ interactive_menu() {
 
 main() {
   register_scenarios
+  register_adb_scenarios
   load_startup_config "$@"
   parse_args "$@"
   normalize_targets
@@ -16075,6 +16455,13 @@ main() {
       ;;
     adb_readiness_report)
       run_adb_readiness_report
+      ;;
+    adb_scenarios)
+      print_adb_scenario_catalog
+      ;;
+    adb_scenario_detail)
+      [[ -n "$ADB_SCENARIO_ID" ]] || die "No ADB scenario id provided."
+      print_adb_scenario_detail "$ADB_SCENARIO_ID"
       ;;
     baseline_backup)
       run_baseline_backup

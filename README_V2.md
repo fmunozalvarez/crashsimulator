@@ -106,6 +106,8 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --maa-report
 ./CrashSimulatorV2.sh --apex-ords-report --pdb crashpdb --html
 ./CrashSimulatorV2.sh --adb-readiness-report --html
+./CrashSimulatorV2.sh --list-adb-scenarios
+./CrashSimulatorV2.sh --adb-scenario ADB01
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --runbook 30 --pdb crashpdb
@@ -153,6 +155,8 @@ drive from a single screen:
 - generate target configuration/recoverability reports
 - generate backup strategy and recoverability/RTO/RPO reports
 - generate Oracle MAA readiness and SLA planning reports
+- browse the dedicated Autonomous Database scenario catalog, select `ADB01`
+  through `ADB15`, review validation status, and refresh ADB readiness evidence
 - configure audit retention, inspect audit status, and purge old audit records
 - review collected topology, manifests, runbooks, dry-run/execution records,
   reports, health checks, configuration outputs, and audit history

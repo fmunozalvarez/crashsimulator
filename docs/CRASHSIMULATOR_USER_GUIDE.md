@@ -287,6 +287,8 @@ ls CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_ords_priv_helper
 ./CrashSimulatorV2.sh --backup-report --deep-validate
 ./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --adb-readiness-report --html
+./CrashSimulatorV2.sh --list-adb-scenarios
+./CrashSimulatorV2.sh --adb-scenario ADB01
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
@@ -330,6 +332,9 @@ The menu provides options to:
 - Generate configuration, backup strategy/recoverability, Oracle service HA,
   APEX/ORDS readiness, Autonomous Database readiness, MAA readiness, and
   scenario lifecycle coverage reports.
+- Browse the dedicated Autonomous Database scenario catalog, select `ADB01`
+  through `ADB15`, review validation status, configure ADB context, and refresh
+  ADB readiness evidence.
 - Configure audit retention, show audit status, browse retained audit logs, and
   purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
@@ -649,8 +654,13 @@ OCI control-plane checks for backups, PITR window, clones, Autonomous Data
 Guard, IAM, and Object Storage need OCI CLI/profile/OCID context. SQL evidence
 alone cannot prove those managed-service dependencies.
 
-The Guided Workflow Reports menu includes options to set Autonomous Database
-report context and generate the ADB readiness report with HTML output.
+The Guided Workflow menu also includes a dedicated Autonomous Database
+scenarios submenu. From that submenu users can list `ADB01` through `ADB15`
+with current readiness status, select a scenario, inspect the validation and
+recovery focus for that scenario, set ADB report context, regenerate the ADB
+readiness report, and open the latest ADB report as text or HTML. The helper
+execution option is intentionally a placeholder until seeded logical drills and
+OCI control-plane helpers are implemented.
 
 ### APEX/ORDS Scenarios
 

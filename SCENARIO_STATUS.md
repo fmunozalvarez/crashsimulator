@@ -29,11 +29,15 @@ Current framework registry snapshot:
   upgrade/patch rollback readiness.
 - Autonomous Database coverage is tracked as a separate cloud-service scenario
   catalog, `ADB01` through `ADB15`, rather than as host-level destructive
-  scenario IDs. `--adb-readiness-report` validates wallet/client connectivity,
-  SQL evidence, APEX visibility, Flashback Archive posture, OCI control-plane
-  gaps, and ADB-specific scenario readiness for logical recovery, clone/PITR,
-  wallet rotation, private endpoint, resource pressure, Autonomous Data Guard,
-  IAM, and Object Storage drills.
+  scenario IDs. `--list-adb-scenarios`, `--adb-scenario <id>`, and the Guided
+  Workflow Autonomous Database scenarios submenu let users browse the catalog,
+  select `ADB01` through `ADB15`, inspect readiness status, configure ADB
+  context, and refresh ADB readiness evidence. `--adb-readiness-report`
+  validates wallet/client connectivity, SQL evidence, APEX visibility,
+  Flashback Archive posture, OCI control-plane gaps, and ADB-specific scenario
+  readiness for logical recovery, clone/PITR, wallet rotation, private
+  endpoint, resource pressure, Autonomous Data Guard, IAM, and Object Storage
+  drills.
 
 Autonomous Database validation environment:
 

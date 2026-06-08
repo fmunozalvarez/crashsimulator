@@ -27,6 +27,9 @@ export CRASHSIM_ADB_WALLET_PASSWORD='<wallet password if required>'
   --adb-user ADMIN \
   --adb-python /path/to/python \
   --html
+
+./CrashSimulatorV2.sh --list-adb-scenarios
+./CrashSimulatorV2.sh --adb-scenario ADB01
 ```
 
 The report does not require local `sqlplus`, `rman`, ASM, Grid Infrastructure,
@@ -52,6 +55,7 @@ CRASHSIM_ADB_REGION=us-ashburn-1
 CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex
 CRASHSIM_ADB_DATABASE_ACTIONS_URL=https://example.adb.region.oraclecloudapps.com/ords/sql-developer
 CRASHSIM_ADB_PRIVATE_ENDPOINT=myadb-private-endpoint
+CRASHSIM_ADB_SCENARIO=ADB01
 ```
 
 Do not store database passwords, wallet passphrases, API keys, or wallet files
@@ -59,6 +63,13 @@ in the repository or config file. The config stores only the environment
 variable names that contain secrets.
 
 ## Scenario Family
+
+The CLI can list the current catalog with `--list-adb-scenarios` and show a
+single entry with `--adb-scenario ADB01`. The Guided Workflow menu also has an
+Autonomous Database scenarios submenu where users can browse `ADB01` through
+`ADB15`, select a scenario, review validation status, configure ADB context,
+refresh the readiness report, and later launch ADB-specific helpers when those
+seeded logical/OCI workflows are added.
 
 | ID | Scenario | Validation | Recovery focus |
 | --- | --- | --- | --- |

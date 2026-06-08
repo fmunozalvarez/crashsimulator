@@ -99,7 +99,10 @@ Validate the download and start safely:
 interactive confirmation token.
 
 The Guided Workflow menu separates safe planning actions from execution actions
-and redacts RMAN catalog/SYS password values from command echoes.
+and redacts RMAN catalog/SYS password values from command echoes. It also
+includes a dedicated Autonomous Database scenarios submenu to browse `ADB01`
+through `ADB15`, select one, review validation status, configure ADB context,
+and refresh ADB readiness evidence.
 
 ## Tutorial Videos
 
@@ -122,6 +125,8 @@ menu modes.
 ./CrashSimulatorV2.sh --service-review --html
 ./CrashSimulatorV2.sh --apex-ords-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --adb-readiness-report --html
+./CrashSimulatorV2.sh --list-adb-scenarios
+./CrashSimulatorV2.sh --adb-scenario ADB01
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
