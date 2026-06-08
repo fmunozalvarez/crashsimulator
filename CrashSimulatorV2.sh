@@ -93,6 +93,7 @@ AUDIT_STDOUT_FIFO=""
 AUDIT_STDERR_FIFO=""
 AUDIT_STARTED=0
 AUDIT_FINALIZED=0
+MENU_SCHEMA_PROMPTED_SCENARIO=""
 
 DB_NAME=""
 DB_UNIQUE_NAME=""
@@ -9438,7 +9439,7 @@ order by df.file_id;
 
 scenario_drop_indexes() {
   reset_actions
-  local owner_filter="and 1 = 1"
+  local owner_filter="and (i.owner like 'CRASHSIM%' or i.owner like 'C##CRASHSIM%')"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and i.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -9809,7 +9810,7 @@ order by df.file_id;
 scenario_pdb_drop_indexes() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter="and 1 = 1"
+  local owner_filter="and i.owner like 'CRASHSIM%'"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and i.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -9936,7 +9937,7 @@ scenario_pdb_file_header_corrupt() {
 scenario_pdb_drop_table() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter="and 1 = 1"
+  local owner_filter="and t.owner like 'CRASHSIM%'"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and t.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -9978,7 +9979,7 @@ alter session set container = CDB\$ROOT;
 scenario_pdb_drop_schema() {
   reset_actions
   local pdb="$TARGET_PDB"
-  local owner_filter="and 1 = 1"
+  local owner_filter="and username like 'CRASHSIM%'"
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and username = $(sql_quote "$TARGET_SCHEMA")"
   fi
@@ -12361,16 +12362,9 @@ menu_select_scenario() {
 
   if scenario_exists "$answer"; then
     SCENARIO_ID="$answer"
+    MENU_SCHEMA_PROMPTED_SCENARIO=""
     echo "Selected scenario ${SCENARIO_ID}: ${SCENARIO_TITLE[$SCENARIO_ID]}"
-    if validate_scenario_can_run "$SCENARIO_ID"; then
-      echo "Readiness: RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
-    elif [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
-      echo "Readiness: PLAN-ONLY - ${SCENARIO_VALIDATION_REASON}"
-      echo "Execution remains blocked until the guardrail is resolved."
-    else
-      echo "Readiness: NOT RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
-      echo "This scenario cannot be executed in the current topology or target context."
-    fi
+    menu_ensure_scenario_context "select" "dry-run" || menu_show_selected_scenario_readiness
     echo "Use menu option 17 to generate the full topology-versus-scenario readiness report."
   else
     warn "Unknown scenario id: $answer"
@@ -12426,6 +12420,221 @@ menu_select_pdb() {
     return "$FAIL"
   }
   echo "PDB target set to ${TARGET_PDB}."
+}
+
+scenario_requires_pdb_context() {
+  local id="$1"
+  [[ ",${SCENARIO_REQUIRES[$id]:-}," == *,pdb,* ]]
+}
+
+scenario_uses_schema_context() {
+  local id="$1"
+  case "$id" in
+    11|36|43|44) return "$SUCCESS" ;;
+    *) return "$FAIL" ;;
+  esac
+}
+
+scenario_schema_prompt_default_yes() {
+  local id="$1"
+  case "$id" in
+    44) return "$SUCCESS" ;;
+    *) return "$FAIL" ;;
+  esac
+}
+
+scenario_file_no_context_useful() {
+  local id="$1"
+  supports_file_recovery_automation "$id"
+}
+
+menu_auto_select_single_pdb() {
+  local row con_id open_mode
+
+  discover_environment || true
+  [[ "$DB_CDB" == "YES" && -z "$TARGET_PDB" && "${#PDB_ROWS[@]}" -eq 1 ]] || return "$FAIL"
+  IFS='|' read -r TARGET_PDB con_id open_mode <<<"${PDB_ROWS[0]}"
+  echo "Using only available PDB: ${TARGET_PDB} (OPEN_MODE=${open_mode})"
+}
+
+menu_select_schema() {
+  local answer idx row owner table_count index_count candidate_filter confirm_token schema_safe
+  local target_file="$WORK_DIR/menu_schema_candidates.lst"
+
+  echo
+  echo "Schema selection"
+  candidate_filter=""
+  case "${SCENARIO_ID:-}" in
+    11|36)
+      candidate_filter="and exists (select 1 from dba_indexes i where i.owner = u.username and i.uniqueness = 'NONUNIQUE')"
+      ;;
+    43)
+      candidate_filter="and exists (select 1 from dba_tables t where t.owner = u.username and t.nested = 'NO' and t.temporary = 'N' and t.secondary = 'N')"
+      ;;
+  esac
+  if [[ -n "$TARGET_PDB" ]]; then
+    sql_query "$target_file" "
+alter session set container = ${TARGET_PDB};
+select username || '|' ||
+       (select count(*) from dba_tables t where t.owner = u.username and t.nested = 'NO' and t.temporary = 'N') || '|' ||
+       (select count(*) from dba_indexes i where i.owner = u.username and i.uniqueness = 'NONUNIQUE')
+from dba_users u
+where u.oracle_maintained = 'N'
+  and u.username not in ('SYS','SYSTEM')
+  and u.username like 'CRASHSIM%'
+  ${candidate_filter}
+order by case when u.username like 'CRASHSIM%' then 0 else 1 end, u.username;
+alter session set container = CDB\$ROOT;
+"
+  else
+    sql_query "$target_file" "
+select username || '|' ||
+       (select count(*) from dba_tables t where t.owner = u.username and t.nested = 'NO' and t.temporary = 'N') || '|' ||
+       (select count(*) from dba_indexes i where i.owner = u.username and i.uniqueness = 'NONUNIQUE')
+from dba_users u
+where u.oracle_maintained = 'N'
+  and u.username not in ('SYS','SYSTEM')
+  and (u.username like 'CRASHSIM%' or u.username like 'C##CRASHSIM%')
+  ${candidate_filter}
+order by case when u.username like 'CRASHSIM%' then 0 else 1 end, u.username;
+"
+  fi
+  load_rows "$target_file" || true
+
+  if [[ "${#TARGET_ROWS[@]}" -gt 0 ]]; then
+    echo "Available disposable CrashSimulator lab schemas:"
+    idx=1
+    for row in "${TARGET_ROWS[@]}"; do
+      IFS='|' read -r owner table_count index_count <<<"$row"
+      printf "  %2d. %-30s tables=%-6s nonunique_indexes=%s\n" "$idx" "$owner" "${table_count:-0}" "${index_count:-0}"
+      idx=$((idx + 1))
+      [[ "$idx" -le 30 ]] || break
+    done
+  else
+    echo "No disposable CrashSimulator lab schemas were discovered in the current container context."
+    echo "Re-run seed_crashsim_lab.sql in the relevant container or type a known disposable schema name manually."
+  fi
+
+  echo
+  echo "Enter schema name or number, c to clear, or blank to keep/skip [${TARGET_SCHEMA:-not set}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || return "$SUCCESS"
+  case "$answer" in
+    c|C|clear|CLEAR)
+      TARGET_SCHEMA=""
+      echo "Schema target cleared."
+      return "$SUCCESS"
+      ;;
+  esac
+
+  if [[ "$answer" =~ ^[0-9]+$ && "${#TARGET_ROWS[@]}" -gt 0 && "$answer" -ge 1 && "$answer" -le "${#TARGET_ROWS[@]}" ]]; then
+    IFS='|' read -r TARGET_SCHEMA table_count index_count <<<"${TARGET_ROWS[$((answer - 1))]}"
+  else
+    TARGET_SCHEMA="$(normalize_name "$answer")"
+  fi
+  validate_oracle_name "$TARGET_SCHEMA" || {
+    warn "Invalid schema name: $TARGET_SCHEMA"
+    TARGET_SCHEMA=""
+    return "$FAIL"
+  }
+  schema_safe=0
+  if [[ -n "$TARGET_PDB" ]]; then
+    [[ "$TARGET_SCHEMA" == CRASHSIM* ]] && schema_safe=1
+  else
+    [[ "$TARGET_SCHEMA" == CRASHSIM* || "$TARGET_SCHEMA" == C##CRASHSIM* ]] && schema_safe=1
+  fi
+  if scenario_uses_schema_context "${SCENARIO_ID:-}" && [[ "$schema_safe" -ne 1 ]]; then
+    echo
+    warn "Schema ${TARGET_SCHEMA} does not look like a CrashSimulator lab schema."
+    echo "Only use disposable lab schemas for destructive logical drills."
+    confirm_token="USE-SCHEMA-${TARGET_SCHEMA}"
+    echo "Type ${confirm_token} to accept this schema, or anything else to cancel:"
+    read -r answer || return "$FAIL"
+    if [[ "$answer" != "$confirm_token" ]]; then
+      TARGET_SCHEMA=""
+      warn "Schema selection cancelled."
+      return "$FAIL"
+    fi
+  fi
+  echo "Schema target set to ${TARGET_SCHEMA}."
+}
+
+menu_prompt_schema_if_useful() {
+  local answer default_label
+
+  scenario_uses_schema_context "$SCENARIO_ID" || return "$SUCCESS"
+  [[ -z "$TARGET_SCHEMA" ]] || return "$SUCCESS"
+  [[ "$MENU_SCHEMA_PROMPTED_SCENARIO" != "$SCENARIO_ID" ]] || return "$SUCCESS"
+  MENU_SCHEMA_PROMPTED_SCENARIO="$SCENARIO_ID"
+
+  echo
+  echo "Scenario ${SCENARIO_ID} can use an optional schema filter."
+  echo "Leaving schema unset lets CrashSimulator choose a disposable candidate during dry-run/execution."
+  if scenario_schema_prompt_default_yes "$SCENARIO_ID"; then
+    default_label="Y/n"
+    echo "Select a schema now? [${default_label}]"
+  else
+    default_label="y/N"
+    echo "Select a schema now? [${default_label}]"
+  fi
+  read -r answer || return "$FAIL"
+  if scenario_schema_prompt_default_yes "$SCENARIO_ID"; then
+    case "$answer" in
+      n|N|no|NO) return "$SUCCESS" ;;
+      *)
+        menu_select_schema || {
+          MENU_SCHEMA_PROMPTED_SCENARIO=""
+          return "$FAIL"
+        }
+        ;;
+    esac
+  else
+    case "$answer" in
+      y|Y|yes|YES)
+        menu_select_schema || {
+          MENU_SCHEMA_PROMPTED_SCENARIO=""
+          return "$FAIL"
+        }
+        ;;
+      *) return "$SUCCESS" ;;
+    esac
+  fi
+}
+
+menu_apply_manifest_context_if_available() {
+  local value
+
+  [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$SUCCESS"
+
+  if [[ -z "$TARGET_PDB" ]]; then
+    value="$(manifest_first_value "target_pdb" "target_1_pdb_name" "action_1_pdb_name" "apex_runtime_target_container" || true)"
+    if [[ -n "$value" ]]; then
+      value="$(normalize_name "$value")"
+      if validate_oracle_name "$value"; then
+        TARGET_PDB="$value"
+        echo "PDB target loaded from manifest: ${TARGET_PDB}"
+      fi
+    fi
+  fi
+
+  if [[ -z "$TARGET_SCHEMA" ]]; then
+    value="$(manifest_first_value "target_schema" "action_1_owner" || true)"
+    if [[ -n "$value" ]]; then
+      value="$(normalize_name "$value")"
+      if validate_oracle_name "$value"; then
+        TARGET_SCHEMA="$value"
+        echo "Schema target loaded from manifest: ${TARGET_SCHEMA}"
+      fi
+    fi
+  fi
+
+  if [[ -z "$TARGET_FILE_NO" ]]; then
+    value="$(manifest_first_value "recover_file_no" "target_1_file_no" "action_1_file_no" || true)"
+    if [[ "$value" =~ ^[0-9]+$ ]]; then
+      TARGET_FILE_NO="$value"
+      echo "FILE# loaded from manifest: ${TARGET_FILE_NO}"
+    fi
+  fi
 }
 
 menu_prompt_oracle_name() {
@@ -12554,8 +12763,62 @@ menu_prompt_rman_catalog() {
 }
 
 menu_prompt_file_no() {
-  local answer
-  echo "Enter FILE#, c to clear, or blank to keep [${TARGET_FILE_NO:-not set}]:"
+  local answer target_file idx row file_no pdb_name tablespace size_mb file_name where_clause
+
+  discover_environment || true
+  target_file="$WORK_DIR/menu_datafiles.lst"
+  if [[ "$DB_CDB" == "YES" ]]; then
+    where_clause="where c.name <> 'PDB\$SEED'"
+    if [[ -n "$TARGET_PDB" ]]; then
+      where_clause="${where_clause} and c.name = $(sql_quote "$TARGET_PDB")"
+    fi
+    sql_query "$target_file" "
+select vf.file# || '|' ||
+       c.name || '|' ||
+       nvl(ts.name, 'UNKNOWN') || '|' ||
+       round(vf.bytes/1024/1024) || '|' ||
+       vf.name
+from v\$datafile vf
+join v\$containers c
+  on c.con_id = vf.con_id
+left join v\$tablespace ts
+  on ts.con_id = vf.con_id
+ and ts.ts# = vf.ts#
+${where_clause}
+order by vf.con_id, vf.file#;
+"
+  else
+    sql_query "$target_file" "
+select vf.file# || '|NONCDB|' ||
+       nvl(ts.name, 'UNKNOWN') || '|' ||
+       round(vf.bytes/1024/1024) || '|' ||
+       vf.name
+from v\$datafile vf
+left join v\$tablespace ts
+  on ts.ts# = vf.ts#
+order by vf.file#;
+"
+  fi
+  load_rows "$target_file" || true
+
+  echo
+  echo "Datafile FILE# selection"
+  if [[ "${#TARGET_ROWS[@]}" -gt 0 ]]; then
+    echo "Available datafiles$([[ -n "$TARGET_PDB" ]] && printf " for PDB %s" "$TARGET_PDB"):"
+    idx=1
+    for row in "${TARGET_ROWS[@]}"; do
+      IFS='|' read -r file_no pdb_name tablespace size_mb file_name <<<"$row"
+      printf "  %2d. FILE#=%-5s PDB=%-20s TBS=%-24s SIZE_MB=%-8s %s\n" \
+        "$idx" "$file_no" "$pdb_name" "$tablespace" "${size_mb:-unknown}" "$file_name"
+      idx=$((idx + 1))
+      [[ "$idx" -le 40 ]] || break
+    done
+  else
+    echo "No datafiles were discovered for the current target context."
+  fi
+
+  echo
+  echo "Enter list number or FILE#, c to clear, or blank to keep [${TARGET_FILE_NO:-not set}]:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || return "$SUCCESS"
   case "$answer" in
@@ -12569,8 +12832,76 @@ menu_prompt_file_no() {
     warn "Invalid FILE#: $answer"
     return "$FAIL"
   }
-  TARGET_FILE_NO="$answer"
+  if [[ "${#TARGET_ROWS[@]}" -gt 0 && "$answer" -ge 1 && "$answer" -le "${#TARGET_ROWS[@]}" ]]; then
+    IFS='|' read -r TARGET_FILE_NO pdb_name tablespace size_mb file_name <<<"${TARGET_ROWS[$((answer - 1))]}"
+  else
+    TARGET_FILE_NO="$answer"
+  fi
   echo "FILE# set to ${TARGET_FILE_NO}."
+}
+
+menu_show_selected_scenario_readiness() {
+  [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]] || return "$SUCCESS"
+
+  if validate_scenario_can_run "$SCENARIO_ID"; then
+    echo "Readiness: RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+  elif [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+    echo "Readiness: PLAN-ONLY - ${SCENARIO_VALIDATION_REASON}"
+    echo "Execution remains blocked until the guardrail is resolved."
+  else
+    echo "Readiness: NOT RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+    echo "This scenario cannot be executed in the current topology or target context."
+  fi
+}
+
+menu_prompt_file_no_for_recovery_if_useful() {
+  local answer
+
+  scenario_file_no_context_useful "$SCENARIO_ID" || return "$SUCCESS"
+  [[ -z "$TARGET_FILE_NO" ]] || return "$SUCCESS"
+  [[ -z "$MANIFEST_FILE" ]] || return "$SUCCESS"
+
+  echo
+  echo "Recovery helper note"
+  echo "No recovery manifest is selected. A manifest is preferred because it carries the exact target metadata."
+  echo "You can optionally select a FILE# now for recovery override/live discovery fallback."
+  echo "Select FILE# now? [y/N]"
+  read -r answer || return "$FAIL"
+  case "$answer" in
+    y|Y|yes|YES) menu_prompt_file_no ;;
+    *) return "$SUCCESS" ;;
+  esac
+}
+
+menu_ensure_scenario_context() {
+  local action="${1:-scenario}"
+  local run_mode="${2:-dry-run}"
+
+  [[ -n "$run_mode" ]] || run_mode="dry-run"
+  menu_require_scenario || return "$FAIL"
+  discover_environment || true
+
+  if scenario_requires_pdb_context "$SCENARIO_ID" && [[ -z "$TARGET_PDB" ]]; then
+    echo
+    echo "Scenario ${SCENARIO_ID} requires a PDB target."
+    if ! menu_auto_select_single_pdb; then
+      menu_select_pdb || return "$FAIL"
+    fi
+    if [[ -z "$TARGET_PDB" ]]; then
+      warn "PDB target is still not set. Select a PDB before continuing with scenario ${SCENARIO_ID}."
+      return "$FAIL"
+    fi
+  fi
+
+  menu_prompt_schema_if_useful || return "$FAIL"
+
+  if [[ "$action" == "recover" ]]; then
+    menu_apply_manifest_context_if_available
+    menu_prompt_file_no_for_recovery_if_useful || return "$FAIL"
+  fi
+
+  echo
+  menu_show_selected_scenario_readiness
 }
 
 menu_configure_scenario25() {
@@ -12665,7 +12996,7 @@ menu_configure_options() {
     read -r answer || return "$FAIL"
     case "$answer" in
       1) menu_select_pdb; menu_pause ;;
-      2) menu_prompt_oracle_name "schema" TARGET_SCHEMA "$TARGET_SCHEMA"; menu_pause ;;
+      2) menu_select_schema; menu_pause ;;
       3) menu_prompt_file_no; menu_pause ;;
       4)
         menu_prompt_path "manifest path" MANIFEST_FILE "$MANIFEST_FILE"
@@ -12695,6 +13026,7 @@ menu_configure_options() {
         ;;
       12)
         SCENARIO_ID=""
+        MENU_SCHEMA_PROMPTED_SCENARIO=""
         TARGET_PDB=""
         TARGET_SCHEMA=""
         TARGET_FILE_NO=""
@@ -12865,10 +13197,8 @@ menu_run_child_action() {
     return "$FAIL"
   }
 
-  MENU_CMD=("$0")
   case "$action" in
     scenario)
-      MENU_CMD+=("--scenario" "$SCENARIO_ID")
       ;;
     protect)
       if ! supports_file_recovery_automation "$SCENARIO_ID"; then
@@ -12876,7 +13206,6 @@ menu_run_child_action() {
         warn "Automated protection is not available for scenario ${SCENARIO_ID}: ${capability}. Use menu option 4 for the runbook and refresh the backup baseline where appropriate."
         return "$FAIL"
       fi
-      MENU_CMD+=("--protect" "$SCENARIO_ID")
       ;;
     recover)
       if ! supports_recovery_automation "$SCENARIO_ID"; then
@@ -12885,12 +13214,23 @@ menu_run_child_action() {
         return "$FAIL"
       fi
       menu_choose_recovery_manifest
-      MENU_CMD+=("--recover" "$SCENARIO_ID")
-      [[ -n "$MANIFEST_FILE" ]] && MENU_CMD+=("--manifest" "$MANIFEST_FILE")
+      menu_apply_manifest_context_if_available
       ;;
     *)
       warn "Unknown action: $action"
       return "$FAIL"
+      ;;
+  esac
+
+  menu_ensure_scenario_context "$action" "$run_mode" || return "$FAIL"
+
+  MENU_CMD=("$0")
+  case "$action" in
+    scenario) MENU_CMD+=("--scenario" "$SCENARIO_ID") ;;
+    protect) MENU_CMD+=("--protect" "$SCENARIO_ID") ;;
+    recover)
+      MENU_CMD+=("--recover" "$SCENARIO_ID")
+      [[ -n "$MANIFEST_FILE" ]] && MENU_CMD+=("--manifest" "$MANIFEST_FILE")
       ;;
   esac
 
@@ -12922,6 +13262,7 @@ menu_run_validate_scenario() {
     warn "No scenario selected."
     return "$FAIL"
   }
+  menu_ensure_scenario_context "validate" "dry-run" || return "$FAIL"
 
   MENU_CMD=("$0" "--validate-scenario" "$SCENARIO_ID")
   menu_append_common_child_args

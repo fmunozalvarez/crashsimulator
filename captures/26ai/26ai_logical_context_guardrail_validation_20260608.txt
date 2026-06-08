@@ -1,0 +1,18 @@
+Scenario readiness validation
+Scenario 43: PDB loss of one user table
+Group: PDB
+Scope: PDB
+Impact: logical
+Requires: cdb,pdb,primary
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Scenario readiness validation
+Scenario 44: PDB loss of one user schema
+Group: PDB
+Scope: PDB
+Impact: logical
+Requires: cdb,pdb,primary
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.

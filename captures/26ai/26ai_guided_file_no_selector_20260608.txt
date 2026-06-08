@@ -1,0 +1,151 @@
+Audit logging enabled: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003941_49317
+Audit stream capture: disabled for interactive guided menu; generated artifacts will still be retained.
+Starting CrashSimulator Guided Workflow menu...
+Discovering target topology for the menu header. This normally takes a few seconds.
+If startup appears slow, verify ORACLE_HOME, ORACLE_SID, and local SYSDBA access.
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 1  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+Datafile FILE# selection
+Available datafiles:
+   1. FILE#=1     PDB=CDB$ROOT             TBS=SYSTEM                   SIZE_MB=1190     +DATA/CRASHDB_26AI/DATAFILE/system.264.1235269617
+   2. FILE#=3     PDB=CDB$ROOT             TBS=SYSAUX                   SIZE_MB=1070     +DATA/CRASHDB_26AI/DATAFILE/sysaux.273.1235269601
+   3. FILE#=4     PDB=CDB$ROOT             TBS=UNDOTBS1                 SIZE_MB=125      +DATA/CRASHDB_26AI/DATAFILE/undotbs1.263.1235269641
+   4. FILE#=7     PDB=CDB$ROOT             TBS=USERS                    SIZE_MB=100      +DATA/CRASHDB_26AI/DATAFILE/users.265.1235269643
+   5. FILE#=9     PDB=CDB$ROOT             TBS=UNDOTBS2                 SIZE_MB=60       +DATA/CRASHDB_26AI/DATAFILE/undotbs2.272.1235269599
+   6. FILE#=17    PDB=CDB$ROOT             TBS=CRASHSIM_ROOT_RO_TBS     SIZE_MB=16       +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_ro_tbs.278.1235272137
+   7. FILE#=18    PDB=CDB$ROOT             TBS=CRASHSIM_ROOT_INDEX_TBS  SIZE_MB=16       +DATA/CRASHDB_26AI/DATAFILE/crashsim_root_index_tbs.281.1235272139
+   8. FILE#=10    PDB=CRASHDB_PDB1         TBS=SYSTEM                   SIZE_MB=550      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/system.280.1235269875
+   9. FILE#=11    PDB=CRASHDB_PDB1         TBS=SYSAUX                   SIZE_MB=910      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/sysaux.275.1235269885
+  10. FILE#=12    PDB=CRASHDB_PDB1         TBS=UNDOTBS1                 SIZE_MB=225      +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undotbs1.276.1235269893
+  11. FILE#=13    PDB=CRASHDB_PDB1         TBS=UNDO_5                   SIZE_MB=60       +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/undo_5.274.1235269897
+  12. FILE#=14    PDB=CRASHDB_PDB1         TBS=USERS                    SIZE_MB=72       +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/users.279.1235269875
+  13. FILE#=19    PDB=CRASHDB_PDB1         TBS=CRASHSIM_RO_TBS          SIZE_MB=16       +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_ro_tbs.282.1235272139
+  14. FILE#=20    PDB=CRASHDB_PDB1         TBS=CRASHSIM_INDEX_TBS       SIZE_MB=16       +DATA/CRASHDB_26AI/53A1ADBFCEF966E7E0630500000AB462/DATAFILE/crashsim_index_tbs.283.1235272139
+
+Enter list number or FILE#, c to clear, or blank to keep [not set]:
+
+Press Enter to continue...
+
+Configure Menu Context
+  1. Select PDB
+  2. Set schema
+  3. Set FILE#
+  4. Set recovery manifest
+  5. Set PFILE path
+  6. Scenario 25 backup-piece guardrails
+  7. Password-file recovery options
+  8. Set log directory
+  9. Set RMAN recovery catalog
+ 10. Set baseline backup tag prefix
+ 11. FRA/TEMP/RTO-RPO drill options
+ 12. Clear selected scenario and targets
+  b. Back
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Audit retain: 1  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Show recent manifests and logs
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+Audit record finalized: /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003941_49317

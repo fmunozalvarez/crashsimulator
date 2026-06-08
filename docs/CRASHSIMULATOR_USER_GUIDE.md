@@ -281,8 +281,8 @@ The menu provides options to:
 - Execute a scenario.
 - Dry-run or execute recovery.
 - Run health checks.
-- Configure PDB, schema, FILE#, manifest, PFILE, log directory, password-file
-  recovery, RMAN catalog, and scenario 25 guardrails.
+- Configure or be guided through PDB, schema, FILE#, manifest, PFILE, log
+  directory, password-file recovery, RMAN catalog, and scenario 25 guardrails.
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.
@@ -295,6 +295,17 @@ The menu provides options to:
 
 The menu calls the same script in CLI mode, so menu usage and command-line
 automation behave consistently.
+
+When a selected scenario needs additional target context, the menu now guides
+the operator before validation, dry-run, protection, execution, or recovery.
+For example, PDB-scoped scenarios prompt for a PDB target and auto-select the
+only available user PDB when that is unambiguous. Logical object-loss scenarios
+such as `11`, `36`, `43`, and `44` offer an optional disposable lab-schema
+selector. In PDB context the selector lists local `CRASHSIM%` lab schemas; in
+root/non-PDB context it can also list common `C##CRASHSIM%` lab schemas. Typed
+non-lab schemas require explicit confirmation.
+FILE# selection shows datafile context including PDB, tablespace, size, and file
+location; `PDB$SEED` files are hidden from this guided selector.
 
 When a scenario is selected, the menu header shows lifecycle coverage for that
 scenario: validation, protection, and recovery. If an operator chooses

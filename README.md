@@ -111,6 +111,11 @@ menu modes.
 ./CrashSimulatorV2.sh --scenario 30 --pdb CRASHPDB --dry-run
 ```
 
+The Guided Workflow menu can also prompt for required scenario context. PDB
+scenarios guide PDB selection, logical drills can offer disposable lab schemas,
+and FILE# selection shows datafile/PDB/tablespace context instead of requiring
+operators to type an unexplained number.
+
 ## Important Safety Note
 
 Run destructive scenarios only in approved non-production or dedicated
