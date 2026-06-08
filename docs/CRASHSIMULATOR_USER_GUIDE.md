@@ -387,8 +387,10 @@ signals, FRA configuration, and other topology evidence.
 
 ### Scenario Registry
 
-`--list` prints all registered scenarios with ID, group, scope, impact, and
-scenario name. The current registry contains 82 scenarios.
+`--list` prints the database-host and application access-path scenarios with
+ID, group, scope, impact, and scenario name. The full CrashSimulator catalog
+contains 97 entries: 82 database-host/application scenarios plus 15
+Autonomous Database cloud-service scenarios listed with `--list-adb-scenarios`.
 
 ### Dry-Run Planning
 
@@ -1046,8 +1048,8 @@ Scope meanings:
 
 - `CDB/non-CDB`: Applies to either a CDB root or a non-CDB target.
 - `PDB`: Requires `--pdb <name>`.
-- `ASM`, `Cluster`, `RAC`, `Standby`, `Primary`, `DG`, or `External`: Requires
-  that topology or external component.
+- `ASM`, `Cluster`, `RAC`, `Standby`, `Primary`, `DG`, `External`, or `ADB`:
+  Requires that topology, cloud-service target, or external component.
 
 | ID | Scenario | Area | Scope | Impact | What users practice | Key notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1133,6 +1135,32 @@ Scope meanings:
 | 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | 81 | APEX mail queue and configuration validation | APEX/ORDS | Application | logical | SMTP, wallet/TLS, network ACL, failed mail queue, and notification recovery checks. | Read-only report/evidence drill. |
 | 82 | APEX upgrade or patch rollback readiness | APEX/ORDS | Application | logical | Pre/post APEX version, invalid object, ORDS config, runtime-user, and application smoke evidence. | Read-only readiness/runbook drill for APEX/ORDS patching and rollback decisions. |
+
+### Autonomous Database Scenario Catalog
+
+Autonomous Database scenarios use `ADB01` through `ADB15` because they validate
+cloud-service and client/application dependencies rather than database-host
+file removal. They are listed with `--list-adb-scenarios`, inspected with
+`--adb-scenario <ADB01-ADB15>`, and included in the Guided Workflow Autonomous
+Database submenu.
+
+| ID | Scenario | Area | Scope | Impact | What users practice | Key notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| ADB01 | Drop critical application table | ADB | Logical recovery | logical | Flashback, clone, export, or data-merge recovery for a disposable critical table. | Requires live SQL connection and seeded lab table before execution helpers are added. |
+| ADB02 | Drop application schema | ADB | Logical recovery | logical | Schema-level recovery through clone/export, grants/object inventory, and application validation. | Plan/runbook first; destructive logical helper pending. |
+| ADB03 | Mass DELETE without WHERE clause | ADB | Logical recovery | logical | Recovering accidentally deleted rows with flashback query/table, clone comparison, or data merge. | Requires row-count evidence and flashback window validation. |
+| ADB04 | Incorrect UPDATE corrupts business data | ADB | Logical recovery | logical | Before/after validation, Flashback Versions Query, object restore, and data comparison. | Requires disposable lab rows and validation query. |
+| ADB05 | Recover from clone | ADB | Clone/PITR | logical | Creating a recovery clone, validating objects/application state, and merging recovered data. | Requires OCI clone permissions and source/timestamp evidence. |
+| ADB06 | Point-in-time recovery drill | ADB | Clone/PITR | logical | Measuring RTO/RPO with clone-to-time or PITR-style ADB recovery. | Requires backup retention and timestamp selection evidence. |
+| ADB07 | Validate backup recoverability | ADB | Backup readiness | logical | Proving backup retention, latest backup, PITR window, and clone/restore capability. | Evidence-only until OCI control-plane helper is implemented. |
+| ADB08 | Expired or rotated client wallet | ADB | Connectivity | logical | Wallet rotation, client distribution, reconnect, and application smoke validation. | Keep passwords out of config files; use environment variables for credentials. |
+| ADB09 | Private endpoint connectivity loss | ADB | Network | logical | DNS, bastion path, routes, NSGs/security lists, and reconnect validation. | Plan/runbook first; use approved network fault boundaries only. |
+| ADB10 | Connection pool saturation | ADB | Resource limits | logical | Diagnosing pool pressure, retry/backoff behavior, service class, and application impact. | Requires approved workload limits and monitoring. |
+| ADB11 | Resource Manager or concurrency pressure | ADB | Resource limits | logical | Reviewing service classes, scaling posture, consumer limits, and workload scheduling. | Plan/runbook first; workload helper pending. |
+| ADB12 | Cross-region DR validation | ADB | Autonomous Data Guard | logical | Autonomous Data Guard lag, failover eligibility, reconnect, and RTO/RPO measurement. | Requires OCI ADG metadata and peer/region evidence. |
+| ADB13 | Autonomous Data Guard role transition | ADB | Autonomous Data Guard | logical | Switchover/failover runbook, URL/service validation, and fallback planning. | Requires OCI ADG role and transition eligibility evidence. |
+| ADB14 | IAM administrator access misconfiguration | ADB | OCI/IAM | logical | Break-glass access, IAM policy/group evidence, and admin automation recovery. | Read-only evidence first; test only inside an approved IAM boundary. |
+| ADB15 | Object Storage export dependency unavailable | ADB | Object Storage | logical | Restoring bucket, policy, credential, network access, and export/import procedures. | Requires bucket/credential/DBMS_CLOUD dependency evidence. |
 
 ## Scenario Selection Guidance
 

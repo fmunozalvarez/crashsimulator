@@ -760,9 +760,11 @@ For automated lab runs only:
 
 ## Current Status
 
-The framework currently registers `82` scenarios across Core, PDB, Backup,
-Config, Corrupt, Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network,
-Security, Compliance, and APEX/ORDS groups.
+The framework currently tracks `97` total scenarios: `82` database-host and
+application access-path scenarios across Core, PDB, Backup, Config, Corrupt,
+Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network, Security,
+Compliance, and APEX/ORDS groups, plus `ADB01` through `ADB15` for Autonomous
+Database cloud-service readiness and recovery practice.
 
 The first OCI Base DB Service lab validated representative control-file, redo,
 datafile, tempfile, password-file, SPFILE, backup-piece, PDB, and archived-log

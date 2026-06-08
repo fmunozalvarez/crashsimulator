@@ -7,9 +7,11 @@ the RAC/GI/ASM validation environments, including the current two-node RAC lab.
 
 Current framework registry snapshot:
 
-- `82` registered scenarios across Core, PDB, Backup, Config, Corrupt, Logical,
-  ASM, GI, Data Guard, Active Data Guard, RAC, Network, Security, and
-  Compliance, and APEX/ORDS groups.
+- `97` total catalog entries: `82` database-host and application access-path
+  scenarios across Core, PDB, Backup, Config, Corrupt, Logical, ASM, GI,
+  Data Guard, Active Data Guard, RAC, Network, Security, Compliance, and
+  APEX/ORDS groups, plus `ADB01` through `ADB15` Autonomous Database
+  cloud-service scenarios.
 - Newly added high-value resilience drills: `61` FRA pressure, `62` required
   archived-log recovery gap, `63` TEMP exhaustion, `64` RTO validation, and
   `65` RPO validation.

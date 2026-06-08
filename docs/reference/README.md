@@ -21,11 +21,17 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
 
 ## Scenario Registry And Readiness References
 
+- `scenario_registry_97_reference.md`
+  - Generated from `./CrashSimulatorV2.sh --list --audit-retain no` plus the
+    `ADB01`-`ADB15` Autonomous Database scenario registry.
+  - Summarizes the current 97-scenario catalog, including database-host,
+    infrastructure, application access-path, compliance, and ADB cloud-service
+    scenarios.
+  - HTML copy: `scenario_registry_97_reference.md.html`
 - `scenario_registry_82_reference.md`
   - Generated from `./CrashSimulatorV2.sh --list --audit-retain no`
-  - Summarizes the current 82-scenario registry, group counts, newly added
-    resilience/DG/RAC/ASM/APEX/ORDS scenarios, and current protection/recovery
-    helper coverage.
+  - Historical reference for the 82-scenario registry before the Autonomous
+    Database scenario family was added.
   - HTML copy: `scenario_registry_82_reference.md.html`
 - `scenario_lifecycle_coverage_reference.md`
   - Generated with `./CrashSimulatorV2.sh --scenario-lifecycle-report --html`
@@ -126,6 +132,7 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_target_control_file_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_recovery_catalog_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_deep_validate_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_97_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_82_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_lifecycle_coverage_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/26ai/26ai_scenario_readiness_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference

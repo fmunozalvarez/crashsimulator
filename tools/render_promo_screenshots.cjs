@@ -212,7 +212,7 @@ async function render(config, browser) {
 
 function parseScenarios() {
   const text = fs.readFileSync(path.join(root, "captures", "scenarios_available.txt"), "utf8");
-  return text
+  const databaseScenarios = text
     .split("\n")
     .map((line) => line.match(/^\s*(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/))
     .filter((match) => match && match[1] !== "ID")
@@ -223,6 +223,27 @@ function parseScenarios() {
       impact: match[4],
       title: match[5].trim(),
     }));
+
+  return databaseScenarios.concat(parseAdbScenarios());
+}
+
+function parseAdbScenarios() {
+  const script = fs.readFileSync(path.join(root, "CrashSimulatorV2.sh"), "utf8");
+  const scenarios = [];
+  const regex = /register_adb_scenario\s+"(ADB\d+)"\s+"([^"]+)"\s+"([^"]+)"/g;
+  let match;
+
+  while ((match = regex.exec(script)) !== null) {
+    scenarios.push({
+      id: match[1],
+      group: "ADB",
+      scope: match[3],
+      impact: "logical",
+      title: match[2].trim(),
+    });
+  }
+
+  return scenarios;
 }
 
 function scenarioAccent(group) {
@@ -242,6 +263,7 @@ function scenarioAccent(group) {
     Security: "#f472b6",
     Compliance: "#facc15",
     "APEX/ORDS": "#fb7185",
+    ADB: "#4ade80",
   };
   return colors[group] || "#94a3b8";
 }
@@ -290,7 +312,7 @@ function writeScenarioCatalogPage() {
   }
 
   const leftGroups = ["Core", "Config", "Backup", "ASM", "DataGuard", "RAC", "Security"];
-  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance", "APEX/ORDS"];
+  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance", "APEX/ORDS", "ADB"];
   const leftCards = leftGroups
     .filter((group) => byGroup.has(group))
     .map((group) => renderGroupCard(group, byGroup.get(group)))
@@ -320,7 +342,7 @@ function writeScenarioCatalogPage() {
     .canvas {
       position: relative;
       width: 2400px;
-      min-height: 3300px;
+      min-height: 3800px;
       padding: 86px;
       background:
         radial-gradient(circle at 15% 12%, rgba(56, 189, 248, .16), transparent 28%),
@@ -433,14 +455,14 @@ function writeScenarioCatalogPage() {
     }
     .scenario-row {
       display: grid;
-      grid-template-columns: 58px 1fr;
+      grid-template-columns: 78px 1fr;
       gap: 14px;
       padding: 14px 22px;
       border-bottom: 1px solid rgba(51, 65, 85, .55);
     }
     .scenario-row:last-child { border-bottom: 0; }
     .id {
-      width: 48px;
+      width: 68px;
       height: 34px;
       border-radius: 9px;
       display: grid;
@@ -495,7 +517,7 @@ function writeScenarioCatalogPage() {
     <section class="hero">
       <div class="kicker">Current Scenario Registry</div>
       <h1>CrashSimulator Scenario Catalog</h1>
-      <p class="summary">Controlled Oracle Database failure and recovery drills across CDB/non-CDB, PDB, backup/recovery, configuration, ASM/Grid Infrastructure, RAC, Data Guard, Active Data Guard, network, and security domains.</p>
+      <p class="summary">Controlled Oracle Database failure and recovery drills across CDB/non-CDB, PDB, backup/recovery, configuration, ASM/Grid Infrastructure, RAC, Data Guard, Active Data Guard, APEX/ORDS, Autonomous Database, network, security, and compliance domains.</p>
       <div class="stats">
         <div class="stat"><b>${scenarios.length}</b><span>registered scenarios</span></div>
         <div class="stat"><b>${destructiveCount}</b><span>destructive drills</span></div>
@@ -508,7 +530,7 @@ function writeScenarioCatalogPage() {
       <div class="column">${leftCards}</div>
       <div class="column">${rightCards}</div>
     </section>
-    <div class="brand">Generated from ./CrashSimulatorV2.sh --list</div>
+    <div class="brand">Generated from ./CrashSimulatorV2.sh --list plus ADB01-ADB15 registry</div>
   </main>
 </body>
 </html>`;
