@@ -42,7 +42,7 @@ function wrapLine(line, width) {
 }
 
 function lineClass(line) {
-  if (/^(CrashSimulator V2|Aleatory scenario|Reports|Guided Workflow|# CrashSimulator Oracle MAA|# CrashSimulator Scenario Readiness|MAA readiness)/.test(line)) {
+  if (/^(CrashSimulator V2|Aleatory scenario|Reports|Guided Workflow|Autonomous Database Scenarios|# CrashSimulator Oracle MAA|# CrashSimulator Scenario Readiness|# CrashSimulator Autonomous Database|CrashSimulator Best-Practice|MAA readiness)/.test(line)) {
     return "accent";
   }
   if (/^(Database:|DB unique name:|Instance:|Topology:|PDB target context:|Mode:|Manifest:|Detected MAA posture:|Readiness status:)/.test(line)) {
@@ -1054,6 +1054,50 @@ async function renderMaaSummary(browser) {
         height: 1500,
         lineLimit: 42,
         wrap: 118,
+      },
+      {
+        input: "captures/config_review_workflow.txt",
+        html: "config_review_workflow.html",
+        output: "crashsim_config_review_workflow.png",
+        title: "Configuration And Evidence Review",
+        subtitle: "Guided menu | config, target selection, reports, logs",
+        prompt: "$ ./CrashSimulatorV2.sh --menu",
+        height: 1750,
+        lineLimit: 48,
+        wrap: 120,
+      },
+      {
+        input: "captures/adb_readiness_report.txt",
+        html: "adb_readiness_report.html",
+        output: "crashsim_adb_readiness_report.png",
+        title: "Autonomous Database Readiness",
+        subtitle: "ADB report | wallet, SQL evidence, APEX, scenario coverage",
+        prompt: "$ ./CrashSimulatorV2.sh --adb-readiness-report --html",
+        height: 1700,
+        lineLimit: 44,
+        wrap: 118,
+      },
+      {
+        input: "captures/adb_scenario_menu.txt",
+        html: "adb_scenario_menu.html",
+        output: "crashsim_adb_scenario_menu.png",
+        title: "Autonomous Database Scenarios",
+        subtitle: "Guided menu | ADB01-ADB15 readiness and scenario detail",
+        prompt: "$ ./CrashSimulatorV2.sh --menu",
+        height: 1650,
+        lineLimit: 43,
+        wrap: 118,
+      },
+      {
+        input: "captures/best_practices_workflow.txt",
+        html: "best_practices_workflow.html",
+        output: "crashsim_best_practices_workflow.png",
+        title: "CrashSimulator Best Practices",
+        subtitle: "Operate every drill through readiness, protection, recovery, evidence",
+        prompt: "",
+        height: 1750,
+        lineLimit: 48,
+        wrap: 120,
       },
     ];
 

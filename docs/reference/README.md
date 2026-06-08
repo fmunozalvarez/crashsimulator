@@ -98,6 +98,14 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 
 ## Autonomous Database Readiness References
 
+- `autonomous_database_readiness_report_example.md`
+  - Generated with `./CrashSimulatorV2.sh --adb-readiness-report --html`
+    from the bastion-host ADB client path.
+  - Shows wallet/TNS alias evidence, `python-oracledb` connectivity, APEX
+    registry evidence, Flashback Archive retention, ADB scenario coverage, and
+    OCI control-plane gaps for clone/PITR/ADG/IAM/Object Storage checks.
+  - HTML copy: `autonomous_database_readiness_report_example.md.html`
+  - Raw evidence copy: `autonomous_database_readiness_report_example.evidence`
 - `../../reports/crashsim_adb_readonly_discovery_20260608.md`
   - Read-only discovery evidence from the first live Autonomous Database target
     using a bastion-host Python client and wallet.

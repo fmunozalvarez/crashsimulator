@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial summarizes the recommended operating model for safe, repeatable, evidence-rich resilience validation.
+
+2
+00:00:07.000 --> 00:00:18.000
+Run destructive drills only in approved non-production environments that match the topology you want to learn.
+
+3
+00:00:18.000 --> 00:00:29.000
+Start every cycle with topology discovery, health checks, configuration reports, backup recoverability, and MAA readiness.
+
+4
+00:00:29.000 --> 00:00:41.000
+Use scenario readiness buckets to avoid unsupported topology and provider-specific destructive actions.
+
+5
+00:00:41.000 --> 00:00:53.000
+Refresh backups and targeted protection before destructive drills, especially after structural changes or prior recoveries.
+
+6
+00:00:53.000 --> 00:01:04.000
+A dry-run should show target selection, planned actions, guardrails, runbook hints, and evidence paths before any fault is injected.
+
+7
+00:01:04.000 --> 00:01:16.000
+Execution requires explicit confirmation and should be paired with monitoring, timestamps, and a rollback or recovery owner.
+
+8
+00:01:16.000 --> 00:01:28.000
+Recovery is complete only after the database, PDBs, services, application path, backups, and validation reports are healthy again.
+
+9
+00:01:28.000 --> 00:01:40.000
+Keep manifests, runbooks, audit logs, reports, screenshots, and HTML artifacts so drills support training and compliance.
+
+10
+00:01:40.000 --> 00:01:52.000
+After every drill, update scenarios, guardrails, runbooks, reports, and topology notes based on what the lab taught you.

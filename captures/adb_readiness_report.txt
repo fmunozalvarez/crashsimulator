@@ -1,0 +1,45 @@
+# CrashSimulator Autonomous Database Readiness Report
+
+- Generated UTC: `2026-06-08T13:44:23Z`
+- Host: `crashbastian`
+- ADB user: `ADMIN`
+- TLS mode: `mTLS`
+
+Connection And Configuration
+  Wallet state: present
+  Wallet aliases: crashautonomous_high, crashautonomous_low, crashautonomous_medium, crashautonomous_tp
+  Connect alias: crashautonomous_low
+  python-oracledb: 4.0.1
+  SQL connection: OK
+  OCI control-plane posture: not configured
+
+Live SQL Evidence Summary
+  Open mode: READ WRITE
+  Database role: PRIMARY
+  Version: Oracle AI Database 26ai Enterprise Edition 23.26.2.2.0
+  APEX registry: 24.2.17:VALID
+  Flashback archive retention days: 60
+  Open application users: 2
+  Invalid objects: 0
+  Resource plan: OLTP_PLAN
+
+Readiness Checks
+  OK   mTLS wallet available
+  OK   python-oracledb available
+  OK   Live SQL probe connects
+  OK   APEX component visible
+  OK   Flashback Archive evidence
+  WARN OCI control-plane metadata not configured
+  OK   User-facing URLs recorded
+
+Readiness Summary
+  Readiness score: 85%
+  OK checks: 6
+  Warnings: 1
+  Gaps: 0
+
+Autonomous Scenario Coverage
+  ADB01 Drop critical application table: RUNNABLE after disposable lab seed
+  ADB03 Mass DELETE without WHERE clause: RUNNABLE after disposable lab seed
+  ADB08 Expired or rotated client wallet: PLAN/RUNBOOK
+  ADB12 Autonomous Data Guard validation: OCI CONFIG NEEDED

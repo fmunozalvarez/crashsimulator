@@ -466,6 +466,18 @@ Generated assets:
 - `crashsimulator_apex_session_driver_tutorial.mp4`: short 1080p APEX/ORDS readiness and scenario 80 browser-session tutorial with burned-in subtitles.
 - `crashsimulator_apex_session_driver_tutorial_with_audio.mp4`: narrated APEX/ORDS scenario 80 tutorial generated from the subtitles.
 - `crashsimulator_apex_session_driver_tutorial_subtitles.vtt`: APEX/ORDS tutorial WebVTT subtitle sidecar.
+- `crashsimulator_config_review_tutorial.mp4`: short 1080p configuration, file selection, and Review Center tutorial with burned-in subtitles.
+- `crashsimulator_config_review_tutorial_with_audio.mp4`: narrated configuration and review tutorial generated from the subtitles.
+- `crashsimulator_config_review_tutorial_subtitles.vtt`: configuration and review tutorial WebVTT subtitle sidecar.
+- `crashsimulator_adb_readiness_tutorial.mp4`: short 1080p Autonomous Database readiness report tutorial with burned-in subtitles.
+- `crashsimulator_adb_readiness_tutorial_with_audio.mp4`: narrated ADB readiness tutorial generated from the subtitles.
+- `crashsimulator_adb_readiness_tutorial_subtitles.vtt`: ADB readiness tutorial WebVTT subtitle sidecar.
+- `crashsimulator_adb_scenario_tutorial.mp4`: short 1080p ADB scenario selection and validation tutorial with burned-in subtitles.
+- `crashsimulator_adb_scenario_tutorial_with_audio.mp4`: narrated ADB scenario tutorial generated from the subtitles.
+- `crashsimulator_adb_scenario_tutorial_subtitles.vtt`: ADB scenario tutorial WebVTT subtitle sidecar.
+- `crashsimulator_best_practices_tutorial.mp4`: short 1080p CrashSimulator best-practice operating model tutorial with burned-in subtitles.
+- `crashsimulator_best_practices_tutorial_with_audio.mp4`: narrated best-practices tutorial generated from the subtitles.
+- `crashsimulator_best_practices_tutorial_subtitles.vtt`: best-practices tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
@@ -477,6 +489,10 @@ python3 tools/render_audit_retention_tutorial_video.py
 python3 tools/render_scenario_readiness_tutorial_video.py
 python3 tools/render_guided_reports_menu_tutorial_video.py
 python3 tools/render_apex_session_driver_tutorial_video.py
+python3 tools/render_config_review_tutorial_video.py
+python3 tools/render_adb_readiness_tutorial_video.py
+python3 tools/render_adb_scenario_tutorial_video.py
+python3 tools/render_best_practices_tutorial_video.py
 ```
 
 On macOS, regenerate the narrated copies from the subtitle scripts with:
@@ -493,8 +509,14 @@ reading the runnable/blocked buckets, using `latest:scenario-readiness`, and
 launching the same capability from the Guided Workflow menu. The Reports menu
 tutorial covers configuration, MAA best practices, Oracle service HA review,
 backup strategy/recoverability, baseline backups, lifecycle coverage, and HTML
-evidence review. The APEX/ORDS tutorial covers readiness reporting, seeded
-scenario 80 browser-session evidence, and preserving user-facing artifacts.
+evidence review. The configuration and review tutorial covers saved defaults,
+target prompts, FILE# selection, and inspecting retained audit/report/manifest
+artifacts. The ADB tutorials cover ADB readiness reporting, report context,
+ADB01-ADB15 browsing, and ADB scenario validation posture. The APEX/ORDS
+tutorial covers readiness reporting, seeded scenario 80 browser-session
+evidence, and preserving user-facing artifacts. The best-practices tutorial
+summarizes the recommended operating model from discovery to post-drill
+stabilization and evidence retention.
 """,
         encoding="utf-8",
     )

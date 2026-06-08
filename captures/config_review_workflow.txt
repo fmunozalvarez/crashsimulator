@@ -1,0 +1,43 @@
+CrashSimulator V2 2.0.0-dev
+Database: crashrdb  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: FEX  Cluster: RAC
+
+Guided Workflow
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Choice: 12
+
+Configure targets and options
+  1. Set target PDB
+  2. Set target schema
+  3. Set target FILE#
+  4. Set log directory
+  5. Set RMAN recovery catalog
+  6. Set scenario 25 local-only guardrails
+  9. Show active configuration
+
+Choice: 9
+
+CrashSimulator active startup configuration
+  Loaded config: ./crashsimulator.conf
+  ORACLE_SID=crashdb1
+  ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+  CRASHSIM_PDB=CRASHPDB
+  CRASHSIM_LOG_DIR=/tmp/crashsimulator/crashsimulator_logs
+  CRASHSIM_AUDIT_RETAIN=yes
+  CRASHSIM_AUDIT_RETENTION_DAYS=90
+
+Choice: 13
+
+Recent Manifests, Logs, Reports, And Helper Files
+  No.  Generated              Type         Size     File
+  ---  ---------------------- ------------ -------- ----
+    1. 2026-06-08 14:57 UTC  report       32K      crashsim_scenario_lifecycle_20260608_145755.md
+    2. 2026-06-08 14:56 UTC  report       28K      crashsim_scenario_readiness_20260608_145538.md
+    3. 2026-06-08 14:54 UTC  evidence     1K       crashsim_s53_20260608_145421_adg_pressure.evidence
+    4. 2026-06-08 14:54 UTC  manifest     4K       crashsim_scenario_s53_20260608_145421.manifest
+
+Enter a number to inspect, r to refresh, or b/blank to go back:

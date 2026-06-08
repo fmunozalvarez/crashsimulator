@@ -1,0 +1,39 @@
+CrashSimulator V2 2.0.0-dev
+Database: not discovered  Role: unknown  Open: unknown  CDB: unknown
+ADB scenario: ADB01
+
+Guided Workflow
+ 16. Reports
+ 20. Autonomous Database scenarios
+
+Choice: 20
+
+Autonomous Database Scenarios
+Selected ADB scenario: ADB01 - Drop critical application table
+  1. List ADB01-ADB15 with readiness status
+  2. Select ADB scenario
+  3. Show selected ADB scenario detail and validation status
+  4. Configure Autonomous Database report context
+  5. Run fresh Autonomous Database readiness report
+  6. Show latest Autonomous Database readiness report
+  7. Show latest Autonomous Database readiness report and generate HTML
+  8. Future ADB helper placeholder for selected scenario
+
+Choice: 1
+
+ID     Area                           Status                       Scenario
+------ ------------------------------ ---------------------------- --------
+ADB01  Logical recovery               RUNNABLE AFTER LAB SEED      Drop critical application table
+ADB02  Logical recovery               PLAN/RUNBOOK                 Drop application schema
+ADB03  Logical recovery               RUNNABLE AFTER LAB SEED      Mass DELETE without WHERE clause
+ADB04  Logical recovery               RUNNABLE AFTER LAB SEED      Incorrect UPDATE corrupts business data
+ADB05  Clone/PITR                     OCI CONFIG NEEDED            Recover from clone
+ADB08  Connectivity                   PLAN/RUNBOOK                 Expired or rotated client wallet
+ADB12  Autonomous Data Guard          OCI CONFIG NEEDED            Cross-region DR validation
+ADB15  Object Storage                 OCI CONFIG NEEDED            Object Storage export dependency unavailable
+
+Choice: 3
+
+ADB01 Drop critical application table
+Validation: confirm target table ownership, flashback eligibility, and clone/export fallback.
+Recovery focus: Flashback Table, PITR clone, Data Pump/object merge, application validation.

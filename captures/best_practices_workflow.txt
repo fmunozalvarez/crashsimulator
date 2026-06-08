@@ -1,0 +1,34 @@
+CrashSimulator Best-Practice Drill Flow
+
+1. Discover topology
+   ./CrashSimulatorV2.sh --discover
+   Confirm role, open mode, CDB/PDB, RAC/GI, storage, Data Guard, APEX/ORDS, and ADB context.
+
+2. Assess readiness
+   ./CrashSimulatorV2.sh --config-report --html
+   ./CrashSimulatorV2.sh --backup-report --html
+   ./CrashSimulatorV2.sh --maa-report --html
+   ./CrashSimulatorV2.sh --scenario-readiness-report --html
+
+3. Pick the right scenario
+   RUNNABLE: dry-run and execute with approval.
+   PLAN-ONLY: collect runbook evidence, execution blocked by guardrail.
+   NOT-RUNNABLE: fix topology, target context, service, or helper first.
+
+4. Protect before risk
+   ./CrashSimulatorV2.sh --baseline-backup --execute
+   ./CrashSimulatorV2.sh --protect <id> --execute
+   Capture RMAN tags, control-file autobackup, archive log posture, and restore path.
+
+5. Dry-run and execute
+   ./CrashSimulatorV2.sh --scenario <id> --dry-run
+   ./CrashSimulatorV2.sh --scenario <id> --execute
+   Require typed confirmation and approved non-production fault boundary.
+
+6. Recover and stabilize
+   ./CrashSimulatorV2.sh --recover <id> --execute
+   ./CrashSimulatorV2.sh --health-check --pdb CRASHPDB
+   ./CrashSimulatorV2.sh --backup-report --html
+
+7. Preserve evidence
+   Keep runbooks, manifests, audit records, SQL/RMAN logs, screenshots, reports, and HTML copies.

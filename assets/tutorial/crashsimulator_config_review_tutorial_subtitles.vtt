@@ -1,0 +1,41 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial shows how to use configuration defaults, choose PDB, schema, and FILE# targets, and review retained evidence.
+
+2
+00:00:07.000 --> 00:00:16.000
+Use crashsimulator.conf for non-secret defaults so operators do not need to retype ORACLE_HOME, PDB, log directory, or reporting context.
+
+3
+00:00:16.000 --> 00:00:25.000
+Keep passwords, wallets, API keys, and private keys in environment variables or secure vaults, not in the config file or repository.
+
+4
+00:00:25.000 --> 00:00:35.000
+Before a drill, show the active startup configuration and confirm the values loaded from environment and config file.
+
+5
+00:00:35.000 --> 00:00:46.000
+When a scenario needs a PDB, schema, or FILE#, the Guided Workflow prompts for the missing target before validation or execution.
+
+6
+00:00:46.000 --> 00:00:56.000
+For datafile and recovery helpers, FILE# selection can be driven by discovery, the manifest, or explicit CLI context.
+
+7
+00:00:56.000 --> 00:01:07.000
+Use the artifact browser to inspect retained reports, manifests, SQL, RMAN command files, logs, and evidence files by date and type.
+
+8
+00:01:07.000 --> 00:01:18.000
+The Review Center opens the latest topology, reports, logs, and HTML artifacts without reconnecting to the database.
+
+9
+00:01:18.000 --> 00:01:30.000
+For training and compliance, retain per-run audit records and set a purge policy that matches your evidence retention requirements.
+
+10
+00:01:30.000 --> 00:01:42.000
+At the end of every drill, review the runbook, manifest, execution log, recovery log, health check, and report HTML before closing the exercise.

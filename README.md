@@ -37,6 +37,10 @@ For the full end-user documentation, read:
 - [Scenario readiness narrated tutorial video](assets/tutorial/crashsimulator_scenario_readiness_tutorial_with_audio.mp4)
 - [Guided Reports menu narrated tutorial video](assets/tutorial/crashsimulator_guided_reports_menu_tutorial_with_audio.mp4)
 - [APEX/ORDS scenario 80 narrated tutorial video](assets/tutorial/crashsimulator_apex_session_driver_tutorial_with_audio.mp4)
+- [Configuration and evidence review narrated tutorial video](assets/tutorial/crashsimulator_config_review_tutorial_with_audio.mp4)
+- [Autonomous Database readiness narrated tutorial video](assets/tutorial/crashsimulator_adb_readiness_tutorial_with_audio.mp4)
+- [Autonomous Database scenario narrated tutorial video](assets/tutorial/crashsimulator_adb_scenario_tutorial_with_audio.mp4)
+- [CrashSimulator best practices narrated tutorial video](assets/tutorial/crashsimulator_best_practices_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario 80 APEX browser-session driver design](docs/APEX_SESSION_DRIVER_DESIGN.md)
 - [Autonomous Database coverage guide](docs/AUTONOMOUS_DATABASE_COVERAGE.md)
@@ -111,7 +115,8 @@ review, and configuration.
 ## Tutorial Videos
 
 Short setup, full scenario walkthrough, audit-retention, scenario-readiness,
-Guided Reports menu, and APEX/ORDS session-continuity videos are available in
+Guided Reports menu, configuration/review, ADB readiness/scenario,
+best-practices, and APEX/ORDS session-continuity videos are available in
 [assets/tutorial](assets/tutorial/README.md). Narrated MP4s, burned-in subtitle
 MP4s, and WebVTT subtitle sidecars are included for CLI and Guided Workflow
 menu modes.

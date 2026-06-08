@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial shows how CrashSimulator validates an Autonomous Database target without requiring database-host access.
+
+2
+00:00:07.000 --> 00:00:17.000
+Run the report from a bastion or client host that can reach the ADB endpoint and has the wallet and python-oracledb available.
+
+3
+00:00:17.000 --> 00:00:27.000
+Use crashsimulator.conf for ADB wallet path, alias, URLs, and OCI metadata hints while keeping passwords outside the file.
+
+4
+00:00:27.000 --> 00:00:37.000
+Provide database and wallet passwords with environment variables so generated reports can reference the variable names without exposing values.
+
+5
+00:00:37.000 --> 00:00:49.000
+Run the ADB readiness report with HTML output to collect connection, SQL, APEX, logical recovery, and scenario coverage evidence.
+
+6
+00:00:49.000 --> 00:01:00.000
+The report separates client configuration from live SQL evidence, so users can see what was proven and what still needs OCI metadata.
+
+7
+00:01:00.000 --> 00:01:12.000
+Use the readiness score and checks to identify gaps before logical, clone, wallet, Data Guard, or Object Storage drills.
+
+8
+00:01:12.000 --> 00:01:24.000
+The Guided Workflow Reports menu can set ADB report context, generate the readiness report, and browse generated artifacts.
+
+9
+00:01:24.000 --> 00:01:36.000
+Finish by saving the Markdown, HTML, raw evidence, and audit record so the ADB posture can be compared over time.

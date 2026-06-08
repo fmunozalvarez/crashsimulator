@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+This tutorial shows how to browse ADB01 through ADB15 and review one scenario before future ADB-specific helpers execute drills.
+
+2
+00:00:07.000 --> 00:00:17.000
+Generate the ADB readiness report first so each scenario status is based on current wallet, SQL, APEX, and OCI context.
+
+3
+00:00:17.000 --> 00:00:29.000
+Use the ADB scenario catalog to see what can be practiced with SQL alone and what requires OCI control-plane evidence.
+
+4
+00:00:29.000 --> 00:00:41.000
+ADB01 is a logical recovery drill for a disposable critical table, designed around Flashback Table, clone, or export-based recovery.
+
+5
+00:00:41.000 --> 00:00:53.000
+Before any logical ADB drill, seed disposable objects and label them clearly so production application data is never the target.
+
+6
+00:00:53.000 --> 00:01:05.000
+The current ADB scenario menu is readiness-first. Future seeded helpers should keep the same guardrail model: validate, dry-run, execute, recover, report.
+
+7
+00:01:05.000 --> 00:01:16.000
+The Guided Workflow ADB submenu lets operators browse, select, inspect, and refresh readiness without database-host access.
+
+8
+00:01:16.000 --> 00:01:28.000
+For ADB logical drills, evidence should prove the object was restored and the application can read the expected data again.
+
+9
+00:01:28.000 --> 00:01:40.000
+After ADB01, prioritize ADB03 and ADB04 logical mistakes, then add OCI-backed clone, PITR, Autonomous Data Guard, IAM, and Object Storage drills.

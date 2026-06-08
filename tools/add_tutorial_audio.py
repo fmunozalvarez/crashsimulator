@@ -34,6 +34,10 @@ DEFAULT_TUTORIALS = (
     "crashsimulator_scenario_readiness_tutorial",
     "crashsimulator_guided_reports_menu_tutorial",
     "crashsimulator_apex_session_driver_tutorial",
+    "crashsimulator_config_review_tutorial",
+    "crashsimulator_adb_readiness_tutorial",
+    "crashsimulator_adb_scenario_tutorial",
+    "crashsimulator_best_practices_tutorial",
 )
 
 
