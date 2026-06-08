@@ -241,6 +241,7 @@ Usage:
 Options:
   --discover              Print detected database topology and exits.
   --list                  List scenario registry and prerequisite gates.
+  --list-scenarios        Alias for --list.
   --menu                  Start guided terminal menu. This is the default.
   --health-check          Run a non-destructive SQL health check.
   --config-report         Generate a full target database/PDB configuration report.
@@ -2991,9 +2992,9 @@ register_scenarios() {
   register_scenario "49" "ASM/FEX SPFILE loss"                              "ASM"        "ASM/FEX"    "destructive" "asm"               "scenario_asm_spfile_loss"   "Plans ASM or FEX/ACFS managed SPFILE loss practice; execution requires a provider-aware handler."
   register_scenario "50" "Standby managed recovery cancelled"                "DataGuard"  "Standby"    "logical"      "standby"           "scenario_standby_apply_cancel" "For physical standby apply practice."
   register_scenario "51" "Primary transport destination deferred"            "DataGuard"  "Primary"    "logical"      "primary,dg"        "scenario_primary_transport_defer" "Defers the first remote archive destination."
-  register_scenario "52" "Data Guard broker configuration unavailable"       "DataGuard"  "DG"         "logical"      "dg"                "scenario_planned"           "Gated for a broker-enabled DG environment."
-  register_scenario "53" "Active Data Guard read-only session pressure"      "ADG"        "Standby"    "logical"      "standby"           "scenario_planned"           "Gated for Active Data Guard."
-  register_scenario "54" "Snapshot standby conversion practice"              "DataGuard"  "Standby"    "logical"      "standby"           "scenario_planned"           "Gated for a DG test environment."
+  register_scenario "52" "Data Guard broker configuration unavailable"       "DataGuard"  "DG"         "logical"      "dg"                "scenario_dg_broker_config_unavailable" "Plan-only broker outage drill with SQL/DGMGRL evidence."
+  register_scenario "53" "Active Data Guard read-only session pressure"      "ADG"        "Standby"    "logical"      "standby"           "scenario_adg_readonly_session_pressure" "Read-only ADG pressure readiness evidence for READ ONLY WITH APPLY standbys."
+  register_scenario "54" "Snapshot standby conversion practice"              "DataGuard"  "Standby"    "logical"      "standby"           "scenario_snapshot_standby_conversion_practice" "Plan-only snapshot-standby conversion readiness evidence."
   register_scenario "55" "RAC abort one instance"                            "RAC"        "RAC"        "destructive" "rac"               "scenario_rac_abort_instance" "Uses srvctl where available."
   register_scenario "56" "RAC service relocation failure practice"           "RAC"        "RAC"        "logical"      "rac"               "scenario_rac_service_relocation" "Relocates a singleton service when possible, or stop/start validates an all-instances service."
   register_scenario "57" "Listener config unavailable"                       "Network"    "CDB/non-CDB" "destructive" "any"               "scenario_sqlnet"            "Alias for network file loss."
@@ -3613,7 +3614,7 @@ scenario_protection_capability() {
   fi
 
   case "$id" in
-    64|65|69|78|81|82)
+    53|64|65|69|78|81|82)
       printf "Not required: read-only report"
       ;;
     *)
@@ -3637,10 +3638,10 @@ scenario_execution_capability() {
     28)
       printf "Manual-only external restore plan"
       ;;
-    46|47|48|49|66|70|72)
+    46|47|48|49|52|54|66|70|72)
       printf "Plan-only evidence; external approved action"
       ;;
-    64|65|69|78|81|82)
+    53|64|65|69|78|81|82)
       printf "Automated read-only report"
       ;;
     *)
@@ -3657,13 +3658,13 @@ scenario_recovery_capability() {
   fi
 
   case "$id" in
-    64|65|69|78|80|81|82)
+    53|64|65|69|78|80|81|82)
       printf "Not required: read-only report"
       ;;
     11|36|43|44)
       printf "Manual logical restore/reseed runbook"
       ;;
-    28|29|45|46|47|48|49|52|53|54|60|63|66|70|72)
+    28|29|45|46|47|48|49|52|54|60|63|66|70|72)
       printf "Manual/external runbook"
       ;;
     *)
@@ -3682,11 +3683,11 @@ scenario_evidence_capability() {
     80)
       printf "Markdown report, SQL evidence, optional browser screenshots/JSON, manifest, audit"
       ;;
-    64|65|69|78|80|81|82)
+    53|64|65|69|78|80|81|82)
       printf "Markdown report, SQL evidence, manifest, audit"
       ;;
-    52|53|54)
-      printf "Readiness/runbook evidence; execution evidence pending"
+    52|54)
+      printf "Manifest, audit, SQL/DGMGRL readiness evidence, runbook"
       ;;
     *)
       printf "Manifest, audit, runbook; SQL/RMAN/report evidence when used"
@@ -3702,8 +3703,11 @@ scenario_lifecycle_next_step() {
   fi
   if ! supports_recovery_automation "$id"; then
     case "$id" in
-      64|65|69|78|80|81|82)
+      53|64|65|69|78|80|81|82)
         printf "No recovery helper required; keep report evidence current."
+        ;;
+      52|54|66|70|72)
+        printf "Plan-only by design; keep external-action runbook and evidence current."
         ;;
       11|36|43|44)
         printf "Keep logical seed/reseed and restore guidance current."
@@ -3731,8 +3735,8 @@ generate_scenario_lifecycle_report() {
     supports_recovery_automation "$id" && auto_recover_count=$((auto_recover_count + 1))
     [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder_count=$((placeholder_count + 1))
     case "$id" in
-      46|47|48|49|66|70|72) plan_only_count=$((plan_only_count + 1)) ;;
-      64|65|69|78|80|81|82) read_only_count=$((read_only_count + 1)) ;;
+      46|47|48|49|52|54|66|70|72) plan_only_count=$((plan_only_count + 1)) ;;
+      53|64|65|69|78|80|81|82) read_only_count=$((read_only_count + 1)) ;;
     esac
   done
 
@@ -12778,6 +12782,200 @@ collect_dgmgrl_fsfo_evidence() {
     "$dgmgrl_bin" -silent / >"$output_file" 2>&1 || return "$FAIL"
 }
 
+write_adg_pressure_sql_file() {
+  local sql_file="$1"
+
+  cat >"$sql_file" <<'SQL' || die "Unable to write ADG pressure SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set heading off feedback off pagesize 0 verify off echo off termout on
+set linesize 32767 trimspool on trimout on tab off
+
+select 'CSIM_ADG|database|' ||
+       'db_unique_name=' || db_unique_name ||
+       '|role=' || database_role ||
+       '|open_mode=' || open_mode ||
+       '|flashback=' || flashback_on ||
+       '|protection=' || protection_mode
+from v$database;
+
+select 'CSIM_ADG|managed_standby|' || process || '|' || status || '|' ||
+       nvl(client_process, 'UNKNOWN') || '|' || nvl(sequence#, 0)
+from v$managed_standby
+where process in ('MRP0','MRP','RFS','LNS')
+   or process like 'MRP%'
+order by process;
+
+select 'CSIM_ADG|lag|' || name || '|' || nvl(value, 'UNKNOWN') || '|' || nvl(unit, '')
+from v$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+
+select 'CSIM_ADG|user_session_count|' || count(*)
+from v$session
+where type = 'USER';
+
+select 'CSIM_ADG|session_by_user|' || nvl(username, 'UNKNOWN') || '|' || count(*)
+from v$session
+where type = 'USER'
+group by nvl(username, 'UNKNOWN')
+order by count(*) desc, nvl(username, 'UNKNOWN');
+
+exit
+SQL
+}
+
+write_adg_pressure_report() {
+  local report_file="$1"
+  local evidence_file="$2"
+
+  {
+    printf "# CrashSimulator Active Data Guard Read-Only Pressure Readiness\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Database: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "${DB_ROLE:-unknown}" "${DB_OPEN_MODE:-unknown}"
+    printf -- '- Evidence file: `%s`\n\n' "$evidence_file"
+    printf "This read-only scenario validates that the target is an Active Data Guard standby and captures baseline evidence before any approved reporting/query-pressure workload is introduced. It does not generate load by itself; use the evidence to size a controlled workload and monitor apply lag, user sessions, services, and Resource Manager behavior.\n\n"
+  } >"$report_file" || die "Unable to write ADG pressure report: $report_file"
+
+  append_report_section "$report_file" "Evidence"
+  {
+    printf '```text\n'
+    sed -n '/^CSIM_ADG|/p' "$evidence_file"
+    printf '```\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Guardrails"
+  {
+    printf -- '- Run only on a standby opened `READ ONLY WITH APPLY`.\n'
+    printf -- '- Keep workload read-only and disposable; do not use production reporting spikes as an unbounded stress test.\n'
+    printf -- '- Monitor `V$DATAGUARD_STATS`, standby alert logs, service placement, query response time, and application retry behavior.\n'
+    printf -- '- If apply lag breaches the SLA, stop the pressure workload first, then validate apply catch-up before continuing.\n'
+  } >>"$report_file"
+}
+
+scenario_dg_broker_config_unavailable() {
+  reset_actions
+  local broker_file="$WORK_DIR/dg_broker_config_sql.lst"
+  local dgmgrl_file="$WORK_DIR/dg_broker_config_dgmgrl.out"
+  local broker_start
+
+  sql_query "$broker_file" "
+select 'DATABASE|' || db_unique_name || '|' || database_role || '|' || open_mode || '|' || protection_mode
+from v\$database;
+select 'DG_BROKER_START=' || value
+from v\$parameter
+where name = 'dg_broker_start';
+select 'DEST|' || dest_id || '|' || nvl(status, 'UNKNOWN') || '|' || nvl(destination, 'UNKNOWN') || '|' || nvl(db_unique_name, 'UNKNOWN')
+from v\$archive_dest
+where target = 'STANDBY'
+order by dest_id;
+"
+  broker_start="$(awk -F= '/^DG_BROKER_START=/ {print toupper($2); exit}' "$broker_file")"
+  [[ "$broker_start" == "TRUE" ]] ||
+    die "Data Guard broker is not enabled (DG_BROKER_START=${broker_start:-unknown}). Enable broker and validate DGMGRL before scenario 52."
+
+  echo "Data Guard broker SQL evidence:"
+  sed 's/^/  /' "$broker_file"
+  manifest_append "dg_broker_sql_evidence" "$broker_file"
+
+  if collect_dgmgrl_fsfo_evidence "$dgmgrl_file"; then
+    echo
+    echo "DGMGRL broker evidence:"
+    sed 's/^/  /' "$dgmgrl_file"
+    manifest_append "dg_broker_dgmgrl_evidence" "$dgmgrl_file"
+  else
+    warn "DGMGRL evidence was not available or broker connection failed. Scenario 52 remains plan-only until DGMGRL evidence is clean."
+    manifest_append "dg_broker_dgmgrl_evidence" "$dgmgrl_file"
+  fi
+
+  add_action "external" "DG_BROKER_CONFIG" "Approved lab action only: make broker configuration unavailable or stop broker management, then validate DGMGRL/SQL warnings and restore broker configuration. CrashSimulator keeps this plan-only."
+  execute_actions
+}
+
+scenario_adg_readonly_session_pressure() {
+  reset_actions
+  local role_file="$WORK_DIR/adg_open_mode.lst"
+  local role_line open_mode sql_file evidence_file report_file
+
+  sql_query "$role_file" "
+select database_role || '|' || open_mode || '|' || nvl(guard_status, 'UNKNOWN')
+from v\$database;
+"
+  role_line="$(trim_blank_lines <"$role_file" | head -n 1)"
+  IFS='|' read -r DB_ROLE open_mode _guard_status <<<"$role_line"
+  [[ "$DB_ROLE" == *"STANDBY"* ]] ||
+    die "Scenario 53 requires a standby role. Current role: ${DB_ROLE:-unknown}"
+  [[ "$open_mode" == "READ ONLY WITH APPLY" ]] ||
+    die "Scenario 53 requires Active Data Guard open mode READ ONLY WITH APPLY. Current open mode: ${open_mode:-unknown}"
+
+  sql_file="${LOG_DIR}/crashsim_s53_${RUN_ID}_adg_pressure.sql"
+  evidence_file="${LOG_DIR}/crashsim_s53_${RUN_ID}_adg_pressure.evidence"
+  report_file="${LOG_DIR}/crashsim_s53_${RUN_ID}_adg_pressure.md"
+  write_adg_pressure_sql_file "$sql_file"
+  manifest_append "adg_pressure_sqlfile" "$sql_file"
+  manifest_append "adg_pressure_evidence" "$evidence_file"
+  manifest_append "adg_pressure_report" "$report_file"
+
+  add_action "report" "Active Data Guard read-only pressure readiness" "$report_file"
+  execute_actions
+  [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
+
+  ensure_sqlplus
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "ADG pressure readiness SQL failed: $sql_file (evidence: $evidence_file)"
+  grep -q '^CSIM_ADG|' "$evidence_file" ||
+    die "ADG pressure readiness SQL produced no evidence rows: $evidence_file"
+  write_adg_pressure_report "$report_file" "$evidence_file"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_snapshot_standby_conversion_practice() {
+  reset_actions
+  local snapshot_file="$WORK_DIR/snapshot_standby_readiness.lst"
+  local dgmgrl_file="$WORK_DIR/snapshot_standby_dgmgrl.out"
+  local role open_mode flashback force_logging
+  local line
+
+  sql_query "$snapshot_file" "
+select db_unique_name || '|' || database_role || '|' || open_mode || '|' || flashback_on || '|' || force_logging
+from v\$database;
+select 'RESTORE_POINT_COUNT=' || count(*)
+from v\$restore_point;
+select 'DG_STAT|' || name || '|' || nvl(value, 'UNKNOWN') || '|' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+"
+  line="$(trim_blank_lines <"$snapshot_file" | head -n 1)"
+  IFS='|' read -r _db_unique role open_mode flashback force_logging <<<"$line"
+  [[ "$role" == *"STANDBY"* ]] ||
+    die "Scenario 54 requires a standby role. Current role: ${role:-unknown}"
+  [[ "$flashback" == "YES" ]] ||
+    die "Snapshot standby conversion requires Flashback Database enabled on the standby. Current FLASHBACK_ON=${flashback:-unknown}."
+
+  echo "Snapshot standby readiness SQL evidence:"
+  sed 's/^/  /' "$snapshot_file"
+  manifest_append "snapshot_standby_sql_evidence" "$snapshot_file"
+  manifest_append "snapshot_standby_role" "$role"
+  manifest_append "snapshot_standby_open_mode" "$open_mode"
+  manifest_append "snapshot_standby_flashback_on" "$flashback"
+  manifest_append "snapshot_standby_force_logging" "$force_logging"
+
+  if collect_dgmgrl_fsfo_evidence "$dgmgrl_file"; then
+    echo
+    echo "DGMGRL snapshot-standby context evidence:"
+    sed 's/^/  /' "$dgmgrl_file"
+    manifest_append "snapshot_standby_dgmgrl_evidence" "$dgmgrl_file"
+  else
+    warn "DGMGRL evidence was not available; collect broker evidence manually before conversion."
+    manifest_append "snapshot_standby_dgmgrl_evidence" "$dgmgrl_file"
+  fi
+
+  add_action "external" "SNAPSHOT_STANDBY_CONVERSION" "Approved standby-only action: convert to snapshot standby, run disposable write tests, convert back to physical standby, restart apply, and validate lag. CrashSimulator keeps conversion execution plan-only."
+  execute_actions
+}
+
 plan_dg_transport_defer() {
   local detail="$1"
   local dest_file="$WORK_DIR/remote_standby_dest.lst"
@@ -13995,7 +14193,7 @@ parse_args() {
         MODE="discover"
         shift
         ;;
-      --list)
+      --list|--list-scenarios|--scenarios)
         MODE="list"
         shift
         ;;
