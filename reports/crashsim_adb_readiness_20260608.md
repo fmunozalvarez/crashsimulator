@@ -1,7 +1,7 @@
 # CrashSimulator Autonomous Database Readiness Report
 
 - Generated UTC: `2026-06-08T13:44:23Z`
-- Tool version: `2.0.0-dev`
+- Tool version: `2.0.1-beta`
 - Host: `crashbastian`
 - OS user: `opc`
 - ADB user: `ADMIN`

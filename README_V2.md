@@ -29,6 +29,7 @@ the full scenario catalog, read:
 - `README.md` for the short project entry point.
 - `docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md` for the product
   overview, intention, capabilities, limitations, and roadmap.
+- `docs/RELEASE_NOTES_V2_0_1_BETA.md` for release notes and package details.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
 - `docs/AUTONOMOUS_DATABASE_COVERAGE.md` for the ADB coverage model and
   scenario family.
@@ -37,14 +38,20 @@ the full scenario catalog, read:
 
 ## Install From A ZIP File
 
-If you download CrashSimulator as a GitHub ZIP file, copy the ZIP to the target
-Oracle database host and unzip it:
+If you download CrashSimulator as a GitHub release ZIP file, copy the ZIP to
+the target Oracle database host and unzip it. For `v2.0.1 beta`, the curated
+runtime package is `crashsimulator-v2.0.1-beta-runtime.zip`:
 
 ```bash
-unzip crashsimulator-main.zip
-cd crashsimulator-main
+unzip crashsimulator-v2.0.1-beta-runtime.zip
+cd crashsimulator-v2.0.1-beta
 chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
+
+GitHub also creates automatic source-code ZIP files for tags. They are useful
+for source review, but the runtime ZIP in `dist/` is the smaller package
+intended for database-host installation and excludes local logs, wallets, keys,
+scratch HTML output, and large tutorial MP4 files.
 
 Run it as the Oracle software owner, or as an OS user that can connect locally
 as SYSDBA. Set the Oracle environment before starting:
@@ -54,7 +61,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-main
+cd /path/to/crashsimulator-v2.0.1-beta
 ```
 
 If you prefer repeatable startup defaults, copy and edit the sample

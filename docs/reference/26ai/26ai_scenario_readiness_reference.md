@@ -1,7 +1,7 @@
 # CrashSimulator Scenario Readiness Report
 
 - Generated UTC: `2026-06-07T08:16:43Z`
-- Tool version: `2.0.0-dev`
+- Tool version: `2.0.1-beta`
 - Log directory: `/tmp/crashsimulator/crashsimulator_logs`
 - Target PDB context: `CRASHDB_PDB1`
 - Target schema context: `not set`

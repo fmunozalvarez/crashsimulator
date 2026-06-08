@@ -31,6 +31,7 @@ validation, not an official Oracle product certification.
 For the full end-user documentation, read:
 
 - [CrashSimulator v2.0.1 Beta Product Overview](docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md)
+- [CrashSimulator v2.0.1 Beta Release Notes](docs/RELEASE_NOTES_V2_0_1_BETA.md)
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
 - [CLI setup and scenario narrated tutorial video](assets/tutorial/crashsimulator_cli_tutorial_with_audio.mp4)
 - [Guided Workflow scenario narrated tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial_with_audio.mp4)
@@ -52,14 +53,20 @@ For the full end-user documentation, read:
 
 ## Install From A ZIP File
 
-Download the repository ZIP from GitHub, copy it to the Oracle database host,
-and unzip it.
+Download the release runtime ZIP from GitHub, copy it to the Oracle database
+host, and unzip it. For `v2.0.1 beta`, the curated install package is
+`crashsimulator-v2.0.1-beta-runtime.zip`.
 
 ```bash
-unzip crashsimulator-main.zip
-cd crashsimulator-main
+unzip crashsimulator-v2.0.1-beta-runtime.zip
+cd crashsimulator-v2.0.1-beta
 chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
+
+GitHub also provides an automatically generated source-code ZIP for every tag.
+That archive is useful for source review, while the runtime ZIP in `dist/` is
+the smaller database-host install package and excludes local logs, wallets,
+keys, scratch HTML output, and large tutorial MP4 files.
 
 Run as the Oracle software owner, or as an OS user that can connect locally as
 SYSDBA. Set the target Oracle environment first:
@@ -69,7 +76,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-main
+cd /path/to/crashsimulator-v2.0.1-beta
 ```
 
 Alternatively, create a local startup configuration file so CrashSimulator can

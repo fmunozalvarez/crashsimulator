@@ -185,18 +185,24 @@ The tool still uses dry-run, runbook hints, and confirmation gates.
 
 ## Installation From A ZIP File
 
-Download the repository ZIP from GitHub, copy it to the database server, and
-unzip it as the Oracle software owner or another OS user allowed to become the
-Oracle owner.
+Download the release runtime ZIP from GitHub, copy it to the database server,
+and unzip it as the Oracle software owner or another OS user allowed to become
+the Oracle owner. For `v2.0.1 beta`, the curated install package is
+`crashsimulator-v2.0.1-beta-runtime.zip`.
 
 Example:
 
 ```bash
-unzip crashsimulator-main.zip
-cd crashsimulator-main
+unzip crashsimulator-v2.0.1-beta-runtime.zip
+cd crashsimulator-v2.0.1-beta
 chmod +x crashsimulator CrashSimulatorV2.sh
 chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
+
+GitHub also provides automatic source-code ZIP files for every tag. Those are
+useful for source review. The runtime ZIP in `dist/` is the smaller
+database-host install package and excludes local logs, wallets, keys, scratch
+captures, and large tutorial MP4 files.
 
 CrashSimulator V2 requires:
 
@@ -218,7 +224,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-main
+cd /path/to/crashsimulator-v2.0.1-beta
 ./CrashSimulatorV2.sh --help
 ./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
@@ -258,9 +264,10 @@ allowlisted `KEY=value` entries and is not sourced as shell code. Do not store
 SYS passwords, RMAN catalog passwords, APEX passwords, wallet secrets, tokens,
 or similar sensitive values in it.
 
-If the ZIP was renamed by the browser, the directory may be
-`crashsimulator-main`, `crashsimulator-master`, or another name. The important
-point is to run the commands from the directory containing `CrashSimulatorV2.sh`.
+If the ZIP was renamed by the browser, or if you use GitHub's generated source
+ZIP instead of the runtime package, the unpacked directory may have another
+name. The important point is to run the commands from the directory containing
+`CrashSimulatorV2.sh`.
 
 Recommended first checks after unzipping:
 

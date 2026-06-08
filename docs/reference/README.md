@@ -79,7 +79,9 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
   - Shows Oracle service HA, AC/TAC, FSFO, DML redirection, and role-based
     service awareness evidence for the lab.
 - `26ai/26ai_scenario_lifecycle_reference.md`
-  - Shows lifecycle coverage for the 82-scenario registry from the 26ai run.
+  - Shows lifecycle coverage for the 82 database-host/application scenarios
+    from the 26ai run. ADB scenarios are tracked separately in
+    `scenario_registry_97_reference.md` and ADB readiness reports.
 - `26ai/26ai_apex_ords_readiness_reference.md`
   - Shows the APEX/ORDS readiness report after installing APEX 26.1.0 and ORDS
     26.1.2 on the 26ai RAC lab.

@@ -1,7 +1,7 @@
 # CrashSimulator Scenario Lifecycle Coverage Report
 
 - Generated UTC: `2026-06-08T14:57:55Z`
-- Tool version: `2.0.0-dev`
+- Tool version: `2.0.1-beta`
 - Log directory: `/tmp/crashsimulator/crashsimulator_logs`
 - Registered scenarios: `82`
 
