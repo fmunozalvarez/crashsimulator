@@ -8,6 +8,15 @@
 *.trace
 *.aud
 *.crashsim.bak
+Wallet_*.zip
+wallet_*.zip
+*wallet*.sso
+ewallet.p12
+ewallet.pem
+cwallet.sso
+keystore.jks
+truststore.jks
+ojdbc.properties
 
 crashsim_logs/
 crashsimulator_logs/
