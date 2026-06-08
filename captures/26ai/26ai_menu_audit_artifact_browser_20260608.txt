@@ -1,0 +1,209 @@
+Starting CrashSimulator Guided Workflow menu...
+Discovering target topology for the menu header. This normally takes a few seconds.
+If startup appears slow, verify ORACLE_HOME, ORACLE_SID, and local SYSDBA access.
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: ./crashsimulator.conf
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  7. Browse audit logs and inspect contents
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/audit
+
+Choice:
+
+Audit Logs And Retained Run Artifacts
+  No.  Generated              Type         Size     File
+  ---  ---------------------- ------------ -------- ----
+    1. 2026-06-08 01:16:05 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/exit_status
+    2. 2026-06-08 01:16:05 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/metadata.env
+    3. 2026-06-08 01:15:15 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/command.redacted
+    4. 2026-06-08 01:15:15 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/environment.redacted
+    5. 2026-06-08 01:15:15 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/stderr.log
+    6. 2026-06-08 01:15:15 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011515_92054/stdout.log
+    7. 2026-06-08 01:12:54 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/exit_status
+    8. 2026-06-08 01:12:54 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/metadata.env
+    9. 2026-06-08 01:12:23 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/command.redacted
+   10. 2026-06-08 01:12:23 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/environment.redacted
+   11. 2026-06-08 01:12:23 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/stderr.log
+   12. 2026-06-08 01:12:23 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_011223_88329/stdout.log
+   13. 2026-06-08 01:11:59 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/artifacts/crashsim_topology_20260608_010833.txt
+   14. 2026-06-08 01:11:59 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/artifacts/crashsim_topology_latest.txt
+   15. 2026-06-08 01:11:59 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/exit_status
+   16. 2026-06-08 01:11:59 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/metadata.env
+   17. 2026-06-08 01:08:33 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/command.redacted
+   18. 2026-06-08 01:08:33 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/environment.redacted
+   19. 2026-06-08 01:08:33 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/stderr.log
+   20. 2026-06-08 01:08:33 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_010833_84876/stdout.log
+   21. 2026-06-08 00:59:17 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_health_check_20260608_005348.log
+   22. 2026-06-08 00:59:17 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_runbook_s43_20260608_004345.txt
+   23. 2026-06-08 00:59:17 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_s61_20260608_004553_fra_pressure.sql
+   24. 2026-06-08 00:59:17 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_s62_20260608_004553_recovery_decision.rman
+   25. 2026-06-08 00:59:17 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_s63_20260608_004553_temp_exhaustion.sql
+   26. 2026-06-08 00:59:17 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_scenario_readiness_20260608_004553.md
+   27. 2026-06-08 00:59:17 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_scenario_readiness_latest.md
+   28. 2026-06-08 00:59:17 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/artifacts/crashsim_scenario_s43_20260608_005259.manifest
+   29. 2026-06-08 00:59:17 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/exit_status
+   30. 2026-06-08 00:59:17 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/metadata.env
+   31. 2026-06-08 00:53:48 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/artifacts/crashsim_health_check_20260608_005348.log
+   32. 2026-06-08 00:53:48 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/command.redacted
+   33. 2026-06-08 00:53:48 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/environment.redacted
+   34. 2026-06-08 00:53:48 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/exit_status
+   35. 2026-06-08 00:53:48 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/metadata.env
+   36. 2026-06-08 00:53:48 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/stderr.log
+   37. 2026-06-08 00:53:48 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005348_68747/stdout.log
+   38. 2026-06-08 00:53:03 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/artifacts/crashsim_scenario_s43_20260608_005259.manifest
+   39. 2026-06-08 00:53:03 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/exit_status
+   40. 2026-06-08 00:53:03 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/metadata.env
+   41. 2026-06-08 00:53:03 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/stdout.log
+   42. 2026-06-08 00:52:59 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/command.redacted
+   43. 2026-06-08 00:52:59 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/environment.redacted
+   44. 2026-06-08 00:52:59 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005259_67457/stderr.log
+   45. 2026-06-08 00:52:37 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/exit_status
+   46. 2026-06-08 00:52:37 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/metadata.env
+   47. 2026-06-08 00:52:37 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/stdout.log
+   48. 2026-06-08 00:52:35 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/command.redacted
+   49. 2026-06-08 00:52:35 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/environment.redacted
+   50. 2026-06-08 00:52:35 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_005235_66731/stderr.log
+   51. 2026-06-08 00:46:07 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/artifacts/crashsim_s61_20260608_004553_fra_pressure.sql
+   52. 2026-06-08 00:46:07 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/artifacts/crashsim_s62_20260608_004553_recovery_decision.rman
+   53. 2026-06-08 00:46:07 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/artifacts/crashsim_s63_20260608_004553_temp_exhaustion.sql
+   54. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/artifacts/crashsim_scenario_readiness_20260608_004553.md
+   55. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/artifacts/crashsim_scenario_readiness_latest.md
+   56. 2026-06-08 00:46:07 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/exit_status
+   57. 2026-06-08 00:46:07 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/metadata.env
+   58. 2026-06-08 00:46:07 UTC log          20K      /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/stdout.log
+   59. 2026-06-08 00:45:53 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/command.redacted
+   60. 2026-06-08 00:45:53 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/environment.redacted
+   61. 2026-06-08 00:45:53 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004553_56758/stderr.log
+   62. 2026-06-08 00:43:45 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/command.redacted
+   63. 2026-06-08 00:43:45 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/environment.redacted
+   64. 2026-06-08 00:43:45 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/stderr.log
+   65. 2026-06-08 00:43:45 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004345_53850/stdout.log
+   66. 2026-06-08 00:43:32 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/artifacts/crashsim_topology_20260608_004223.txt
+   67. 2026-06-08 00:43:32 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/artifacts/crashsim_topology_latest.txt
+   68. 2026-06-08 00:43:32 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/exit_status
+   69. 2026-06-08 00:43:32 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/metadata.env
+   70. 2026-06-08 00:42:23 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/command.redacted
+   71. 2026-06-08 00:42:23 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/environment.redacted
+   72. 2026-06-08 00:42:23 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/stderr.log
+   73. 2026-06-08 00:42:23 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_004223_52538/stdout.log
+   74. 2026-06-08 00:39:43 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684/exit_status
+   75. 2026-06-08 00:39:43 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684/metadata.env
+   76. 2026-06-08 00:39:42 UTC audit-exit   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003941_49317/exit_status
+   77. 2026-06-08 00:39:42 UTC audit-meta   4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003941_49317/metadata.env
+   78. 2026-06-08 00:39:42 UTC audit-cmd    4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684/command.redacted
+   79. 2026-06-08 00:39:42 UTC file         4.0K     /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684/environment.redacted
+   80. 2026-06-08 00:39:42 UTC log          0        /tmp/crashsimulator/crashsimulator_logs/audit/2026-06-08/crashsim_audit_20260608_003942_49684/stderr.log
+
+Enter a number to inspect, r to refresh, or b/blank to go back:
+
+Audit / Retention Settings
+  1. Enable/disable audit log retention
+  2. Set audit retention days
+  3. Set audit directory
+  4. Show audit status
+  5. Dry-run audit purge
+  6. Execute audit purge
+  7. Browse audit logs and inspect contents
+  b. Back
+
+Current retain=0 retention_days=365 audit_dir=/tmp/crashsimulator/crashsimulator_logs/audit
+
+Choice:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: ./crashsimulator.conf
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

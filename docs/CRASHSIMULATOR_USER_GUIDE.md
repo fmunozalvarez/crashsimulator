@@ -312,12 +312,14 @@ The menu provides options to:
 - Configure or be guided through PDB, schema, FILE#, manifest, PFILE, log
   directory, configuration file, password-file recovery, RMAN catalog, and
   scenario 25 guardrails.
-- Show recent manifests and logs.
+- Browse recent manifests, logs, reports, and helper files with generated
+  date/time, type, size, and a numbered inspection selector.
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.
 - Generate configuration, backup strategy/recoverability, Oracle service HA,
   APEX/ORDS readiness, MAA readiness, and scenario lifecycle coverage reports.
-- Configure audit retention, show audit status, and purge old audit records.
+- Configure audit retention, show audit status, browse retained audit logs, and
+  purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
   health checks, dry-run/execution records, and audit history.
 - Create optional HTML copies of reports and logs for easier viewing.
@@ -352,6 +354,10 @@ Reports launched from the Guided Workflow Reports menu generate the normal
 Markdown/log artifacts and an additional `.html` copy where the report type
 supports HTML rendering. Fresh baseline backup execution still requires the
 `BASELINE-BACKUP` confirmation token.
+
+The Recent Files, Reports, and Audit browsers show generated local time,
+artifact type, size, and full path. Select the displayed number to print the
+artifact contents directly in the terminal.
 
 ## Functional Capabilities
 

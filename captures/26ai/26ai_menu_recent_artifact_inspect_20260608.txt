@@ -1,0 +1,264 @@
+Starting CrashSimulator Guided Workflow menu...
+Discovering target topology for the menu header. This normally takes a few seconds.
+If startup appears slow, verify ORACLE_HOME, ORACLE_SID, and local SYSDBA access.
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: ./crashsimulator.conf
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Recent Manifests, Logs, Reports, And Helper Files
+  No.  Generated              Type         Size     File
+  ---  ---------------------- ------------ -------- ----
+    1. 2026-06-08 01:09:30 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_010833.txt
+    2. 2026-06-08 01:09:30 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_latest.txt
+    3. 2026-06-08 00:53:48 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260608_005348.log
+    4. 2026-06-08 00:53:03 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_005259.manifest
+    5. 2026-06-08 00:52:10 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_runbook_s43_20260608_004345.txt
+    6. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260608_004553.md
+    7. 2026-06-08 00:46:07 UTC html         20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260608_004553.md.html
+    8. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md
+    9. 2026-06-08 00:46:07 UTC html         20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md.html
+   10. 2026-06-08 00:46:04 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260608_004553_temp_exhaustion.sql
+   11. 2026-06-08 00:46:03 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260608_004553_fra_pressure.sql
+   12. 2026-06-08 00:46:03 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260608_004553_recovery_decision.rman
+   13. 2026-06-08 00:42:29 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_004223.txt
+   14. 2026-06-08 00:16:15 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_001611.manifest
+   15. 2026-06-07 23:59:56 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_235943.txt
+   16. 2026-06-07 23:56:01 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_235600.txt
+   17. 2026-06-07 23:43:36 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_234334.txt
+   18. 2026-06-07 23:29:05 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_232904.txt
+   19. 2026-06-07 12:12:36 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_121235.txt
+   20. 2026-06-07 09:01:18 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090114.md
+   21. 2026-06-07 09:01:18 UTC html         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090114.md.html
+   22. 2026-06-07 09:01:18 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090114.manifest
+   23. 2026-06-07 09:01:14 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.md
+   24. 2026-06-07 09:01:14 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.md.html
+   25. 2026-06-07 09:01:09 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.evidence
+   26. 2026-06-07 09:01:09 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.sql
+   27. 2026-06-07 09:00:11 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090007.md
+   28. 2026-06-07 09:00:11 UTC html         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090007.md.html
+   29. 2026-06-07 09:00:11 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090007.manifest
+   30. 2026-06-07 09:00:07 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.md
+   31. 2026-06-07 09:00:07 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.md.html
+   32. 2026-06-07 09:00:02 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.evidence
+   33. 2026-06-07 09:00:02 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.sql
+   34. 2026-06-07 08:21:36 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_082136.log
+   35. 2026-06-07 08:16:51 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md
+   36. 2026-06-07 08:16:51 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md.html
+   37. 2026-06-07 08:16:46 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence
+   38. 2026-06-07 08:16:46 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.sql
+   39. 2026-06-07 08:16:44 UTC report       32K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_081643.md
+   40. 2026-06-07 08:16:44 UTC html         36K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_081643.md.html
+   41. 2026-06-07 08:16:44 UTC report       32K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md
+   42. 2026-06-07 08:16:44 UTC html         36K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md.html
+   43. 2026-06-07 08:16:43 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_081631.md
+   44. 2026-06-07 08:16:43 UTC html         24K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_081631.md.html
+   45. 2026-06-07 08:16:40 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_081631_fra_pressure.sql
+   46. 2026-06-07 08:16:40 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_081631_recovery_decision.rman
+   47. 2026-06-07 08:16:40 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_081631_temp_exhaustion.sql
+   48. 2026-06-07 08:16:10 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081609.log
+   49. 2026-06-07 08:15:50 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_081546.md
+   50. 2026-06-07 08:15:50 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081546.manifest
+   51. 2026-06-07 08:15:46 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081543.manifest
+   52. 2026-06-07 08:15:27 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s79_20260607_081521_ords_smoke.md
+   53. 2026-06-07 08:15:27 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081501.manifest
+   54. 2026-06-07 08:15:24 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s79_20260607_081521_ords_status.log
+   55. 2026-06-07 08:15:07 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_ords_lb_node_s79_20260607_081501.md
+   56. 2026-06-07 08:15:01 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081458.manifest
+   57. 2026-06-07 08:14:45 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s75_20260607_081436_ords_pool_smoke.md
+   58. 2026-06-07 08:14:45 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081408.manifest
+   59. 2026-06-07 08:14:08 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081405.manifest
+   60. 2026-06-07 08:13:46 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081346.log
+
+Enter a number to inspect, r to refresh, or b/blank to go back:
+
+Inspecting artifact
+Path: /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_010833.txt
+Generated: 2026-06-08 01:09:30 UTC
+Type: text
+Size: 4.0K
+
+Artifact: /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_010833.txt
+
+CrashSimulator V2 discovery
+  Version:           2.0.0-dev
+  Generated UTC:     2026-06-08T01:09:30Z
+  Host:              crashdb26ai1
+  OS user:           oracle
+  Oracle home:       /u01/app/oracle/product/23.0.0.0/dbhome_1
+  SQL*Plus:          /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  Database name:     CRASHDB
+  DB unique name:    crashdb_26ai
+  Version family:    12c or later required by v2
+  CDB:               YES
+  Open mode:         READ WRITE
+  Database role:     PRIMARY
+  Protection mode:   MAXIMUM PERFORMANCE
+  Switchover status: NOT ALLOWED
+  Instance:          crashdb1
+  Thread:            1
+  RAC parallel:      YES
+  Cluster type:      RAC
+  GI managed:        1
+  Storage type:      ASM
+  SPFILE:            +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
+  Password file:     +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335
+  FRA:               +RECO
+  PDBs:
+    CRASHDB_PDB1 (CON_ID=3, OPEN_MODE=READ WRITE)
+
+Press Enter to continue...
+
+Recent Manifests, Logs, Reports, And Helper Files
+  No.  Generated              Type         Size     File
+  ---  ---------------------- ------------ -------- ----
+    1. 2026-06-08 01:09:30 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_010833.txt
+    2. 2026-06-08 01:09:30 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_latest.txt
+    3. 2026-06-08 00:53:48 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260608_005348.log
+    4. 2026-06-08 00:53:03 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_005259.manifest
+    5. 2026-06-08 00:52:10 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_runbook_s43_20260608_004345.txt
+    6. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260608_004553.md
+    7. 2026-06-08 00:46:07 UTC html         20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260608_004553.md.html
+    8. 2026-06-08 00:46:07 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md
+    9. 2026-06-08 00:46:07 UTC html         20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_latest.md.html
+   10. 2026-06-08 00:46:04 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260608_004553_temp_exhaustion.sql
+   11. 2026-06-08 00:46:03 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260608_004553_fra_pressure.sql
+   12. 2026-06-08 00:46:03 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260608_004553_recovery_decision.rman
+   13. 2026-06-08 00:42:29 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260608_004223.txt
+   14. 2026-06-08 00:16:15 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s43_20260608_001611.manifest
+   15. 2026-06-07 23:59:56 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_235943.txt
+   16. 2026-06-07 23:56:01 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_235600.txt
+   17. 2026-06-07 23:43:36 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_234334.txt
+   18. 2026-06-07 23:29:05 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_232904.txt
+   19. 2026-06-07 12:12:36 UTC text         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_topology_20260607_121235.txt
+   20. 2026-06-07 09:01:18 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090114.md
+   21. 2026-06-07 09:01:18 UTC html         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090114.md.html
+   22. 2026-06-07 09:01:18 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090114.manifest
+   23. 2026-06-07 09:01:14 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.md
+   24. 2026-06-07 09:01:14 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.md.html
+   25. 2026-06-07 09:01:09 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.evidence
+   26. 2026-06-07 09:01:09 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090108.sql
+   27. 2026-06-07 09:00:11 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090007.md
+   28. 2026-06-07 09:00:11 UTC html         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_090007.md.html
+   29. 2026-06-07 09:00:11 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_090007.manifest
+   30. 2026-06-07 09:00:07 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.md
+   31. 2026-06-07 09:00:07 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.md.html
+   32. 2026-06-07 09:00:02 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.evidence
+   33. 2026-06-07 09:00:02 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_090000.sql
+   34. 2026-06-07 08:21:36 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_082136.log
+   35. 2026-06-07 08:16:51 UTC report       12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md
+   36. 2026-06-07 08:16:51 UTC html         12K      /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.md.html
+   37. 2026-06-07 08:16:46 UTC evidence     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.evidence
+   38. 2026-06-07 08:16:46 UTC sql          8.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260607_081644.sql
+   39. 2026-06-07 08:16:44 UTC report       32K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_081643.md
+   40. 2026-06-07 08:16:44 UTC html         36K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_20260607_081643.md.html
+   41. 2026-06-07 08:16:44 UTC report       32K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md
+   42. 2026-06-07 08:16:44 UTC html         36K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_lifecycle_latest.md.html
+   43. 2026-06-07 08:16:43 UTC report       20K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_081631.md
+   44. 2026-06-07 08:16:43 UTC html         24K      /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_readiness_20260607_081631.md.html
+   45. 2026-06-07 08:16:40 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s61_20260607_081631_fra_pressure.sql
+   46. 2026-06-07 08:16:40 UTC rman         4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_081631_recovery_decision.rman
+   47. 2026-06-07 08:16:40 UTC sql          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_s63_20260607_081631_temp_exhaustion.sql
+   48. 2026-06-07 08:16:10 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081609.log
+   49. 2026-06-07 08:15:50 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_session_continuity_s80_20260607_081546.md
+   50. 2026-06-07 08:15:50 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081546.manifest
+   51. 2026-06-07 08:15:46 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s80_20260607_081543.manifest
+   52. 2026-06-07 08:15:27 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s79_20260607_081521_ords_smoke.md
+   53. 2026-06-07 08:15:27 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081501.manifest
+   54. 2026-06-07 08:15:24 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s79_20260607_081521_ords_status.log
+   55. 2026-06-07 08:15:07 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_ords_lb_node_s79_20260607_081501.md
+   56. 2026-06-07 08:15:01 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s79_20260607_081458.manifest
+   57. 2026-06-07 08:14:45 UTC report       4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_recover_s75_20260607_081436_ords_pool_smoke.md
+   58. 2026-06-07 08:14:45 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081408.manifest
+   59. 2026-06-07 08:14:08 UTC manifest     4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260607_081405.manifest
+   60. 2026-06-07 08:13:46 UTC log          4.0K     /tmp/crashsimulator/crashsimulator_logs/crashsim_health_check_20260607_081346.log
+
+Enter a number to inspect, r to refresh, or b/blank to go back:
+
+CrashSimulator V2 2.0.0-dev
+Database: crashdb_26ai  Role: PRIMARY  Open: READ WRITE  CDB: YES
+Instance: crashdb1  Storage: ASM  Cluster: RAC
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsimulator/crashsimulator_logs
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: ./crashsimulator.conf
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsimulator/crashsimulator_logs/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

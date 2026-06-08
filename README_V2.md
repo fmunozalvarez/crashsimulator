@@ -151,7 +151,8 @@ drive from a single screen:
 - review collected topology, manifests, runbooks, dry-run/execution records,
   reports, health checks, configuration outputs, and audit history
 - render reports and logs as optional HTML files for easier viewing
-- view recent manifests, logs, reports, and HTML files
+- browse recent manifests, logs, reports, HTML files, and audit logs with
+  generated date/time, type, size, and a numbered inspection selector
 
 Menu actions re-run the same script in CLI mode, so automation and manual usage
 stay consistent. Destructive actions still require `--execute` behavior and the

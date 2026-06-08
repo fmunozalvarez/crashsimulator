@@ -127,6 +127,7 @@ declare -a TARGET_ROWS=()
 declare -a CONFIG_APPLIED=()
 declare -a CONFIG_SKIPPED=()
 declare -a CONFIG_WARNINGS=()
+declare -a MENU_ARTIFACT_FILES=()
 declare -a ACTION_KINDS=()
 declare -a ACTION_TARGETS=()
 declare -a ACTION_DETAILS=()
@@ -14190,6 +14191,177 @@ menu_run_render_html() {
   menu_run_child_command
 }
 
+file_mtime_epoch() {
+  local file="$1"
+  local epoch
+
+  epoch="$(stat -c %Y "$file" 2>/dev/null || true)"
+  if [[ -z "$epoch" ]]; then
+    epoch="$(stat -f %m "$file" 2>/dev/null || true)"
+  fi
+  [[ "$epoch" =~ ^[0-9]+$ ]] || epoch=0
+  printf "%s" "$epoch"
+}
+
+format_epoch_local() {
+  local epoch="$1"
+
+  if date -d "@${epoch}" "+%Y-%m-%d %H:%M:%S %Z" >/dev/null 2>&1; then
+    date -d "@${epoch}" "+%Y-%m-%d %H:%M:%S %Z"
+  else
+    date -r "$epoch" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || printf "unknown"
+  fi
+}
+
+file_size_human() {
+  local file="$1"
+  du -h "$file" 2>/dev/null | awk '{print $1}' || printf "?"
+}
+
+artifact_kind_from_path() {
+  local file="$1"
+  local base
+
+  base="$(basename "$file")"
+  case "$base" in
+    *.manifest) printf "manifest" ;;
+    *.rman) printf "rman" ;;
+    *.sql) printf "sql" ;;
+    *.md) printf "report" ;;
+    *.html) printf "html" ;;
+    *.log) printf "log" ;;
+    *.txt) printf "text" ;;
+    *.evidence) printf "evidence" ;;
+    *.out) printf "output" ;;
+    metadata.env) printf "audit-meta" ;;
+    command.redacted) printf "audit-cmd" ;;
+    exit_status) printf "audit-exit" ;;
+    artifact_index) printf "audit-index" ;;
+    *) printf "file" ;;
+  esac
+}
+
+menu_collect_artifacts() {
+  local category="$1"
+  local limit="${2:-60}"
+  local file epoch record
+  local -a records=()
+
+  MENU_ARTIFACT_FILES=()
+  case "$category" in
+    recent)
+      [[ -d "$LOG_DIR" ]] || return "$SUCCESS"
+      while IFS= read -r file; do
+        [[ -n "$file" ]] || continue
+        epoch="$(file_mtime_epoch "$file")"
+        records+=("${epoch}|${file}")
+      done < <(find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' -o -name '*.txt' -o -name '*.html' -o -name '*.out' -o -name '*.evidence' \) 2>/dev/null)
+      ;;
+    reports)
+      [[ -d "$LOG_DIR" ]] || return "$SUCCESS"
+      while IFS= read -r file; do
+        [[ -n "$file" ]] || continue
+        epoch="$(file_mtime_epoch "$file")"
+        records+=("${epoch}|${file}")
+      done < <(find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.md' -o -name '*.html' \) 2>/dev/null)
+      ;;
+    audit)
+      audit_effective_dir
+      [[ -d "$AUDIT_DIR" ]] || return "$SUCCESS"
+      while IFS= read -r file; do
+        [[ -n "$file" ]] || continue
+        epoch="$(file_mtime_epoch "$file")"
+        records+=("${epoch}|${file}")
+      done < <(find "$AUDIT_DIR" -mindepth 1 -maxdepth 4 -type f \( -name '*.log' -o -name '*.env' -o -name '*.redacted' -o -name '*.manifest' -o -name '*.md' -o -name '*.txt' -o -name '*.rman' -o -name '*.sql' -o -name '*.out' -o -name '*.evidence' -o -name 'exit_status' -o -name 'artifact_index' \) 2>/dev/null)
+      ;;
+    *)
+      warn "Unknown artifact category: $category"
+      return "$FAIL"
+      ;;
+  esac
+
+  while IFS= read -r record; do
+    [[ -n "$record" ]] || continue
+    MENU_ARTIFACT_FILES+=("${record#*|}")
+  done < <(printf "%s\n" "${records[@]}" | sort -t'|' -k1,1rn | head -n "$limit")
+}
+
+menu_print_artifact_list() {
+  local idx file epoch when kind size
+
+  if [[ "${#MENU_ARTIFACT_FILES[@]}" -eq 0 ]]; then
+    echo "No files found."
+    return "$SUCCESS"
+  fi
+
+  printf "  %3s  %-22s %-12s %-8s %s\n" "No." "Generated" "Type" "Size" "File"
+  printf "  %3s  %-22s %-12s %-8s %s\n" "---" "----------------------" "------------" "--------" "----"
+  idx=1
+  for file in "${MENU_ARTIFACT_FILES[@]}"; do
+    epoch="$(file_mtime_epoch "$file")"
+    when="$(format_epoch_local "$epoch")"
+    kind="$(artifact_kind_from_path "$file")"
+    size="$(file_size_human "$file")"
+    printf "  %3d. %-22s %-12s %-8s %s\n" "$idx" "$when" "$kind" "$size" "$file"
+    idx=$((idx + 1))
+  done
+}
+
+menu_inspect_artifact_file() {
+  local file="$1"
+
+  [[ -f "$file" ]] || {
+    warn "Selected file no longer exists: $file"
+    return "$FAIL"
+  }
+  echo
+  echo "Inspecting artifact"
+  echo "Path: ${file}"
+  echo "Generated: $(format_epoch_local "$(file_mtime_epoch "$file")")"
+  echo "Type: $(artifact_kind_from_path "$file")"
+  echo "Size: $(file_size_human "$file")"
+  echo
+  show_artifact "$file"
+}
+
+menu_browse_artifacts() {
+  local title="$1"
+  local category="$2"
+  local limit="${3:-60}"
+  local answer idx
+
+  while true; do
+    menu_collect_artifacts "$category" "$limit" || return "$FAIL"
+    echo
+    echo "$title"
+    menu_print_artifact_list
+    if [[ "${#MENU_ARTIFACT_FILES[@]}" -eq 0 ]]; then
+      menu_pause
+      return "$SUCCESS"
+    fi
+    echo
+    echo "Enter a number to inspect, r to refresh, or b/blank to go back:"
+    read -r answer || return "$FAIL"
+    [[ -n "$answer" ]] || return "$SUCCESS"
+    case "$answer" in
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      r|R)
+        continue
+        ;;
+    esac
+    if [[ "$answer" =~ ^[0-9]+$ && "$answer" -ge 1 && "$answer" -le "${#MENU_ARTIFACT_FILES[@]}" ]]; then
+      idx=$((answer - 1))
+      menu_inspect_artifact_file "${MENU_ARTIFACT_FILES[$idx]}"
+      menu_pause
+    else
+      warn "Invalid selection: $answer"
+      menu_pause
+    fi
+  done
+}
+
 menu_review_center() {
   local answer
 
@@ -14238,8 +14410,7 @@ menu_review_center() {
         menu_pause
         ;;
       8)
-        menu_show_recent_artifacts
-        menu_pause
+        menu_browse_artifacts "Recent Manifests, Logs, Reports, And Helper Files" "recent" 60
         ;;
       b|B|q|Q)
         return "$SUCCESS"
@@ -14264,6 +14435,7 @@ menu_audit_settings() {
     echo "  4. Show audit status"
     echo "  5. Dry-run audit purge"
     echo "  6. Execute audit purge"
+    echo "  7. Browse audit logs and inspect contents"
     echo "  b. Back"
     echo
     echo "Current retain=${AUDIT_RETAIN} retention_days=${AUDIT_RETENTION_DAYS} audit_dir=${AUDIT_DIR}"
@@ -14297,6 +14469,9 @@ menu_audit_settings() {
         menu_run_audit_purge "execute"
         menu_pause
         ;;
+      7)
+        menu_browse_artifacts "Audit Logs And Retained Run Artifacts" "audit" 80
+        ;;
       b|B|q|Q)
         return "$SUCCESS"
         ;;
@@ -14325,6 +14500,7 @@ menu_reports() {
     echo "  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)"
     echo " 10. Generate scenario lifecycle coverage report"
     echo " 11. Generate APEX / ORDS readiness report"
+    echo " 12. Browse generated reports and inspect contents"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -14378,6 +14554,9 @@ menu_reports() {
         menu_run_apex_ords_report
         menu_pause
         ;;
+      12)
+        menu_browse_artifacts "Generated Reports And HTML Artifacts" "reports" 80
+        ;;
       b|B|q|Q)
         return "$SUCCESS"
         ;;
@@ -14390,12 +14569,7 @@ menu_reports() {
 }
 
 menu_show_recent_artifacts() {
-  echo
-  echo "Recent files in ${LOG_DIR}:"
-  find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \) 2>/dev/null |
-    sort |
-    tail -40 |
-    sed 's/^/  /'
+  menu_browse_artifacts "Recent Manifests, Logs, Reports, And Helper Files" "recent" 60
 }
 
 interactive_menu() {
@@ -14417,7 +14591,7 @@ interactive_menu() {
     echo "  9. Dry-run recovery for selected scenario"
     echo " 11. Run health check / validation"
     echo " 12. Configure targets and options"
-    echo " 13. Show recent manifests and logs"
+    echo " 13. Browse recent manifests, logs, reports, and inspect contents"
     echo " 14. Dry-run random/aleatory scenario for this topology"
     echo " 16. Reports"
     echo " 17. Generate scenario readiness report for this topology"
@@ -14491,7 +14665,6 @@ interactive_menu() {
         ;;
       13|a|A)
         menu_show_recent_artifacts
-        menu_pause
         ;;
       14)
         menu_run_random_scenario "dry-run"
