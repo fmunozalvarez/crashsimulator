@@ -32,7 +32,10 @@ Current framework registry snapshot:
   scenario IDs. `--list-adb-scenarios`, `--adb-scenario <id>`, and the Guided
   Workflow Autonomous Database scenarios submenu let users browse the catalog,
   select `ADB01` through `ADB15`, inspect readiness status, configure ADB
-  context, and refresh ADB readiness evidence. `--adb-readiness-report`
+  context, and refresh ADB readiness evidence. The Guided Workflow Reports menu
+  also exposes ADB options `12` through `18` for context, readiness report
+  generation, report browsing, scenario list/select/detail, and the full ADB
+  submenu. `--adb-readiness-report`
   validates wallet/client connectivity, SQL evidence, APEX visibility,
   Flashback Archive posture, OCI control-plane gaps, and ADB-specific scenario
   readiness for logical recovery, clone/PITR, wallet rotation, private

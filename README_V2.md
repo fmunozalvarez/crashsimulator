@@ -157,6 +157,7 @@ drive from a single screen:
 - generate Oracle MAA readiness and SLA planning reports
 - browse the dedicated Autonomous Database scenario catalog, select `ADB01`
   through `ADB15`, review validation status, and refresh ADB readiness evidence
+  from the main ADB submenu or the Reports menu ADB options
 - configure audit retention, inspect audit status, and purge old audit records
 - review collected topology, manifests, runbooks, dry-run/execution records,
   reports, health checks, configuration outputs, and audit history
@@ -179,6 +180,10 @@ so users see a clear runbook/baseline message instead of a failing child
 command when a step is not automated or not required. Reports launched from the
 Reports menu also request HTML output automatically where supported, while
 keeping the normal Markdown/log artifacts.
+
+On ADB client or bastion hosts where SQL*Plus is not installed, the menu skips
+local database topology discovery and still opens for ADB readiness reports,
+ADB scenario browsing, review, and configuration.
 
 ## Review Center And HTML Output
 

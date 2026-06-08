@@ -69,7 +69,11 @@ single entry with `--adb-scenario ADB01`. The Guided Workflow menu also has an
 Autonomous Database scenarios submenu where users can browse `ADB01` through
 `ADB15`, select a scenario, review validation status, configure ADB context,
 refresh the readiness report, and later launch ADB-specific helpers when those
-seeded logical/OCI workflows are added.
+seeded logical/OCI workflows are added. In the Guided Workflow Reports menu,
+options `12` through `18` cover ADB context, readiness report generation,
+report browsing, ADB scenario list/select/detail, and the full ADB submenu.
+The menu can open these ADB options even when local SQL*Plus discovery is not
+available on a client or bastion host.
 
 | ID | Scenario | Validation | Recovery focus |
 | --- | --- | --- | --- |

@@ -18,6 +18,17 @@ SUCCESS=0
 FAIL=1
 
 PROGRAM="$(basename "$0")"
+BASH_EXECUTABLE="${BASH:-bash}"
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
+case "$SCRIPT_SOURCE" in
+  */*)
+    SCRIPT_PATH="$(cd -P "$(dirname "$SCRIPT_SOURCE")" >/dev/null 2>&1 && pwd)/$(basename "$SCRIPT_SOURCE")"
+    ;;
+  *)
+    SCRIPT_PATH="$(command -v "$SCRIPT_SOURCE" 2>/dev/null || true)"
+    [[ -n "$SCRIPT_PATH" ]] || SCRIPT_PATH="./$SCRIPT_SOURCE"
+    ;;
+esac
 MODE="menu"
 SCENARIO_ID=""
 TARGET_PDB="${CRASHSIM_PDB:-}"
@@ -1606,7 +1617,7 @@ cleanup() {
   fi
 }
 
-ensure_sqlplus() {
+find_sqlplus_if_available() {
   if [[ -n "$SQLPLUS_BIN" && -x "$SQLPLUS_BIN" ]]; then
     return "$SUCCESS"
   fi
@@ -1616,6 +1627,13 @@ ensure_sqlplus() {
   fi
   SQLPLUS_BIN="$(command -v sqlplus 2>/dev/null || true)"
   if [[ -n "$SQLPLUS_BIN" && -x "$SQLPLUS_BIN" ]]; then
+    return "$SUCCESS"
+  fi
+  return "$FAIL"
+}
+
+ensure_sqlplus() {
+  if find_sqlplus_if_available; then
     return "$SUCCESS"
   fi
   die "sqlplus was not found. Set ORACLE_HOME or SQLPLUS."
@@ -14492,6 +14510,22 @@ menu_selected_scenario_label() {
   fi
 }
 
+menu_discover_environment_optional() {
+  if [[ "$ORACLE_USER_REQUIRED" -eq 1 && "$(id -un)" != "oracle" ]]; then
+    warn "Database topology discovery skipped: this run requires OS user oracle, current user is $(id -un)."
+    warn "ADB scenarios, ADB readiness reports, review, and configuration menus remain available."
+    return "$SUCCESS"
+  fi
+
+  if ! find_sqlplus_if_available; then
+    warn "Database topology discovery skipped: sqlplus was not found. Set ORACLE_HOME or SQLPLUS for database-host scenarios."
+    warn "ADB scenarios, ADB readiness reports, review, and configuration menus remain available."
+    return "$SUCCESS"
+  fi
+
+  discover_environment || warn "Database topology discovery did not complete. The guided menu will open with currently available context."
+}
+
 menu_print_header() {
   echo
   echo "CrashSimulator V2 ${VERSION}"
@@ -15519,7 +15553,7 @@ menu_run_child_action() {
 
   menu_ensure_scenario_context "$action" "$run_mode" || return "$FAIL"
 
-  MENU_CMD=("$0")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH")
   case "$action" in
     scenario) MENU_CMD+=("--scenario" "$SCENARIO_ID") ;;
     protect) MENU_CMD+=("--protect" "$SCENARIO_ID") ;;
@@ -15559,26 +15593,26 @@ menu_run_validate_scenario() {
   }
   menu_ensure_scenario_context "validate" "dry-run" || return "$FAIL"
 
-  MENU_CMD=("$0" "--validate-scenario" "$SCENARIO_ID")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--validate-scenario" "$SCENARIO_ID")
   menu_append_common_child_args
   menu_run_child_command
 }
 
 menu_run_validate_all_scenarios() {
-  MENU_CMD=("$0" "--validate-all-scenarios")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--validate-all-scenarios")
   menu_append_common_child_args
   menu_run_child_command
 }
 
 menu_run_scenario_readiness_report() {
-  MENU_CMD=("$0" "--scenario-readiness-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--scenario-readiness-report")
   menu_append_common_child_args
   MENU_CMD+=("--html")
   menu_run_child_command
 }
 
 menu_run_scenario_lifecycle_report() {
-  MENU_CMD=("$0" "--scenario-lifecycle-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--scenario-lifecycle-report")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
   MENU_CMD+=("--html")
@@ -15592,7 +15626,7 @@ menu_run_random_scenario() {
 }
 
 menu_run_health_check() {
-  MENU_CMD=("$0" "--health-check")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--health-check")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15600,7 +15634,7 @@ menu_run_health_check() {
 }
 
 menu_run_configuration_report() {
-  MENU_CMD=("$0" "--config-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--config-report")
   [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
   MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
@@ -15610,7 +15644,7 @@ menu_run_configuration_report() {
 }
 
 menu_run_backup_report() {
-  MENU_CMD=("$0" "--backup-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--backup-report")
   [[ "$REPORT_DEEP_VALIDATE" -eq 1 ]] && MENU_CMD+=("--deep-validate")
   MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
@@ -15621,7 +15655,7 @@ menu_run_backup_report() {
 
 menu_run_baseline_backup() {
   local run_mode="$1"
-  MENU_CMD=("$0" "--baseline-backup")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--baseline-backup")
   [[ -n "$BASELINE_TAG_PREFIX" ]] && MENU_CMD+=("--tag-prefix" "$BASELINE_TAG_PREFIX")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15634,7 +15668,7 @@ menu_run_baseline_backup() {
 }
 
 menu_run_maa_report() {
-  MENU_CMD=("$0" "--maa-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--maa-report")
   [[ -n "$MAA_APP_NAME" ]] && MENU_CMD+=("--maa-app-name" "$MAA_APP_NAME")
   [[ -n "$MAA_LOCAL_RTO" ]] && MENU_CMD+=("--maa-local-rto" "$MAA_LOCAL_RTO")
   [[ -n "$MAA_LOCAL_RPO" ]] && MENU_CMD+=("--maa-local-rpo" "$MAA_LOCAL_RPO")
@@ -15650,7 +15684,7 @@ menu_run_maa_report() {
 }
 
 menu_run_service_review() {
-  MENU_CMD=("$0" "--service-review")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--service-review")
   MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
@@ -15659,14 +15693,14 @@ menu_run_service_review() {
 }
 
 menu_run_apex_ords_report() {
-  MENU_CMD=("$0" "--apex-ords-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--apex-ords-report")
   menu_append_common_child_args
   MENU_CMD+=("--html")
   menu_run_child_command
 }
 
 menu_run_adb_readiness_report() {
-  MENU_CMD=("$0" "--adb-readiness-report")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--adb-readiness-report")
   menu_append_common_child_args
   MENU_CMD+=("--html")
   menu_run_child_command
@@ -15674,7 +15708,7 @@ menu_run_adb_readiness_report() {
 
 menu_run_show_latest_adb_report() {
   local html_mode="$1"
-  MENU_CMD=("$0" "--show-artifact" "latest:adb")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--show-artifact" "latest:adb")
   [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15832,7 +15866,7 @@ menu_adb_scenarios() {
 }
 
 menu_run_audit_status() {
-  MENU_CMD=("$0" "--audit-status")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--audit-status")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
   menu_run_child_command
@@ -15840,7 +15874,7 @@ menu_run_audit_status() {
 
 menu_run_audit_purge() {
   local run_mode="$1"
-  MENU_CMD=("$0" "--purge-audit-logs")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--purge-audit-logs")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
   case "$run_mode" in
@@ -15853,7 +15887,7 @@ menu_run_audit_purge() {
 
 menu_run_review_index() {
   local html_mode="$1"
-  MENU_CMD=("$0" "--review")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--review")
   [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15862,7 +15896,7 @@ menu_run_review_index() {
 
 menu_run_review_topology() {
   local html_mode="$1"
-  MENU_CMD=("$0" "--review-topology")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--review-topology")
   [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15885,7 +15919,7 @@ menu_run_show_artifact() {
   local html_mode="$1"
   local ref
   menu_prompt_artifact_reference ref || return "$FAIL"
-  MENU_CMD=("$0" "--show-artifact" "$ref")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--show-artifact" "$ref")
   [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15895,7 +15929,7 @@ menu_run_show_artifact() {
 menu_run_render_html() {
   local ref
   menu_prompt_artifact_reference ref || return "$FAIL"
-  MENU_CMD=("$0" "--render-html" "$ref")
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--render-html" "$ref")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
   menu_run_child_command
@@ -16213,6 +16247,10 @@ menu_reports() {
     echo " 12. Set Autonomous Database report context"
     echo " 13. Generate Autonomous Database readiness report"
     echo " 14. Browse generated reports and inspect contents"
+    echo " 15. List Autonomous Database scenarios with readiness status"
+    echo " 16. Select Autonomous Database scenario"
+    echo " 17. Show selected Autonomous Database scenario detail"
+    echo " 18. Open Autonomous Database scenarios submenu"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -16276,6 +16314,21 @@ menu_reports() {
         ;;
       14)
         menu_browse_artifacts "Generated Reports And HTML Artifacts" "reports" 80
+        ;;
+      15)
+        print_adb_scenario_catalog
+        menu_pause
+        ;;
+      16)
+        menu_select_adb_scenario
+        menu_pause
+        ;;
+      17)
+        menu_show_selected_adb_scenario
+        menu_pause
+        ;;
+      18)
+        menu_adb_scenarios
         ;;
       b|B|q|Q)
         return "$SUCCESS"
@@ -16532,9 +16585,9 @@ main() {
       ;;
     menu)
       echo "Starting CrashSimulator Guided Workflow menu..."
-      echo "Discovering target topology for the menu header. This normally takes a few seconds."
-      echo "If startup appears slow, verify ORACLE_HOME, ORACLE_SID, and local SYSDBA access."
-      discover_environment || true
+      echo "Trying target topology discovery for the menu header. This normally takes a few seconds on database hosts."
+      echo "If SQL*Plus is unavailable, the menu still opens for ADB reports, ADB scenarios, review, and configuration."
+      menu_discover_environment_optional
       interactive_menu
       ;;
     *)

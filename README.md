@@ -102,7 +102,11 @@ The Guided Workflow menu separates safe planning actions from execution actions
 and redacts RMAN catalog/SYS password values from command echoes. It also
 includes a dedicated Autonomous Database scenarios submenu to browse `ADB01`
 through `ADB15`, select one, review validation status, configure ADB context,
-and refresh ADB readiness evidence.
+and refresh ADB readiness evidence. The same ADB report and scenario actions
+are available from the Reports menu as options `12` through `18`. If SQL*Plus
+is not available on an ADB client or bastion host, the menu now skips local
+database topology discovery and still opens for ADB reports, ADB scenarios,
+review, and configuration.
 
 ## Tutorial Videos
 

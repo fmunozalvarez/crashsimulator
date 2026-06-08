@@ -334,7 +334,8 @@ The menu provides options to:
   scenario lifecycle coverage reports.
 - Browse the dedicated Autonomous Database scenario catalog, select `ADB01`
   through `ADB15`, review validation status, configure ADB context, and refresh
-  ADB readiness evidence.
+  ADB readiness evidence from the main ADB submenu or the Reports menu ADB
+  options.
 - Configure audit retention, show audit status, browse retained audit logs, and
   purge old audit records.
 - Review previously collected topology, runbooks, reports, scenario manifests,
@@ -661,6 +662,15 @@ recovery focus for that scenario, set ADB report context, regenerate the ADB
 readiness report, and open the latest ADB report as text or HTML. The helper
 execution option is intentionally a placeholder until seeded logical drills and
 OCI control-plane helpers are implemented.
+
+The same ADB workflow is also reachable from the Guided Workflow Reports menu:
+`12` sets ADB report context, `13` generates the ADB readiness report with HTML,
+`14` browses generated reports and HTML artifacts, `15` lists ADB scenarios,
+`16` selects an ADB scenario, `17` shows selected ADB scenario detail, and `18`
+opens the full ADB scenarios submenu. On ADB client or bastion hosts where
+SQL*Plus is not installed, the Guided Workflow menu skips local database
+topology discovery and still opens these ADB, review, and configuration
+options.
 
 ### APEX/ORDS Scenarios
 
