@@ -50,6 +50,25 @@ export PATH=$ORACLE_HOME/bin:$PATH
 cd /path/to/crashsimulator-main
 ```
 
+If you prefer repeatable startup defaults, copy and edit the sample
+configuration file:
+
+```bash
+cp config/crashsimulator.conf.example crashsimulator.conf
+vi crashsimulator.conf
+./CrashSimulatorV2.sh --show-config
+./CrashSimulatorV2.sh --validate-config
+```
+
+CrashSimulator reads configuration in this order: `--config <file>`,
+`CRASHSIM_CONFIG`, `./crashsimulator.conf`,
+`$HOME/.crashsimulator/crashsimulator.conf`, then
+`/etc/crashsimulator/crashsimulator.conf`. CLI arguments override existing
+environment values, existing environment values override the configuration
+file, and the configuration file only replaces built-in defaults. The file is
+parsed as allowlisted `KEY=value` entries and is not sourced as shell code.
+Keep passwords and wallet secrets out of it.
+
 CrashSimulator V2 requires Bash 4 or later, SQL*Plus, RMAN, and the normal
 Oracle environment for the target database. Grid Infrastructure commands such as
 `srvctl`, `crsctl`, `ocrcheck`, and `asmcmd` are used only for RAC/GI/ASM
@@ -114,7 +133,8 @@ drive from a single screen:
 
 - discover or refresh database topology
 - select a scenario
-- configure PDB, schema, FILE#, manifest, PFILE, log directory, and scenario 25 guards
+- configure PDB, schema, FILE#, manifest, PFILE, log directory,
+  configuration file, and scenario 25 guards
 - validate whether the selected scenario is runnable and generate a full
   topology-versus-scenario readiness report with blocker reasons
 - show recovery-runbook hints

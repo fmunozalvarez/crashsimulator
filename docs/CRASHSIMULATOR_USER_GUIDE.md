@@ -220,6 +220,34 @@ cd /path/to/crashsimulator-main
 ./crashsimulator --menu
 ```
 
+You can also use a CrashSimulator startup configuration file to fill missing
+Oracle and CrashSimulator defaults automatically. This is useful on RAC, ASM,
+Data Guard, APEX/ORDS, and repeatable lab hosts where the same `ORACLE_SID`,
+`ORACLE_HOME`, PDB, log directory, Grid home, or ORDS settings are reused.
+
+```bash
+cp config/crashsimulator.conf.example crashsimulator.conf
+vi crashsimulator.conf
+./CrashSimulatorV2.sh --show-config
+./CrashSimulatorV2.sh --validate-config
+./CrashSimulatorV2.sh --config ./crashsimulator.conf --discover
+```
+
+Lookup order:
+
+1. `--config <file>`
+2. `CRASHSIM_CONFIG`
+3. `./crashsimulator.conf`
+4. `$HOME/.crashsimulator/crashsimulator.conf`
+5. `/etc/crashsimulator/crashsimulator.conf`
+
+Precedence is conservative: CLI arguments override existing shell environment,
+existing shell environment overrides the configuration file, and the
+configuration file overrides only built-in defaults. The file is parsed as
+allowlisted `KEY=value` entries and is not sourced as shell code. Do not store
+SYS passwords, RMAN catalog passwords, APEX passwords, wallet secrets, tokens,
+or similar sensitive values in it.
+
 If the ZIP was renamed by the browser, the directory may be
 `crashsimulator-main`, `crashsimulator-master`, or another name. The important
 point is to run the commands from the directory containing `CrashSimulatorV2.sh`.
@@ -282,7 +310,8 @@ The menu provides options to:
 - Dry-run or execute recovery.
 - Run health checks.
 - Configure or be guided through PDB, schema, FILE#, manifest, PFILE, log
-  directory, password-file recovery, RMAN catalog, and scenario 25 guardrails.
+  directory, configuration file, password-file recovery, RMAN catalog, and
+  scenario 25 guardrails.
 - Show recent manifests and logs.
 - Dry-run or execute an aleatory scenario for the detected topology.
 - Generate a scenario readiness report for the detected topology.

@@ -1,0 +1,43 @@
+# CrashSimulator startup configuration example
+#
+# Copy this file to one of these locations:
+#   ./crashsimulator.conf
+#   $HOME/.crashsimulator/crashsimulator.conf
+#   /etc/crashsimulator/crashsimulator.conf
+#
+# Or pass it explicitly:
+#   ./CrashSimulatorV2.sh --config /path/to/crashsimulator.conf --show-config
+#
+# Precedence:
+#   CLI arguments > existing environment variables > this file > built-in defaults
+#
+# This file is parsed as allowlisted KEY=value entries. It is not sourced as
+# shell code. Do not store SYS, RMAN catalog, APEX, wallet, token, or other
+# secrets here; use environment variables, wallets, or guided prompts.
+
+ORACLE_SID=orcl1
+ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
+ORACLE_BASE=/u01/app/oracle
+TNS_ADMIN=/u01/app/oracle/product/19.0.0.0/dbhome_1/network/admin
+
+# Optional RAC/Grid/ASM context.
+CRASHSIM_GRID_HOME=/u01/app/19.0.0.0/grid
+CRASHSIM_ASM_SID=+ASM1
+CRASHSIM_GRID_USER=grid
+
+# CrashSimulator defaults.
+CRASHSIM_PDB=CRASHPDB
+CRASHSIM_LOG_DIR=/tmp/crashsimulator/crashsimulator_logs
+CRASHSIM_SQLPLUS_LOGON='/ as sysdba'
+CRASHSIM_AUDIT_RETAIN=yes
+CRASHSIM_AUDIT_RETENTION_DAYS=90
+CRASHSIM_BASELINE_TAG_PREFIX=CSIM_BASE
+
+# Optional APEX/ORDS defaults.
+CRASHSIM_ORDS_SERVICE=ords
+CRASHSIM_ORDS_CONFIG_DIR=/etc/ords/config
+CRASHSIM_ORDS_URL=http://localhost:8080/ords/
+CRASHSIM_ORDS_LB_URL=
+CRASHSIM_APEX_IMAGES_DIR=
+CRASHSIM_APEX_SESSION_URL=
+CRASHSIM_APEX_SESSION_USERNAME=

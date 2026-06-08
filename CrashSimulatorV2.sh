@@ -71,6 +71,12 @@ MAA_DR_RPO="${CRASHSIM_MAA_DR_RPO:-}"
 MAA_PLANNED_RTO="${CRASHSIM_MAA_PLANNED_RTO:-}"
 MAA_PLANNED_RPO="${CRASHSIM_MAA_PLANNED_RPO:-}"
 LOG_DIR="${CRASHSIM_LOG_DIR:-}"
+CONFIG_FILE="${CRASHSIM_CONFIG:-}"
+CONFIG_SOURCE=""
+CONFIG_EXPLICIT=0
+CONFIG_DISABLED=0
+CONFIG_LOADED=0
+CONFIG_TEMPLATE_FILE=""
 WORK_DIR=""
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
 EXECUTE=0
@@ -118,6 +124,9 @@ DISCOVERED=0
 
 declare -a PDB_ROWS=()
 declare -a TARGET_ROWS=()
+declare -a CONFIG_APPLIED=()
+declare -a CONFIG_SKIPPED=()
+declare -a CONFIG_WARNINGS=()
 declare -a ACTION_KINDS=()
 declare -a ACTION_TARGETS=()
 declare -a ACTION_DETAILS=()
@@ -169,6 +178,9 @@ Usage:
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
+  ./${PROGRAM} --show-config [--config <file>]
+  ./${PROGRAM} --validate-config [--config <file>]
+  ./${PROGRAM} --write-config-template <file>
   ./${PROGRAM} --review
   ./${PROGRAM} --review-topology
   ./${PROGRAM} --show-artifact <path|latest[:kind]> [--html]
@@ -212,6 +224,12 @@ Options:
   --audit-dir <dir>       Audit archive directory. Default: <log-dir>/audit.
   --audit-status          Show audit settings, usage, and purge candidates.
   --purge-audit-logs      Purge audit run folders older than retention policy.
+  --config <file>         Read startup defaults from an allowlisted KEY=value file.
+  --no-config             Do not auto-load startup configuration files.
+  --show-config           Show the active CrashSimulator/Oracle startup settings.
+  --validate-config       Validate loaded configuration syntax and key paths.
+  --write-config-template <file>
+                          Write a sanitized configuration template.
   --review                Generate and print an index of collected topology,
                           scenarios, runbooks, dry-runs, protection, health,
                           backup/config/MAA reports, audit records, and logs.
@@ -304,6 +322,7 @@ Options:
   --help                  Show this help.
 
 Environment:
+  CRASHSIM_CONFIG               Startup configuration file path.
   CRASHSIM_PDB                  Default PDB target.
   CRASHSIM_SCHEMA               Default schema target.
   CRASHSIM_FILE_NO              Default RMAN datafile number for recovery.
@@ -427,6 +446,584 @@ normalize_auto_bool() {
     0|false|no|n|off) printf "0" ;;
     *) return "$FAIL" ;;
   esac
+}
+
+trim_value() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf "%s" "$value"
+}
+
+strip_config_quotes() {
+  local value
+  value="$(trim_value "$1")"
+  if [[ "${#value}" -ge 2 ]]; then
+    if [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+      value="${value:1:${#value}-2}"
+    else
+      value="${value%%[[:space:]]#*}"
+      value="$(trim_value "$value")"
+    fi
+  fi
+  printf "%s" "$value"
+}
+
+redact_config_value() {
+  local key="$1"
+  local value="$2"
+  case "$key" in
+    *PASSWORD*|*SECRET*|*TOKEN*|*CATALOG*|*CONNECT*)
+      [[ -n "$value" ]] && printf "<redacted>" || printf "not set"
+      ;;
+    *)
+      printf "%s" "${value:-not set}"
+      ;;
+  esac
+}
+
+config_record_applied() {
+  local key="$1"
+  local value="$2"
+  CONFIG_APPLIED+=("${key}=$(redact_config_value "$key" "$value")")
+}
+
+config_record_skipped() {
+  CONFIG_SKIPPED+=("$1")
+}
+
+config_record_warning() {
+  CONFIG_WARNINGS+=("$1")
+}
+
+config_env_is_set() {
+  local env_name="$1"
+  [[ -n "${!env_name+x}" ]]
+}
+
+config_set_env_if_unset() {
+  local key="$1"
+  local value="$2"
+  local var_name="$3"
+
+  [[ -n "$var_name" ]] || var_name="$key"
+  if config_env_is_set "$key"; then
+    config_record_skipped "${key}: environment already set"
+    return "$SUCCESS"
+  fi
+  export "${key}=${value}"
+  if [[ -n "$var_name" ]]; then
+    printf -v "$var_name" "%s" "$value"
+  fi
+  config_record_applied "$key" "$value"
+}
+
+config_set_value_if_env_unset() {
+  local key="$1"
+  local env_name="$2"
+  local var_name="$3"
+  local value="$4"
+
+  if config_env_is_set "$env_name"; then
+    config_record_skipped "${key}: ${env_name} environment already set"
+    return "$SUCCESS"
+  fi
+  printf -v "$var_name" "%s" "$value"
+  config_record_applied "$key" "$value"
+}
+
+config_validate_path_value() {
+  local key="$1"
+  local value="$2"
+  [[ -n "$value" ]] || {
+    config_record_warning "${key}: empty path ignored"
+    return "$FAIL"
+  }
+  if printf "%s" "$value" | grep -q '[[:cntrl:]]'; then
+    config_record_warning "${key}: control characters are not allowed"
+    return "$FAIL"
+  fi
+  return "$SUCCESS"
+}
+
+apply_config_entry() {
+  local key="$1"
+  local value="$2"
+
+  case "$key" in
+    ORACLE_SID)
+      [[ "$value" =~ ^[A-Za-z0-9_+#.$-]+$ ]] || {
+        config_record_warning "${key}: invalid Oracle SID syntax"
+        return "$SUCCESS"
+      }
+      config_set_env_if_unset "$key" "$value" ""
+      ;;
+    ORACLE_HOME|ORACLE_BASE|TNS_ADMIN|CRASHSIM_GRID_HOME)
+      config_validate_path_value "$key" "$value" || return "$SUCCESS"
+      config_set_env_if_unset "$key" "$value" ""
+      ;;
+    SQLPLUS)
+      config_validate_path_value "$key" "$value" || return "$SUCCESS"
+      config_set_env_if_unset "$key" "$value" "SQLPLUS_BIN"
+      ;;
+    RMAN)
+      config_validate_path_value "$key" "$value" || return "$SUCCESS"
+      config_set_env_if_unset "$key" "$value" "RMAN_BIN"
+      ;;
+    NLS_LANG|TWO_TASK|LOCAL|CRASHSIM_ASM_SID)
+      config_set_env_if_unset "$key" "$value" ""
+      ;;
+    CRASHSIM_PDB|CRASHSIM_DEFAULT_PDB|TARGET_PDB)
+      config_set_value_if_env_unset "$key" "CRASHSIM_PDB" TARGET_PDB "$(normalize_name "$value")"
+      ;;
+    CRASHSIM_SCHEMA|CRASHSIM_DEFAULT_SCHEMA|TARGET_SCHEMA)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SCHEMA" TARGET_SCHEMA "$(normalize_name "$value")"
+      ;;
+    CRASHSIM_FILE_NO|TARGET_FILE_NO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_FILE_NO" TARGET_FILE_NO "$value"
+      ;;
+    CRASHSIM_PFILE|PFILE_PATH)
+      config_set_value_if_env_unset "$key" "CRASHSIM_PFILE" PFILE_PATH "$value"
+      ;;
+    CRASHSIM_SERVICE_NAME|SERVICE_NAME)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SERVICE_NAME" SERVICE_NAME "$value"
+      ;;
+    CRASHSIM_SYSBACKUP_USER|SYSBACKUP_USER)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SYSBACKUP_USER" SYSBACKUP_USER "$(normalize_name "$value")"
+      ;;
+    CRASHSIM_TEMPFILE_SIZE|TEMPFILE_SIZE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_TEMPFILE_SIZE" TEMPFILE_SIZE "$value"
+      ;;
+    CRASHSIM_GRID_USER|GRID_USER)
+      config_set_value_if_env_unset "$key" "CRASHSIM_GRID_USER" GRID_USER "$value"
+      ;;
+    CRASHSIM_LOCAL_ONLY|LOCAL_ONLY)
+      config_set_value_if_env_unset "$key" "CRASHSIM_LOCAL_ONLY" LOCAL_ONLY "$value"
+      ;;
+    CRASHSIM_MAX_TARGETS|MAX_TARGETS)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAX_TARGETS" MAX_TARGETS "$value"
+      ;;
+    CRASHSIM_PIECE_HANDLE|PIECE_HANDLE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_PIECE_HANDLE" PIECE_HANDLE "$value"
+      ;;
+    CRASHSIM_REPORT_DEEP_VALIDATE|REPORT_DEEP_VALIDATE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_REPORT_DEEP_VALIDATE" REPORT_DEEP_VALIDATE "$value"
+      ;;
+    CRASHSIM_RMAN_CATALOG|RMAN_CATALOG_CONNECT)
+      config_set_value_if_env_unset "$key" "CRASHSIM_RMAN_CATALOG" RMAN_CATALOG_CONNECT "$value"
+      ;;
+    CRASHSIM_BASELINE_TAG_PREFIX|BASELINE_TAG_PREFIX)
+      config_set_value_if_env_unset "$key" "CRASHSIM_BASELINE_TAG_PREFIX" BASELINE_TAG_PREFIX "$value"
+      ;;
+    CRASHSIM_FRA_PRESSURE_TARGET_PCT|FRA_PRESSURE_TARGET_PCT)
+      config_set_value_if_env_unset "$key" "CRASHSIM_FRA_PRESSURE_TARGET_PCT" FRA_PRESSURE_TARGET_PCT "$value"
+      ;;
+    CRASHSIM_FRA_PRESSURE_HEADROOM_MB|FRA_PRESSURE_HEADROOM_MB)
+      config_set_value_if_env_unset "$key" "CRASHSIM_FRA_PRESSURE_HEADROOM_MB" FRA_PRESSURE_HEADROOM_MB "$value"
+      ;;
+    CRASHSIM_TEMP_EXHAUST_MB|TEMP_EXHAUST_MB)
+      config_set_value_if_env_unset "$key" "CRASHSIM_TEMP_EXHAUST_MB" TEMP_EXHAUST_MB "$value"
+      ;;
+    CRASHSIM_ORDS_SERVICE|ORDS_SERVICE_NAME)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_SERVICE" ORDS_SERVICE_NAME "$value"
+      ;;
+    CRASHSIM_ORDS_CONFIG_DIR|ORDS_CONFIG_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_CONFIG_DIR" ORDS_CONFIG_DIR "$value"
+      ;;
+    CRASHSIM_ORDS_URL|ORDS_URL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_URL" ORDS_URL "$value"
+      ;;
+    CRASHSIM_ORDS_LB_URL|ORDS_LB_URL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_LB_URL" ORDS_LB_URL "$value"
+      ;;
+    CRASHSIM_ORDS_DB_POOL|ORDS_DB_POOL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_DB_POOL" ORDS_DB_POOL "$value"
+      ;;
+    CRASHSIM_ORDS_PRIV_HELPER|ORDS_PRIV_HELPER)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORDS_PRIV_HELPER" ORDS_PRIV_HELPER "$value"
+      ;;
+    CRASHSIM_APEX_IMAGES_DIR|APEX_IMAGES_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_IMAGES_DIR" APEX_IMAGES_DIR "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_DRIVER|APEX_SESSION_DRIVER)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_DRIVER" APEX_SESSION_DRIVER "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_URL|APEX_SESSION_URL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_URL" APEX_SESSION_URL "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_USERNAME|APEX_SESSION_USERNAME)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_USERNAME" APEX_SESSION_USERNAME "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_SUCCESS_SELECTOR|APEX_SESSION_SUCCESS_SELECTOR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_SUCCESS_SELECTOR" APEX_SESSION_SUCCESS_SELECTOR "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_USERNAME_SELECTOR|APEX_SESSION_USERNAME_SELECTOR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_USERNAME_SELECTOR" APEX_SESSION_USERNAME_SELECTOR "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_PASSWORD_SELECTOR|APEX_SESSION_PASSWORD_SELECTOR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_PASSWORD_SELECTOR" APEX_SESSION_PASSWORD_SELECTOR "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_SUBMIT_SELECTOR|APEX_SESSION_SUBMIT_SELECTOR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_SUBMIT_SELECTOR" APEX_SESSION_SUBMIT_SELECTOR "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_DURATION|APEX_SESSION_DURATION)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_DURATION" APEX_SESSION_DURATION "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_INTERVAL|APEX_SESSION_INTERVAL)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_INTERVAL" APEX_SESSION_INTERVAL "$value"
+      ;;
+    CRASHSIM_APEX_SESSION_HEADLESS|APEX_SESSION_HEADLESS)
+      config_set_value_if_env_unset "$key" "CRASHSIM_APEX_SESSION_HEADLESS" APEX_SESSION_HEADLESS "$value"
+      ;;
+    CRASHSIM_AUDIT_RETAIN|AUDIT_RETAIN)
+      config_set_value_if_env_unset "$key" "CRASHSIM_AUDIT_RETAIN" AUDIT_RETAIN "$value"
+      ;;
+    CRASHSIM_AUDIT_RETENTION_DAYS|AUDIT_RETENTION_DAYS)
+      config_set_value_if_env_unset "$key" "CRASHSIM_AUDIT_RETENTION_DAYS" AUDIT_RETENTION_DAYS "$value"
+      ;;
+    CRASHSIM_AUDIT_DIR|AUDIT_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_AUDIT_DIR" AUDIT_DIR "$value"
+      ;;
+    CRASHSIM_AUDIT_STREAM_CAPTURE|AUDIT_STREAM_CAPTURE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_AUDIT_STREAM_CAPTURE" AUDIT_STREAM_CAPTURE "$value"
+      ;;
+    CRASHSIM_HTML_TARGET|HTML_TARGET)
+      config_set_value_if_env_unset "$key" "CRASHSIM_HTML_TARGET" HTML_TARGET "$value"
+      ;;
+    CRASHSIM_REVIEW_TARGET|REVIEW_TARGET)
+      config_set_value_if_env_unset "$key" "CRASHSIM_REVIEW_TARGET" REVIEW_TARGET "$value"
+      ;;
+    CRASHSIM_MAA_APP_NAME|MAA_APP_NAME)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_APP_NAME" MAA_APP_NAME "$value"
+      ;;
+    CRASHSIM_MAA_LOCAL_RTO|MAA_LOCAL_RTO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_LOCAL_RTO" MAA_LOCAL_RTO "$value"
+      ;;
+    CRASHSIM_MAA_LOCAL_RPO|MAA_LOCAL_RPO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_LOCAL_RPO" MAA_LOCAL_RPO "$value"
+      ;;
+    CRASHSIM_MAA_DR_RTO|MAA_DR_RTO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_DR_RTO" MAA_DR_RTO "$value"
+      ;;
+    CRASHSIM_MAA_DR_RPO|MAA_DR_RPO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_DR_RPO" MAA_DR_RPO "$value"
+      ;;
+    CRASHSIM_MAA_PLANNED_RTO|MAA_PLANNED_RTO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_PLANNED_RTO" MAA_PLANNED_RTO "$value"
+      ;;
+    CRASHSIM_MAA_PLANNED_RPO|MAA_PLANNED_RPO)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_PLANNED_RPO" MAA_PLANNED_RPO "$value"
+      ;;
+    CRASHSIM_MANIFEST|MANIFEST_FILE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MANIFEST" MANIFEST_FILE "$value"
+      [[ -n "$MANIFEST_FILE" ]] && MANIFEST_FROM_ARG=1
+      ;;
+    CRASHSIM_LOG_DIR|LOG_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_LOG_DIR" LOG_DIR "$value"
+      ;;
+    CRASHSIM_SQLPLUS_LOGON|SQLPLUS_LOGON)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SQLPLUS_LOGON" SQLPLUS_LOGON "$value"
+      ;;
+    CRASHSIM_ORACLE_USER_REQUIRED|ORACLE_USER_REQUIRED)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ORACLE_USER_REQUIRED" ORACLE_USER_REQUIRED "$value"
+      ;;
+    CRASHSIM_SYS_PASSWORD|SYS_PASSWORD|CRASHSIM_APEX_SESSION_PASSWORD|APEX_SESSION_PASSWORD)
+      config_record_warning "${key}: sensitive values are intentionally ignored in config files; use environment variables, wallets, or guided prompts"
+      ;;
+    PATH|HOME|LD_LIBRARY_PATH)
+      config_record_warning "${key}: ignored for safety; set it in the shell before starting CrashSimulator"
+      ;;
+    *)
+      config_record_warning "${key}: unknown or unsupported configuration key"
+      ;;
+  esac
+}
+
+load_config_file() {
+  local file="$1"
+  local line key value line_no
+
+  [[ -f "$file" ]] || die "Configuration file was not found: $file"
+  [[ -r "$file" ]] || die "Configuration file is not readable: $file"
+
+  CONFIG_SOURCE="$file"
+  CONFIG_LOADED=1
+  CONFIG_APPLIED=()
+  CONFIG_SKIPPED=()
+  CONFIG_WARNINGS=()
+
+  line_no=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_no=$((line_no + 1))
+    line="$(trim_value "$line")"
+    [[ -n "$line" ]] || continue
+    [[ "$line" == \#* ]] && continue
+    if [[ "$line" == export[[:space:]]* ]]; then
+      line="$(trim_value "${line#export}")"
+    fi
+    if [[ "$line" != *=* ]]; then
+      config_record_warning "line ${line_no}: expected KEY=value"
+      continue
+    fi
+    key="$(trim_value "${line%%=*}")"
+    value="$(strip_config_quotes "${line#*=}")"
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      config_record_warning "line ${line_no}: invalid key '${key}'"
+      continue
+    fi
+    apply_config_entry "$key" "$value"
+  done <"$file"
+}
+
+prescan_config_args() {
+  CONFIG_FILE="${CRASHSIM_CONFIG:-}"
+  CONFIG_EXPLICIT=0
+  CONFIG_DISABLED=0
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --config)
+        [[ "$#" -ge 2 ]] || die "--config requires a file path"
+        CONFIG_FILE="$2"
+        CONFIG_EXPLICIT=1
+        shift 2
+        ;;
+      --no-config)
+        CONFIG_DISABLED=1
+        shift
+        ;;
+      --help|-h)
+        CONFIG_DISABLED=1
+        shift
+        ;;
+      --)
+        break
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+}
+
+load_startup_config() {
+  local candidate
+
+  prescan_config_args "$@"
+  [[ "$CONFIG_DISABLED" -eq 1 ]] && return "$SUCCESS"
+
+  if [[ -n "$CONFIG_FILE" ]]; then
+    load_config_file "$CONFIG_FILE"
+    return "$SUCCESS"
+  fi
+
+  for candidate in \
+    "./crashsimulator.conf" \
+    "${HOME:-}/.crashsimulator/crashsimulator.conf" \
+    "/etc/crashsimulator/crashsimulator.conf"; do
+    [[ -n "$candidate" ]] || continue
+    if [[ -f "$candidate" ]]; then
+      CONFIG_FILE="$candidate"
+      load_config_file "$candidate"
+      return "$SUCCESS"
+    fi
+  done
+}
+
+show_active_config() {
+  local item
+
+  echo "CrashSimulator active startup configuration"
+  echo "  Loaded config: ${CONFIG_SOURCE:-not loaded}"
+  echo "  Config disabled: ${CONFIG_DISABLED}"
+  echo
+  echo "Oracle environment:"
+  echo "  ORACLE_SID=${ORACLE_SID:-not set}"
+  echo "  ORACLE_HOME=${ORACLE_HOME:-not set}"
+  echo "  ORACLE_BASE=${ORACLE_BASE:-not set}"
+  echo "  TNS_ADMIN=${TNS_ADMIN:-not set}"
+  echo "  SQLPLUS=${SQLPLUS_BIN:-${SQLPLUS:-not set}}"
+  echo "  RMAN=${RMAN_BIN:-${RMAN:-not set}}"
+  echo "  CRASHSIM_GRID_HOME=${CRASHSIM_GRID_HOME:-not set}"
+  echo "  CRASHSIM_ASM_SID=${CRASHSIM_ASM_SID:-not set}"
+  echo
+  echo "CrashSimulator defaults:"
+  echo "  PDB=${TARGET_PDB:-not set}"
+  echo "  Schema=${TARGET_SCHEMA:-not set}"
+  echo "  FILE#=${TARGET_FILE_NO:-not set}"
+  echo "  Log dir=${LOG_DIR:-not set}"
+  echo "  SQL*Plus logon=$(redact_config_value SQLPLUS_LOGON "$SQLPLUS_LOGON")"
+  echo "  Audit retain=${AUDIT_RETAIN}"
+  echo "  Audit retention days=${AUDIT_RETENTION_DAYS}"
+  echo "  Audit dir=${AUDIT_DIR:-not set}"
+  echo "  RMAN catalog=$(redact_config_value RMAN_CATALOG_CONNECT "$RMAN_CATALOG_CONNECT")"
+  echo "  Baseline tag prefix=${BASELINE_TAG_PREFIX}"
+  echo "  ORDS URL=${ORDS_URL:-not set}"
+  echo "  ORDS config dir=${ORDS_CONFIG_DIR:-not set}"
+  echo "  APEX session URL=${APEX_SESSION_URL:-not set}"
+  echo
+  if [[ "${#CONFIG_APPLIED[@]}" -gt 0 ]]; then
+    echo "Config values applied:"
+    for item in "${CONFIG_APPLIED[@]}"; do
+      echo "  - ${item}"
+    done
+  else
+    echo "Config values applied: none"
+  fi
+  if [[ "${#CONFIG_SKIPPED[@]}" -gt 0 ]]; then
+    echo
+    echo "Config values skipped:"
+    for item in "${CONFIG_SKIPPED[@]}"; do
+      echo "  - ${item}"
+    done
+  fi
+  if [[ "${#CONFIG_WARNINGS[@]}" -gt 0 ]]; then
+    echo
+    echo "Config warnings:"
+    for item in "${CONFIG_WARNINGS[@]}"; do
+      echo "  - ${item}"
+    done
+  fi
+}
+
+validate_config_runtime() {
+  local errors=0 warnings=0
+
+  show_active_config
+  echo
+  echo "Configuration validation:"
+
+  if [[ -n "$CONFIG_SOURCE" ]]; then
+    if [[ ! -f "$CONFIG_SOURCE" ]]; then
+      echo "  ERROR: loaded config no longer exists: $CONFIG_SOURCE"
+      errors=$((errors + 1))
+    elif [[ ! -r "$CONFIG_SOURCE" ]]; then
+      echo "  ERROR: loaded config is not readable: $CONFIG_SOURCE"
+      errors=$((errors + 1))
+    else
+      echo "  OK: config file is readable"
+    fi
+  else
+    echo "  WARN: no configuration file was loaded"
+    warnings=$((warnings + 1))
+  fi
+
+  if [[ -n "${ORACLE_HOME:-}" ]]; then
+    if [[ -d "$ORACLE_HOME" ]]; then
+      echo "  OK: ORACLE_HOME directory exists"
+      if [[ -x "${ORACLE_HOME}/bin/sqlplus" ]]; then
+        echo "  OK: sqlplus exists under ORACLE_HOME"
+      else
+        echo "  WARN: ${ORACLE_HOME}/bin/sqlplus is not executable"
+        warnings=$((warnings + 1))
+      fi
+      if [[ -x "${ORACLE_HOME}/bin/rman" ]]; then
+        echo "  OK: rman exists under ORACLE_HOME"
+      else
+        echo "  WARN: ${ORACLE_HOME}/bin/rman is not executable"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  ERROR: ORACLE_HOME directory does not exist: $ORACLE_HOME"
+      errors=$((errors + 1))
+    fi
+  else
+    echo "  WARN: ORACLE_HOME is not set; CrashSimulator will depend on PATH for sqlplus/rman"
+    warnings=$((warnings + 1))
+  fi
+
+  if [[ -n "${ORACLE_SID:-}" ]]; then
+    echo "  OK: ORACLE_SID is set to ${ORACLE_SID}"
+  else
+    echo "  WARN: ORACLE_SID is not set; local / as sysdba connections may fail"
+    warnings=$((warnings + 1))
+  fi
+
+  if [[ -n "${TNS_ADMIN:-}" ]]; then
+    if [[ -d "$TNS_ADMIN" ]]; then
+      echo "  OK: TNS_ADMIN directory exists"
+    else
+      echo "  WARN: TNS_ADMIN directory does not exist: $TNS_ADMIN"
+      warnings=$((warnings + 1))
+    fi
+  fi
+
+  if [[ -n "${CRASHSIM_GRID_HOME:-}" ]]; then
+    if [[ -d "$CRASHSIM_GRID_HOME" ]]; then
+      echo "  OK: CRASHSIM_GRID_HOME directory exists"
+    else
+      echo "  WARN: CRASHSIM_GRID_HOME directory does not exist: $CRASHSIM_GRID_HOME"
+      warnings=$((warnings + 1))
+    fi
+  fi
+
+  if [[ -n "$LOG_DIR" ]]; then
+    if [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]]; then
+      echo "  OK: log directory exists and is writable"
+    else
+      echo "  WARN: log directory is not currently writable or does not exist: $LOG_DIR"
+      warnings=$((warnings + 1))
+    fi
+  fi
+
+  echo "  Summary: errors=${errors} warnings=${warnings}"
+  [[ "$errors" -eq 0 ]]
+}
+
+write_config_template() {
+  local file="$1"
+  local dir template_sqlplus_logon
+
+  [[ -n "$file" ]] || die "No configuration template path provided."
+  if [[ -e "$file" && "$ASSUME_YES" -ne 1 ]]; then
+    die "Refusing to overwrite existing file without --yes: $file"
+  fi
+  dir="$(dirname "$file")"
+  [[ "$dir" == "." || -d "$dir" ]] || mkdir -p "$dir" || die "Unable to create directory: $dir"
+  template_sqlplus_logon="/ as sysdba"
+  if [[ "${SQLPLUS_LOGON:-}" == /* ]]; then
+    template_sqlplus_logon="$SQLPLUS_LOGON"
+  fi
+
+  cat >"$file" <<EOF || die "Unable to write configuration template: $file"
+# CrashSimulator startup configuration
+# Precedence: CLI arguments > existing environment variables > this file > built-in defaults.
+# Do not store SYS, RMAN catalog, APEX, wallet, token, or other secrets in this file.
+
+ORACLE_SID=${ORACLE_SID:-}
+ORACLE_HOME=${ORACLE_HOME:-}
+ORACLE_BASE=${ORACLE_BASE:-}
+TNS_ADMIN=${TNS_ADMIN:-}
+
+# Optional Grid/ASM context for RAC/ASM reports and planning helpers.
+CRASHSIM_GRID_HOME=${CRASHSIM_GRID_HOME:-}
+CRASHSIM_ASM_SID=${CRASHSIM_ASM_SID:-}
+CRASHSIM_GRID_USER=${GRID_USER:-grid}
+
+# CrashSimulator defaults.
+CRASHSIM_PDB=${TARGET_PDB:-}
+CRASHSIM_SCHEMA=${TARGET_SCHEMA:-}
+CRASHSIM_LOG_DIR=${LOG_DIR:-}
+CRASHSIM_SQLPLUS_LOGON='${template_sqlplus_logon}'
+CRASHSIM_AUDIT_RETAIN=${AUDIT_RETAIN}
+CRASHSIM_AUDIT_RETENTION_DAYS=${AUDIT_RETENTION_DAYS}
+CRASHSIM_BASELINE_TAG_PREFIX=${BASELINE_TAG_PREFIX}
+
+# Optional APEX/ORDS defaults.
+CRASHSIM_ORDS_SERVICE=${ORDS_SERVICE_NAME}
+CRASHSIM_ORDS_CONFIG_DIR=${ORDS_CONFIG_DIR}
+CRASHSIM_ORDS_URL=${ORDS_URL}
+CRASHSIM_ORDS_LB_URL=${ORDS_LB_URL}
+CRASHSIM_APEX_IMAGES_DIR=${APEX_IMAGES_DIR}
+CRASHSIM_APEX_SESSION_URL=${APEX_SESSION_URL}
+CRASHSIM_APEX_SESSION_USERNAME=${APEX_SESSION_USERNAME}
+EOF
+
+  chmod 600 "$file" 2>/dev/null || true
+  echo "Configuration template written: $file"
+  echo "Review it, remove unused values, and keep secrets in environment variables or wallets."
 }
 
 normalize_targets() {
@@ -10586,6 +11183,11 @@ discover_grid_home_for_tool() {
   local tool="$1"
   local tool_path candidate
 
+  if [[ -n "${CRASHSIM_GRID_HOME:-}" && -x "${CRASHSIM_GRID_HOME}/bin/${tool}" ]]; then
+    printf "%s" "$CRASHSIM_GRID_HOME"
+    return "$SUCCESS"
+  fi
+
   tool_path="$(command -v "$tool" 2>/dev/null || true)"
   if [[ -n "$tool_path" ]]; then
     candidate="$(cd "$(dirname "$tool_path")/.." >/dev/null 2>&1 && pwd || true)"
@@ -11975,6 +12577,29 @@ parse_args() {
         MODE="audit_purge"
         shift
         ;;
+      --config)
+        [[ "$#" -ge 2 ]] || die "--config requires a file path"
+        CONFIG_FILE="$2"
+        shift 2
+        ;;
+      --no-config)
+        CONFIG_DISABLED=1
+        shift
+        ;;
+      --show-config|--config-status)
+        MODE="show_config"
+        shift
+        ;;
+      --validate-config|--check-config)
+        MODE="validate_config"
+        shift
+        ;;
+      --write-config-template|--save-config-template)
+        [[ "$#" -ge 2 ]] || die "$1 requires a file path"
+        MODE="write_config_template"
+        CONFIG_TEMPLATE_FILE="$2"
+        shift 2
+        ;;
       --review|--review-artifacts|--history|--activity-history)
         MODE="review"
         shift
@@ -12343,6 +12968,7 @@ menu_print_header() {
   echo "Log dir: ${LOG_DIR}"
   echo "Report deep validation: ${REPORT_DEEP_VALIDATE}"
   echo "Baseline backup tag prefix: ${BASELINE_TAG_PREFIX}"
+  echo "Config file: ${CONFIG_SOURCE:-not loaded}"
   echo "Audit retain: ${AUDIT_RETAIN}  Retention days: ${AUDIT_RETENTION_DAYS}  Audit dir: ${AUDIT_DIR}"
   echo "Scenario 25 guards: local-only=${LOCAL_ONLY}  max-targets=${MAX_TARGETS:-not set}  piece-handle=$([[ -n "$PIECE_HANDLE" ]] && echo set || echo not-set)"
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo configured || echo not configured)"
@@ -12947,6 +13573,113 @@ menu_configure_resilience_drills() {
   echo "Use the MAA/SLA context menu to set RTO/RPO objectives consumed by scenarios 64 and 65."
 }
 
+menu_load_config_file() {
+  local answer
+
+  echo
+  echo "Load CrashSimulator configuration file"
+  echo "Enter path, or blank to keep current [${CONFIG_SOURCE:-${CONFIG_FILE:-not set}}]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || answer="${CONFIG_SOURCE:-${CONFIG_FILE:-}}"
+  [[ -n "$answer" ]] || {
+    warn "No configuration file path provided."
+    return "$FAIL"
+  }
+
+  CONFIG_FILE="$answer"
+  CONFIG_EXPLICIT=1
+  load_config_file "$CONFIG_FILE"
+  normalize_targets
+  [[ -n "$LOG_DIR" ]] || LOG_DIR="$(pwd)/crashsimulator_logs"
+  mkdir -p "$LOG_DIR" || die "Unable to create log directory: $LOG_DIR"
+  audit_effective_dir
+  echo "Configuration loaded: ${CONFIG_SOURCE}"
+  echo "Existing shell environment values were preserved."
+}
+
+menu_write_config_template() {
+  local answer old_yes
+
+  echo
+  echo "Write configuration template"
+  echo "Enter output path [./crashsimulator.conf]:"
+  read -r answer || return "$FAIL"
+  [[ -n "$answer" ]] || answer="./crashsimulator.conf"
+  if [[ -e "$answer" ]]; then
+    echo "File exists. Type OVERWRITE-CONFIG to replace it:"
+    read -r old_yes || return "$FAIL"
+    [[ "$old_yes" == "OVERWRITE-CONFIG" ]] || {
+      warn "Configuration template write cancelled."
+      return "$FAIL"
+    }
+    old_yes="$ASSUME_YES"
+    ASSUME_YES=1
+    write_config_template "$answer"
+    ASSUME_YES="$old_yes"
+  else
+    write_config_template "$answer"
+  fi
+}
+
+menu_config_file_options() {
+  local answer
+
+  while true; do
+    echo
+    echo "Configuration File Options"
+    echo "  1. Load configuration file"
+    echo "  2. Show active configuration"
+    echo "  3. Validate active configuration"
+    echo "  4. Write configuration template"
+    echo "  5. Show lookup order and precedence"
+    echo "  b. Back"
+    echo
+    echo "Loaded config: ${CONFIG_SOURCE:-not loaded}"
+    echo "Precedence: CLI arguments > existing environment > config file > built-in defaults"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1)
+        menu_load_config_file
+        menu_pause
+        ;;
+      2)
+        show_active_config
+        menu_pause
+        ;;
+      3)
+        validate_config_runtime || true
+        menu_pause
+        ;;
+      4)
+        menu_write_config_template
+        menu_pause
+        ;;
+      5)
+        echo
+        echo "Lookup order:"
+        echo "  1. --config <file>"
+        echo "  2. CRASHSIM_CONFIG"
+        echo "  3. ./crashsimulator.conf"
+        echo "  4. \$HOME/.crashsimulator/crashsimulator.conf"
+        echo "  5. /etc/crashsimulator/crashsimulator.conf"
+        echo
+        echo "The file is parsed as allowlisted KEY=value entries, not sourced as shell code."
+        echo "Do not store passwords or wallet secrets in the configuration file."
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown configuration-file menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
 menu_set_password_file_options() {
   local answer
 
@@ -12989,7 +13722,8 @@ menu_configure_options() {
     echo "  9. Set RMAN recovery catalog"
     echo " 10. Set baseline backup tag prefix"
     echo " 11. FRA/TEMP/RTO-RPO drill options"
-    echo " 12. Clear selected scenario and targets"
+    echo " 12. Configuration file options"
+    echo " 13. Clear selected scenario and targets"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -13025,6 +13759,9 @@ menu_configure_options() {
         menu_pause
         ;;
       12)
+        menu_config_file_options
+        ;;
+      13)
         SCENARIO_ID=""
         MENU_SCHEMA_PROMPTED_SCENARIO=""
         TARGET_PDB=""
@@ -13103,6 +13840,7 @@ menu_choose_recovery_manifest() {
 }
 
 menu_append_common_child_args() {
+  [[ -n "$CONFIG_SOURCE" ]] && MENU_CMD+=("--config" "$CONFIG_SOURCE")
   [[ -n "$TARGET_PDB" ]] && MENU_CMD+=("--pdb" "$TARGET_PDB")
   [[ -n "$TARGET_SCHEMA" ]] && MENU_CMD+=("--schema" "$TARGET_SCHEMA")
   [[ -n "$TARGET_FILE_NO" ]] && MENU_CMD+=("--file-no" "$TARGET_FILE_NO")
@@ -13789,6 +14527,7 @@ interactive_menu() {
 
 main() {
   register_scenarios
+  load_startup_config "$@"
   parse_args "$@"
   normalize_targets
   init_runtime
@@ -13824,6 +14563,15 @@ main() {
       ;;
     audit_purge)
       purge_audit_logs
+      ;;
+    show_config)
+      show_active_config
+      ;;
+    validate_config)
+      validate_config_runtime || exit "$FAIL"
+      ;;
+    write_config_template)
+      write_config_template "$CONFIG_TEMPLATE_FILE"
       ;;
     review)
       generate_review_index

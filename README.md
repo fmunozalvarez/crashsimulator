@@ -63,6 +63,21 @@ export PATH=$ORACLE_HOME/bin:$PATH
 cd /path/to/crashsimulator-main
 ```
 
+Alternatively, create a local startup configuration file so CrashSimulator can
+fill missing Oracle and CrashSimulator defaults automatically:
+
+```bash
+cp config/crashsimulator.conf.example crashsimulator.conf
+vi crashsimulator.conf
+./CrashSimulatorV2.sh --show-config
+./CrashSimulatorV2.sh --validate-config
+```
+
+Configuration precedence is: CLI arguments, existing shell environment,
+configuration file, then built-in defaults. The file is parsed as allowlisted
+`KEY=value` entries and is not sourced as shell code. Do not store passwords or
+wallet secrets in it.
+
 Validate the download and start safely:
 
 ```bash
