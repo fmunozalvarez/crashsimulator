@@ -404,6 +404,10 @@ trim_blank_lines() {
   sed '/^[[:space:]]*$/d'
 }
 
+trim_value() {
+  printf "%s" "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
 sql_quote() {
   local value="$1"
   value="${value//\'/\'\'}"
@@ -1447,7 +1451,7 @@ load_rows() {
   if [[ ! -f "$file" ]]; then
     return "$FAIL"
   fi
-  mapfile -t TARGET_ROWS < <(trim_blank_lines <"$file")
+  mapfile -t TARGET_ROWS < <(trim_blank_lines <"$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
   local row
   for row in "${TARGET_ROWS[@]}"; do
     case "$row" in
@@ -2461,6 +2465,7 @@ order by con_id;
 
 detect_storage_type() {
   local file="$WORK_DIR/storage.env"
+  local has_asm=0 has_fex=0 has_acfs=0 has_fs=0 line class
   sql_query "$file" "
 select name from v\$datafile where rownum <= 50
 union all
@@ -2473,13 +2478,108 @@ from v\$parameter
 where name in ('spfile','db_recovery_file_dest')
   and value is not null
 "
-  if [[ "$SPFILE_PATH" == +* || "$FRA_PATH" == +* ]]; then
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    line="$(trim_value "$line")"
+    class="$(storage_path_class "$line")"
+    case "$class" in
+      asm) has_asm=1 ;;
+      fex) has_fex=1 ;;
+      acfs) has_acfs=1 ;;
+      filesystem) has_fs=1 ;;
+    esac
+  done < <(trim_blank_lines <"$file")
+
+  for line in "$SPFILE_PATH" "$FRA_PATH" "$PASSWORD_FILE_PATH"; do
+    [[ -n "$line" ]] || continue
+    line="$(trim_value "$line")"
+    class="$(storage_path_class "$line")"
+    case "$class" in
+      asm) has_asm=1 ;;
+      fex) has_fex=1 ;;
+      acfs) has_acfs=1 ;;
+      filesystem) has_fs=1 ;;
+    esac
+  done
+
+  if [[ "$has_asm" -eq 1 && ( "$has_fex" -eq 1 || "$has_acfs" -eq 1 || "$has_fs" -eq 1 ) ]]; then
+    STORAGE_TYPE="MIXED"
+  elif [[ "$has_asm" -eq 1 ]]; then
     STORAGE_TYPE="ASM"
-  elif trim_blank_lines <"$file" | grep -Eq '^[[:space:]]*[+]'; then
-    STORAGE_TYPE="ASM"
-  else
+  elif [[ "$has_fex" -eq 1 && "$has_acfs" -eq 1 ]]; then
+    STORAGE_TYPE="FEX_ACFS"
+  elif [[ "$has_fex" -eq 1 ]]; then
+    STORAGE_TYPE="FEX"
+  elif [[ "$has_acfs" -eq 1 ]]; then
+    STORAGE_TYPE="ACFS"
+  elif [[ "$has_fs" -eq 1 ]]; then
     STORAGE_TYPE="FILESYSTEM"
+  else
+    STORAGE_TYPE="UNKNOWN"
   fi
+}
+
+storage_path_class() {
+  local path="$1"
+  local first_char
+  path="$(printf "%s" "$path" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  first_char="${path:0:1}"
+  case "$first_char" in
+    +) printf "asm" ;;
+    @) printf "fex" ;;
+    /)
+      if [[ "$path" == *"/dbaas_acfs/"* ||
+            "$path" == *"/acfs/"* ||
+            "$path" == /acfs/* ||
+            "$path" == /var/opt/oracle/dbaas_acfs/* ]]; then
+        printf "acfs"
+      else
+        printf "filesystem"
+      fi
+      ;;
+    *) printf "unknown" ;;
+  esac
+}
+
+storage_path_is_local_filesystem() {
+  local class
+  class="$(storage_path_class "$1")"
+  [[ "$class" == "filesystem" || "$class" == "acfs" ]]
+}
+
+storage_path_is_provider_managed() {
+  local class
+  class="$(storage_path_class "$1")"
+  [[ "$class" == "asm" || "$class" == "fex" ]]
+}
+
+storage_path_provider_reason() {
+  local path="$1"
+  local operation="${2:-crash injection}"
+  case "$(storage_path_class "$path")" in
+    asm)
+      printf "ASM path requires ASM-aware %s; filesystem rename/dd is not valid" "$operation"
+      ;;
+    fex)
+      printf "FEX/ACFS managed storage handle requires provider-aware %s; this @... handle is not a local filesystem path" "$operation"
+      ;;
+    acfs)
+      printf "ACFS-backed local path can use filesystem actions when visible and writable to the current OS user"
+      ;;
+    filesystem)
+      printf "filesystem path"
+      ;;
+    *)
+      printf "unknown storage path format requires manual validation before %s" "$operation"
+      ;;
+  esac
+}
+
+storage_supports_gi_storage_planning() {
+  case "$STORAGE_TYPE" in
+    ASM|FEX|FEX_ACFS|ACFS|MIXED) return "$SUCCESS" ;;
+    *) return "$FAIL" ;;
+  esac
 }
 
 detect_password_file() {
@@ -2636,10 +2736,10 @@ register_scenarios() {
   register_scenario "43" "PDB loss of one user table"                        "PDB"        "PDB"        "logical"      "cdb,pdb,primary"   "scenario_pdb_drop_table"    "Requires --pdb."
   register_scenario "44" "PDB loss of one user schema"                       "PDB"        "PDB"        "logical"      "cdb,pdb,primary"   "scenario_pdb_drop_schema"   "Requires --pdb."
   register_scenario "45" "Drop selected PDB including datafiles"             "PDB"        "PDB"        "destructive" "cdb,pdb,primary"   "scenario_drop_pdb"          "Requires --pdb."
-  register_scenario "46" "ASM data disk group unavailable"                   "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_diskgroup_unavailable" "Plans ASM disk group outage practice; execution requires an ASM-aware handler."
+  register_scenario "46" "ASM/FEX data storage unavailable"                  "ASM"        "ASM/FEX"    "destructive" "asm"               "scenario_asm_diskgroup_unavailable" "Plans ASM disk group or FEX/ACFS managed-storage outage practice; execution requires a provider-aware handler."
   register_scenario "47" "OCR loss or restore drill"                         "GI"         "Cluster"    "destructive" "gi"                "scenario_ocr_restore_drill" "Plans OCR backup/restore practice; execution requires root/Grid procedure approval."
   register_scenario "48" "Voting disk loss or restore drill"                 "GI"         "Cluster"    "destructive" "gi"                "scenario_voting_disk_drill" "Plans voting disk replacement practice; execution requires root/Grid procedure approval."
-  register_scenario "49" "ASM SPFILE loss"                                   "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_spfile_loss"   "Plans ASM SPFILE loss practice; execution requires an ASM-aware handler."
+  register_scenario "49" "ASM/FEX SPFILE loss"                              "ASM"        "ASM/FEX"    "destructive" "asm"               "scenario_asm_spfile_loss"   "Plans ASM or FEX/ACFS managed SPFILE loss practice; execution requires a provider-aware handler."
   register_scenario "50" "Standby managed recovery cancelled"                "DataGuard"  "Standby"    "logical"      "standby"           "scenario_standby_apply_cancel" "For physical standby apply practice."
   register_scenario "51" "Primary transport destination deferred"            "DataGuard"  "Primary"    "logical"      "primary,dg"        "scenario_primary_transport_defer" "Defers the first remote archive destination."
   register_scenario "52" "Data Guard broker configuration unavailable"       "DataGuard"  "DG"         "logical"      "dg"                "scenario_planned"           "Gated for a broker-enabled DG environment."
@@ -2662,7 +2762,7 @@ register_scenarios() {
   register_scenario "69" "Standby redo log misconfiguration review"          "DataGuard"  "DG"         "logical"      "dg"                "scenario_standby_redo_log_misconfig" "Read-only SRL sizing/count review against online redo threads."
   register_scenario "70" "RAC VIP relocation drill"                          "RAC"        "RAC"        "logical"      "rac,gi"            "scenario_rac_vip_relocation" "Plans VIP relocation and client survivability validation."
   register_scenario "71" "RAC service placement failure"                     "RAC"        "RAC"        "logical"      "rac"               "scenario_rac_service_placement_failure" "Stops/starts one running service on an instance to validate placement recovery."
-  register_scenario "72" "ASM single disk failure"                           "ASM"        "ASM"        "destructive" "asm"               "scenario_asm_single_disk_failure" "Plans single-disk failure only for redundant ASM disk groups."
+  register_scenario "72" "ASM/FEX storage component failure"                 "ASM"        "ASM/FEX"    "destructive" "asm"               "scenario_asm_single_disk_failure" "Plans single-disk failure for redundant ASM disk groups or provider-managed FEX/ACFS storage-component review."
   register_scenario "73" "ORDS service unavailable"                          "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_service_unavailable" "Stops the ORDS systemd service when OS service control is available."
   register_scenario "74" "ORDS configuration unavailable"                    "APEX/ORDS"  "Application" "destructive" "any"               "scenario_ords_config_unavailable" "Renames ORDS config only when the config directory is writable; otherwise plan-only."
   register_scenario "75" "ORDS database pool misconfiguration"               "APEX/ORDS"  "Application" "logical"     "any"               "scenario_ords_pool_misconfiguration" "Reversible ORDS pool service-name misconfiguration drill when service restart privileges are approved."
@@ -2765,7 +2865,8 @@ check_requirements() {
            "$CLUSTER_TYPE" == "GI_SINGLE" ]] || die "Scenario $id requires RAC, RAC One Node, or a GI-managed database."
         ;;
       asm)
-        [[ "$STORAGE_TYPE" == "ASM" ]] || die "Scenario $id requires ASM storage."
+        storage_supports_gi_storage_planning ||
+          die "Scenario $id requires ASM or GI-managed FEX/ACFS-style storage. Current storage: $STORAGE_TYPE"
         ;;
       gi)
         command -v crsctl >/dev/null 2>&1 || die "Scenario $id requires Grid Infrastructure commands."
@@ -2821,7 +2922,7 @@ scenario_is_topology_compatible() {
            "$CLUSTER_TYPE" == "GI_SINGLE" ]] || return "$FAIL"
         ;;
       asm)
-        [[ "$STORAGE_TYPE" == "ASM" ]] || return "$FAIL"
+        storage_supports_gi_storage_planning || return "$FAIL"
         ;;
       gi)
         command -v crsctl >/dev/null 2>&1 || return "$FAIL"
@@ -9130,6 +9231,7 @@ RUNBOOK
     2. For single-disk failure, confirm redundancy is still intact, monitor ASM rebalance, and restore/replace/drop/add the disk according to lab design.
     3. Restore ASM metadata/SPFILE from backup or OCR/srvctl metadata where applicable.
     4. Mount disk groups, then validate database files and Clusterware resources.
+    5. For FEX/ACFS-style @... managed storage, use provider-approved storage controls, validate GI/database services, and collect provider redundancy/rebuild evidence before allowing destructive execution.
 RUNBOOK
       ;;
     47|48)
@@ -9424,7 +9526,7 @@ execute_actions() {
 
 perform_asm_rm() {
   local path="$1"
-  [[ "$path" == +* ]] || die "ASM remove action received a non-ASM path: $path"
+  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM remove action received a non-ASM path: $path"
   echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
   run_asmcmd_with_grid_env rm "$path" ||
     die "Unable to remove ASM file with asmcmd: $path"
@@ -9543,8 +9645,8 @@ perform_ords_priv_config_rename() {
 
 perform_fs_rename() {
   local path="$1"
-  if [[ "$path" == +* ]]; then
-    die "ASM path detected ($path). Filesystem rename is not valid; use ASM-aware scenarios."
+  if storage_path_is_provider_managed "$path"; then
+    die "$(storage_path_provider_reason "$path" "crash injection")."
   fi
   [[ -e "$path" ]] || die "Target does not exist: $path"
   local backup="${path}.${RUN_ID}.crashsim.bak"
@@ -9572,8 +9674,8 @@ perform_fs_corrupt() {
   local path="$1"
   local seek_blocks="$2"
   local count_blocks="$3"
-  if [[ "$path" == +* ]]; then
-    die "ASM path detected ($path). Filesystem dd is not valid; use ASM-aware scenarios."
+  if storage_path_is_provider_managed "$path"; then
+    die "$(storage_path_provider_reason "$path" "corruption handling")."
   fi
   [[ -e "$path" ]] || die "Target does not exist: $path"
   backup_before_corrupt "$path"
@@ -9670,57 +9772,78 @@ query_targets() {
 }
 
 add_fs_rename_targets() {
-  local row
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    if [[ "$row" == +* ]]; then
-      add_action "external" "$row" "ASM path requires ASM-aware crash injection; filesystem rename is not valid"
-    else
+    class="$(storage_path_class "$row")"
+    if [[ "$class" == "asm" || "$class" == "fex" ]]; then
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "crash injection")"
+    elif storage_path_is_local_filesystem "$row"; then
       add_action "fs_rename" "$row"
+    else
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "crash injection")"
     fi
   done
 }
 
 add_datafile_loss_targets() {
-  local row
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    if [[ "$row" == +* ]]; then
+    class="$(storage_path_class "$row")"
+    if [[ "$class" == "asm" ]]; then
       add_action "asm_rm" "$row" "ASM datafile loss via asmcmd rm"
-    else
+    elif [[ "$class" == "fex" ]]; then
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "datafile loss injection")"
+    elif storage_path_is_local_filesystem "$row"; then
       add_action "fs_rename" "$row"
+    else
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "datafile loss injection")"
     fi
   done
 }
 
 add_tempfile_loss_targets() {
-  local row
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    if [[ "$row" == +* ]]; then
+    class="$(storage_path_class "$row")"
+    if [[ "$class" == "asm" ]]; then
       add_action "asm_tempfile_rm" "$row" "ASM tempfile loss via asmcmd rm"
-    else
+    elif [[ "$class" == "fex" ]]; then
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "tempfile loss injection")"
+    elif storage_path_is_local_filesystem "$row"; then
       add_action "fs_rename" "$row"
+    else
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "tempfile loss injection")"
     fi
   done
 }
 
 add_fs_corrupt_targets() {
   local kind="$1"
-  local row
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    if [[ "$row" == +* ]]; then
-      add_action "external" "$row" "ASM path requires ASM-aware corruption handling; filesystem dd is not valid"
-    else
+    class="$(storage_path_class "$row")"
+    if [[ "$class" == "asm" || "$class" == "fex" ]]; then
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "corruption handling")"
+    elif storage_path_is_local_filesystem "$row"; then
       add_action "$kind" "$row"
+    else
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "corruption handling")"
     fi
   done
 }
 
 add_datafile_header_corrupt_targets() {
-  local row
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    if [[ "$row" == +* ]]; then
+    class="$(storage_path_class "$row")"
+    if [[ "$class" == "asm" ]]; then
       add_action "asm_corrupt_header" "$row" "ASM header-corruption surrogate: remove ASM datafile and recover FILE#"
-    else
+    elif [[ "$class" == "fex" ]]; then
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "header-corruption handling")"
+    elif storage_path_is_local_filesystem "$row"; then
       add_action "fs_corrupt_header" "$row"
+    else
+      add_action "external" "$row" "$(storage_path_provider_reason "$row" "header-corruption handling")"
     fi
   done
 }
@@ -11232,18 +11355,65 @@ run_asmcmd_with_grid_env() {
   fi
 }
 
+collect_managed_storage_targets() {
+  local output_file="$1"
+  sql_query "$output_file" "
+select name || '=' || nvl(value, '')
+from v\$parameter
+where name in (
+  'control_files',
+  'db_create_file_dest',
+  'db_create_online_log_dest_1',
+  'db_create_online_log_dest_2',
+  'db_recovery_file_dest',
+  'spfile'
+)
+  and value is not null
+order by name;
+"
+}
+
+first_managed_storage_target() {
+  local evidence_file="$1"
+  local value
+  value="$(awk -F= '
+    $2 ~ /^[@+]/ {print $2; exit}
+    $2 ~ /^\\/.*(dbaas_acfs|\\/acfs\\/|^\\/acfs\\/)/ {print $2; exit}
+  ' "$evidence_file" 2>/dev/null || true)"
+  [[ -n "$value" ]] || value="${FRA_PATH:-${SPFILE_PATH:-FEX_ACFS_STORAGE}}"
+  printf "%s" "$value"
+}
+
+print_managed_storage_evidence() {
+  local evidence_file="$1"
+  if [[ -s "$evidence_file" ]]; then
+    echo
+    echo "Managed storage destinations visible to the database:"
+    sed 's/^/  /' "$evidence_file"
+  fi
+}
+
 scenario_asm_diskgroup_unavailable() {
   reset_actions
-  local dg_file row dg_name dg_state dg_type dg_total dg_free target_dg=""
-  echo "ASM disk group planning helper"
+  local dg_file managed_file row dg_name dg_state dg_type dg_total dg_free target_dg=""
+  echo "ASM/FEX managed data storage planning helper"
   dg_file="$WORK_DIR/asm_diskgroups.lst"
+  managed_file="$WORK_DIR/managed_storage_targets.lst"
   sql_query "$dg_file" "
 select name || '|' || state || '|' || type || '|' || total_mb || '|' || free_mb
 from v\$asm_diskgroup
 order by name;
 "
+  collect_managed_storage_targets "$managed_file" || true
   mapfile -t TARGET_ROWS < <(trim_blank_lines <"$dg_file")
   if [[ "${#TARGET_ROWS[@]}" -eq 0 ]]; then
+    print_managed_storage_evidence "$managed_file"
+    if [[ "$STORAGE_TYPE" == "FEX" || "$STORAGE_TYPE" == "FEX_ACFS" || "$STORAGE_TYPE" == "ACFS" ]]; then
+      target_dg="$(first_managed_storage_target "$managed_file")"
+      add_action "external" "$target_dg" "FEX/ACFS managed storage outage requires provider-aware fault injection, service impact validation, and RMAN/GI recovery checks"
+      execute_actions
+      return "$SUCCESS"
+    fi
     warn "No ASM disk groups were visible from V\$ASM_DISKGROUP."
     target_dg="+ASM_DISKGROUP"
   else
@@ -11298,7 +11468,7 @@ scenario_voting_disk_drill() {
 scenario_asm_spfile_loss() {
   reset_actions
   local asm_spfile="" asm_config_file
-  echo "ASM SPFILE planning helper"
+  echo "ASM/FEX managed SPFILE planning helper"
   if command -v srvctl >/dev/null 2>&1; then
     asm_config_file="$WORK_DIR/srvctl_config_asm.out"
     if srvctl config asm >"$asm_config_file" 2>&1; then
@@ -11319,8 +11489,19 @@ scenario_asm_spfile_loss() {
   else
     warn "asmcmd not found in PATH."
   fi
+  if [[ -z "$asm_spfile" && "$(storage_path_class "$SPFILE_PATH")" == "fex" ]]; then
+    asm_spfile="$SPFILE_PATH"
+  elif [[ -z "$asm_spfile" && "$(storage_path_class "$SPFILE_PATH")" == "acfs" ]]; then
+    asm_spfile="$SPFILE_PATH"
+  fi
   [[ -n "$asm_spfile" ]] || asm_spfile="+ASM_SPFILE"
-  add_action "external" "$asm_spfile" "ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation"
+  if [[ "$(storage_path_class "$asm_spfile")" == "fex" ]]; then
+    add_action "external" "$asm_spfile" "FEX/ACFS managed SPFILE loss requires provider-aware metadata restore, srvctl database validation, and instance restart/recovery checks"
+  elif [[ "$(storage_path_class "$asm_spfile")" == "acfs" ]]; then
+    add_action "external" "$asm_spfile" "ACFS-backed SPFILE loss should be practiced with an approved backup/restore wrapper, srvctl database validation, and instance restart/recovery checks"
+  else
+    add_action "external" "$asm_spfile" "ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation"
+  fi
   execute_actions
 }
 
@@ -11655,7 +11836,10 @@ scenario_asm_single_disk_failure() {
   reset_actions
   local disk_file="$WORK_DIR/asm_single_disk_candidates.lst"
   local all_disk_file="$WORK_DIR/asm_single_disk_all.lst"
-  local row dg_name dg_type disk_name failgroup disk_path mount_status header_status mode_status state
+  local managed_file="$WORK_DIR/managed_storage_targets.lst"
+  local row dg_name dg_type disk_name failgroup disk_path mount_status header_status mode_status state target
+
+  echo "ASM/FEX storage component failure planning helper"
 
   query_targets "$disk_file" "
 select dg.name || '|' ||
@@ -11684,8 +11868,18 @@ join v\$asm_diskgroup dg on dg.group_number = d.group_number
 group by dg.name, dg.type
 order by dg.name;
 "
-    echo "ASM disk group evidence:"
-    sed 's/^/  /' "$all_disk_file"
+    if [[ -s "$all_disk_file" ]]; then
+      echo "ASM disk group evidence:"
+      sed 's/^/  /' "$all_disk_file"
+    fi
+    if [[ "$STORAGE_TYPE" == "FEX" || "$STORAGE_TYPE" == "FEX_ACFS" || "$STORAGE_TYPE" == "ACFS" ]]; then
+      collect_managed_storage_targets "$managed_file" || true
+      print_managed_storage_evidence "$managed_file"
+      target="$(first_managed_storage_target "$managed_file")"
+      add_action "external" "$target" "FEX/ACFS storage-component failure should be injected through provider-approved storage controls; validate database service continuity, GI resources, RMAN recoverability, and provider redundancy/rebuild evidence"
+      execute_actions
+      return "$SUCCESS"
+    fi
     die "No redundant ASM disk candidate was found. Scenario 72 requires NORMAL, HIGH, FLEX, or EXTENDED redundancy with online disks."
   fi
 

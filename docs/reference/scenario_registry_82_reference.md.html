@@ -64,7 +64,7 @@ APEX/ORDS application access-path layer.
 | 69 | Standby redo log misconfiguration review | Read-only SRL count/size/thread review against online redo. |
 | 70 | RAC VIP relocation drill | Plan-only VIP movement/client-survivability workflow. |
 | 71 | RAC service placement failure | Reversible service stop/start or placement validation with recovery helper. |
-| 72 | ASM single disk failure | Plan-only redundant ASM/failgroup drill; EXTERN redundancy is rejected. |
+| 72 | ASM/FEX storage component failure | Plan-only redundant ASM/failgroup drill or provider-managed FEX/ACFS storage-component review; EXTERN redundancy is rejected for true ASM disk loss. |
 | 73 | ORDS service unavailable | Automatable where ORDS service control is available; recovery helper restarts ORDS and captures smoke evidence. |
 | 74 | ORDS configuration unavailable | Reversible where the ORDS config directory can be safely renamed/restored, including through the restricted ORDS helper. |
 | 75 | ORDS database pool misconfiguration | Reversible `db.servicename` mutation when ORDS restart privileges are approved; recovery restores the original value. |

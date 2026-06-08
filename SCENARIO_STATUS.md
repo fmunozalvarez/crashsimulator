@@ -195,7 +195,7 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 - `69`: standby redo log misconfiguration review
 - `70`: RAC VIP relocation drill
 - `71`: RAC service placement failure
-- `72`: ASM single disk failure
+- `72`: ASM/FEX storage component failure
 - APEX/ORDS scenarios `73` through `82`: implemented and validated in the 26ai
   RAC/ASM/APEX/ORDS lab. Scenarios `73`, `74`, `75`, `76`, `77`, and `79` now
   have execution/recovery evidence; `78`, `80`, `81`, and `82` have read-only
@@ -206,6 +206,19 @@ environment-specific dry-run, protection, execution, recovery, and validation:
 
 Re-run `seed_crashsim_lab.sql` before table, schema, index-loss, read-only
 tablespace, or index-only tablespace scenarios.
+
+Storage compatibility update:
+
+- CrashSimulator now classifies conventional ASM `+...` paths, opaque Oracle
+  FEX-style `@...` storage handles, and visible ACFS filesystem paths
+  separately.
+- File-level drills no longer treat `@...` handles as local filesystem paths.
+  They become provider-managed plan-only targets unless a future provider-aware
+  injector is explicitly added.
+- Scenarios `46`, `49`, and `72` now plan against ASM and FEX/ACFS-style
+  managed storage. Conventional ASM still uses ASM disk group/SPFILE/disk
+  evidence; FEX/ACFS emits provider-aware outage, SPFILE, and storage-component
+  runbook evidence.
 
 ## Initial RAC/GI/ASM Validation
 
