@@ -9,6 +9,11 @@
 
 This report validates the discovered target environment against the CrashSimulator scenario registry. The same requirement checks, topology gates, target selection, and execution guardrails are used by scenario execution, so unavailable scenarios are blocked before destructive code runs.
 
+> Historical reference note: this 2026-06-08 report was generated with the
+> 2.0.1-beta 82-scenario registry. The current CrashSimulator catalog contains
+> 123 scenarios: 103 database-host/application/platform scenarios plus 20
+> Autonomous Database scenarios.
+
 ## Current Topology
 
 | Signal | Value |

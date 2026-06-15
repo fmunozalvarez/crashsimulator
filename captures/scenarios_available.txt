@@ -1,84 +1,105 @@
-ID   Group        Scope         Impact       Scenario
---   -----        -----         ------       --------
-1    Core         CDB/non-CDB   destructive  Loss of one control file
-2    Core         CDB/non-CDB   destructive  Loss of all control files
-3    Core         CDB/non-CDB   destructive  Loss of one member from current redo group
-4    Core         CDB/non-CDB   destructive  Loss of all members from current redo group
-5    Core         CDB/non-CDB   destructive  Loss of one non-system datafile
-6    Core         CDB/non-CDB   destructive  Loss of one temporary file
-7    Core         CDB/non-CDB   destructive  Loss of one SYSTEM datafile
-8    Core         CDB/non-CDB   destructive  Loss of one UNDO datafile
-9    Core         CDB/non-CDB   destructive  Loss of a read-only tablespace
-10   Core         CDB/non-CDB   destructive  Loss of an index-only tablespace
-11   Logical      CDB/non-CDB   logical      Drop non-unique indexes outside Oracle schemas
-12   Core         CDB/non-CDB   destructive  Loss of a non-system tablespace
-13   Core         CDB/non-CDB   destructive  Loss of a temporary tablespace
-14   Core         CDB/non-CDB   destructive  Loss of SYSTEM tablespace
-15   Core         CDB/non-CDB   destructive  Loss of UNDO tablespace
-16   Config       CDB/non-CDB   destructive  Loss of password file
-17   Core         CDB/non-CDB   destructive  Loss of all datafiles
-18   Core         CDB/non-CDB   destructive  Loss of one member from multiplexed redo group
-19   Core         CDB/non-CDB   destructive  Loss of all inactive redo groups
-20   Core         CDB/non-CDB   destructive  Loss of all active redo groups
-21   Core         CDB/non-CDB   destructive  Loss of all current redo group members
-22   Corrupt      CDB/non-CDB   destructive  Datafile header corruption
-23   Corrupt      CDB/non-CDB   destructive  Control file corruption
-24   Corrupt      CDB/non-CDB   destructive  Redo log corruption
-25   Backup       CDB/non-CDB   destructive  Loss of RMAN backup pieces
-26   Config       CDB/non-CDB   destructive  Loss of SPFILE
-27   Config       CDB/non-CDB   destructive  Loss of SQL*Net config files
-28   Config       CDB/non-CDB   destructive  Loss of ORACLE_HOME
-29   Backup       CDB/non-CDB   destructive  Loss of FRA destination
-30   PDB          PDB           destructive  PDB loss of one non-system datafile
-31   PDB          PDB           destructive  PDB loss of one temporary file
-32   PDB          PDB           destructive  PDB loss of one SYSTEM datafile
-33   PDB          PDB           destructive  PDB loss of one UNDO datafile
-34   PDB          PDB           destructive  PDB loss of read-only tablespace
-35   PDB          PDB           destructive  PDB loss of index-only tablespace
-36   PDB          PDB           logical      PDB drop non-unique indexes
-37   PDB          PDB           destructive  PDB loss of non-system tablespace
-38   PDB          PDB           destructive  PDB loss of temporary tablespace
-39   PDB          PDB           destructive  PDB loss of SYSTEM tablespace
-40   PDB          PDB           destructive  PDB loss of UNDO tablespace
-41   PDB          PDB           destructive  PDB loss of all datafiles
-42   PDB          PDB           destructive  PDB SYSTEM file header corruption
-43   PDB          PDB           logical      PDB loss of one user table
-44   PDB          PDB           logical      PDB loss of one user schema
-45   PDB          PDB           destructive  Drop selected PDB including datafiles
-46   ASM          ASM           destructive  ASM data disk group unavailable
-47   GI           Cluster       destructive  OCR loss or restore drill
-48   GI           Cluster       destructive  Voting disk loss or restore drill
-49   ASM          ASM           destructive  ASM SPFILE loss
-50   DataGuard    Standby       logical      Standby managed recovery cancelled
-51   DataGuard    Primary       logical      Primary transport destination deferred
-52   DataGuard    DG            logical      Data Guard broker configuration unavailable
-53   ADG          Standby       logical      Active Data Guard read-only session pressure
-54   DataGuard    Standby       logical      Snapshot standby conversion practice
-55   RAC          RAC           destructive  RAC abort one instance
-56   RAC          RAC           logical      RAC service relocation failure practice
-57   Network      CDB/non-CDB   destructive  Listener config unavailable
-58   Security     CDB/non-CDB   destructive  TDE wallet or keystore unavailable
-59   Backup       CDB/non-CDB   destructive  Missing archived redo log
-60   Backup       External      logical      Recovery catalog unavailable
-61   Backup       CDB/non-CDB   destructive  FRA reaches critical utilization
-62   Backup       CDB/non-CDB   destructive  Missing required archived log during recovery
-63   Core         CDB/non-CDB   logical      TEMP tablespace exhaustion
-64   Compliance   CDB/non-CDB   logical      RTO validation drill
-65   Compliance   CDB/non-CDB   logical      RPO validation drill
-66   DataGuard    DG            logical      FSFO observer unavailable
-67   DataGuard    Standby       logical      Data Guard apply lag exceeds SLA
-68   DataGuard    Primary       logical      Data Guard transport network partition
-69   DataGuard    DG            logical      Standby redo log misconfiguration review
-70   RAC          RAC           logical      RAC VIP relocation drill
-71   RAC          RAC           logical      RAC service placement failure
-72   ASM          ASM           destructive  ASM single disk failure
-73   APEX/ORDS    Application   logical      ORDS service unavailable
-74   APEX/ORDS    Application   destructive  ORDS configuration unavailable
-75   APEX/ORDS    Application   logical      ORDS database pool misconfiguration
-76   APEX/ORDS    Application   logical      APEX/ORDS runtime account locked
-77   APEX/ORDS    Application   destructive  APEX static resources unavailable
-78   APEX/ORDS    Application   logical      APEX application availability validation after recovery
-79   APEX/ORDS    Application   logical      ORDS node unavailable behind load balancer
-80   APEX/ORDS    Application   logical      APEX session continuity test
-81   APEX/ORDS    Application   logical      APEX mail queue and configuration validation
-82   APEX/ORDS    Application   logical      APEX upgrade or patch rollback readiness
+ID     Group        Scope         Impact       Scenario
+------ -----        -----         ------       --------
+1      Core         CDB/non-CDB   destructive  Loss of one control file
+2      Core         CDB/non-CDB   destructive  Loss of all control files
+3      Core         CDB/non-CDB   destructive  Loss of one member from current redo group
+4      Core         CDB/non-CDB   destructive  Loss of all members from current redo group
+5      Core         CDB/non-CDB   destructive  Loss of one non-system datafile
+6      Core         CDB/non-CDB   destructive  Loss of one temporary file
+7      Core         CDB/non-CDB   destructive  Loss of one SYSTEM datafile
+8      Core         CDB/non-CDB   destructive  Loss of one UNDO datafile
+9      Core         CDB/non-CDB   destructive  Loss of a read-only tablespace
+10     Core         CDB/non-CDB   destructive  Loss of an index-only tablespace
+11     Logical      CDB/non-CDB   logical      Drop non-unique indexes outside Oracle schemas
+12     Core         CDB/non-CDB   destructive  Loss of a non-system tablespace
+13     Core         CDB/non-CDB   destructive  Loss of a temporary tablespace
+14     Core         CDB/non-CDB   destructive  Loss of SYSTEM tablespace
+15     Core         CDB/non-CDB   destructive  Loss of UNDO tablespace
+16     Config       CDB/non-CDB   destructive  Loss of password file
+17     Core         CDB/non-CDB   destructive  Loss of all datafiles
+18     Core         CDB/non-CDB   destructive  Loss of one member from multiplexed redo group
+19     Core         CDB/non-CDB   destructive  Loss of all inactive redo groups
+20     Core         CDB/non-CDB   destructive  Loss of all active redo groups
+21     Core         CDB/non-CDB   destructive  Loss of all current redo group members
+22     Corrupt      CDB/non-CDB   destructive  Datafile header corruption
+23     Corrupt      CDB/non-CDB   destructive  Control file corruption
+24     Corrupt      CDB/non-CDB   destructive  Redo log corruption
+25     Backup       CDB/non-CDB   destructive  Loss of RMAN backup pieces
+26     Config       CDB/non-CDB   destructive  Loss of SPFILE
+27     Config       CDB/non-CDB   destructive  Loss of SQL*Net config files
+28     Config       CDB/non-CDB   destructive  Loss of ORACLE_HOME
+29     Backup       CDB/non-CDB   destructive  Loss of FRA destination
+30     PDB          PDB           destructive  PDB loss of one non-system datafile
+31     PDB          PDB           destructive  PDB loss of one temporary file
+32     PDB          PDB           destructive  PDB loss of one SYSTEM datafile
+33     PDB          PDB           destructive  PDB loss of one UNDO datafile
+34     PDB          PDB           destructive  PDB loss of read-only tablespace
+35     PDB          PDB           destructive  PDB loss of index-only tablespace
+36     PDB          PDB           logical      PDB drop non-unique indexes
+37     PDB          PDB           destructive  PDB loss of non-system tablespace
+38     PDB          PDB           destructive  PDB loss of temporary tablespace
+39     PDB          PDB           destructive  PDB loss of SYSTEM tablespace
+40     PDB          PDB           destructive  PDB loss of UNDO tablespace
+41     PDB          PDB           destructive  PDB loss of all datafiles
+42     PDB          PDB           destructive  PDB SYSTEM file header corruption
+43     PDB          PDB           logical      PDB loss of one user table
+44     PDB          PDB           logical      PDB loss of one user schema
+45     PDB          PDB           destructive  Drop selected PDB including datafiles
+46     ASM          ASM/FEX       destructive  ASM/FEX data storage unavailable
+47     GI           Cluster       destructive  OCR loss or restore drill
+48     GI           Cluster       destructive  Voting disk loss or restore drill
+49     ASM          ASM/FEX       destructive  ASM/FEX SPFILE loss
+50     DataGuard    Standby       logical      Standby managed recovery cancelled
+51     DataGuard    Primary       logical      Primary transport destination deferred
+52     DataGuard    DG            logical      Data Guard broker configuration unavailable
+53     ADG          Standby       logical      Active Data Guard read-only session pressure
+54     DataGuard    Standby       logical      Snapshot standby conversion practice
+55     RAC          RAC           destructive  RAC abort one instance
+56     RAC          RAC           logical      RAC service relocation failure practice
+57     Network      CDB/non-CDB   destructive  Listener config unavailable
+58     Security     CDB/non-CDB   destructive  TDE wallet or keystore unavailable
+59     Backup       CDB/non-CDB   destructive  Missing archived redo log
+60     Backup       External      logical      Recovery catalog unavailable
+61     Backup       CDB/non-CDB   destructive  FRA reaches critical utilization
+62     Backup       CDB/non-CDB   destructive  Missing required archived log during recovery
+63     Core         CDB/non-CDB   logical      TEMP tablespace exhaustion
+64     Compliance   CDB/non-CDB   logical      RTO validation drill
+65     Compliance   CDB/non-CDB   logical      RPO validation drill
+66     DataGuard    DG            logical      FSFO observer unavailable
+67     DataGuard    Standby       logical      Data Guard apply lag exceeds SLA
+68     DataGuard    Primary       logical      Data Guard transport network partition
+69     DataGuard    DG            logical      Standby redo log misconfiguration review
+70     RAC          RAC           logical      RAC VIP relocation drill
+71     RAC          RAC           logical      RAC service placement failure
+72     ASM          ASM/FEX       destructive  ASM/FEX storage component failure
+73     APEX/ORDS    Application   logical      ORDS service unavailable
+74     APEX/ORDS    Application   destructive  ORDS configuration unavailable
+75     APEX/ORDS    Application   logical      ORDS database pool misconfiguration
+76     APEX/ORDS    Application   logical      APEX/ORDS runtime account locked
+77     APEX/ORDS    Application   destructive  APEX static resources unavailable
+78     APEX/ORDS    Application   logical      APEX application availability validation after recovery
+79     APEX/ORDS    Application   logical      ORDS node unavailable behind load balancer
+80     APEX/ORDS    Application   logical      APEX session continuity test
+81     APEX/ORDS    Application   logical      APEX mail queue and configuration validation
+82     APEX/ORDS    Application   logical      APEX upgrade or patch rollback readiness
+83     Services     Application   logical      Application Continuity replay validation
+84     Services     RAC/GI        logical      FAN notification unavailable
+85     DataGuard    DG            logical      Planned Data Guard switchover
+86     DataGuard    DG            logical      Data Guard failback rehearsal
+87     Services     RAC/DG        logical      Role-based service validation
+88     PDB          PDB           logical      PDB point-in-time recovery drill
+89     Recovery     CDB/non-CDB   logical      Guaranteed restore point rollback
+90     Lifecycle    CDB/non-CDB   logical      Database patch rollback readiness
+EXA01  Exadata      Platform      logical      Exadata cell failure review
+EXA02  Exadata      Platform      logical      Exadata storage server outage
+EXA03  Exadata      Platform      logical      Exadata Smart Scan validation
+EXA04  Exadata      Platform      logical      Exadata Flash Cache failure
+OCI01  OCI DB       Cloud         logical      OCI Base DB backup policy validation
+OCI02  OCI DB       Cloud         logical      OCI cross-region backup recovery
+OCI03  OCI DB       Cloud         logical      OCI database system failover
+OCI04  OCI DB       Cloud         logical      OCI VCN connectivity loss
+OCI05  OCI DB       Cloud         logical      OCI NSG misconfiguration
+GG01   GoldenGate   Replication   logical      GoldenGate Extract stopped
+GG02   GoldenGate   Replication   logical      GoldenGate Replicat stopped
+GG03   GoldenGate   Replication   logical      GoldenGate lag exceeds SLA
+GG04   GoldenGate   Replication   destructive  GoldenGate trail corruption

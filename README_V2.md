@@ -33,6 +33,8 @@ the full scenario catalog, read:
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
 - `docs/AUTONOMOUS_DATABASE_COVERAGE.md` for the ADB coverage model and
   scenario family.
+- `docs/PRIVATE_LABS_WORKFLOW.md` for the private Labs repository workflow,
+  local remote setup, and safe publishing model.
 - `SCENARIO_STATUS.md` for current validation status and known gaps.
 - `docs/reference/README.md` for sanitized report examples.
 

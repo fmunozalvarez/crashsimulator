@@ -2,7 +2,7 @@ WEBVTT
 
 1
 00:00:00.000 --> 00:00:07.000
-This tutorial shows how to browse ADB01 through ADB15 and review one scenario before future ADB-specific helpers execute drills.
+This tutorial shows how to browse ADB01 through ADB20 and review one scenario before future ADB-specific helpers execute drills.
 
 2
 00:00:07.000 --> 00:00:17.000
@@ -34,4 +34,4 @@ For ADB logical drills, evidence should prove the object was restored and the ap
 
 9
 00:01:28.000 --> 00:01:40.000
-After ADB01, prioritize ADB03 and ADB04 logical mistakes, then add OCI-backed clone, PITR, Autonomous Data Guard, IAM, and Object Storage drills.
+After ADB01, prioritize ADB03 and ADB04 logical mistakes, then add OCI-backed clone, PITR, Autonomous Data Guard, IAM, Object Storage, Database Actions, APEX workspace, wallet drift, and cross-region clone drills.

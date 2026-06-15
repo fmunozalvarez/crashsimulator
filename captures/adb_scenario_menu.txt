@@ -10,7 +10,7 @@ Choice: 20
 
 Autonomous Database Scenarios
 Selected ADB scenario: ADB01 - Drop critical application table
-  1. List ADB01-ADB15 with readiness status
+  1. List ADB01-ADB20 with readiness status
   2. Select ADB scenario
   3. Show selected ADB scenario detail and validation status
   4. Configure Autonomous Database report context
@@ -28,9 +28,21 @@ ADB02  Logical recovery               PLAN/RUNBOOK                 Drop applicat
 ADB03  Logical recovery               RUNNABLE AFTER LAB SEED      Mass DELETE without WHERE clause
 ADB04  Logical recovery               RUNNABLE AFTER LAB SEED      Incorrect UPDATE corrupts business data
 ADB05  Clone/PITR                     OCI CONFIG NEEDED            Recover from clone
+ADB06  Clone/PITR                     OCI CONFIG NEEDED            Point-in-time recovery drill
+ADB07  Backup readiness               OCI CONFIG NEEDED            Validate backup recoverability
 ADB08  Connectivity                   PLAN/RUNBOOK                 Expired or rotated client wallet
+ADB09  Network                        CONFIG NEEDED                Private endpoint connectivity loss
+ADB10  Resource limits                PLAN/RUNBOOK                 Connection pool saturation
+ADB11  Resource limits                PLAN/RUNBOOK                 Resource Manager or concurrency pressure
 ADB12  Autonomous Data Guard          OCI CONFIG NEEDED            Cross-region DR validation
+ADB13  Autonomous Data Guard          OCI CONFIG NEEDED            Autonomous Data Guard role transition
+ADB14  OCI/IAM                        PLAN/RUNBOOK                 IAM administrator access misconfiguration
 ADB15  Object Storage                 OCI CONFIG NEEDED            Object Storage export dependency unavailable
+ADB16  Application access             PLAN/RUNBOOK                 Database Actions unavailable
+ADB17  APEX                           PLAN/RUNBOOK                 APEX workspace unavailable
+ADB18  Clone/PITR                     OCI CONFIG NEEDED            Cross-region clone validation
+ADB19  Connectivity                   PLAN/RUNBOOK                 Wallet distribution drift
+ADB20  OCI/IAM                        PLAN/RUNBOOK                 OCI IAM token expiration
 
 Choice: 3
 

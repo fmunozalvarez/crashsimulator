@@ -211,18 +211,20 @@ async function render(config, browser) {
 }
 
 function parseScenarios() {
-  const text = fs.readFileSync(path.join(root, "captures", "scenarios_available.txt"), "utf8");
-  const databaseScenarios = text
-    .split("\n")
-    .map((line) => line.match(/^\s*(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/))
-    .filter((match) => match && match[1] !== "ID")
-    .map((match) => ({
-      id: Number(match[1]),
-      group: match[2],
-      scope: match[3],
-      impact: match[4],
-      title: match[5].trim(),
-    }));
+  const script = fs.readFileSync(path.join(root, "CrashSimulatorV2.sh"), "utf8");
+  const databaseScenarios = [];
+  const regex = /register_scenario\s+"([^"]+)"\s+"([^"]+)"\s+"([^"]+)"\s+"([^"]+)"\s+"([^"]+)"/g;
+  let match;
+
+  while ((match = regex.exec(script)) !== null) {
+    databaseScenarios.push({
+      id: match[1],
+      group: match[3],
+      scope: match[4],
+      impact: match[5],
+      title: match[2].trim(),
+    });
+  }
 
   return databaseScenarios.concat(parseAdbScenarios());
 }
@@ -263,6 +265,12 @@ function scenarioAccent(group) {
     Security: "#f472b6",
     Compliance: "#facc15",
     "APEX/ORDS": "#fb7185",
+    Services: "#38bdf8",
+    Recovery: "#22c55e",
+    Lifecycle: "#f97316",
+    Exadata: "#ef4444",
+    "OCI DB": "#0ea5e9",
+    GoldenGate: "#f59e0b",
     ADB: "#4ade80",
   };
   return colors[group] || "#94a3b8";
@@ -311,8 +319,57 @@ function writeScenarioCatalogPage() {
       </section>`;
   }
 
-  const leftGroups = ["Core", "Config", "Backup", "ASM", "DataGuard", "RAC", "Security"];
-  const rightGroups = ["PDB", "Logical", "Corrupt", "GI", "ADG", "Network", "Compliance", "APEX/ORDS", "ADB"];
+  const groupPriority = [
+    "Core",
+    "PDB",
+    "Backup",
+    "Config",
+    "Corrupt",
+    "ASM",
+    "GI",
+    "RAC",
+    "DataGuard",
+    "ADG",
+    "Services",
+    "APEX/ORDS",
+    "Recovery",
+    "Lifecycle",
+    "Network",
+    "Security",
+    "Compliance",
+    "Exadata",
+    "OCI DB",
+    "GoldenGate",
+    "ADB",
+  ];
+  const orderedGroups = [...byGroup.keys()].sort((a, b) => {
+    const ai = groupPriority.indexOf(a);
+    const bi = groupPriority.indexOf(b);
+    if (ai === -1 && bi === -1) {
+      return a.localeCompare(b);
+    }
+    if (ai === -1) {
+      return 1;
+    }
+    if (bi === -1) {
+      return -1;
+    }
+    return ai - bi;
+  });
+  const leftGroups = [];
+  const rightGroups = [];
+  let leftWeight = 0;
+  let rightWeight = 0;
+  for (const group of orderedGroups) {
+    const weight = byGroup.get(group).length + 2;
+    if (leftWeight <= rightWeight) {
+      leftGroups.push(group);
+      leftWeight += weight;
+    } else {
+      rightGroups.push(group);
+      rightWeight += weight;
+    }
+  }
   const leftCards = leftGroups
     .filter((group) => byGroup.has(group))
     .map((group) => renderGroupCard(group, byGroup.get(group)))
@@ -517,7 +574,7 @@ function writeScenarioCatalogPage() {
     <section class="hero">
       <div class="kicker">Current Scenario Registry</div>
       <h1>CrashSimulator Scenario Catalog</h1>
-      <p class="summary">Controlled Oracle Database failure and recovery drills across CDB/non-CDB, PDB, backup/recovery, configuration, ASM/Grid Infrastructure, RAC, Data Guard, Active Data Guard, APEX/ORDS, Autonomous Database, network, security, and compliance domains.</p>
+      <p class="summary">Controlled Oracle Database failure and recovery drills across CDB/non-CDB, PDB, backup/recovery, configuration, ASM/Grid Infrastructure, RAC, Data Guard, Active Data Guard, services, APEX/ORDS, Autonomous Database, Exadata, OCI Base Database Service, GoldenGate, network, security, and compliance domains.</p>
       <div class="stats">
         <div class="stat"><b>${scenarios.length}</b><span>registered scenarios</span></div>
         <div class="stat"><b>${destructiveCount}</b><span>destructive drills</span></div>
@@ -530,7 +587,7 @@ function writeScenarioCatalogPage() {
       <div class="column">${leftCards}</div>
       <div class="column">${rightCards}</div>
     </section>
-    <div class="brand">Generated from ./CrashSimulatorV2.sh --list plus ADB01-ADB20 registry</div>
+    <div class="brand">Generated from CrashSimulatorV2.sh scenario registry plus ADB01-ADB20 registry</div>
   </main>
 </body>
 </html>`;

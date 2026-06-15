@@ -40,6 +40,7 @@ For the full end-user documentation, read:
 - [CrashSimulator v2.0.2 Beta Release Notes](docs/RELEASE_NOTES_V2_0_2_BETA.md)
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
 - [Public beta limitations and expectations](docs/CRASHSIMULATOR_PUBLIC_LIMITATIONS.md)
+- [Private Labs workflow for maintainers](docs/PRIVATE_LABS_WORKFLOW.md)
 - [CLI setup and scenario narrated tutorial video](assets/tutorial/crashsimulator_cli_tutorial_with_audio.mp4)
 - [Guided Workflow scenario narrated tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial_with_audio.mp4)
 - [Audit retention narrated tutorial video](assets/tutorial/crashsimulator_audit_retention_tutorial_with_audio.mp4)
