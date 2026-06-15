@@ -40,6 +40,9 @@ CrashSimulator is intentionally conservative:
 - Destructive actions require `--execute`.
 - Most destructive actions also require a typed confirmation token such as
   `EXECUTE-30`, `PROTECT-30`, or `RECOVER-30`.
+- Non-interactive destructive lab runs using `--execute --yes` also require
+  `CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or `--accept-destructive-lab`. Keep this
+  acknowledgement limited to approved non-production labs.
 - The tool records manifests, command files, and logs under
   `./crashsimulator_logs` unless another log directory is provided.
 - Recovery runbook hints are printed before destructive scenario execution.
@@ -187,14 +190,14 @@ The tool still uses dry-run, runbook hints, and confirmation gates.
 
 Download the release runtime ZIP from GitHub, copy it to the database server,
 and unzip it as the Oracle software owner or another OS user allowed to become
-the Oracle owner. For `v2.0.1 beta`, the curated install package is
-`crashsimulator-v2.0.1-beta-runtime.zip`.
+the Oracle owner. For `v2.0.2 beta`, the curated install package is
+`crashsimulator-v2.0.2-beta-runtime.zip`.
 
 Example:
 
 ```bash
-unzip crashsimulator-v2.0.1-beta-runtime.zip
-cd crashsimulator-v2.0.1-beta
+unzip crashsimulator-v2.0.2-beta-runtime.zip
+cd crashsimulator-v2.0.2-beta
 chmod +x crashsimulator CrashSimulatorV2.sh
 chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
@@ -224,7 +227,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.1-beta
+cd /path/to/crashsimulator-v2.0.2-beta
 ./CrashSimulatorV2.sh --help
 ./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
@@ -340,7 +343,7 @@ The menu provides options to:
   APEX/ORDS readiness, Autonomous Database readiness, MAA readiness, and
   scenario lifecycle coverage reports.
 - Browse the dedicated Autonomous Database scenario catalog, select `ADB01`
-  through `ADB15`, review validation status, configure ADB context, and refresh
+  through `ADB20`, review validation status, configure ADB context, and refresh
   ADB readiness evidence from the main ADB submenu or the Reports menu ADB
   options.
 - Configure audit retention, show audit status, browse retained audit logs, and
@@ -396,7 +399,7 @@ signals, FRA configuration, and other topology evidence.
 
 `--list` prints the database-host and application access-path scenarios with
 ID, group, scope, impact, and scenario name. The full CrashSimulator catalog
-contains 97 entries: 82 database-host/application scenarios plus 15
+contains 123 entries: 103 database-host/application/platform scenarios plus 20
 Autonomous Database cloud-service scenarios listed with `--list-adb-scenarios`.
 
 ### Dry-Run Planning
@@ -492,6 +495,36 @@ Use this report after adding or changing scenarios to keep lifecycle gaps
 visible. Then use `--scenario-readiness-report` against a live target to check
 whether the current topology can actually run the desired drills.
 
+`--scenario-lifecycle-check` is stricter and is intended for maintainers before
+publishing a build. It fails if a registered scenario is missing required
+metadata, a handler function, or lifecycle capability text.
+
+```bash
+./CrashSimulatorV2.sh --scenario-lifecycle-check --html
+```
+
+### Public Readiness Checks
+
+Before publishing a build or handing CrashSimulator to new users, run:
+
+```bash
+./CrashSimulatorV2.sh --doctor --html
+./CrashSimulatorV2.sh --first-run --html
+./CrashSimulatorV2.sh --public-limitations --html
+./CrashSimulatorV2.sh --secret-scan --scan-path .
+./CrashSimulatorV2.sh --sanitize-artifacts --sanitize-source reports
+./CrashSimulatorV2.sh --release-check
+```
+
+`--doctor` checks local tooling and safety posture without connecting to the
+database. `--first-run` creates a safe starter checklist. `--public-limitations`
+creates a page explaining plan-only scenarios, provider-specific operations,
+licensing-sensitive features, ADB differences, and destructive lab
+expectations. `--secret-scan` looks for obvious keys, wallets, and inline
+secrets. `--sanitize-artifacts` creates redacted public copies of text
+evidence. `--release-check` combines syntax, lifecycle, secret, package, and
+wording checks for public release preparation.
+
 ### Runbook Hints
 
 `--runbook <id>` prints scenario-specific recovery guidance. The same hints are
@@ -572,6 +605,48 @@ CRASHSIM_RMAN_CATALOG='rcat/password@//host:1521/service' ./CrashSimulatorV2.sh 
 Sanitized examples are available under `docs/reference/`, including default
 target-control-file, recovery-catalog-backed, and deep-validation report output.
 
+### Resilience Scorecard
+
+`--resilience-scorecard` generates an executive scorecard from the evidence
+CrashSimulator already collects. It produces domain scores and an overall
+`Resilience Score` out of 100.
+
+```bash
+./CrashSimulatorV2.sh --resilience-scorecard
+./CrashSimulatorV2.sh --resilience-scorecard --html
+./CrashSimulatorV2.sh --show-artifact latest:resilience
+```
+
+The scorecard currently covers:
+
+- Backup.
+- RAC / local HA.
+- Security.
+- DR / Data Guard.
+- Recoverability.
+- MAA alignment.
+- Scenario coverage.
+- Application continuity.
+
+The scoring model is evidence-based. Installed components help, but measured
+validation evidence matters more. Fresh backups, successful RMAN validation,
+scenario protection/recovery manifests, RAC or service failover drills, Data
+Guard/FSFO evidence, APEX/ORDS or application access-path validation, and
+measured RTO/RPO drills can all improve the relevant domain scores. Missing
+evidence becomes a gap or recommendation instead of an optimistic claim.
+
+Use the scorecard for management summaries, audit conversations, and trend
+tracking after simulations. It is not an Oracle certification and does not
+replace scenario-specific recovery validation.
+
+CrashSimulator attempts a best-effort scorecard refresh after scenario,
+protection, recovery, validation, health-check, scenario readiness/lifecycle,
+and baseline-backup actions. This updates the latest scorecard when SQL*Plus
+and the database are available. If the database is intentionally down during a
+drill, the refresh is skipped with a warning and the drill result is not marked
+failed because of the skipped scorecard. Disable this behavior with
+`--no-auto-scorecard` or `CRASHSIM_AUTO_SCORECARD=0`.
+
 ### Oracle Service HA Review
 
 `--service-review` generates a focused read-only report for Oracle Database
@@ -648,9 +723,10 @@ export CRASHSIM_ADB_WALLET_PASSWORD='<wallet password if required>'
 
 For repeatable use, put non-secret ADB defaults in `crashsimulator.conf`, such
 as wallet directory, alias, service level, user, Python path, ADB OCID, OCI
-region/profile, APEX URL, Database Actions URL, and private endpoint label.
-Keep passwords, wallet passphrases, API keys, and wallet files outside the
-repository and outside the config file.
+region/profile/auth mode, APEX URL, Database Actions URL, and private endpoint
+label. Keep passwords, wallet passphrases, API keys, and wallet files outside
+the repository and outside the config file. For OCI CLI browser/session
+profiles, set `CRASHSIM_ADB_OCI_AUTH=security_token`.
 
 The report works in two levels:
 
@@ -660,12 +736,24 @@ The report works in two levels:
   environment variables to collect database identity, service, APEX, encrypted
   tablespace, Flashback Archive, object, and application-user evidence.
 
+The report also includes an `ADB Readiness Scorecard` for executive review. It
+scores Backup Readiness, PITR Validation, Autonomous Data Guard Protection,
+Cross-Region DR, IAM/administrator access, Wallet Management, Private Endpoint
+Validation, Resource Manager, Logical/Object Recovery, and Application Access
+Path. `PASS` requires direct evidence in the current report; `PARTIAL` means a
+control path or prerequisite exists but a drill or deeper OCI metadata check is
+still needed; `GAP` means CrashSimulator cannot currently prove that domain.
+The lower-level operational check score remains in the readiness summary.
+
 OCI control-plane checks for backups, PITR window, clones, Autonomous Data
-Guard, IAM, and Object Storage need OCI CLI/profile/OCID context. SQL evidence
-alone cannot prove those managed-service dependencies.
+Guard, IAM, and Object Storage need OCI CLI/profile/auth/OCID context. SQL
+evidence alone cannot prove those managed-service dependencies. When configured,
+the report parses OCI Autonomous Database metadata including backup retention,
+Data Guard flags, private endpoint state, Data Safe status, APEX/ORDS versions,
+supported clone regions, compartment, and lifecycle state.
 
 The Guided Workflow menu also includes a dedicated Autonomous Database
-scenarios submenu. From that submenu users can list `ADB01` through `ADB15`
+scenarios submenu. From that submenu users can list `ADB01` through `ADB20`
 with current readiness status, select a scenario, inspect the validation and
 recovery focus for that scenario, set ADB report context, regenerate the ADB
 readiness report, and open the latest ADB report as text or HTML. The helper
@@ -857,16 +945,18 @@ not replace the existing `.log`, `.md`, `.txt`, `.rman`, `.sql`, or `.manifest`
 files. Use `--render-html <path>` to convert one known artifact, or
 `--render-html latest:<kind>` to convert the latest artifact of a type.
 Supported shortcuts include `topology`, `config`, `backup`,
-`scenario-readiness`, `lifecycle`, `maa`, `health`, `scenario`, `protect`,
-`recover`, `runbook`, `baseline`, `review`, `audit`, `apex-ords`, and
-`latest`.
+`scenario-readiness`, `lifecycle`, `maa`, `resilience`, `scorecard`, `health`,
+`scenario`, `protect`, `recover`, `runbook`, `baseline`, `review`, `audit`,
+`apex-ords`, and `latest`.
 
 ### MAA Readiness Report
 
-`--maa-report` generates a best-effort Oracle MAA posture report. It maps
-observable evidence to Bronze, Silver, Gold, Platinum, or Diamond-style
-capability levels, includes AC/TAC, FSFO, ADG DML redirection, and role-based
-service awareness, and records RTO/RPO planning context.
+`--maa-report` generates a best-effort Oracle MAA decision-tree report. It
+separates the target MAA level implied by business RTO/RPO from the candidate
+level suggested by topology and the current evidenced level supported by
+configuration, integration, measured drills, and operational evidence. It also
+includes AC/TAC, FSFO, ADG DML redirection, role-based service awareness, and
+RTO/RPO planning context.
 
 For FSFO-enabled Data Guard configurations, the MAA and service review reports
 also collect Data Guard Broker evidence and check observer best-practice
@@ -886,11 +976,32 @@ Example:
 ```bash
 ./CrashSimulatorV2.sh --maa-report \
   --maa-app-name Payroll \
+  --maa-criticality mission-critical \
+  --maa-local-ha-target yes \
   --maa-local-rto "less than 1 minute" \
   --maa-local-rpo zero \
+  --maa-dr-required yes \
   --maa-dr-rto "less than 1 hour" \
-  --maa-dr-rpo zero
+  --maa-dr-rpo zero \
+  --maa-automatic-failover-required yes \
+  --maa-standby-scope remote
 ```
+
+The MAA report separates:
+
+- `Target MAA level`: the level implied by business RTO/RPO and outage-class
+  requirements.
+- `Candidate MAA level`: the level suggested by installed/configured topology.
+- `Current evidenced MAA level`: the conservative level supported by service
+  integration, measured drills, backup/recovery validation, and operational
+  evidence.
+
+This distinction is important. RAC, RAC One Node, or a local standby can make a
+Silver local-HA candidate, but Silver is evidenced only after service/client
+failover and measured local-failure validation. Data Guard or Active Data Guard
+can make a Gold DR candidate, but evidenced Gold requires Broker/lag/role
+service evidence, measured transition/failover behavior, and application
+validation.
 
 This is not an Oracle certification. It is a readiness assessment that helps
 teams identify gaps and choose drills.
@@ -1142,13 +1253,24 @@ Scope meanings:
 | 80 | APEX session continuity test | APEX/ORDS | Application | logical | Observing an active APEX session during ORDS, RAC service, Data Guard, or database failover. | Read-only continuity evidence, with optional seeded Playwright browser-session driver for screenshots and JSON/Markdown evidence. |
 | 81 | APEX mail queue and configuration validation | APEX/ORDS | Application | logical | SMTP, wallet/TLS, network ACL, failed mail queue, and notification recovery checks. | Read-only report/evidence drill. |
 | 82 | APEX upgrade or patch rollback readiness | APEX/ORDS | Application | logical | Pre/post APEX version, invalid object, ORDS config, runtime-user, and application smoke evidence. | Read-only readiness/runbook drill for APEX/ORDS patching and rollback decisions. |
+| 83 | Application Continuity replay validation | Services | Application | logical | AC/TAC, Transaction Guard, FAN, and replay-safe client validation planning. | Evidence/runbook first; client workload remains external. |
+| 84 | FAN notification unavailable | Services | RAC/GI | logical | FAN/ONS notification path and client failover behavior. | Plan-only interruption of notification path. |
+| 85 | Planned Data Guard switchover | DataGuard | DG | logical | Planned role transition, services, Broker, lag, and application validation. | Requires Data Guard; execution remains operator-approved. |
+| 86 | Data Guard failback rehearsal | DataGuard | DG | logical | Reinstate/rebuild/switchback planning after failover or switchover. | Requires Data Guard and approved failback runbook. |
+| 87 | Role-based service validation | Services | RAC/DG | logical | PRIMARY and STANDBY/ADG service placement before and after role transition. | Read-only evidence plus external role-transition validation. |
+| 88 | PDB point-in-time recovery drill | PDB | PDB | logical | PDB PITR timestamp selection, RMAN preview, auxiliary destination, and validation. | Actual recovery remains operator-approved. |
+| 89 | Guaranteed restore point rollback | Recovery | CDB/non-CDB | logical | GRP readiness, Flashback rollback, FRA headroom, and change-window fallback. | Requires Flashback Database. |
+| 90 | Database patch rollback readiness | Lifecycle | CDB/non-CDB | logical | Patch fallback with backups, GRP, SQL patch inventory, Data Guard, and services. | Read-only readiness/runbook drill. |
+| EXA01-EXA04 | Exadata validation family | Exadata | Platform | logical | Cell failure, storage server outage, Smart Scan, and Flash Cache readiness. | Plan/readiness first; Exadata lab approval required. |
+| OCI01-OCI05 | OCI Base DB validation family | OCI DB | Cloud | logical | Backup policy, cross-region recovery, DB system failover, VCN, and NSG drills. | Requires OCI/DBaaS evidence and approved cloud boundary. |
+| GG01-GG04 | GoldenGate validation family | GoldenGate | Replication | logical/destructive | Extract, Replicat, lag, and trail recovery practice. | Plan/readiness first; GoldenGate deployment target required. |
 
 ### Autonomous Database Scenario Catalog
 
-Autonomous Database scenarios use `ADB01` through `ADB15` because they validate
+Autonomous Database scenarios use `ADB01` through `ADB20` because they validate
 cloud-service and client/application dependencies rather than database-host
 file removal. They are listed with `--list-adb-scenarios`, inspected with
-`--adb-scenario <ADB01-ADB15>`, and included in the Guided Workflow Autonomous
+`--adb-scenario <ADB01-ADB20>`, and included in the Guided Workflow Autonomous
 Database submenu.
 
 | ID | Scenario | Area | Scope | Impact | What users practice | Key notes |
@@ -1168,6 +1290,11 @@ Database submenu.
 | ADB13 | Autonomous Data Guard role transition | ADB | Autonomous Data Guard | logical | Switchover/failover runbook, URL/service validation, and fallback planning. | Requires OCI ADG role and transition eligibility evidence. |
 | ADB14 | IAM administrator access misconfiguration | ADB | OCI/IAM | logical | Break-glass access, IAM policy/group evidence, and admin automation recovery. | Read-only evidence first; test only inside an approved IAM boundary. |
 | ADB15 | Object Storage export dependency unavailable | ADB | Object Storage | logical | Restoring bucket, policy, credential, network access, and export/import procedures. | Requires bucket/credential/DBMS_CLOUD dependency evidence. |
+| ADB16 | Database Actions unavailable | ADB | Application access | logical | Restoring Database Actions/ORDS access and validating SQL/API access. | Requires Database Actions URL and SQL/OCI evidence. |
+| ADB17 | APEX workspace unavailable | ADB | APEX | logical | Restoring workspace/application access and validating login. | Requires APEX URL and workspace/application evidence. |
+| ADB18 | Cross-region clone validation | ADB | Clone/PITR | logical | Creating and validating a cross-region clone, then cleaning it up. | Requires OCI clone-region/backup-retention evidence. |
+| ADB19 | Wallet distribution drift | ADB | Connectivity | logical | Refreshing wallet distribution across clients and pools. | Requires wallet inventory and reconnect smoke path. |
+| ADB20 | OCI IAM token expiration | ADB | OCI/IAM | logical | Refreshing or rotating OCI auth and validating control-plane access. | Requires OCI profile/auth context and break-glass path. |
 
 ## Scenario Selection Guidance
 

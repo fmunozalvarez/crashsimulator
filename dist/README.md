@@ -3,12 +3,12 @@
 This directory contains installable release archives generated from the
 repository.
 
-## v2.0.1 Beta
+## v2.0.2 Beta
 
 Package:
 
-- `crashsimulator-v2.0.1-beta-runtime.zip`
-- `crashsimulator-v2.0.1-beta-runtime.zip.sha256`
+- `crashsimulator-v2.0.2-beta-runtime.zip`
+- `crashsimulator-v2.0.2-beta-runtime.zip.sha256`
 
 Purpose:
 
@@ -36,14 +36,21 @@ Excluded:
 - The `dist/` directory itself, so the package does not recursively include
   release archives.
 
+Rebuild from the source checkout:
+
+```bash
+tools/crashsim_build_runtime_zip.sh
+./CrashSimulatorV2.sh --release-check
+```
+
 Install:
 
 ```bash
-unzip crashsimulator-v2.0.1-beta-runtime.zip
-cd crashsimulator-v2.0.1-beta
+unzip crashsimulator-v2.0.2-beta-runtime.zip
+cd crashsimulator-v2.0.2-beta
 chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ./CrashSimulatorV2.sh --help
 ```
 
 See `README.md`, `README_V2.md`, and
-`docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md` for full guidance.
+`docs/CRASHSIMULATOR_V2_0_2_BETA_PRODUCT_OVERVIEW.md` for full guidance.

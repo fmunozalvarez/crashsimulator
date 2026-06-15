@@ -1,0 +1,20 @@
+java version "17.0.18" 2026-01-20 LTS
+Java(TM) SE Runtime Environment (build 17.0.18+7-LTS-263)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.18+7-LTS-263, mixed mode, sharing)
+
+Error: ORDS requires Java 17 and above to run.
+       Found Java version 1.8.0_481.
+       Please set JAVA_HOME to appropriate version and update PATH if necessary.
+
+INSTALL_HELP
+
+Error: ORDS requires Java 17 and above to run.
+       Found Java version 1.8.0_481.
+       Please set JAVA_HOME to appropriate version and update PATH if necessary.
+
+CONFIG_HELP
+
+Error: ORDS requires Java 17 and above to run.
+       Found Java version 1.8.0_481.
+       Please set JAVA_HOME to appropriate version and update PATH if necessary.
+

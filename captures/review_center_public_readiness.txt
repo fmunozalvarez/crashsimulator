@@ -1,0 +1,117 @@
+Review index generated: /tmp/crashsim_full_sanity/crashsim_review_index_20260615_232332.md
+# CrashSimulator Review Center
+
+- Generated UTC: `2026-06-15T13:23:32Z`
+- Log directory: `/tmp/crashsim_full_sanity`
+- Audit directory: `/tmp/crashsim_full_sanity/audit`
+
+This index lists previously collected CrashSimulator topology snapshots, scenario manifests, runbooks, dry-run/execution audit records, health checks, and reports. It does not reconnect to the database.
+
+## Latest Collected Topology
+
+- No cached topology snapshot found. Run `--discover` or `--config-report` to collect one.
+- Latest scenario lifecycle coverage report: `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_latest.md`
+
+## Scenario / Protection / Recovery Manifests
+
+No stored manifests found.
+
+## Runbooks
+
+No stored artifacts found.
+
+## Health Checks
+
+No stored artifacts found.
+
+## Doctor / Public Readiness Reports
+
+- `/tmp/crashsim_full_sanity/crashsim_doctor_20260615_232332.md`
+
+## First-Run Guides
+
+- `/tmp/crashsim_full_sanity/crashsim_first_run_20260615_232316.md`
+- `/tmp/crashsim_full_sanity/crashsim_first_run_latest.md`
+
+## Public Limitations Pages
+
+- `/tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232032.md`
+- `/tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232115.md`
+- `/tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232132.md`
+- `/tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232316.md`
+- `/tmp/crashsim_full_sanity/crashsim_public_limitations_latest.md`
+
+## Configuration Reports
+
+No stored artifacts found.
+
+## Backup Strategy / Recoverability Reports
+
+No stored artifacts found.
+
+## Service HA Reviews
+
+No stored artifacts found.
+
+## APEX / ORDS Readiness Reports
+
+No stored artifacts found.
+
+## Seed / Prepare Environment Reports
+
+No stored artifacts found.
+
+## Scenario Readiness Reports
+
+No stored artifacts found.
+
+## Scenario Lifecycle Coverage Reports
+
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232316.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_231409.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232316.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_latest.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_latest.md`
+
+## Scenario Lifecycle Consistency Checks
+
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_231409.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232316.md`
+- `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_latest.md`
+
+## MAA Readiness Reports
+
+No stored artifacts found.
+
+## Resilience Scorecards
+
+No stored artifacts found.
+
+## Autonomous Database Readiness Reports
+
+No stored artifacts found.
+
+## Baseline Backup Plans And Logs
+
+No stored artifacts found.
+
+## RMAN And SQL Helper Files
+
+No stored artifacts found.
+
+## Audit Records
+
+No audit records found.
+
+## Access Shortcuts
+
+- Show latest topology: `./CrashSimulatorV2.sh --review-topology`
+- Show latest scenario readiness report: `./CrashSimulatorV2.sh --show-artifact latest:scenario-readiness`
+- Show latest scenario lifecycle report: `./CrashSimulatorV2.sh --show-artifact latest:lifecycle`
+- Show latest resilience scorecard: `./CrashSimulatorV2.sh --show-artifact latest:resilience`
+- Show latest Autonomous Database readiness report: `./CrashSimulatorV2.sh --show-artifact latest:adb`
+- Show latest public limitations page: `./CrashSimulatorV2.sh --show-artifact latest:public-limitations`
+- Show latest health check: `./CrashSimulatorV2.sh --show-artifact latest:health`
+- Generate HTML for latest review index: `./CrashSimulatorV2.sh --render-html latest:review`
+- Generate HTML for a specific artifact: `./CrashSimulatorV2.sh --render-html /path/to/artifact`
+HTML artifact generated: /tmp/crashsim_full_sanity/crashsim_review_index_20260615_232332.md.html

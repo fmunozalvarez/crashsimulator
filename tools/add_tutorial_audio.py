@@ -38,6 +38,9 @@ DEFAULT_TUTORIALS = (
     "crashsimulator_adb_readiness_tutorial",
     "crashsimulator_adb_scenario_tutorial",
     "crashsimulator_best_practices_tutorial",
+    "crashsimulator_prepare_environment_tutorial",
+    "crashsimulator_first_run_public_readiness_tutorial",
+    "crashsimulator_public_limitations_tutorial",
 )
 
 

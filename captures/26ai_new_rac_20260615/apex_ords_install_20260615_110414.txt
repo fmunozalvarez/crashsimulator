@@ -1,0 +1,60 @@
+[2026-06-15T11:04:15Z] CrashSimulator APEX/ORDS lab installation started
+java version "17.0.18" 2026-01-20 LTS
+Java(TM) SE Runtime Environment (build 17.0.18+7-LTS-263)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.18+7-LTS-263, mixed mode, sharing)
+[2026-06-15T11:04:15Z] Extracting APEX media to /u01/app/oracle/product/crashsim_apex_ords/apex_26.1
+[2026-06-15T11:04:58Z] Extracting ORDS media to /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:05:12 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+Oracle REST Data Services 26.1.2.r1401916
+[2026-06-15T11:05:12Z] Creating guaranteed restore point CSIM_APEX_20260615110415
+
+Restore point created.
+
+[2026-06-15T11:05:12Z] Installing APEX into CRASHPDB
+
+Session altered.
+
+SP2-0310: unable to open file "core/scripts/set_appun.sql"
+Help: https://docs.oracle.com/error-help/db/sp2-0310/
+SP2-0310: unable to open file "core/scripts/apxpreins.sql"
+Help: https://docs.oracle.com/error-help/db/sp2-0310/
+SP2-0310: unable to open file "core/scripts/set_ufrom_and_upgrade.sql"
+Help: https://docs.oracle.com/error-help/db/sp2-0310/
+Enter value for cdb_root: Enter value for cdb: Enter value for meta_link: 
+SP2-0546: User requested Interrupt or EOF detected.
+Help: https://docs.oracle.com/error-help/db/sp2-0546/
+
+
+
+
+SP2-0310: unable to open file "/u01/app/oracle/product/crashsim_apex_ords/apex_26.1/apex/USERS.sql"
+Help: https://docs.oracle.com/error-help/db/sp2-0310/
+[2026-06-15T11:05:13Z] Creating/updating APEX instance administrator APEXLAB
+
+Session altered.
+
+  apex_util.set_security_group_id(10);
+  *
+ERROR at line 2:
+ORA-06550: line 2, column 3:
+PLS-00201: identifier 'APEX_UTIL.SET_SECURITY_GROUP_ID' must be declared
+ORA-06550: line 2, column 3:
+PL/SQL: Statement ignored
+ORA-06550: line 4, column 5:
+PLS-00201: identifier 'APEX_UTIL.CREATE_USER' must be declared
+ORA-06550: line 4, column 5:
+PL/SQL: Statement ignored
+ORA-06550: line 13, column 9:
+PLS-00201: identifier 'APEX_UTIL.EDIT_USER' must be declared
+ORA-06550: line 13, column 9:
+PL/SQL: Statement ignored
+Help: https://docs.oracle.com/error-help/db/ora-06550/
+
+

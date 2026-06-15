@@ -1,0 +1,4 @@
+Downloading https://download.oracle.com/otn_software/apex/apex_26.1_en.zip
+-rw-r--r--. 1 oracle oinstall 245M Jun 15 10:59 apex_26.1_en.zip
+Downloading https://download.oracle.com/otn_software/java/ords/ords-26.1.2.140.1916.zip
+-rw-r--r--. 1 oracle oinstall 181M Jun 15 10:59 ords-26.1.2.140.1916.zip

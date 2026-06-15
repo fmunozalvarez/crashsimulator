@@ -1,0 +1,95 @@
+--- validate scenario 73 ---
+Scenario readiness validation
+Scenario 73: ORDS service unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 73: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+STATUS_73=0
+--- validate scenario 75 ---
+Scenario readiness validation
+Scenario 75: ORDS database pool misconfiguration
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 75: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+STATUS_75=0
+--- validate scenario 79 ---
+Scenario readiness validation
+Scenario 79: ORDS node unavailable behind load balancer
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 79 is not possible to run at this moment.
+Reason: Scenario 79 requires --ords-lb-url/CRASHSIM_ORDS_LB_URL or a reachable peer ORDS node so the drill can validate continuity.
+Resilience scorecard auto-refreshed after validate 79: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+STATUS_79=0
+--- dry-run scenario 73 ---
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 73: ORDS service unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Stops the ORDS systemd service when OS service control is available.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s73_20260615_114608.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - ORDS service or ORDS node outage:
+    1. Confirm user impact with the ORDS/APEX smoke URL, load balancer URL if present, and application-specific APEX page checks.
+    2. Restart the affected ORDS service with systemctl, then validate service status, logs, and HTTP response.
+    3. In RAC or multi-node ORDS, confirm the load balancer removed/added the node as expected and sessions behaved acceptably.
+    4. Capture timing for detection, restart, application availability, and any required user retry/relogin.
+
+Planned actions:
+ 1. systemctl_stop_service ords (simulate ORDS service outage; recover with --recover 73)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Resilience scorecard auto-refreshed after scenario 73: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+DRY_STATUS_73=0
+--- dry-run scenario 75 ---
+Validation: RUNNABLE - Requirements passed and target selection produced executable actions.
+
+Scenario 75: ORDS database pool misconfiguration
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Reversible ORDS pool service-name misconfiguration drill when service restart privileges are approved.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s75_20260615_114630.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - ORDS configuration loss or pool misconfiguration:
+    1. Restore the ORDS configuration directory, wallets, pool settings, and static-file mappings from a known-good backup.
+    2. Validate database service name, credentials, wallet/TLS settings, connection pool sizing, and PL/SQL gateway mode.
+    3. Restart ORDS and test the ORDS landing page, APEX application URL, SQL Developer Web if enabled, and logs.
+    4. Keep ORDS config backups synchronized across ORDS nodes and document credential rotation steps.
+
+Planned actions:
+ 1. ords_pool_bad_service /u01/app/oracle/product/crashsim_apex_ords/ords_config:crashpdb (set db.servicename to a lab-bad value, restart ORDS, then recover with --recover 75)
+
+DRY-RUN complete. Re-run with --execute to perform these actions.
+Resilience scorecard auto-refreshed after scenario 75: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+DRY_STATUS_75=0

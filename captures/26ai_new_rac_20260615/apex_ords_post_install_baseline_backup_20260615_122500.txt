@@ -1,0 +1,15 @@
+CrashSimulator fresh baseline backup
+Mode: EXECUTE
+Tag prefix: CSIM_BASE
+Backup tag: CSIM_BASE_260615115546
+RMAN catalog: configured (RMAN_CATALOG/<redacted>@//10.0.0.216:1521/crashdb_CRASHPDB.paas.oracle.com)
+RMAN command file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_115546.rman
+RMAN log file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_115546.log
+
+
+About to run a fresh RMAN baseline backup.
+Backup tag: CSIM_BASE_260615115546
+This is not destructive, but it can consume I/O, backup storage, and SBT/Object Storage bandwidth.
+Type BASELINE-BACKUP to continue:
+ERROR: Confirmation did not match. Aborting.
+ERROR: Baseline backup helper failed with status 1.

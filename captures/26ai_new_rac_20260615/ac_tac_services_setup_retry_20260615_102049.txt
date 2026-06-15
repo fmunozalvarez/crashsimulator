@@ -1,0 +1,86 @@
+[2026-06-15T10:20:51Z] CrashSimulator HA lab configuration started
+[2026-06-15T10:20:51Z] Configuring CrashSimulator AC/TAC/FAN lab services
+[2026-06-15T10:20:52Z] Adding service crashsim_ac
+[2026-06-15T10:20:55Z] Starting service crashsim_ac
+Service name: crashsim_ac
+Cardinality: 2
+Service role: PRIMARY
+Management policy: AUTOMATIC
+DTP transaction: FALSE
+AQ HA notifications: TRUE
+Global: FALSE
+Commit Outcome: TRUE
+Commit Outcome Fastpath: TRUE
+Reset State: NONE
+Failover type: TRANSACTION
+Failover method: BASIC
+Failover retries: 30
+Failover delay: 3
+Failover restore: LEVEL1
+Connection Load Balancing Goal: LONG
+Runtime Load Balancing Goal: SERVICE_TIME
+TAF policy specification: NONE
+Edition: 
+Pluggable database name: CRASHPDB
+True Cache service: 
+Maximum lag time: ANY
+SQL Translation Profile: 
+Retention: 86400 seconds
+Failback :  no  
+Replay Initiation Time: 300 seconds
+Drain timeout: 300 seconds
+Template timeout: 86400 seconds
+Stop option: transactional
+Session State Consistency: DYNAMIC
+Auto Connection Rebalance: DEFAULT
+GSM Flags: 0
+Service is enabled
+Preferred instances: crashdb1,crashdb2
+Available instances: 
+CSS critical: no
+[2026-06-15T10:21:00Z] Adding service crashsim_tac
+[2026-06-15T10:21:02Z] Starting service crashsim_tac
+Service name: crashsim_tac
+Cardinality: 2
+Service role: PRIMARY
+Management policy: AUTOMATIC
+DTP transaction: FALSE
+AQ HA notifications: TRUE
+Global: FALSE
+Commit Outcome: TRUE
+Commit Outcome Fastpath: TRUE
+Reset State: NONE
+Failover type: AUTO
+Failover method: BASIC
+Failover retries: 30
+Failover delay: 3
+Failover restore: AUTO
+Connection Load Balancing Goal: LONG
+Runtime Load Balancing Goal: SERVICE_TIME
+TAF policy specification: NONE
+Edition: 
+Pluggable database name: CRASHPDB
+True Cache service: 
+Maximum lag time: ANY
+SQL Translation Profile: 
+Retention: 86400 seconds
+Failback :  no  
+Replay Initiation Time: 300 seconds
+Drain timeout: 300 seconds
+Template timeout: 86400 seconds
+Stop option: transactional
+Session State Consistency: AUTO
+Auto Connection Rebalance: DEFAULT
+GSM Flags: 0
+Service is enabled
+Preferred instances: crashdb1,crashdb2
+Available instances: 
+CSS critical: no
+[2026-06-15T10:21:05Z] ONS status
+ONS exists: Local port 6100, remote port 6200, EM port 2016, Uses SSL true, Allow unsecure YES
+ONS is enabled
+ONS is individually enabled on nodes: 
+ONS is individually disabled on nodes: 
+ONS ons is enabled.
+ONS ons is running.
+[2026-06-15T10:21:07Z] CrashSimulator HA lab configuration completed

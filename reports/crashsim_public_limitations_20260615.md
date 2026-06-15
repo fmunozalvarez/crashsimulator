@@ -1,0 +1,63 @@
+# CrashSimulator Public Beta Limitations And Expectations
+
+- Generated UTC: `2026-06-15T13:27:12Z`
+- Tool version: `2.0.1-beta`
+
+CrashSimulator is an open-source resilience validation platform for Oracle Database labs. It helps teams practice, validate, and document recoverability, but it is not a production chaos tool, an Oracle certification program, a licensing verifier, or a substitute for tested backups and change control.
+
+## Safety Expectations
+
+- Dry-run is the default. Destructive activity requires `--execute`, typed confirmation, and for non-interactive runs `CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or `--accept-destructive-lab`.
+- Use destructive scenarios only in approved non-production or dedicated resilience-test environments.
+- Run `--doctor`, `--discover`, `--prepare-environment --dry-run`, `--scenario-readiness-report`, `--runbook <id>`, and a backup/recoverability review before destructive drills.
+- Keep manifests, runbooks, health checks, RMAN/SQL evidence, audit logs, and HTML reports until recovery validation is complete.
+
+## Plan-Only And Provider-Specific Scenarios
+
+Some scenarios intentionally produce runbook/evidence instead of directly changing infrastructure. This is by design when the safe action depends on storage provider, Grid/root privileges, OCI control-plane boundaries, load balancers, GoldenGate deployment names, application client behavior, or a formal change window.
+
+| Scenario family | Examples | Public expectation |
+| --- | --- | --- |
+| ASM/GI/FEX/ACFS storage | `46`, `47`, `48`, `49`, `72` | Plan-only or provider-aware until redundant lab disks, failgroups, OCR/voting recovery, and rollback are explicitly approved. |
+| Data Guard role transition | `52`, `54`, `66`, `85`, `86` | Broker/FSFO/switchover/failback evidence and runbooks first; role transitions remain operator-approved. |
+| RAC network/service infrastructure | `70`, selected `83`, `84`, `87` | Validate services/FAN/AC/TAC metadata; client replay and VIP/notification disruption need application evidence and approval. |
+| PDB PITR and lifecycle rollback | `88`, `89`, `90` | Generate evidence and templates; actual PDB PITR, GRP flashback, patch rollback, and resetlogs remain change-window actions. |
+| Exadata | `EXA01`-`EXA04` | Requires Exadata tooling, cell/storage evidence, and supportable lab procedures; generic hosts remain readiness-only. |
+| OCI Base Database | `OCI01`-`OCI05` | Requires OCI CLI/profile/OCIDs and approved cloud-control-plane scope; network/security-list changes are not guessed. |
+| GoldenGate | `GG01`-`GG04` | Requires deployment-specific Extract/Replicat/trail targets, lag thresholds, and resync runbooks. |
+
+## Autonomous Database Differences
+
+Autonomous Database does not expose host-level files, ASM disks, control files, redo members, password files, SPFILEs, or ORACLE_HOME for destructive manipulation. ADB scenarios use a separate coverage model focused on logical/user-error recovery, PITR/clone readiness, wallet/connectivity, private endpoints, IAM, Object Storage, Autonomous Data Guard, resource pressure, Database Actions, APEX, and application access-path checks. OCI metadata checks require a configured OCI CLI/profile and the relevant OCIDs.
+
+## Licensing And Support Sensitivity
+
+CrashSimulator can detect and report signals for features such as RAC, Active Data Guard, Application Continuity/TAC, Diagnostics/Tuning-related evidence, TDE, Exadata, GoldenGate, and OCI services, but it does not validate license entitlement or support contracts. Confirm licensing and supportability with Oracle documentation, contracts, and authorized advisors before relying on a feature in production.
+
+## Evidence And MAA Claims
+
+- Treat installed/configured components as candidate capabilities until measured drills prove the service level.
+- Do not claim zero data loss without protection mode, synchronous transport/commit behavior, standby receive/apply state, and tested transition evidence.
+- Do not claim near-zero downtime without service placement, FAN/ONS, AC/TAC or client retry evidence, draining/replay behavior, and measured outage timing.
+- Use `--resilience-scorecard`, MAA reports, and scenario lifecycle/readiness reports as evidence summaries, not as formal certification.
+
+## Recommended New-User Order
+
+```bash
+./CrashSimulatorV2.sh --show-config
+./CrashSimulatorV2.sh --validate-config
+./CrashSimulatorV2.sh --doctor --html
+./CrashSimulatorV2.sh --discover
+./CrashSimulatorV2.sh --prepare-environment --dry-run --html
+./CrashSimulatorV2.sh --scenario-readiness-report --html
+./CrashSimulatorV2.sh --scenario-lifecycle-report --html
+./CrashSimulatorV2.sh --backup-report --html
+./CrashSimulatorV2.sh --runbook 6 --html
+./CrashSimulatorV2.sh --scenario 6 --dry-run
+```
+
+## Safe Starter Scenario Ideas
+
+- Read-only/reporting: `--health-check`, `--config-report`, `--backup-report`, `--service-review`, `--maa-report`, `--resilience-scorecard`, `--apex-ords-report`, `--adb-readiness-report`.
+- Low-risk database drills after readiness passes: `6`/`31` tempfile loss, `11`/`36` disposable index rebuild, `43` disposable table loss, `63` controlled TEMP pressure.
+- RAC/Data Guard/application drills should start with readiness/reporting scenarios before service relocation, apply/transport lag, switchover/failback, or client replay tests.

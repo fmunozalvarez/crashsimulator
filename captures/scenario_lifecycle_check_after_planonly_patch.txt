@@ -1,0 +1,149 @@
+Scenario lifecycle consistency check generated: /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232408.md
+# CrashSimulator Scenario Lifecycle Consistency Check
+
+- Generated UTC: `2026-06-15T13:24:08Z`
+- Tool version: `2.0.1-beta`
+- Registered database scenarios: `103`
+- Registered ADB scenarios: `20`
+
+This check is release-oriented. It validates that each registered scenario has metadata, a callable handler, and lifecycle text for validation, protection, execution, recovery, runbook, and evidence posture. It does not connect to a database.
+
+## Scenario Checks
+
+| Status | ID | Scenario | Finding |
+| --- | --- | --- | --- |
+| `OK` | `1` | Loss of one control file | Metadata, handler, and lifecycle text are present. |
+| `OK` | `2` | Loss of all control files | Metadata, handler, and lifecycle text are present. |
+| `OK` | `3` | Loss of one member from current redo group | Metadata, handler, and lifecycle text are present. |
+| `OK` | `4` | Loss of all members from current redo group | Metadata, handler, and lifecycle text are present. |
+| `OK` | `5` | Loss of one non-system datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `6` | Loss of one temporary file | Metadata, handler, and lifecycle text are present. |
+| `OK` | `7` | Loss of one SYSTEM datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `8` | Loss of one UNDO datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `9` | Loss of a read-only tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `10` | Loss of an index-only tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `11` | Drop non-unique indexes outside Oracle schemas | Metadata, handler, and lifecycle text are present. |
+| `OK` | `12` | Loss of a non-system tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `13` | Loss of a temporary tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `14` | Loss of SYSTEM tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `15` | Loss of UNDO tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `16` | Loss of password file | Metadata, handler, and lifecycle text are present. |
+| `OK` | `17` | Loss of all datafiles | Metadata, handler, and lifecycle text are present. |
+| `OK` | `18` | Loss of one member from multiplexed redo group | Metadata, handler, and lifecycle text are present. |
+| `OK` | `19` | Loss of all inactive redo groups | Metadata, handler, and lifecycle text are present. |
+| `OK` | `20` | Loss of all active redo groups | Metadata, handler, and lifecycle text are present. |
+| `OK` | `21` | Loss of all current redo group members | Metadata, handler, and lifecycle text are present. |
+| `OK` | `22` | Datafile header corruption | Metadata, handler, and lifecycle text are present. |
+| `OK` | `23` | Control file corruption | Metadata, handler, and lifecycle text are present. |
+| `OK` | `24` | Redo log corruption | Metadata, handler, and lifecycle text are present. |
+| `OK` | `25` | Loss of RMAN backup pieces | Metadata, handler, and lifecycle text are present. |
+| `OK` | `26` | Loss of SPFILE | Metadata, handler, and lifecycle text are present. |
+| `OK` | `27` | Loss of SQL*Net config files | Metadata, handler, and lifecycle text are present. |
+| `OK` | `28` | Loss of ORACLE_HOME | Metadata, handler, and lifecycle text are present. |
+| `OK` | `29` | Loss of FRA destination | Metadata, handler, and lifecycle text are present. |
+| `OK` | `30` | PDB loss of one non-system datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `31` | PDB loss of one temporary file | Metadata, handler, and lifecycle text are present. |
+| `OK` | `32` | PDB loss of one SYSTEM datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `33` | PDB loss of one UNDO datafile | Metadata, handler, and lifecycle text are present. |
+| `OK` | `34` | PDB loss of read-only tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `35` | PDB loss of index-only tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `36` | PDB drop non-unique indexes | Metadata, handler, and lifecycle text are present. |
+| `OK` | `37` | PDB loss of non-system tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `38` | PDB loss of temporary tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `39` | PDB loss of SYSTEM tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `40` | PDB loss of UNDO tablespace | Metadata, handler, and lifecycle text are present. |
+| `OK` | `41` | PDB loss of all datafiles | Metadata, handler, and lifecycle text are present. |
+| `OK` | `42` | PDB SYSTEM file header corruption | Metadata, handler, and lifecycle text are present. |
+| `OK` | `43` | PDB loss of one user table | Metadata, handler, and lifecycle text are present. |
+| `OK` | `44` | PDB loss of one user schema | Metadata, handler, and lifecycle text are present. |
+| `OK` | `45` | Drop selected PDB including datafiles | Metadata, handler, and lifecycle text are present. |
+| `OK` | `46` | ASM/FEX data storage unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `47` | OCR loss or restore drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `48` | Voting disk loss or restore drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `49` | ASM/FEX SPFILE loss | Metadata, handler, and lifecycle text are present. |
+| `OK` | `50` | Standby managed recovery cancelled | Metadata, handler, and lifecycle text are present. |
+| `OK` | `51` | Primary transport destination deferred | Metadata, handler, and lifecycle text are present. |
+| `OK` | `52` | Data Guard broker configuration unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `53` | Active Data Guard read-only session pressure | Metadata, handler, and lifecycle text are present. |
+| `OK` | `54` | Snapshot standby conversion practice | Metadata, handler, and lifecycle text are present. |
+| `OK` | `55` | RAC abort one instance | Metadata, handler, and lifecycle text are present. |
+| `OK` | `56` | RAC service relocation failure practice | Metadata, handler, and lifecycle text are present. |
+| `OK` | `57` | Listener config unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `58` | TDE wallet or keystore unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `59` | Missing archived redo log | Metadata, handler, and lifecycle text are present. |
+| `OK` | `60` | Recovery catalog unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `61` | FRA reaches critical utilization | Metadata, handler, and lifecycle text are present. |
+| `OK` | `62` | Missing required archived log during recovery | Metadata, handler, and lifecycle text are present. |
+| `OK` | `63` | TEMP tablespace exhaustion | Metadata, handler, and lifecycle text are present. |
+| `OK` | `64` | RTO validation drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `65` | RPO validation drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `66` | FSFO observer unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `67` | Data Guard apply lag exceeds SLA | Metadata, handler, and lifecycle text are present. |
+| `OK` | `68` | Data Guard transport network partition | Metadata, handler, and lifecycle text are present. |
+| `OK` | `69` | Standby redo log misconfiguration review | Metadata, handler, and lifecycle text are present. |
+| `OK` | `70` | RAC VIP relocation drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `71` | RAC service placement failure | Metadata, handler, and lifecycle text are present. |
+| `OK` | `72` | ASM/FEX storage component failure | Metadata, handler, and lifecycle text are present. |
+| `OK` | `73` | ORDS service unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `74` | ORDS configuration unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `75` | ORDS database pool misconfiguration | Metadata, handler, and lifecycle text are present. |
+| `OK` | `76` | APEX/ORDS runtime account locked | Metadata, handler, and lifecycle text are present. |
+| `OK` | `77` | APEX static resources unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `78` | APEX application availability validation after recovery | Metadata, handler, and lifecycle text are present. |
+| `OK` | `79` | ORDS node unavailable behind load balancer | Metadata, handler, and lifecycle text are present. |
+| `OK` | `80` | APEX session continuity test | Metadata, handler, and lifecycle text are present. |
+| `OK` | `81` | APEX mail queue and configuration validation | Metadata, handler, and lifecycle text are present. |
+| `OK` | `82` | APEX upgrade or patch rollback readiness | Metadata, handler, and lifecycle text are present. |
+| `OK` | `83` | Application Continuity replay validation | Metadata, handler, and lifecycle text are present. |
+| `OK` | `84` | FAN notification unavailable | Metadata, handler, and lifecycle text are present. |
+| `OK` | `85` | Planned Data Guard switchover | Metadata, handler, and lifecycle text are present. |
+| `OK` | `86` | Data Guard failback rehearsal | Metadata, handler, and lifecycle text are present. |
+| `OK` | `87` | Role-based service validation | Metadata, handler, and lifecycle text are present. |
+| `OK` | `88` | PDB point-in-time recovery drill | Metadata, handler, and lifecycle text are present. |
+| `OK` | `89` | Guaranteed restore point rollback | Metadata, handler, and lifecycle text are present. |
+| `OK` | `90` | Database patch rollback readiness | Metadata, handler, and lifecycle text are present. |
+| `OK` | `EXA01` | Exadata cell failure review | Metadata, handler, and lifecycle text are present. |
+| `OK` | `EXA02` | Exadata storage server outage | Metadata, handler, and lifecycle text are present. |
+| `OK` | `EXA03` | Exadata Smart Scan validation | Metadata, handler, and lifecycle text are present. |
+| `OK` | `EXA04` | Exadata Flash Cache failure | Metadata, handler, and lifecycle text are present. |
+| `OK` | `OCI01` | OCI Base DB backup policy validation | Metadata, handler, and lifecycle text are present. |
+| `OK` | `OCI02` | OCI cross-region backup recovery | Metadata, handler, and lifecycle text are present. |
+| `OK` | `OCI03` | OCI database system failover | Metadata, handler, and lifecycle text are present. |
+| `OK` | `OCI04` | OCI VCN connectivity loss | Metadata, handler, and lifecycle text are present. |
+| `OK` | `OCI05` | OCI NSG misconfiguration | Metadata, handler, and lifecycle text are present. |
+| `OK` | `GG01` | GoldenGate Extract stopped | Metadata, handler, and lifecycle text are present. |
+| `OK` | `GG02` | GoldenGate Replicat stopped | Metadata, handler, and lifecycle text are present. |
+| `OK` | `GG03` | GoldenGate lag exceeds SLA | Metadata, handler, and lifecycle text are present. |
+| `OK` | `GG04` | GoldenGate trail corruption | Metadata, handler, and lifecycle text are present. |
+
+## Autonomous Database Scenario Checks
+
+| Status | ID | Scenario | Finding |
+| --- | --- | --- | --- |
+| `OK` | `ADB01` | Drop critical application table | ADB scenario metadata is present. |
+| `OK` | `ADB02` | Drop application schema | ADB scenario metadata is present. |
+| `OK` | `ADB03` | Mass DELETE without WHERE clause | ADB scenario metadata is present. |
+| `OK` | `ADB04` | Incorrect UPDATE corrupts business data | ADB scenario metadata is present. |
+| `OK` | `ADB05` | Recover from clone | ADB scenario metadata is present. |
+| `OK` | `ADB06` | Point-in-time recovery drill | ADB scenario metadata is present. |
+| `OK` | `ADB07` | Validate backup recoverability | ADB scenario metadata is present. |
+| `OK` | `ADB08` | Expired or rotated client wallet | ADB scenario metadata is present. |
+| `OK` | `ADB09` | Private endpoint connectivity loss | ADB scenario metadata is present. |
+| `OK` | `ADB10` | Connection pool saturation | ADB scenario metadata is present. |
+| `OK` | `ADB11` | Resource Manager or concurrency pressure | ADB scenario metadata is present. |
+| `OK` | `ADB12` | Cross-region DR validation | ADB scenario metadata is present. |
+| `OK` | `ADB13` | Autonomous Data Guard role transition | ADB scenario metadata is present. |
+| `OK` | `ADB14` | IAM administrator access misconfiguration | ADB scenario metadata is present. |
+| `OK` | `ADB15` | Object Storage export dependency unavailable | ADB scenario metadata is present. |
+| `OK` | `ADB16` | Database Actions unavailable | ADB scenario metadata is present. |
+| `OK` | `ADB17` | APEX workspace unavailable | ADB scenario metadata is present. |
+| `OK` | `ADB18` | Cross-region clone validation | ADB scenario metadata is present. |
+| `OK` | `ADB19` | Wallet distribution drift | ADB scenario metadata is present. |
+| `OK` | `ADB20` | OCI IAM token expiration | ADB scenario metadata is present. |
+
+## Summary
+
+- Failures: `0`
+- Warnings: `0`
+- Latest report: `/tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_latest.md`
+HTML artifact generated: /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232408.md.html

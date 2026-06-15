@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.000
+This tutorial shows the safest first order of operations for new users before any database-changing drill.
+
+2
+00:00:08.000 --> 00:00:18.000
+Set Oracle environment variables or a non-secret configuration file, then verify what CrashSimulator will use.
+
+3
+00:00:18.000 --> 00:00:28.000
+New users should understand plan-only scenarios, provider-specific operations, ADB differences, licensing sensitivity, and destructive expectations.
+
+4
+00:00:28.000 --> 00:00:38.000
+Run the doctor preflight, then collect topology evidence. This checks tools before touching scenario targets.
+
+5
+00:00:38.000 --> 00:00:50.000
+Run the preparation planner in dry-run mode to see missing seeds without surprising database activity.
+
+6
+00:00:50.000 --> 00:01:02.000
+Generate topology-aware readiness and static lifecycle reports before choosing a scenario.
+
+7
+00:01:02.000 --> 00:01:14.000
+Collect backup, MAA, service, scorecard, APEX/ORDS, or ADB reports before destructive testing.
+
+8
+00:01:14.000 --> 00:01:28.000
+Begin with read-only reports and low-risk drills, then move gradually toward destructive scenarios after backups and runbooks are proven.
+
+9
+00:01:28.000 --> 00:01:40.000
+Destructive execution must be explicit, reviewed, backed up, and tied to recovery validation evidence.

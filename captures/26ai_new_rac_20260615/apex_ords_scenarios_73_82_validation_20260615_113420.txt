@@ -1,0 +1,114 @@
+=== VALIDATIONS_FIXED ===
+--- validate scenario 73 ---
+Scenario readiness validation
+Scenario 73: ORDS service unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 73 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 73.
+Resilience scorecard auto-refreshed after validate 73: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 74 ---
+Scenario readiness validation
+Scenario 74: ORDS configuration unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: destructive
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 74: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 75 ---
+Scenario readiness validation
+Scenario 75: ORDS database pool misconfiguration
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 75 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS before running scenario 75.
+Resilience scorecard auto-refreshed after validate 75: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 76 ---
+Scenario readiness validation
+Scenario 76: APEX/ORDS runtime account locked
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 76: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 77 ---
+Scenario readiness validation
+Scenario 77: APEX static resources unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: destructive
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 77: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 78 ---
+Scenario readiness validation
+Scenario 78: APEX application availability validation after recovery
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 78: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 79 ---
+Scenario readiness validation
+Scenario 79: ORDS node unavailable behind load balancer
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 79 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 79.
+Resilience scorecard auto-refreshed after validate 79: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 80 ---
+Scenario readiness validation
+Scenario 80: APEX session continuity test
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 80: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 81 ---
+Scenario readiness validation
+Scenario 81: APEX mail queue and configuration validation
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 81: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 82 ---
+Scenario readiness validation
+Scenario 82: APEX upgrade or patch rollback readiness
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: RUNNABLE
+Reason: Requirements passed and target selection produced executable actions.
+Resilience scorecard auto-refreshed after validate 82: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md

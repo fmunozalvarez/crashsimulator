@@ -1,0 +1,24 @@
+[2026-06-15T10:17:41Z] CrashSimulator HA lab configuration started
+[2026-06-15T10:17:41Z] Creating or refreshing local lab RMAN catalog owner RMAN_CATALOG in CRASHPDB
+
+Session altered.
+
+
+PL/SQL procedure successfully completed.
+
+
+Grant succeeded.
+
+[2026-06-15T10:17:41Z] Creating RMAN catalog metadata
+
+Recovery Manager: Release 23.26.2.0.0 - Production on Mon Jun 15 10:17:41 2026
+Version 23.26.2.0.0
+
+Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
+
+RMAN-00571: ===========================================================
+RMAN-00569: =============== ERROR MESSAGE STACK FOLLOWS ===============
+RMAN-00571: ===========================================================
+RMAN-00554: initialization of internal recovery manager package failed
+RMAN-04004: error from recovery catalog database: ORA-12541: Cannot connect. No listener at host 127.0.0.1 port 1521.
+Help: https://docs.oracle.com/error-help/db/ora-12541/

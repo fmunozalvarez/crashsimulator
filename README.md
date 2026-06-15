@@ -5,11 +5,12 @@ simulation, recoverability analysis, Oracle MAA assessment, SLA-driven readiness
 operational runbooks, compliance evidence collection, and recovery validation to continuously
 measure and improve database resilience.
 
-CrashSimulator V2.0.1 beta is the current single-script framework. It supports dry-run
+CrashSimulator V2.0.2 beta is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
-readiness reporting, Autonomous Database readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
+readiness reporting, executive resilience scorecards, Autonomous Database
+readiness reporting, and Oracle service HA best-practice reviews for AC/TAC,
 FSFO observer placement, ADG DML redirection, and role-based services. It also includes targeted
 FRA pressure, TEMP exhaustion, and RTO/RPO validation drills, plus Data Guard,
 RAC, ASM, and APEX/ORDS-specific practice for FSFO, transport/apply lag,
@@ -23,6 +24,11 @@ topology, runbooks, health checks, reports, manifests, and audit records from
 the CLI or Guided Workflow menu, with optional HTML rendering for easier
 visualization.
 
+The resilience scorecard converts collected evidence into domain scores for
+backup, RAC/local HA, security, DR, recoverability, MAA alignment, scenario
+coverage, and application continuity, plus an overall `Resilience Score` out of
+100 for management, audit, and trend-review conversations.
+
 Compatibility statement: CrashSimulator is designed for Oracle Database 12c and
 later, and the project validation evidence now includes live Oracle Database
 19c and Oracle AI Database 26ai RAC/ASM labs. This is CrashSimulator project
@@ -30,9 +36,10 @@ validation, not an official Oracle product certification.
 
 For the full end-user documentation, read:
 
-- [CrashSimulator v2.0.1 Beta Product Overview](docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md)
-- [CrashSimulator v2.0.1 Beta Release Notes](docs/RELEASE_NOTES_V2_0_1_BETA.md)
+- [CrashSimulator v2.0.2 Beta Product Overview](docs/CRASHSIMULATOR_V2_0_2_BETA_PRODUCT_OVERVIEW.md)
+- [CrashSimulator v2.0.2 Beta Release Notes](docs/RELEASE_NOTES_V2_0_2_BETA.md)
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
+- [Public beta limitations and expectations](docs/CRASHSIMULATOR_PUBLIC_LIMITATIONS.md)
 - [CLI setup and scenario narrated tutorial video](assets/tutorial/crashsimulator_cli_tutorial_with_audio.mp4)
 - [Guided Workflow scenario narrated tutorial video](assets/tutorial/crashsimulator_guided_workflow_tutorial_with_audio.mp4)
 - [Audit retention narrated tutorial video](assets/tutorial/crashsimulator_audit_retention_tutorial_with_audio.mp4)
@@ -43,6 +50,9 @@ For the full end-user documentation, read:
 - [Autonomous Database readiness narrated tutorial video](assets/tutorial/crashsimulator_adb_readiness_tutorial_with_audio.mp4)
 - [Autonomous Database scenario narrated tutorial video](assets/tutorial/crashsimulator_adb_scenario_tutorial_with_audio.mp4)
 - [CrashSimulator best practices narrated tutorial video](assets/tutorial/crashsimulator_best_practices_tutorial_with_audio.mp4)
+- [Seed / prepare environment narrated tutorial video](assets/tutorial/crashsimulator_prepare_environment_tutorial_with_audio.mp4)
+- [Guided first-run public-readiness narrated tutorial video](assets/tutorial/crashsimulator_first_run_public_readiness_tutorial_with_audio.mp4)
+- [Public limitations narrated tutorial video](assets/tutorial/crashsimulator_public_limitations_tutorial_with_audio.mp4)
 - [Purpose-built redundant GI/ASM lab runbook](docs/REDUNDANT_GI_LAB_RUNBOOK.md)
 - [Scenario 80 APEX browser-session driver design](docs/APEX_SESSION_DRIVER_DESIGN.md)
 - [Autonomous Database coverage guide](docs/AUTONOMOUS_DATABASE_COVERAGE.md)
@@ -54,12 +64,12 @@ For the full end-user documentation, read:
 ## Install From A ZIP File
 
 Download the release runtime ZIP from GitHub, copy it to the Oracle database
-host, and unzip it. For `v2.0.1 beta`, the curated install package is
-`crashsimulator-v2.0.1-beta-runtime.zip`.
+host, and unzip it. For `v2.0.2 beta`, the curated install package is
+`crashsimulator-v2.0.2-beta-runtime.zip`.
 
 ```bash
-unzip crashsimulator-v2.0.1-beta-runtime.zip
-cd crashsimulator-v2.0.1-beta
+unzip crashsimulator-v2.0.2-beta-runtime.zip
+cd crashsimulator-v2.0.2-beta
 chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
@@ -76,7 +86,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.1-beta
+cd /path/to/crashsimulator-v2.0.2-beta
 ```
 
 Alternatively, create a local startup configuration file so CrashSimulator can
@@ -113,12 +123,19 @@ interactive confirmation token.
 The Guided Workflow menu separates safe planning actions from execution actions
 and redacts RMAN catalog/SYS password values from command echoes. It also
 includes a dedicated Autonomous Database scenarios submenu to browse `ADB01`
-through `ADB15`, select one, review validation status, configure ADB context,
+through `ADB20`, select one, review validation status, configure ADB context,
 and refresh ADB readiness evidence. The same ADB report and scenario actions
 are available from the Reports menu as options `12` through `18`. If SQL*Plus
 is not available on an ADB client or bastion host, the menu now skips local
 database topology discovery and still opens for ADB reports, ADB scenarios,
 review, and configuration.
+
+The Guided Workflow also includes a seed/prepare environment option. It detects
+the current topology, checks which scenario lab preparations are already present
+or missing, and generates a Markdown/HTML preparation plan. Eligible disposable
+lab preparations can be executed from the menu, while provider-specific items
+such as control-file multiplexing, FSFO observer placement, and redundant
+ASM/FEX/ACFS storage remain plan-only until explicitly approved.
 
 ## Tutorial Videos
 
@@ -127,15 +144,21 @@ Guided Reports menu, configuration/review, ADB readiness/scenario,
 best-practices, and APEX/ORDS session-continuity videos are available in
 [assets/tutorial](assets/tutorial/README.md). Narrated MP4s, burned-in subtitle
 MP4s, and WebVTT subtitle sidecars are included for CLI and Guided Workflow
-menu modes.
+menu modes. The latest tutorial set also includes seed/prepare environment
+planning, guided first-run public-readiness, and public limitations/safety
+expectations.
 
 ## First Safe Commands
 
 ```bash
+./CrashSimulatorV2.sh --doctor --html
+./CrashSimulatorV2.sh --first-run --html
+./CrashSimulatorV2.sh --public-limitations --html
 ./CrashSimulatorV2.sh --discover
 ./CrashSimulatorV2.sh --health-check
 ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHPDB --html
 ./CrashSimulatorV2.sh --scenario-lifecycle-report --html
+./CrashSimulatorV2.sh --scenario-lifecycle-check --html
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb CRASHPDB
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --backup-report
@@ -144,6 +167,7 @@ menu modes.
 ./CrashSimulatorV2.sh --adb-readiness-report --html
 ./CrashSimulatorV2.sh --list-adb-scenarios
 ./CrashSimulatorV2.sh --adb-scenario ADB01
+./CrashSimulatorV2.sh --prepare-environment --dry-run --html
 ./CrashSimulatorV2.sh --baseline-backup --dry-run
 ./CrashSimulatorV2.sh --audit-status
 ./CrashSimulatorV2.sh --maa-report
@@ -151,6 +175,8 @@ menu modes.
 ./CrashSimulatorV2.sh --show-artifact latest:topology --html
 ./CrashSimulatorV2.sh --runbook 30 --pdb CRASHPDB
 ./CrashSimulatorV2.sh --scenario 30 --pdb CRASHPDB --dry-run
+./CrashSimulatorV2.sh --secret-scan --scan-path .
+./CrashSimulatorV2.sh --release-check
 ```
 
 The Guided Workflow menu can also prompt for required scenario context. PDB
@@ -163,3 +189,6 @@ operators to type an unexplained number.
 Run destructive scenarios only in approved non-production or dedicated
 resilience-test environments. Always confirm backups, dry-run target selection,
 review the recovery runbook, and keep the generated manifest for recovery.
+For non-interactive destructive lab runs, `--execute --yes` also requires
+`CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or `--accept-destructive-lab`; keep that
+acknowledgement scoped to approved lab sessions only.

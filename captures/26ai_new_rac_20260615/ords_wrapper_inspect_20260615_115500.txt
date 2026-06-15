@@ -1,0 +1,40 @@
+lrwxrwxrwx. 1 root root  19 Jun 15 11:42 /bin/ords -> /usr/local/bin/ords
+lrwxrwxrwx. 1 root root  19 Jun 15 11:42 /usr/bin/ords -> /usr/local/bin/ords
+-rwxr-xr-x. 1 root root 981 Jun 15 11:42 /usr/local/bin/ords
+/usr/local/bin/ords
+/usr/local/bin/ords
+/usr/local/bin/ords
+#!/usr/bin/env bash
+#
+# Java-stable ORDS launcher for CrashSimulator labs.
+#
+# ORDS 26.x requires Java 17+. Some Oracle database homes still expose Java 8
+# first in non-interactive shells, so scenario guards can fail even when ORDS is
+# correctly installed as a systemd service. Install this wrapper as `ords` in a
+# standard PATH directory and set CRASHSIM_ORDS_REAL_BIN if the ORDS binary lives
+# outside the default CrashSimulator lab path.
+
+set -euo pipefail
+
+JAVA_HOME="${CRASHSIM_ORDS_JAVA_HOME:-/usr/java/jdk-17}"
+ORDS_REAL_BIN="${CRASHSIM_ORDS_REAL_BIN:-/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/bin/ords}"
+
+if [[ ! -x "${JAVA_HOME}/bin/java" ]]; then
+  echo "ERROR: Java runtime not found or not executable: ${JAVA_HOME}/bin/java" >&2
+  exit 1
+fi
+
+if [[ ! -x "$ORDS_REAL_BIN" ]]; then
+  echo "ERROR: ORDS binary not found or not executable: $ORDS_REAL_BIN" >&2
+  exit 1
+fi
+
+export JAVA_HOME
+export PATH="${JAVA_HOME}/bin:${PATH}"
+
+exec "$ORDS_REAL_BIN" "$@"
+PATH=/Users/franciscomunozalvarez/.codex/tmp/arg0/codex-arg07yivES:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Applications/Codex.app/Contents/Resources
+ords is /bin/ords
+ords is /usr/bin/ords
+WRAP_STATUS=0
+REAL_STATUS=0

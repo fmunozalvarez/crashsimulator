@@ -1,0 +1,4 @@
+Backup strategy and recoverability report generated: /tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_20260615_103836.md
+Strategy detected: Level 0/full datafile backup strategy observed with archived redo backups
+RPO estimate: Backup-only RPO is approximately the age of the latest archived redo backup, currently about 2.2 hours; actual data loss can be lower if required archived logs and online redo survive locally.
+RTO estimate: Potential RTO may be lower if image copies are current and switch-to-copy/roll-forward is practiced. Visible database size is 13.48 GB. Latest Level 0/full backup age is 2.2 hours. Recent successful backup job duration averages 2.5 minutes and maxes at 2.7 minutes; restore time can differ and must be measured.

@@ -1,0 +1,46 @@
+[2026-06-15T11:24:21Z] CrashSimulator APEX/ORDS lab installation started
+java version "17.0.18" 2026-01-20 LTS
+Java(TM) SE Runtime Environment (build 17.0.18+7-LTS-263)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.18+7-LTS-263, mixed mode, sharing)
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:24:24 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+Oracle REST Data Services 26.1.2.r1401916
+[2026-06-15T11:24:24Z] Creating guaranteed restore point CSIM_APEX_20260615112421
+
+Restore point created.
+
+[2026-06-15T11:24:24Z] APEX is already installed and VALID in CRASHPDB; skipping APEX install
+[2026-06-15T11:24:24Z] Creating/updating APEX instance administrator APEXLAB
+
+Session altered.
+
+
+Session altered.
+
+
+PL/SQL procedure successfully completed.
+
+
+User altered.
+
+[2026-06-15T11:24:25Z] Installing ORDS metadata and pool crashpdb
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:24:28 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+Oracle REST Data Services - Non-Interactive Install
+2026-06-15T11:24:29.376Z SEVERE      Failed to connect to user: SYS AS SYSDBA url: jdbc:oracle:thin:@//10.0.0.216:1521/crashsim_tac 
+ORA-12514: Cannot connect to database. Service crashsim_tac is not registered with the listener at host 10.0.0.216 port 1521. (CONNECTION_ID=VAhmWt+yT16Pq/4Z2YdzAg==)
+https://docs.oracle.com/error-help/db/ora-12514/
+java.sql.SQLRecoverableException: ORA-12514: Cannot connect to database. Service crashsim_tac is not registered with the listener at host 10.0.0.216 port 1521. (CONNECTION_ID=VAhmWt+yT16Pq/4Z2YdzAg==)
+https://docs.oracle.com/error-help/db/ora-12514/

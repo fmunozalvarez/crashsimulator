@@ -1,0 +1,33 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.000
+The public limitations page sets expectations before users run CrashSimulator in their own Oracle labs.
+
+2
+00:00:08.000 --> 00:00:20.000
+CrashSimulator is not a production chaos tool, an Oracle certification program, a licensing verifier, or a substitute for tested backups.
+
+3
+00:00:20.000 --> 00:00:33.000
+Destructive drills require an approved lab, reviewed backups, scenario readiness, runbooks, confirmation tokens, and recovery validation.
+
+4
+00:00:33.000 --> 00:00:47.000
+Plan-only scenarios produce evidence and runbooks when direct automation would be unsafe or provider-specific.
+
+5
+00:00:47.000 --> 00:00:59.000
+Autonomous Database scenarios focus on cloud-service readiness, logical recovery, connectivity, IAM, wallet lifecycle, and clone/PITR evidence.
+
+6
+00:00:59.000 --> 00:01:12.000
+Reports can detect signals for advanced features, but users must verify license entitlement and supportability separately.
+
+7
+00:01:12.000 --> 00:01:26.000
+MAA and resilience claims should be based on measured evidence, not just installed components.
+
+8
+00:01:26.000 --> 00:01:38.000
+The page is also accessible later through artifact review and the Public Readiness menu.

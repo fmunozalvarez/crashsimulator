@@ -1,0 +1,70 @@
+=== CrashSimulator APEX/ORDS state check ===
+Generated UTC: 2026-06-15T11:48:18Z
+Host: crashrac1-mlprn.sub05260219130.operationsvcn.oraclevcn.com
+User: oracle
+ORACLE_SID=crashdb1
+ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+
+=== OS tooling ===
+java:      /bin/java
+sqlplus:   /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+ords:      /bin/ords
+curl:      /bin/curl
+systemctl: /bin/systemctl
+unzip:     /bin/unzip
+java version "1.8.0_481"
+Java(TM) SE Runtime Environment (build 1.8.0_481-b10)
+Java HotSpot(TM) 64-Bit Server VM (build 25.481-b10, mixed mode)
+
+=== Candidate media and configs ===
+/u01/app/oracle/product/crashsim_apex_ords/apex_26.1/apex/apexins.sql
+/u01/app/oracle/product/crashsim_apex_ords/apex_26.1/apex/apxremov.sql
+/u01/app/oracle/product/crashsim_apex_ords/apex_26.1_test/apex/apexins.sql
+/u01/app/oracle/product/crashsim_apex_ords/apex_26.1_test/apex/apxremov.sql
+/u01/app/oracle/product/crashsim_apex_ords/media/apex_26.1_en.zip
+/u01/app/oracle/product/crashsim_apex_ords/media/ords-26.1.2.140.1916.zip
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/bin/ords
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/ords.war
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/bin/ords
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/ords.war
+/u02/app/oracle/product/23.0.0.0/dbhome_1/ords
+/var/opt/oracle/ocde/assistants/ords
+/var/opt/oracle/ocde/assistants/ords/ords
+
+=== Database registry and runtime accounts ===
+
+    CON_ID COMP_ID	COMP_NAME			       VERSION		  STATUS
+---------- ------------ -------------------------------------- ------------------ ------------
+	 3 APEX 	Oracle APEX			       26.1.0		  VALID
+
+
+    CON_ID USERNAME			      ACCOUNT_STATUS
+---------- ---------------------------------- ----------------------------
+	 3 APEX_260100			      LOCKED
+	 3 APEX_PUBLIC_ROUTER		      OPEN
+	 3 APEX_PUBLIC_USER		      OPEN
+	 3 ORDS_METADATA		      OPEN
+	 3 ORDS_PUBLIC_USER		      OPEN
+
+
+no rows selected
+
+
+    CON_ID NAME 															    OPEN_MODE
+---------- -------------------------------------------------------------------------------------------------------------------------------- ----------
+	 2 PDB$SEED															    READ ONLY
+	 3 CRASHPDB															    READ WRITE
+
+
+=== ORDS service/config status ===
+● ords.service - Oracle REST Data Services for CrashSimulator APEX lab
+   Loaded: loaded (/etc/systemd/system/ords.service; enabled; vendor preset: disabled)
+   Active: active (running) since Mon 2026-06-15 11:27:43 UTC; 20min ago
+ Main PID: 301682 (java)
+    Tasks: 50 (limit: 137245)
+   Memory: 770.7M
+   CGroup: /system.slice/ords.service
+           └─301682 /usr/java/jdk-17/bin/java -Doracle.dbtools.cmdline.home=/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2 -Djava.awt.headless=true -Doracle.dbtools.cmdline.ShellCommand=ords -Duser.timezone=UTC -XX:+IgnoreUnrecognizedVMOptions -jar /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/ords.war --config /u01/app/oracle/product/crashsim_apex_ords/ords_config serve
+missing: /etc/ords
+drwxr-xr-x. 2 oracle oinstall 22 Jun 15 11:27 /var/log/ords
+drwxr-xr-x. 9 oracle oinstall 132 Jun 15 11:24 /u01/app/oracle/product/crashsim_apex_ords

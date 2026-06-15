@@ -1,0 +1,95 @@
+crashrac1-mlprn
+**************************************************************
+crashrac1-mlprn:
+CRS-4537: Cluster Ready Services is online
+CRS-4529: Cluster Synchronization Services is online
+CRS-4533: Event Manager is online
+**************************************************************
+crashrac2-sxnsq:
+CRS-4537: Cluster Ready Services is online
+CRS-4529: Cluster Synchronization Services is online
+CRS-4533: Event Manager is online
+**************************************************************
+--------------------------------------------------------------------------------
+Name           Target  State        Server                   State details       
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.acfsrm
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.ccmb
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.chad
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.gb2ac2ii.vexdb22.acfs
+               ONLINE  ONLINE       crashrac1-mlprn          mounted on /var/opt/
+                                                             oracle/dbaas_acfs,ST
+                                                             ABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          mounted on /var/opt/
+                                                             oracle/dbaas_acfs,ST
+                                                             ABLE
+ora.helper
+               OFFLINE OFFLINE      crashrac1-mlprn          STABLE
+               OFFLINE OFFLINE      crashrac2-sxnsq          STABLE
+ora.net1.network
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.ons
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.cdp1.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp2.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp3.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.crashrac.crashdb_crashpdb.paas.oracle.com.svc
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.crashrac.crashpdb.pdb
+      1        ONLINE  ONLINE       crashrac1-mlprn          READ WRITE,STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          READ WRITE,STABLE
+ora.crashrac.db
+      1        ONLINE  ONLINE       crashrac1-mlprn          Open,HOME=/u02/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          Open,HOME=/u02/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+ora.crashrac1-mlprn.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.crashrac2-sxnsq.vip
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.cvu
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.cvuhelper
+      1        OFFLINE OFFLINE                               STABLE
+ora.rhpserver
+      1        OFFLINE OFFLINE                               STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+--------------------------------------------------------------------------------
+crashrac
+##  STATE    File Universal Id                File Name Disk group
+--  -----    -----------------                --------- ---------
+ 1. ONLINE   449620299fae4fa9bfc0a88c3b1d0d05 (@gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/vfile1) []
+Located 1 voting disk(s).

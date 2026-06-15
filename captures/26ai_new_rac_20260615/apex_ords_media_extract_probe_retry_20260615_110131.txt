@@ -1,0 +1,16 @@
+APEX
+total 492
+drwxr-xr-x.  6 oracle oinstall  4096 Jun 15 11:01 .
+drwxr-xr-x.  4 oracle oinstall    34 Jun 15 11:01 ..
+-rw-r--r--.  1 oracle oinstall  5777 May 20 02:55 LICENSE.txt
+-rw-r--r--.  1 oracle oinstall  1426 May 20 02:55 apex_rest_config.sql
+-rw-r--r--.  1 oracle oinstall  3034 May 20 02:55 apex_rest_config_cdb.sql
+-rw-r--r--.  1 oracle oinstall 12621 May 20 02:55 apex_rest_config_core.sql
+-rw-r--r--.  1 oracle oinstall  1352 May 20 02:55 apex_rest_config_nocdb.sql
+-rw-r--r--.  1 oracle oinstall  1637 May 20 02:55 apexins.sql
+-rw-r--r--.  1 oracle oinstall  1490 May 20 02:55 apexins1.sql
+ORDS
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/bin/ords
+102232989     12 -rwxr-xr-x   1  oracle   oinstall    11295 May 20 12:20 /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/bin/ords
+/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/ords.war
+ 35735349 183148 -rw-r--r--   1  oracle   oinstall 187540970 May 20 19:46 /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2_test/ords.war

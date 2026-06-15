@@ -1,9 +1,9 @@
 # CrashSimulator Scenario Readiness Report
 
-- Generated UTC: `2026-06-07T08:16:43Z`
+- Generated UTC: `2026-06-15T09:24:41Z`
 - Tool version: `2.0.1-beta`
 - Log directory: `/tmp/crashsimulator/crashsimulator_logs`
-- Target PDB context: `CRASHDB_PDB1`
+- Target PDB context: `CRASHPDB`
 - Target schema context: `not set`
 - Target FILE# context: `not set`
 
@@ -13,12 +13,13 @@ This report validates the discovered target environment against the CrashSimulat
 
 | Signal | Value |
 | --- | --- |
-| Host | crashdb26ai1 |
+| Host | crashrac1-mlprn |
 | OS user | oracle |
-| Oracle home | /u01/app/oracle/product/23.0.0.0/dbhome_1 |
-| SQL*Plus | /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus |
+| Oracle home | /u02/app/oracle/product/23.0.0.0/dbhome_1 |
+| SQL*Plus | /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus |
+| Discovery note | SQL*Plus discovery completed. |
 | Database name | CRASHDB |
-| DB unique name | crashdb_26ai |
+| DB unique name | crashrac |
 | Database role | PRIMARY |
 | Open mode | READ WRITE |
 | CDB | YES |
@@ -27,109 +28,115 @@ This report validates the discovered target environment against the CrashSimulat
 | RAC parallel | YES |
 | Cluster type | RAC |
 | GI managed | 1 |
-| Storage type | ASM |
+| Storage type | FEX |
 | Protection mode | MAXIMUM PERFORMANCE |
 | Switchover status | NOT ALLOWED |
-| SPFILE | +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757 |
-| Password file | +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335 |
-| FRA | +RECO |
+| SPFILE | @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PARAMETERFILE/spfile.OMF.2A36CF7C |
+| Password file | @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PASSWORD/pwdCRASHRAC.53CD439C |
+| FRA | @gB2Ac2II(RECO_HC_HIGHREDUNDANCY) |
 
 ## PDBs
 
 | PDB | CON_ID | Open mode |
 | --- | --- | --- |
-| CRASHDB_PDB1 | 3 | READ WRITE |
+| CRASHPDB | 3 | READ WRITE |
 
 ## Readiness Summary
 
 | Status | Count | Meaning |
 | --- | ---: | --- |
-| RUNNABLE | 49 | Scenario can be selected for dry-run and, when requested, execution. |
-| PLAN-ONLY | 23 | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |
-| NOT-RUNNABLE | 10 | Scenario is not available in the current topology or target context. |
-| TOTAL | 82 | Registered scenarios evaluated. |
+| RUNNABLE | 13 | Scenario can be selected for dry-run and, when requested, execution. |
+| PLAN-ONLY | 65 | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |
+| NOT-RUNNABLE | 25 | Scenario is not available in the current topology or target context. |
+| TOTAL | 103 | Registered scenarios evaluated. |
 
 ## Runnable Scenarios
 
 | ID | Group | Scope | Impact | Scenario | Reason |
 | --- | --- | --- | --- | --- | --- |
-| `5` | Core | CDB/non-CDB | destructive | Loss of one non-system datafile | Requirements passed and target selection produced executable actions. |
-| `6` | Core | CDB/non-CDB | destructive | Loss of one temporary file | Requirements passed and target selection produced executable actions. |
-| `7` | Core | CDB/non-CDB | destructive | Loss of one SYSTEM datafile | Requirements passed and target selection produced executable actions. |
-| `8` | Core | CDB/non-CDB | destructive | Loss of one UNDO datafile | Requirements passed and target selection produced executable actions. |
-| `9` | Core | CDB/non-CDB | destructive | Loss of a read-only tablespace | Requirements passed and target selection produced executable actions. |
-| `10` | Core | CDB/non-CDB | destructive | Loss of an index-only tablespace | Requirements passed and target selection produced executable actions. |
 | `11` | Logical | CDB/non-CDB | logical | Drop non-unique indexes outside Oracle schemas | Requirements passed and target selection produced executable actions. |
-| `12` | Core | CDB/non-CDB | destructive | Loss of a non-system tablespace | Requirements passed and target selection produced executable actions. |
-| `13` | Core | CDB/non-CDB | destructive | Loss of a temporary tablespace | Requirements passed and target selection produced executable actions. |
-| `14` | Core | CDB/non-CDB | destructive | Loss of SYSTEM tablespace | Requirements passed and target selection produced executable actions. |
-| `15` | Core | CDB/non-CDB | destructive | Loss of UNDO tablespace | Requirements passed and target selection produced executable actions. |
-| `17` | Core | CDB/non-CDB | destructive | Loss of all datafiles | Requirements passed and target selection produced executable actions. |
-| `22` | Corrupt | CDB/non-CDB | destructive | Datafile header corruption | Requirements passed and target selection produced executable actions. |
 | `27` | Config | CDB/non-CDB | destructive | Loss of SQL*Net config files | Requirements passed and target selection produced executable actions. |
-| `30` | PDB | PDB | destructive | PDB loss of one non-system datafile | Requirements passed and target selection produced executable actions. |
-| `31` | PDB | PDB | destructive | PDB loss of one temporary file | Requirements passed and target selection produced executable actions. |
-| `32` | PDB | PDB | destructive | PDB loss of one SYSTEM datafile | Requirements passed and target selection produced executable actions. |
-| `33` | PDB | PDB | destructive | PDB loss of one UNDO datafile | Requirements passed and target selection produced executable actions. |
-| `34` | PDB | PDB | destructive | PDB loss of read-only tablespace | Requirements passed and target selection produced executable actions. |
-| `35` | PDB | PDB | destructive | PDB loss of index-only tablespace | Requirements passed and target selection produced executable actions. |
 | `36` | PDB | PDB | logical | PDB drop non-unique indexes | Requirements passed and target selection produced executable actions. |
-| `37` | PDB | PDB | destructive | PDB loss of non-system tablespace | Requirements passed and target selection produced executable actions. |
-| `38` | PDB | PDB | destructive | PDB loss of temporary tablespace | Requirements passed and target selection produced executable actions. |
-| `39` | PDB | PDB | destructive | PDB loss of SYSTEM tablespace | Requirements passed and target selection produced executable actions. |
-| `40` | PDB | PDB | destructive | PDB loss of UNDO tablespace | Requirements passed and target selection produced executable actions. |
-| `41` | PDB | PDB | destructive | PDB loss of all datafiles | Requirements passed and target selection produced executable actions. |
-| `42` | PDB | PDB | destructive | PDB SYSTEM file header corruption | Requirements passed and target selection produced executable actions. |
 | `43` | PDB | PDB | logical | PDB loss of one user table | Requirements passed and target selection produced executable actions. |
 | `44` | PDB | PDB | logical | PDB loss of one user schema | Requirements passed and target selection produced executable actions. |
-| `55` | RAC | RAC | destructive | RAC abort one instance | Requirements passed and target selection produced executable actions. |
-| `56` | RAC | RAC | logical | RAC service relocation failure practice | Requirements passed and target selection produced executable actions. |
 | `57` | Network | CDB/non-CDB | destructive | Listener config unavailable | Requirements passed and target selection produced executable actions. |
 | `58` | Security | CDB/non-CDB | destructive | TDE wallet or keystore unavailable | Requirements passed and target selection produced executable actions. |
 | `60` | Backup | External | logical | Recovery catalog unavailable | Requirements passed and target selection produced executable actions. |
 | `61` | Backup | CDB/non-CDB | destructive | FRA reaches critical utilization | Requirements passed and target selection produced executable actions. |
+| `62` | Backup | CDB/non-CDB | destructive | Missing required archived log during recovery | Requirements passed and target selection produced executable actions. |
 | `63` | Core | CDB/non-CDB | logical | TEMP tablespace exhaustion | Requirements passed and target selection produced executable actions. |
 | `64` | Compliance | CDB/non-CDB | logical | RTO validation drill | Requirements passed and target selection produced executable actions. |
 | `65` | Compliance | CDB/non-CDB | logical | RPO validation drill | Requirements passed and target selection produced executable actions. |
-| `71` | RAC | RAC | logical | RAC service placement failure | Requirements passed and target selection produced executable actions. |
-| `73` | APEX/ORDS | Application | logical | ORDS service unavailable | Requirements passed and target selection produced executable actions. |
-| `74` | APEX/ORDS | Application | destructive | ORDS configuration unavailable | Requirements passed and target selection produced executable actions. |
-| `75` | APEX/ORDS | Application | logical | ORDS database pool misconfiguration | Requirements passed and target selection produced executable actions. |
-| `76` | APEX/ORDS | Application | logical | APEX/ORDS runtime account locked | Requirements passed and target selection produced executable actions. |
-| `77` | APEX/ORDS | Application | destructive | APEX static resources unavailable | Requirements passed and target selection produced executable actions. |
-| `78` | APEX/ORDS | Application | logical | APEX application availability validation after recovery | Requirements passed and target selection produced executable actions. |
-| `79` | APEX/ORDS | Application | logical | ORDS node unavailable behind load balancer | Requirements passed and target selection produced executable actions. |
-| `80` | APEX/ORDS | Application | logical | APEX session continuity test | Requirements passed and target selection produced executable actions. |
-| `81` | APEX/ORDS | Application | logical | APEX mail queue and configuration validation | Requirements passed and target selection produced executable actions. |
-| `82` | APEX/ORDS | Application | logical | APEX upgrade or patch rollback readiness | Requirements passed and target selection produced executable actions. |
 
 ## Dry-Run Planning Only
 
 | ID | Group | Scope | Impact | Scenario | Reason |
 | --- | --- | --- | --- | --- | --- |
-| `1` | Core | CDB/non-CDB | destructive | Loss of one control file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `2` | Core | CDB/non-CDB | destructive | Loss of all control files | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `3` | Core | CDB/non-CDB | destructive | Loss of one member from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `4` | Core | CDB/non-CDB | destructive | Loss of all members from current redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `16` | Config | CDB/non-CDB | destructive | Loss of password file | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `18` | Core | CDB/non-CDB | destructive | Loss of one member from multiplexed redo group | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `19` | Core | CDB/non-CDB | destructive | Loss of all inactive redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_1.284.1235272227 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `20` | Core | CDB/non-CDB | destructive | Loss of all active redo groups | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `21` | Core | CDB/non-CDB | destructive | Loss of all current redo group members | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `23` | Corrupt | CDB/non-CDB | destructive | Control file corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/CONTROLFILE/current01.ctl (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
-| `24` | Corrupt | CDB/non-CDB | destructive | Redo log corruption | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/ONLINELOG/group_3.286.1235272241 (ASM path requires ASM-aware corruption handling; filesystem dd is not valid) |
+| `1` | Core | CDB/non-CDB | destructive | Loss of one control file | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/Current.OMF.70545531 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `2` | Core | CDB/non-CDB | destructive | Loss of all control files | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/Current.OMF.70545531 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `3` | Core | CDB/non-CDB | destructive | Loss of one member from current redo group | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_2.OMF.0C87E475 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `4` | Core | CDB/non-CDB | destructive | Loss of all members from current redo group | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_2.OMF.0C87E475 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `5` | Core | CDB/non-CDB | destructive | Loss of one non-system datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/USERS.OMF.3F743F45 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `6` | Core | CDB/non-CDB | destructive | Loss of one temporary file | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/TEMPFILE/TEMP.OMF.342C3C00 (FEX/ACFS managed storage handle requires provider-aware tempfile loss injection; this @... handle is not a local filesystem path) |
+| `7` | Core | CDB/non-CDB | destructive | Loss of one SYSTEM datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/SYSTEM.OMF.40B42F44 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `8` | Core | CDB/non-CDB | destructive | Loss of one UNDO datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/UNDOTBS1.OMF.419C384E (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `9` | Core | CDB/non-CDB | destructive | Loss of a read-only tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/CRASHSIM_ROOT_RO_TBS.OMF.3E81B6EF (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `10` | Core | CDB/non-CDB | destructive | Loss of an index-only tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/CRASHSIM_ROOT_INDEX_TBS.OMF.7FCFE216 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `12` | Core | CDB/non-CDB | destructive | Loss of a non-system tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/CRASHSIM_ROOT_INDEX_TBS.OMF.7FCFE216 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `13` | Core | CDB/non-CDB | destructive | Loss of a temporary tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/TEMPFILE/TEMP.OMF.342C3C00 (FEX/ACFS managed storage handle requires provider-aware tempfile loss injection; this @... handle is not a local filesystem path) |
+| `14` | Core | CDB/non-CDB | destructive | Loss of SYSTEM tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/SYSTEM.OMF.40B42F44 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `15` | Core | CDB/non-CDB | destructive | Loss of UNDO tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/UNDOTBS1.OMF.419C384E (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `16` | Config | CDB/non-CDB | destructive | Loss of password file | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PASSWORD/pwdCRASHRAC.53CD439C (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `17` | Core | CDB/non-CDB | destructive | Loss of all datafiles | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/SYSTEM.OMF.40B42F44 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `18` | Core | CDB/non-CDB | destructive | Loss of one member from multiplexed redo group | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_1.OMF.36E139F7 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `19` | Core | CDB/non-CDB | destructive | Loss of all inactive redo groups | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_1.OMF.36E139F7 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `20` | Core | CDB/non-CDB | destructive | Loss of all active redo groups | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_2.OMF.0C87E475 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `21` | Core | CDB/non-CDB | destructive | Loss of all current redo group members | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_2.OMF.0C87E475 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `22` | Corrupt | CDB/non-CDB | destructive | Datafile header corruption | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/DATAFILE/SYSTEM.OMF.40B42F44 (FEX/ACFS managed storage handle requires provider-aware header-corruption handling; this @... handle is not a local filesystem path) |
+| `23` | Corrupt | CDB/non-CDB | destructive | Control file corruption | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/Current.OMF.70545531 (FEX/ACFS managed storage handle requires provider-aware corruption handling; this @... handle is not a local filesystem path) |
+| `24` | Corrupt | CDB/non-CDB | destructive | Redo log corruption | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ONLINELOG/group_2.OMF.0C87E475 (FEX/ACFS managed storage handle requires provider-aware corruption handling; this @... handle is not a local filesystem path) |
 | `25` | Backup | CDB/non-CDB | destructive | Loss of RMAN backup pieces | Scenario 25 can see local and object-storage backup handles; execution requires --piece-handle or --local-only --max-targets <n>. |
-| `26` | Config | CDB/non-CDB | destructive | Loss of SPFILE | Selected target requires a provider-specific or manual handler before safe execution: +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
+| `26` | Config | CDB/non-CDB | destructive | Loss of SPFILE | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PARAMETERFILE/spfile.OMF.2A36CF7C (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
 | `28` | Config | CDB/non-CDB | destructive | Loss of ORACLE_HOME | Scenario 28 ORACLE_HOME loss requires an external restore/reinstall plan and is intentionally dry-run/manual only in this framework. |
-| `29` | Backup | CDB/non-CDB | destructive | Loss of FRA destination | Selected target requires a provider-specific or manual handler before safe execution: +RECO (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `45` | PDB | PDB | destructive | Drop selected PDB including datafiles | Scenario 45 can only execute against a disposable PDB whose name starts with CRASHSIM_. Current PDB: CRASHDB_PDB1. |
-| `46` | ASM | ASM/FEX | destructive | ASM/FEX data storage unavailable | Selected target requires a provider-specific or manual handler before safe execution: +DATA (ASM disk group outage requires explicit ASM-aware fault injection and restore/rebalance steps) |
+| `29` | Backup | CDB/non-CDB | destructive | Loss of FRA destination | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II(RECO_HC_HIGHREDUNDANCY) (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `30` | PDB | PDB | destructive | PDB loss of one non-system datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/USERS.OMF.7F5C6497 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `31` | PDB | PDB | destructive | PDB loss of one temporary file | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/TEMPFILE/TEMP.OMF.16334B28 (FEX/ACFS managed storage handle requires provider-aware tempfile loss injection; this @... handle is not a local filesystem path) |
+| `32` | PDB | PDB | destructive | PDB loss of one SYSTEM datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/SYSTEM.OMF.315F7318 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `33` | PDB | PDB | destructive | PDB loss of one UNDO datafile | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/UNDOTBS1.OMF.33769FD1 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `34` | PDB | PDB | destructive | PDB loss of read-only tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/CRASHSIM_RO_TBS.OMF.62D35026 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `35` | PDB | PDB | destructive | PDB loss of index-only tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/CRASHSIM_INDEX_TBS.OMF.3C2C1FD2 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `37` | PDB | PDB | destructive | PDB loss of non-system tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/CRASHSIM_INDEX_TBS.OMF.3C2C1FD2 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `38` | PDB | PDB | destructive | PDB loss of temporary tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/TEMPFILE/TEMP.OMF.16334B28 (FEX/ACFS managed storage handle requires provider-aware tempfile loss injection; this @... handle is not a local filesystem path) |
+| `39` | PDB | PDB | destructive | PDB loss of SYSTEM tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/SYSTEM.OMF.315F7318 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `40` | PDB | PDB | destructive | PDB loss of UNDO tablespace | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/UNDOTBS1.OMF.33769FD1 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `41` | PDB | PDB | destructive | PDB loss of all datafiles | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/SYSTEM.OMF.315F7318 (FEX/ACFS managed storage handle requires provider-aware datafile loss injection; this @... handle is not a local filesystem path) |
+| `42` | PDB | PDB | destructive | PDB SYSTEM file header corruption | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/5445D83CA62AD33EE0630500000AB777/DATAFILE/SYSTEM.OMF.315F7318 (FEX/ACFS managed storage handle requires provider-aware header-corruption handling; this @... handle is not a local filesystem path) |
+| `45` | PDB | PDB | destructive | Drop selected PDB including datafiles | Scenario 45 can only execute against a disposable PDB whose name starts with CRASHSIM_. Current PDB: CRASHPDB. |
+| `46` | ASM | ASM/FEX | destructive | ASM/FEX data storage unavailable | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II(RECO_HC_HIGHREDUNDANCY) (FEX/ACFS managed storage outage requires provider-aware fault injection, service impact validation, and RMAN/GI recovery checks) |
 | `47` | GI | Cluster | destructive | OCR loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: OCR (OCR restore practice must use a root/Grid procedure, verified OCR backups, and CRS validation) |
 | `48` | GI | Cluster | destructive | Voting disk loss or restore drill | Selected target requires a provider-specific or manual handler before safe execution: VOTING_DISK (Voting disk replacement practice must use a root/Grid procedure and cluster membership validation) |
-| `49` | ASM | ASM/FEX | destructive | ASM/FEX SPFILE loss | Selected target requires a provider-specific or manual handler before safe execution: +ASM_SPFILE (ASM SPFILE loss requires ASM-aware backup/restore flow and Clusterware resource validation) |
-| `59` | Backup | CDB/non-CDB | destructive | Missing archived redo log | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_18.301.1235290449 (ASM path requires ASM-aware crash injection; filesystem rename is not valid) |
-| `62` | Backup | CDB/non-CDB | destructive | Missing required archived log during recovery | Selected target requires a provider-specific or manual handler before safe execution: +RECO/CRASHDB_26AI/ARCHIVELOG/2026_06_07/thread_1_seq_18.301.1235290449 (ASM archived-log removal requires an ASM-aware handler; RMAN decision file: /tmp/crashsimulator/crashsimulator_logs/crashsim_s62_20260607_081631_recovery_decision.rman) |
-| `70` | RAC | RAC | logical | RAC VIP relocation drill | Selected target requires a provider-specific or manual handler before safe execution: ora.crashdb26ai1.vip (Relocate VIP with srvctl/crsctl under Grid owner approval, then validate client connect strings, FAN/ONS, and service failover. CrashSimulator keeps VIP movement plan-only.) |
+| `49` | ASM | ASM/FEX | destructive | ASM/FEX SPFILE loss | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PARAMETERFILE/spfile.OMF.2A36CF7C (FEX/ACFS managed SPFILE loss requires provider-aware metadata restore, srvctl database validation, and instance restart/recovery checks) |
+| `59` | Backup | CDB/non-CDB | destructive | Missing archived redo log | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/ARCHIVELOG/2026_06_15/thread_2_seq_11.OMF.56F894B4 (FEX/ACFS managed storage handle requires provider-aware crash injection; this @... handle is not a local filesystem path) |
+| `72` | ASM | ASM/FEX | destructive | ASM/FEX storage component failure | Selected target requires a provider-specific or manual handler before safe execution: @gB2Ac2II(RECO_HC_HIGHREDUNDANCY) (FEX/ACFS storage-component failure should be injected through provider-approved storage controls; validate database service continuity, GI resources, RMAN recoverability, and provider redundancy/rebuild evidence) |
+| `83` | Services | Application | logical | Application Continuity replay validation | Selected target requires a provider-specific or manual handler before safe execution: AC_TAC_CLIENT_REPLAY (Run an approved replay-safe client workload, trigger planned relocation or instance failure, and capture replay/FAN/application evidence; CrashSimulator keeps workload injection external.) |
+| `84` | Services | RAC/GI | logical | FAN notification unavailable | Selected target requires a provider-specific or manual handler before safe execution: FAN_ONS_NOTIFICATION_PATH (Approved lab action: interrupt ONS/FAN notification path, relocate/stop service, validate client reaction/replay, then restore notifications.) |
+| `87` | Services | RAC/DG | logical | Role-based service validation | Selected target requires a provider-specific or manual handler before safe execution: ROLE_BASED_SERVICES (Run after an approved role transition: confirm primary services only start on primary and ADG/read-only services only start on standby role.) |
+| `88` | PDB | PDB | logical | PDB point-in-time recovery drill | Selected target requires a provider-specific or manual handler before safe execution: PDB_PITR_CRASHPDB (Approved recovery action: select timestamp, run RMAN preview/validate, recover PDB using auxiliary destination, open/validate PDB and application.) |
+| `89` | Recovery | CDB/non-CDB | logical | Guaranteed restore point rollback | Selected target requires a provider-specific or manual handler before safe execution: GUARANTEED_RESTORE_POINT_ROLLBACK (Approved change-window action: create GRP, execute change, flashback/open resetlogs if rollback is required, validate, and drop GRP when safe.) |
+| `90` | Lifecycle | CDB/non-CDB | logical | Database patch rollback readiness | Selected target requires a provider-specific or manual handler before safe execution: PATCH_ROLLBACK_READINESS (Approved lifecycle action: create baseline backup/GRP, validate standby/app services, patch in a lab, and rehearse fallback before production.) |
+| `EXA01` | Exadata | Platform | logical | Exadata cell failure review | Selected target requires a provider-specific or manual handler before safe execution: EXA01 (Exadata-specific fault injection requires Exadata lab approval, cell/storage evidence, monitoring, and recovery runbook validation.) |
+| `EXA02` | Exadata | Platform | logical | Exadata storage server outage | Selected target requires a provider-specific or manual handler before safe execution: EXA02 (Exadata-specific fault injection requires Exadata lab approval, cell/storage evidence, monitoring, and recovery runbook validation.) |
+| `EXA03` | Exadata | Platform | logical | Exadata Smart Scan validation | Selected target requires a provider-specific or manual handler before safe execution: EXA03 (Exadata-specific fault injection requires Exadata lab approval, cell/storage evidence, monitoring, and recovery runbook validation.) |
+| `EXA04` | Exadata | Platform | logical | Exadata Flash Cache failure | Selected target requires a provider-specific or manual handler before safe execution: EXA04 (Exadata-specific fault injection requires Exadata lab approval, cell/storage evidence, monitoring, and recovery runbook validation.) |
+| `OCI01` | OCI DB | Cloud | logical | OCI Base DB backup policy validation | Selected target requires a provider-specific or manual handler before safe execution: OCI01 (OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation.) |
+| `OCI02` | OCI DB | Cloud | logical | OCI cross-region backup recovery | Selected target requires a provider-specific or manual handler before safe execution: OCI02 (OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation.) |
+| `OCI03` | OCI DB | Cloud | logical | OCI database system failover | Selected target requires a provider-specific or manual handler before safe execution: OCI03 (OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation.) |
+| `OCI04` | OCI DB | Cloud | logical | OCI VCN connectivity loss | Selected target requires a provider-specific or manual handler before safe execution: OCI04 (OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation.) |
+| `OCI05` | OCI DB | Cloud | logical | OCI NSG misconfiguration | Selected target requires a provider-specific or manual handler before safe execution: OCI05 (OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation.) |
+| `GG01` | GoldenGate | Replication | logical | GoldenGate Extract stopped | Selected target requires a provider-specific or manual handler before safe execution: GG01 (GoldenGate drill requires approved deployment name, Extract/Replicat/trail targets, lag thresholds, and resync/recovery runbook.) |
+| `GG02` | GoldenGate | Replication | logical | GoldenGate Replicat stopped | Selected target requires a provider-specific or manual handler before safe execution: GG02 (GoldenGate drill requires approved deployment name, Extract/Replicat/trail targets, lag thresholds, and resync/recovery runbook.) |
+| `GG03` | GoldenGate | Replication | logical | GoldenGate lag exceeds SLA | Selected target requires a provider-specific or manual handler before safe execution: GG03 (GoldenGate drill requires approved deployment name, Extract/Replicat/trail targets, lag thresholds, and resync/recovery runbook.) |
+| `GG04` | GoldenGate | Replication | destructive | GoldenGate trail corruption | Selected target requires a provider-specific or manual handler before safe execution: GG04 (GoldenGate drill requires approved deployment name, Extract/Replicat/trail targets, lag thresholds, and resync/recovery runbook.) |
 
 ## Not Runnable Now
 
@@ -140,11 +147,26 @@ This report validates the discovered target environment against the CrashSimulat
 | `52` | DataGuard | DG | logical | Data Guard broker configuration unavailable | Scenario 52 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
 | `53` | ADG | Standby | logical | Active Data Guard read-only session pressure | Scenario 53 requires an Active Data Guard standby opened READ ONLY WITH APPLY. Run it on an ADG standby after confirming open mode and apply status. |
 | `54` | DataGuard | Standby | logical | Snapshot standby conversion practice | Scenario 54 requires a Data Guard physical standby that is approved for snapshot-standby conversion practice. Run it on the standby after confirming flashback, broker/transport posture, and restore-point policy. |
+| `55` | RAC | RAC | destructive | RAC abort one instance | Selected action requires srvctl, but srvctl was not found in PATH. |
+| `56` | RAC | RAC | logical | RAC service relocation failure practice | srvctl not found |
 | `66` | DataGuard | DG | logical | FSFO observer unavailable | Scenario 66 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
 | `67` | DataGuard | Standby | logical | Data Guard apply lag exceeds SLA | Scenario 67 requires a physical standby database with managed recovery running. Run it on a standby environment, then confirm an MRP process is visible in V$MANAGED_STANDBY. |
 | `68` | DataGuard | Primary | logical | Data Guard transport network partition | Scenario 68 requires a primary database with a configured remote standby archive destination. Configure Data Guard transport, confirm a V$ARCHIVE_DEST row with TARGET='STANDBY', then rerun validation. |
 | `69` | DataGuard | DG | logical | Standby redo log misconfiguration review | Scenario 69 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
-| `72` | ASM | ASM/FEX | destructive | ASM/FEX storage component failure | No redundant ASM disk candidate was found. Scenario 72 requires a NORMAL/HIGH/FLEX/EXTENDED redundancy ASM disk group with online disks; EXTERN redundancy remains plan-only unsuitable for single-disk failure practice. |
+| `70` | RAC | RAC | logical | RAC VIP relocation drill | crsctl not found |
+| `71` | RAC | RAC | logical | RAC service placement failure | srvctl not found |
+| `73` | APEX/ORDS | Application | logical | ORDS service unavailable | ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 73. |
+| `74` | APEX/ORDS | Application | destructive | ORDS configuration unavailable | ORDS configuration directory was not found at /etc/ords/config. Configure ORDS or pass --ords-config-dir before running scenario 74. |
+| `75` | APEX/ORDS | Application | logical | ORDS database pool misconfiguration | ORDS is not installed or not in PATH. Install/configure ORDS before running scenario 75. |
+| `76` | APEX/ORDS | Application | logical | APEX/ORDS runtime account locked | No unlocked APEX/ORDS runtime account was found. Install/configure APEX/ORDS in the selected container and confirm APEX_PUBLIC_USER or ORDS_PUBLIC_USER exists before running scenario 76. |
+| `77` | APEX/ORDS | Application | destructive | APEX static resources unavailable | No APEX static images directory was found. Install APEX static files and pass --apex-images-dir before running scenario 77. |
+| `78` | APEX/ORDS | Application | logical | APEX application availability validation after recovery | The ORDS/APEX smoke URL is not reachable: http://localhost:8080/ords/. Start/configure ORDS and validate network access before running scenario 78. |
+| `79` | APEX/ORDS | Application | logical | ORDS node unavailable behind load balancer | ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 79. |
+| `80` | APEX/ORDS | Application | logical | APEX session continuity test | APEX is not installed in the selected target container. Install APEX in the PDB and rerun validation for scenario 80. |
+| `81` | APEX/ORDS | Application | logical | APEX mail queue and configuration validation | APEX is not installed in the selected target container. Install APEX in the PDB and rerun validation for scenario 81. |
+| `82` | APEX/ORDS | Application | logical | APEX upgrade or patch rollback readiness | APEX is not installed in the selected target container. Install APEX in the PDB and rerun validation for scenario 82. |
+| `85` | DataGuard | DG | logical | Planned Data Guard switchover | Scenario 85 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
+| `86` | DataGuard | DG | logical | Data Guard failback rehearsal | Scenario 86 requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario. |
 
 ## How CrashSimulator Uses This Result
 
@@ -156,8 +178,8 @@ This report validates the discovered target environment against the CrashSimulat
 ## Recommended Next Commands
 
 ```bash
-./CrashSimulatorV2.sh --validate-scenario <id> --pdb CRASHDB_PDB1
-./CrashSimulatorV2.sh --scenario <id> --pdb CRASHDB_PDB1 --dry-run
-./CrashSimulatorV2.sh --runbook <id> --pdb CRASHDB_PDB1
-./CrashSimulatorV2.sh --health-check --pdb CRASHDB_PDB1
+./CrashSimulatorV2.sh --validate-scenario <id> --pdb CRASHPDB
+./CrashSimulatorV2.sh --scenario <id> --pdb CRASHPDB --dry-run
+./CrashSimulatorV2.sh --runbook <id> --pdb CRASHPDB
+./CrashSimulatorV2.sh --health-check --pdb CRASHPDB
 ```

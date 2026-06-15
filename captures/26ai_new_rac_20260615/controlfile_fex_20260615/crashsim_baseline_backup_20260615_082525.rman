@@ -1,0 +1,13 @@
+run {
+  sql "alter system archive log current";
+  backup as compressed backupset database force tag 'CSIM_BASE_260615082525';
+  sql "alter system archive log current";
+  backup as compressed backupset archivelog all not backed up 1 times tag 'CSIM_BASE_260615082525_ARCH';
+  backup current controlfile tag 'CSIM_BASE_260615082525_CTL';
+  backup spfile tag 'CSIM_BASE_260615082525_SPFILE';
+}
+list backup tag 'CSIM_BASE_260615082525';
+list backup tag 'CSIM_BASE_260615082525_ARCH';
+list backup tag 'CSIM_BASE_260615082525_CTL';
+list backup tag 'CSIM_BASE_260615082525_SPFILE';
+report schema;

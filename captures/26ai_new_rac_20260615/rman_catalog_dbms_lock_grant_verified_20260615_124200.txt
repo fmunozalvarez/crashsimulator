@@ -1,0 +1,14 @@
+install: '/tmp/rman_catalog_dbms_lock_grant.sql' and '/tmp/rman_catalog_dbms_lock_grant.sql' are the same file
+
+Session altered.
+
+
+Grant succeeded.
+
+
+OWNER	   TABLE_NAME		PRIVILEGE    GRANTEE
+---------- -------------------- ------------ --------------------
+SYS	   DBMS_LOCK		EXECUTE      RMAN_CATALOG
+
+1 row selected.
+

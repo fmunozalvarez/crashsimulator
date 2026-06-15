@@ -4,7 +4,8 @@
 #
 # Install as root-owned /usr/local/bin/crashsim_ords_priv and grant only this
 # helper through sudoers to the Oracle software owner. The helper intentionally
-# permits only ORDS service control and reversible /etc/ords/config rename flows.
+# permits only ORDS service control and reversible ORDS config rename flows for
+# the standard OS package path and the CrashSimulator lab install path.
 
 set -euo pipefail
 
@@ -25,12 +26,18 @@ validate_service_name() {
 
 validate_config_original() {
   local path="$1"
-  [[ "$path" == "/etc/ords/config" ]] || die "Only /etc/ords/config is allowed"
+  case "$path" in
+    /etc/ords/config|/u01/app/oracle/product/crashsim_apex_ords/ords_config)
+      ;;
+    *)
+      die "Only approved ORDS config paths are allowed"
+      ;;
+  esac
 }
 
 validate_config_backup() {
   local path="$1"
-  [[ "$path" =~ ^/etc/ords/config\.[0-9]{8}_[0-9]{6}\.crashsim\.bak$ ]] ||
+  [[ "$path" =~ ^/etc/ords/config\.[0-9]{8}_[0-9]{6}\.crashsim\.bak$ || "$path" =~ ^/u01/app/oracle/product/crashsim_apex_ords/ords_config\.[0-9]{8}_[0-9]{6}\.crashsim\.bak$ ]] ||
     die "Backup path is not an approved CrashSimulator ORDS config backup: $path"
 }
 

@@ -1,0 +1,277 @@
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:02:50 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+
+Usage:
+  ords [OPTIONS] [COMMAND]
+
+Oracle REST Data Services command line interface
+
+Options:
+        --config <folder>        Path to Oracle REST Data Services
+                                 configuration folder
+
+        --debug                  Equivalent to --verbose
+
+    -h, --help                   Show usage information for the command
+
+        --java-options <options...>
+                                 To specify additional Java options that should
+                                 be passed to the Java Virtual Machine
+
+    -v, --verbose                Configure Oracle REST Data Services to run in
+                                 verbose mode
+
+        --version                Show version information
+
+Commands:
+        config                   Configure application and database connection
+                                 pool settings
+
+        extract                  Extracts Oracle REST Data Services scripts.
+
+        fusabase                 Configure Oracle Backend for Firebase
+
+        install                  Configure database connection and
+                                 install/upgrade Oracle REST Data Services
+                                 schema, ORDS database user and related
+                                 database objects.
+
+        migrate                  Migrates Oracle REST Data Services
+                                 configuration files and parameter file from
+                                 release 21.4.x and earlier releases.
+
+        pool                     Monitor pools of a running Oracle REST Data
+                                 Services instance
+
+        serve                    Launch Oracle REST Data Services in standalone
+                                 mode
+
+        uninstall                Uninstall Oracle REST Data Services schema,
+                                 ORDS database user and related database
+                                 objects.
+
+        war                      Create a web application from the the
+                                 distributed ords.war that can be deployed in a
+                                 supported servlet container. 
+
+Run ords <COMMAND> --help for more information on a command.
+
+For example run: ords config --help
+
+INSTALL_HELP
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:02:53 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+
+Usage:
+  ords install [OPTIONS] [COMMAND]
+
+Configure database connection and install/upgrade Oracle REST Data
+Services schema, ORDS database user and related database objects.
+
+Options:
+        --admin-user <string>    User with privileges to install, upgrade or
+                                 uninstall ORDS in the database.
+
+        --bequeath-connect       The bequeath connect enables clients to
+                                 connect directly to an Oracle database
+                                 bypassing the network listener. This occurs if
+                                 client is on the same server as the database.
+                                 Refer to Oracle REST Data Services
+                                 documentation to setup your environment to use
+                                 the --bequeath-connect option.
+
+        --config-only            Create or update the configuration only.
+
+        --db-custom-url <url>    The custom database url for the database
+                                 connection.
+
+        --db-hostname <string>   The database host name.
+
+        --db-only                Install or upgrade ORDS in the database
+                                 without configuring the database connection
+                                 pool.
+
+        --db-pool <string>       The name of the database connection pool.
+
+        --db-port <int>          The database port.
+
+        --db-servicename <string>
+                                 The database service name.
+
+        --db-sid <string>        The system identifier which is a unique name
+                                 that identifies the database.
+
+        --db-tns-alias <string>  The TNS alias name that exist in the
+                                 tnsnames.ora file.
+
+        --db-tns-dir <folder>    The folder of where the tnsnames.ora file is
+                                 located.
+
+        --db-user <string>       The database user.  If this option is omitted,
+                                 defaults to ORDS_PUBLIC_USER.
+
+        --feature-db-api <boolean>
+                                 Enable Database API feature.
+
+        --feature-rest-enabled-sql <boolean>
+                                 Enable REST-Enabled SQL feature.
+
+        --feature-sdw <boolean>  Enable Database Actions feature.
+
+        --gateway-mode <string>  The PL/SQL Gateway mode.  Valid values are
+                                 proxied, direct or disabled.  Defaults to
+                                 disabled.
+
+        --gateway-user <string>  PL/SQL Gateway database username.
+
+    -h, --help                   Show usage information for the command
+
+    -i, --interactive            Prompts for the required information.
+
+        --legacy-config <folder> Specify the legacy configuration folder to
+                                 migrate to the revised configuration structure.
+
+        --legacy-context <string>
+                                 Specify the context (e.g., ords, apex, etc.)
+                                 that was used in the legacy configuration.
+
+        --local-proxy-user       Installs the ORDS database user (e.g.,
+                                 ORDS_PUBLIC_USER) as a local user during a CDB
+                                 Install.
+
+        --log-folder <folder>    Writes the logs from the install, upgrade or
+                                 uninstall to the log folder. If this option is
+                                 omitted, output is written to the current
+                                 working directory.
+
+        --password-stdin         To run the ords install or uninstall command
+                                 non-interactively, use this option to read the
+                                 password value from standard input when
+                                 redirecting input to a file or here document. 
+                                 If the --password-stdin option and the
+                                 redirection symbol ("<" or "<<") are omitted,
+                                 you will be prompted for the password(s) for
+                                 the command option(s) that requires the
+                                 password.
+
+        --pdb-exclude <string...>
+                                 List of PDBs that are excluded from the ORDS
+                                 install, upgrade or uninstall. This option
+                                 only applies to the CDB.
+
+        --pdb-open-readwrite <string...>
+                                 List of PDBs that are read only or closed to
+                                 be open for read write for ORDS install,
+                                 upgrade or uninstall. This option only applies
+                                 to the CDB.
+
+        --pdb-open-readwrite-all Open all PDBs in read write mode if their
+                                 status is either closed or read only. This
+                                 option only applies to the CDB.
+
+        --pdb-skip-closed        Skips PDBs that are closed (mounted). This
+                                 option only applies to the CDB.
+
+        --pdb-skip-disable-lockdown
+                                 Do not disable the PDB_LOCKDOWN during an ORDS
+                                 install, upgrade, repair or uninstall.
+
+        --pdb-skip-readonly      Skips PDBs that are read-only. This option
+                                 only applies to the CDB.
+
+        --proxy-user             The ORDS database user, ORDS_PUBLIC_USER,
+                                 password that is in a file or in a "here
+                                 document" when redirecting standard input.
+
+        --proxy-user-tablespace <string>
+                                 The permanent tablespace to use when creating
+                                 ORDS database user ORDS_PUBLIC_USER.
+
+        --proxy-user-temp-tablespace <string>
+                                 The temporary tablespace to use when creating
+                                 ORDS database user ORDS_PUBLIC_USER.
+
+        --schema-tablespace <string>
+                                 The permanent tablespace to use when creating
+                                 the ORDS schema.
+
+        --schema-temp-tablespace <string>
+                                 The temporary tablespace to use when creating
+                                 the ORDS schema.
+
+Commands:
+        adb                      Configure a Customer Managed ORDS and
+                                 creates/updates the runtime database user and
+                                 PL/SQL Gateway database user in the Autonomous
+                                 Database.                                     
+                                 See help on adb options:                     
+                                 ords install adb --help
+
+        repair                   Repairs the Oracle REST Data Services schema,
+                                 ORDS database user and related database
+                                 objects.                                     
+                                 See help on repair options:                  
+                                 ords install repair --help
+
+
+CONFIG_HELP
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:02:57 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+
+Usage:
+  ords config [OPTIONS] [COMMAND]
+
+Configure application and database connection pool settings
+
+Options:
+        --db-pool <string>       The name of the database connection pool to
+                                 configure
+
+    -h, --help                   Show usage information for the command
+
+        --quiet                  Hides the banner, copyright and configuration
+                                 location information.
+
+Commands:
+        delete                   Remove the specified configuration setting
+
+        get                      Show the value of the specified configuration
+                                 setting. Sensitive values will be replaced
+                                 with: ******
+
+        info                     Describe the specified configuration setting
+
+        list                     List all explicitly configured pool and global
+                                 settings
+
+        secret                   Securely store a sensitive configuration
+                                 setting such as: db.password
+
+        set                      Set the configuration setting to the specified
+                                 value. Sensitive values cannot be set using
+                                 this method, use the secret command instead
+
+        user                     Create or update a user and its password and
+                                 roles. Display the user information.
+
+        verify                   Validate the specified database pool connection
+
+

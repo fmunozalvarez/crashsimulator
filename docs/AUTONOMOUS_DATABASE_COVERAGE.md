@@ -37,6 +37,25 @@ or Oracle OS ownership. It uses `python-oracledb` for SQL evidence when
 credentials are available, and it falls back to a config-only/readiness report
 when the live SQL probe cannot run.
 
+The report includes an `ADB Readiness Scorecard` for executive review:
+
+- Backup Readiness.
+- PITR Validation.
+- Autonomous Data Guard Protection.
+- Cross-Region DR.
+- IAM / Administrator Access.
+- Wallet Management.
+- Private Endpoint Validation.
+- Resource Manager.
+- Logical / Object Recovery.
+- Application Access Path.
+
+Scorecard status is deliberately conservative. `PASS` requires direct evidence
+in the current report. `PARTIAL` means the control path or prerequisite exists
+but a drill or deeper OCI metadata check is still required. `GAP` means the
+report cannot currently prove that domain. The detailed operational check score
+is still shown separately.
+
 ## Configuration Keys
 
 Use `crashsimulator.conf` for non-secret defaults:
@@ -52,6 +71,8 @@ CRASHSIM_ADB_PYTHON=/path/to/python
 CRASHSIM_ADB_TLS_MODE=mTLS
 CRASHSIM_ADB_OCID=ocid1.autonomousdatabase...
 CRASHSIM_ADB_REGION=us-ashburn-1
+CRASHSIM_ADB_OCI_PROFILE=DEFAULT
+CRASHSIM_ADB_OCI_AUTH=security_token
 CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex
 CRASHSIM_ADB_DATABASE_ACTIONS_URL=https://example.adb.region.oraclecloudapps.com/ords/sql-developer
 CRASHSIM_ADB_PRIVATE_ENDPOINT=myadb-private-endpoint
@@ -62,12 +83,22 @@ Do not store database passwords, wallet passphrases, API keys, or wallet files
 in the repository or config file. The config stores only the environment
 variable names that contain secrets.
 
+For OCI CLI browser/session authentication, create the profile with:
+
+```bash
+oci session authenticate --region <region> --profile-name <profile>
+```
+
+Then use `CRASHSIM_ADB_OCI_PROFILE=<profile>` and
+`CRASHSIM_ADB_OCI_AUTH=security_token`. API-key profiles can omit
+`CRASHSIM_ADB_OCI_AUTH`.
+
 ## Scenario Family
 
 The CLI can list the current catalog with `--list-adb-scenarios` and show a
 single entry with `--adb-scenario ADB01`. The Guided Workflow menu also has an
 Autonomous Database scenarios submenu where users can browse `ADB01` through
-`ADB15`, select a scenario, review validation status, configure ADB context,
+`ADB20`, select a scenario, review validation status, configure ADB context,
 refresh the readiness report, and later launch ADB-specific helpers when those
 seeded logical/OCI workflows are added. In the Guided Workflow Reports menu,
 options `12` through `18` cover ADB context, readiness report generation,
@@ -92,6 +123,11 @@ available on a client or bastion host.
 | `ADB13` | Autonomous Data Guard role transition | ADG role, region, lag, switchover eligibility | Switchover/failover and fallback runbook |
 | `ADB14` | IAM administrator access misconfiguration | IAM policy/group evidence and approval boundary | Restore IAM access and validate admin automation |
 | `ADB15` | Object Storage export dependency unavailable | Bucket, credential, DBMS_CLOUD, network evidence | Restore bucket/policy/credential/network access |
+| `ADB16` | Database Actions unavailable | Database Actions URL, SQL/OCI evidence, administrator path | Restore Database Actions/ORDS access and validate SQL/API access |
+| `ADB17` | APEX workspace unavailable | APEX URL, workspace/application inventory, runtime users | Restore workspace/application access and validate login |
+| `ADB18` | Cross-region clone validation | OCI clone-region, backup retention, target compartment/region | Create/validate cross-region clone and clean up |
+| `ADB19` | Wallet distribution drift | Wallet age/path, aliases, application distribution inventory | Refresh wallet distribution and validate all clients |
+| `ADB20` | OCI IAM token expiration | OCI auth mode/profile, token freshness, break-glass path | Refresh/rotate OCI auth and validate control-plane access |
 
 ## Implementation Posture
 

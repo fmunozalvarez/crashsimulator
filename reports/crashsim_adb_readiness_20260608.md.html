@@ -55,8 +55,8 @@ Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, 
 | Signal | Value |
 | --- | --- |
 | DB identity | `FCEYFTL6\|READ WRITE\|PRIMARY\|YES\|ARCHIVELOG\|YES\|` |
-| Version | `Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0` |
-| Version number | `23.26.2.2.0` |
+| Version | `Oracle AI Database 26ai Enterprise Edition Release <ip-redacted>.0 - Production Version <ip-redacted>.0` |
+| Version number | `<ip-redacted>.0` |
 | Services | `KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous` |
 | APEX registry | `24.2.17:VALID` |
 | Tablespaces | `7` |
@@ -121,10 +121,10 @@ CRASHSIM_ADB_WALLET_DIR=/path/to/wallet
 CRASHSIM_ADB_CONNECT_ALIAS=myadb_low
 CRASHSIM_ADB_SERVICE_LEVEL=low
 CRASHSIM_ADB_USER=ADMIN
-CRASHSIM_ADB_PASSWORD_ENV=&lt;redacted&gt;
-CRASHSIM_ADB_WALLET_PASSWORD_ENV=&lt;redacted&gt;
+CRASHSIM_ADB_PASSWORD_ENV=<redacted>
+CRASHSIM_ADB_WALLET_PASSWORD_ENV=<redacted>
 CRASHSIM_ADB_PYTHON=/path/to/python
-CRASHSIM_ADB_OCID=ocid1.autonomousdatabase...
+CRASHSIM_ADB_OCID=ocid1.<redacted>
 CRASHSIM_ADB_REGION=us-ashburn-1
 CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex
 ```
@@ -152,8 +152,8 @@ CSIM_ADB|cdb|YES
 CSIM_ADB|log_mode|ARCHIVELOG
 CSIM_ADB|flashback_on|YES
 CSIM_ADB|protection_mode|UNKNOWN
-CSIM_ADB|version|Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0
-CSIM_ADB|version_number|23.26.2.2.0
+CSIM_ADB|version|Oracle AI Database 26ai Enterprise Edition Release <ip-redacted>.0 - Production Version <ip-redacted>.0
+CSIM_ADB|version_number|<ip-redacted>.0
 CSIM_ADB|service_count|6
 CSIM_ADB|services|KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous
 CSIM_ADB|apex_registry_count|1

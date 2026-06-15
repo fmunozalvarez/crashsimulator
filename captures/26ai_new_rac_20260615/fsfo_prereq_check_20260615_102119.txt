@@ -1,0 +1,45 @@
+[2026-06-15T10:21:21Z] CrashSimulator HA lab configuration started
+[2026-06-15T10:21:21Z] Checking Data Guard/FSFO prerequisites
+
+NAME	     DB_UNIQUE_NAME	DATABASE_ROLE	     OPEN_MODE		      PROTECTION_MODE	   FLASHBACK_ON       FS_FAILOVER_STATUS	   FS_FAIL
+------------ ------------------ -------------------- ------------------------ -------------------- ------------------ ---------------------------- -------
+CRASHDB      crashrac		PRIMARY 	     READ WRITE 	      MAXIMUM PERFORMANCE  YES		      DISABLED
+
+
+NAME
+------------
+VALUE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+dg_broker_st
+art
+FALSE
+
+
+
+   DEST_ID STATUS    TARGET
+---------- --------- ----------------
+DESTINATION
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ERROR
+-----------------------------------------------------------------
+	 1 VALID     PRIMARY
+USE_DB_RECOVERY_FILE_DEST
+
+
+	10 ALTERNATE PRIMARY
+@gB2Ac2II
+
+
+
+Connected to "crashrac"
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+Connected to "crashrac"
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+FSFO is only configurable after a Broker-managed Data Guard configuration exists,
+flashback is enabled on all members, standby redo/transport/apply are healthy,
+and an observer host can reach both primary and standby connect identifiers.
+[2026-06-15T10:21:21Z] CrashSimulator HA lab configuration completed

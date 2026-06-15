@@ -1,0 +1,16 @@
+connect catalog RMAN_CATALOG/<redacted>@//10.0.0.216:1521/crashdb_CRASHPDB.paas.oracle.com
+resync catalog;
+run {
+  sql "alter system archive log current";
+  backup as compressed backupset database force tag 'CSIM_BASE_260615120414';
+  sql "alter system archive log current";
+  backup as compressed backupset archivelog all not backed up 1 times tag 'CSIM_BASE_260615120414_ARCH';
+  backup current controlfile tag 'CSIM_BASE_260615120414_CTL';
+  backup spfile tag 'CSIM_BASE_260615120414_SPFILE';
+}
+resync catalog;
+list backup tag 'CSIM_BASE_260615120414';
+list backup tag 'CSIM_BASE_260615120414_ARCH';
+list backup tag 'CSIM_BASE_260615120414_CTL';
+list backup tag 'CSIM_BASE_260615120414_SPFILE';
+report schema;

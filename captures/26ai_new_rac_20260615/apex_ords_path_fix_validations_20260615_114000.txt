@@ -1,0 +1,54 @@
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:39:41 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+Oracle REST Data Services 26.1.2.r1401916
+--- validate scenario 73 ---
+Scenario readiness validation
+Scenario 73: ORDS service unavailable
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 73 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 73.
+Resilience scorecard auto-refreshed after validate 73: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 75 ---
+Scenario readiness validation
+Scenario 75: ORDS database pool misconfiguration
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 75 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS before running scenario 75.
+Resilience scorecard auto-refreshed after validate 75: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- validate scenario 79 ---
+Scenario readiness validation
+Scenario 79: ORDS node unavailable behind load balancer
+Group: APEX/ORDS
+Scope: Application
+Impact: logical
+Requires: any
+
+Result: NOT RUNNABLE
+Scenario 79 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 79.
+Resilience scorecard auto-refreshed after validate 79: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- dry-run scenario 73 ---
+Validation: NOT RUNNABLE
+Scenario 73 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS on this host before running scenario 73.
+Resilience scorecard auto-refreshed after scenario 73: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+--- dry-run scenario 75 ---
+Validation: NOT RUNNABLE
+Scenario 75 is not possible to run at this moment.
+Reason: ORDS is not installed or not in PATH. Install/configure ORDS before running scenario 75.

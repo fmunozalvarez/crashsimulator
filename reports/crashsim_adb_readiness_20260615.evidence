@@ -1,0 +1,70 @@
+CSIM_ADB|generated_utc|2026-06-15T05:47:38Z
+CSIM_ADB|host|Franciscos-MacBook-Pro.local
+CSIM_ADB|os_user|franciscomunozalvarez
+CSIM_ADB|python_executable|/private/tmp/crashsim_adb_venv/bin/python
+CSIM_ADB|dsn_source|alias
+CSIM_ADB|dsn_label|crashautonomous_low
+CSIM_ADB|python_status|OK
+CSIM_ADB|python_oracledb_version|4.0.1
+CSIM_ADB|connect_status|OK
+CSIM_ADB|current_user|ADMIN
+CSIM_ADB|db_identity|FCEYFTL6|READ WRITE|PRIMARY|YES|ARCHIVELOG|YES|
+CSIM_ADB|db_name|FCEYFTL6
+CSIM_ADB|open_mode|READ WRITE
+CSIM_ADB|database_role|PRIMARY
+CSIM_ADB|cdb|YES
+CSIM_ADB|log_mode|ARCHIVELOG
+CSIM_ADB|flashback_on|YES
+CSIM_ADB|protection_mode|UNKNOWN
+CSIM_ADB|version|Oracle AI Database 26ai Enterprise Edition Release <ip-redacted>.0 - Production Version <ip-redacted>.0
+CSIM_ADB|version_number|<ip-redacted>.0
+CSIM_ADB|service_count|6
+CSIM_ADB|services|KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous
+CSIM_ADB|apex_registry_count|1
+CSIM_ADB|apex_version_status|24.2.17:VALID
+CSIM_ADB|invalid_object_count|3
+CSIM_ADB|admin_object_count|2
+CSIM_ADB|user_table_count|0
+CSIM_ADB|recyclebin_count|0
+CSIM_ADB|tablespace_count|7
+CSIM_ADB|encrypted_tablespace_count|6
+CSIM_ADB|segment_size_gb|165.34
+CSIM_ADB|flashback_archive_count|1
+CSIM_ADB|flashback_archive_retention_days|60
+CSIM_ADB|open_application_user_count|2
+CSIM_ADB|application_users|ADBSNMP:LOCKED, ADB_APP_STORE:LOCKED, ADMIN:OPEN, DCAT_ADMIN:LOCKED, GGADMIN:LOCKED, RMAN$CATALOG:OPEN
+CSIM_ADB|resource_plan|OLTP_PLAN
+CSIM_ADB|oci_metadata_status|OK
+CSIM_ADB|oci_metadata_file|/private/tmp/crashsim_adb_oci_ready/crashsim_adb_readiness_20260615_154738_oci_adb.json
+CSIM_ADB|oci_metadata_parse_status|OK
+CSIM_ADB|oci_display_name|crashai
+CSIM_ADB|oci_db_name|crashautonomous
+CSIM_ADB|oci_lifecycle_state|AVAILABLE
+CSIM_ADB|oci_compartment_id|ocid1.<redacted>
+CSIM_ADB|oci_time_created|2026-06-08T03:25:39.875000+00:00
+CSIM_ADB|oci_backup_retention_days|60
+CSIM_ADB|oci_total_backup_storage_gb|6.0
+CSIM_ADB|oci_manual_backup_type|NONE
+CSIM_ADB|oci_manual_backup_bucket_name|NONE
+CSIM_ADB|oci_is_backup_retention_locked|false
+CSIM_ADB|oci_is_data_guard_enabled|false
+CSIM_ADB|oci_is_local_data_guard_enabled|false
+CSIM_ADB|oci_is_remote_data_guard_enabled|false
+CSIM_ADB|oci_dataguard_region_type|NONE
+CSIM_ADB|oci_standby_db|NONE
+CSIM_ADB|oci_peer_db_ids|NONE
+CSIM_ADB|oci_private_endpoint|NONE
+CSIM_ADB|oci_private_endpoint_label|NONE
+CSIM_ADB|oci_private_endpoint_ip|NONE
+CSIM_ADB|oci_nsg_ids|NONE
+CSIM_ADB|oci_data_safe_status|NOT_REGISTERED
+CSIM_ADB|oci_operations_insights_status|NOT_ENABLED
+CSIM_ADB|oci_permission_level|UNRESTRICTED
+CSIM_ADB|oci_license_model|LICENSE_INCLUDED
+CSIM_ADB|oci_compute_model|ECPU
+CSIM_ADB|oci_compute_count|1.0
+CSIM_ADB|oci_data_storage_size_gb|20
+CSIM_ADB|oci_actual_used_data_storage_tb|0.005127668380737305
+CSIM_ADB|oci_apex_version|24.2.17
+CSIM_ADB|oci_ords_version|<ip-redacted>.1916
+CSIM_ADB|oci_supported_clone_regions|KIX, ICN, SIN, BOM, HYD, IAD, PHX, FRA, CWL, ORD, SJC, MEL, AMS, LHR, YUL, YYZ, SYD

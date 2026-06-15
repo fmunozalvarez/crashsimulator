@@ -13,7 +13,7 @@ if [[ -z "${BASH_VERSINFO:-}" || "${BASH_VERSINFO[0]}" -lt 4 ]]; then
   exit 2
 fi
 
-VERSION="2.0.1-beta"
+VERSION="2.0.2-beta"
 SUCCESS=0
 FAIL=1
 
@@ -71,6 +71,14 @@ AUDIT_RETAIN="${CRASHSIM_AUDIT_RETAIN:-1}"
 AUDIT_RETENTION_DAYS="${CRASHSIM_AUDIT_RETENTION_DAYS:-365}"
 AUDIT_DIR="${CRASHSIM_AUDIT_DIR:-}"
 AUDIT_STREAM_CAPTURE="${CRASHSIM_AUDIT_STREAM_CAPTURE:-auto}"
+AUTO_SCORECARD="${CRASHSIM_AUTO_SCORECARD:-1}"
+DESTRUCTIVE_LAB_ACK="${CRASHSIM_ACCEPT_DESTRUCTIVE_LAB:-}"
+TOPOLOGY_CACHE_TTL_SECONDS="${CRASHSIM_TOPOLOGY_CACHE_TTL_SECONDS:-300}"
+TOPOLOGY_CACHE_REFRESH=0
+TOPOLOGY_CACHE_DISABLED="${CRASHSIM_DISABLE_TOPOLOGY_CACHE:-0}"
+SECRET_SCAN_PATH="${CRASHSIM_SECRET_SCAN_PATH:-.}"
+SANITIZE_SOURCE_DIR="${CRASHSIM_SANITIZE_SOURCE_DIR:-.}"
+SANITIZE_OUTPUT_DIR="${CRASHSIM_SANITIZE_OUTPUT_DIR:-}"
 HTML_OUTPUT=0
 HTML_TARGET="${CRASHSIM_HTML_TARGET:-}"
 REVIEW_TARGET="${CRASHSIM_REVIEW_TARGET:-}"
@@ -81,6 +89,13 @@ MAA_DR_RTO="${CRASHSIM_MAA_DR_RTO:-}"
 MAA_DR_RPO="${CRASHSIM_MAA_DR_RPO:-}"
 MAA_PLANNED_RTO="${CRASHSIM_MAA_PLANNED_RTO:-}"
 MAA_PLANNED_RPO="${CRASHSIM_MAA_PLANNED_RPO:-}"
+MAA_CRITICALITY="${CRASHSIM_MAA_CRITICALITY:-}"
+MAA_LOCAL_HA_TARGET="${CRASHSIM_MAA_LOCAL_HA_TARGET:-}"
+MAA_DR_REQUIRED="${CRASHSIM_MAA_DR_REQUIRED:-}"
+MAA_AUTOMATIC_FAILOVER_REQUIRED="${CRASHSIM_MAA_AUTOMATIC_FAILOVER_REQUIRED:-}"
+MAA_ACTIVE_ACTIVE_REQUIRED="${CRASHSIM_MAA_ACTIVE_ACTIVE_REQUIRED:-}"
+MAA_PLATFORM_HINT="${CRASHSIM_MAA_PLATFORM_HINT:-}"
+MAA_STANDBY_SCOPE="${CRASHSIM_MAA_STANDBY_SCOPE:-unknown}"
 ADB_WALLET_DIR="${CRASHSIM_ADB_WALLET_DIR:-}"
 ADB_CONNECT_ALIAS="${CRASHSIM_ADB_CONNECT_ALIAS:-}"
 ADB_CONNECT_DESCRIPTOR="${CRASHSIM_ADB_CONNECT_DESCRIPTOR:-}"
@@ -95,6 +110,7 @@ ADB_COMPARTMENT_OCID="${CRASHSIM_ADB_COMPARTMENT_OCID:-}"
 ADB_REGION="${CRASHSIM_ADB_REGION:-}"
 ADB_OCI_PROFILE="${CRASHSIM_ADB_OCI_PROFILE:-DEFAULT}"
 ADB_OCI_CONFIG_FILE="${CRASHSIM_ADB_OCI_CONFIG_FILE:-}"
+ADB_OCI_AUTH="${CRASHSIM_ADB_OCI_AUTH:-}"
 ADB_APEX_URL="${CRASHSIM_ADB_APEX_URL:-}"
 ADB_DATABASE_ACTIONS_URL="${CRASHSIM_ADB_DATABASE_ACTIONS_URL:-}"
 ADB_PRIVATE_ENDPOINT="${CRASHSIM_ADB_PRIVATE_ENDPOINT:-}"
@@ -128,6 +144,7 @@ AUDIT_STDOUT_FIFO=""
 AUDIT_STDERR_FIFO=""
 AUDIT_STARTED=0
 AUDIT_FINALIZED=0
+AUTO_SCORECARD_REFRESHING=0
 MENU_SCHEMA_PROMPTED_SCENARIO=""
 
 DB_NAME=""
@@ -188,6 +205,16 @@ declare -A BACKUP_EVIDENCE=()
 declare -A RPO_EVIDENCE=()
 declare -A APEX_ORDS_EVIDENCE=()
 declare -A ADB_EVIDENCE=()
+declare -A PREP_EVIDENCE=()
+declare -a PREP_IDS=()
+declare -A PREP_TITLE=()
+declare -A PREP_STATUS=()
+declare -A PREP_REQUIRED=()
+declare -A PREP_EVIDENCE_TEXT=()
+declare -A PREP_ACTION=()
+declare -A PREP_AUTO=()
+declare -A PREP_COMMAND=()
+declare -A PREP_NOTES=()
 declare -a ADB_SCENARIO_IDS=()
 declare -A ADB_SCENARIO_TITLE=()
 declare -A ADB_SCENARIO_AREA=()
@@ -207,14 +234,18 @@ Usage:
   ./${PROGRAM} --discover
   ./${PROGRAM} --list
   ./${PROGRAM} --menu
+  ./${PROGRAM} --doctor [--html]
+  ./${PROGRAM} --first-run [--html]
+  ./${PROGRAM} --public-limitations [--html]
   ./${PROGRAM} --health-check
   ./${PROGRAM} --config-report [--deep-validate]
   ./${PROGRAM} --backup-report [--deep-validate]
   ./${PROGRAM} --service-review [--html]
   ./${PROGRAM} --apex-ords-report [--pdb <pdb_name>] [--html]
+  ./${PROGRAM} --prepare-environment [--dry-run|--execute] [--html]
   ./${PROGRAM} --adb-readiness-report [--html]
   ./${PROGRAM} --list-adb-scenarios
-  ./${PROGRAM} --adb-scenario <ADB01-ADB15>
+  ./${PROGRAM} --adb-scenario <ADB01-ADB20>
   ./${PROGRAM} --baseline-backup [--dry-run|--execute]
   ./${PROGRAM} --audit-status
   ./${PROGRAM} --purge-audit-logs [--dry-run|--execute]
@@ -226,10 +257,16 @@ Usage:
   ./${PROGRAM} --show-artifact <path|latest[:kind]> [--html]
   ./${PROGRAM} --render-html <path|latest[:kind]>
   ./${PROGRAM} --maa-report
+  ./${PROGRAM} --resilience-scorecard [--html]
   ./${PROGRAM} --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --scenario-readiness-report [--pdb <pdb_name>] [--schema <owner>] [--html]
   ./${PROGRAM} --scenario-lifecycle-report [--html]
+  ./${PROGRAM} --scenario-lifecycle-check [--html]
+  ./${PROGRAM} --secret-scan [--scan-path <path>]
+  ./${PROGRAM} --sanitize-artifacts [--sanitize-source <dir>] [--sanitize-output <dir>]
+  ./${PROGRAM} --node-sync-check
+  ./${PROGRAM} --release-check
   ./${PROGRAM} --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
   ./${PROGRAM} --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
   ./${PROGRAM} --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
@@ -243,6 +280,11 @@ Options:
   --list                  List scenario registry and prerequisite gates.
   --list-scenarios        Alias for --list.
   --menu                  Start guided terminal menu. This is the default.
+  --doctor                Run a non-destructive public-readiness preflight.
+  --preflight             Alias for --doctor.
+  --first-run             Generate a first-run checklist and safe starter flow.
+  --public-limitations    Generate a public beta limitations and expectations page.
+  --limitations           Alias for --public-limitations.
   --health-check          Run a non-destructive SQL health check.
   --config-report         Generate a full target database/PDB configuration report.
   --configuration-report  Alias for --config-report.
@@ -257,10 +299,14 @@ Options:
   --apex-ords-report      Generate APEX/ORDS readiness and user access-path report.
   --apex-report           Alias for --apex-ords-report.
   --ords-report           Alias for --apex-ords-report.
+  --prepare-environment   Detect missing scenario lab seeds/preparations for the
+                          current topology and optionally run eligible helpers.
+  --seed-environment      Alias for --prepare-environment.
+  --prepare-lab           Alias for --prepare-environment.
   --adb-readiness-report  Generate Autonomous Database readiness and scenario
                           coverage report.
   --adb-discover          Alias for --adb-readiness-report.
-  --list-adb-scenarios    List ADB01-ADB15 with current readiness status.
+  --list-adb-scenarios    List ADB01-ADB20 with current readiness status.
   --adb-scenario <id>     Show one ADB cloud-service scenario detail.
   --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
   --fresh-baseline-backup Alias for --baseline-backup.
@@ -289,6 +335,12 @@ Options:
   --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
   --maa-assessment        Alias for --maa-report.
   --maa-readiness         Alias for --maa-report.
+  --resilience-scorecard  Generate executive resilience scorecard from current
+                          topology, MAA, backup, scenario, and drill evidence.
+  --resilience-score      Alias for --resilience-scorecard.
+  --auto-scorecard <yes|no>
+                          Refresh latest scorecard after drills when possible.
+  --no-auto-scorecard     Disable post-action scorecard refresh for this run.
   --deep-validate         With reports, run heavier RMAN restore/database validation.
   --validate-scenario <id>
                           Validate whether one scenario can run now and explain blockers.
@@ -300,6 +352,17 @@ Options:
   --scenario-lifecycle-report
                           Generate static validation/protection/execution/recovery
                           coverage for every registered scenario.
+  --scenario-lifecycle-check
+                          Enforce scenario metadata/handler/lifecycle consistency.
+  --secret-scan           Scan repo/artifacts for obvious secrets and wallets.
+  --scan-path <path>      Path used by --secret-scan. Default: current directory.
+  --sanitize-artifacts    Create sanitized public copies of text artifacts.
+  --sanitize-source <dir> Source directory for --sanitize-artifacts.
+  --sanitize-output <dir> Output directory for sanitized artifacts.
+  --node-sync-check       Check CrashSimulator driver/helper presence across
+                          CRASHSIM_REMOTE_NODES for RAC/ORDS labs.
+  --release-check         Run public release checks: syntax, lifecycle, secrets,
+                          package integrity, and common documentation checks.
   --runbook <id>          Print recovery practice hints for a scenario.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
@@ -359,6 +422,20 @@ Options:
   --maa-dr-rpo <value>    Optional disaster/site-outage RPO objective.
   --maa-planned-rto <val> Optional planned-maintenance RTO objective.
   --maa-planned-rpo <val> Optional planned-maintenance RPO objective.
+  --maa-criticality <val> Optional criticality hint: dev, production,
+                          mission-critical, ultra-critical.
+  --maa-local-ha-target <yes|no>
+                          Whether local node/instance HA is a business target.
+  --maa-dr-required <yes|no>
+                          Whether site/region disaster recovery is required.
+  --maa-automatic-failover-required <yes|no>
+                          Whether automatic failover is a business target.
+  --maa-active-active-required <yes|no>
+                          Whether active-active/distributed resilience is required.
+  --maa-platform-hint <val>
+                          Platform hint such as generic, Exadata, ODA, BaseDB.
+  --maa-standby-scope <local|remote|unknown>
+                          Classify detected standby as local HA or remote DR.
   --adb-wallet-dir <dir>  Autonomous Database wallet directory for mTLS.
   --adb-connect-alias <a> Autonomous Database TNS alias.
   --adb-service-level <l> Autonomous service level alias hint: low, medium,
@@ -378,6 +455,7 @@ Options:
   --adb-oci-profile <p>   OCI CLI profile. Default: DEFAULT.
   --adb-oci-config-file <path>
                           OCI CLI config file.
+  --adb-oci-auth <mode>   OCI CLI auth mode, for example security_token.
   --adb-apex-url <url>    Autonomous APEX URL.
   --adb-database-actions-url <url>
                           Autonomous Database Actions URL.
@@ -386,6 +464,13 @@ Options:
   --dry-run               Plan only. This is the default.
   --execute               Execute destructive actions after confirmation.
   --yes                   Skip interactive confirmation. Use only in labs.
+  --accept-destructive-lab
+                          Acknowledge this is an approved non-production lab for
+                          destructive --execute actions in this process.
+  --topology-cache-ttl <s>
+                          Guided menu topology cache TTL in seconds. Default: 300.
+  --refresh-topology      Ignore cached topology for this run.
+  --no-topology-cache     Disable topology cache reads for this run.
   --log-dir <dir>         Directory for logs. Defaults to ./crashsimulator_logs.
   --sqlplus-logon <str>   SQL*Plus logon string. Default: / as sysdba.
   --verbose               Print extra diagnostics.
@@ -431,6 +516,13 @@ Environment:
   CRASHSIM_AUDIT_RETENTION_DAYS Days to keep audit run folders. Default: 365.
   CRASHSIM_AUDIT_DIR            Audit archive directory. Default: <log-dir>/audit.
   CRASHSIM_AUDIT_STREAM_CAPTURE Capture live stdout/stderr: auto, yes, or no. Auto disables live capture for interactive menu TTYs.
+  CRASHSIM_AUTO_SCORECARD       1/0 or yes/no post-action scorecard refresh.
+  CRASHSIM_ACCEPT_DESTRUCTIVE_LAB Set to YES to allow non-interactive destructive --execute lab runs.
+  CRASHSIM_TOPOLOGY_CACHE_TTL_SECONDS Guided menu topology cache TTL. Default: 300.
+  CRASHSIM_DISABLE_TOPOLOGY_CACHE Set to 1 to disable guided menu cache reads.
+  CRASHSIM_SECRET_SCAN_PATH     Default path for --secret-scan.
+  CRASHSIM_SANITIZE_SOURCE_DIR  Default source directory for --sanitize-artifacts.
+  CRASHSIM_SANITIZE_OUTPUT_DIR  Default output directory for sanitized artifacts.
   CRASHSIM_HTML_TARGET          Default artifact for --render-html.
   CRASHSIM_REVIEW_TARGET        Default artifact for --show-artifact.
   CRASHSIM_MAA_APP_NAME         Application name for MAA/SLA planning context.
@@ -440,6 +532,13 @@ Environment:
   CRASHSIM_MAA_DR_RPO           Disaster/site-outage RPO objective.
   CRASHSIM_MAA_PLANNED_RTO      Planned-maintenance RTO objective.
   CRASHSIM_MAA_PLANNED_RPO      Planned-maintenance RPO objective.
+  CRASHSIM_MAA_CRITICALITY      Criticality hint for target MAA tiering.
+  CRASHSIM_MAA_LOCAL_HA_TARGET  yes/no local HA business target.
+  CRASHSIM_MAA_DR_REQUIRED      yes/no site or region DR requirement.
+  CRASHSIM_MAA_AUTOMATIC_FAILOVER_REQUIRED yes/no automatic failover target.
+  CRASHSIM_MAA_ACTIVE_ACTIVE_REQUIRED yes/no active-active/global requirement.
+  CRASHSIM_MAA_PLATFORM_HINT    Platform hint such as generic or Exadata.
+  CRASHSIM_MAA_STANDBY_SCOPE    local, remote, or unknown standby scope.
   CRASHSIM_ADB_WALLET_DIR       Autonomous Database wallet directory.
   CRASHSIM_ADB_CONNECT_ALIAS    Autonomous Database TNS alias.
   CRASHSIM_ADB_CONNECT_DESCRIPTOR Autonomous Database descriptor/Easy Connect.
@@ -454,6 +553,7 @@ Environment:
   CRASHSIM_ADB_REGION           OCI region for ADB control-plane checks.
   CRASHSIM_ADB_OCI_PROFILE      OCI CLI profile. Default: DEFAULT.
   CRASHSIM_ADB_OCI_CONFIG_FILE  OCI CLI config file.
+  CRASHSIM_ADB_OCI_AUTH         OCI CLI auth mode, for example security_token.
   CRASHSIM_ADB_APEX_URL         Autonomous APEX URL.
   CRASHSIM_ADB_DATABASE_ACTIONS_URL Autonomous Database Actions URL.
   CRASHSIM_ADB_PRIVATE_ENDPOINT Expected private endpoint/DNS/network label.
@@ -465,6 +565,8 @@ Environment:
 
 Safety:
   Destructive operations are never executed unless --execute is provided.
+  Non-interactive destructive --execute actions also require
+  CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES or --accept-destructive-lab.
 USAGE
 }
 
@@ -781,6 +883,27 @@ apply_config_entry() {
     CRASHSIM_AUDIT_STREAM_CAPTURE|AUDIT_STREAM_CAPTURE)
       config_set_value_if_env_unset "$key" "CRASHSIM_AUDIT_STREAM_CAPTURE" AUDIT_STREAM_CAPTURE "$value"
       ;;
+    CRASHSIM_AUTO_SCORECARD|AUTO_SCORECARD)
+      config_set_value_if_env_unset "$key" "CRASHSIM_AUTO_SCORECARD" AUTO_SCORECARD "$value"
+      ;;
+    CRASHSIM_ACCEPT_DESTRUCTIVE_LAB|ACCEPT_DESTRUCTIVE_LAB|DESTRUCTIVE_LAB_ACK)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ACCEPT_DESTRUCTIVE_LAB" DESTRUCTIVE_LAB_ACK "$value"
+      ;;
+    CRASHSIM_TOPOLOGY_CACHE_TTL_SECONDS|TOPOLOGY_CACHE_TTL_SECONDS)
+      config_set_value_if_env_unset "$key" "CRASHSIM_TOPOLOGY_CACHE_TTL_SECONDS" TOPOLOGY_CACHE_TTL_SECONDS "$value"
+      ;;
+    CRASHSIM_DISABLE_TOPOLOGY_CACHE|DISABLE_TOPOLOGY_CACHE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_DISABLE_TOPOLOGY_CACHE" TOPOLOGY_CACHE_DISABLED "$value"
+      ;;
+    CRASHSIM_SECRET_SCAN_PATH|SECRET_SCAN_PATH)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SECRET_SCAN_PATH" SECRET_SCAN_PATH "$value"
+      ;;
+    CRASHSIM_SANITIZE_SOURCE_DIR|SANITIZE_SOURCE_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SANITIZE_SOURCE_DIR" SANITIZE_SOURCE_DIR "$value"
+      ;;
+    CRASHSIM_SANITIZE_OUTPUT_DIR|SANITIZE_OUTPUT_DIR)
+      config_set_value_if_env_unset "$key" "CRASHSIM_SANITIZE_OUTPUT_DIR" SANITIZE_OUTPUT_DIR "$value"
+      ;;
     CRASHSIM_HTML_TARGET|HTML_TARGET)
       config_set_value_if_env_unset "$key" "CRASHSIM_HTML_TARGET" HTML_TARGET "$value"
       ;;
@@ -807,6 +930,27 @@ apply_config_entry() {
       ;;
     CRASHSIM_MAA_PLANNED_RPO|MAA_PLANNED_RPO)
       config_set_value_if_env_unset "$key" "CRASHSIM_MAA_PLANNED_RPO" MAA_PLANNED_RPO "$value"
+      ;;
+    CRASHSIM_MAA_CRITICALITY|MAA_CRITICALITY)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_CRITICALITY" MAA_CRITICALITY "$value"
+      ;;
+    CRASHSIM_MAA_LOCAL_HA_TARGET|MAA_LOCAL_HA_TARGET)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_LOCAL_HA_TARGET" MAA_LOCAL_HA_TARGET "$value"
+      ;;
+    CRASHSIM_MAA_DR_REQUIRED|MAA_DR_REQUIRED)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_DR_REQUIRED" MAA_DR_REQUIRED "$value"
+      ;;
+    CRASHSIM_MAA_AUTOMATIC_FAILOVER_REQUIRED|MAA_AUTOMATIC_FAILOVER_REQUIRED)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_AUTOMATIC_FAILOVER_REQUIRED" MAA_AUTOMATIC_FAILOVER_REQUIRED "$value"
+      ;;
+    CRASHSIM_MAA_ACTIVE_ACTIVE_REQUIRED|MAA_ACTIVE_ACTIVE_REQUIRED)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_ACTIVE_ACTIVE_REQUIRED" MAA_ACTIVE_ACTIVE_REQUIRED "$value"
+      ;;
+    CRASHSIM_MAA_PLATFORM_HINT|MAA_PLATFORM_HINT)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_PLATFORM_HINT" MAA_PLATFORM_HINT "$value"
+      ;;
+    CRASHSIM_MAA_STANDBY_SCOPE|MAA_STANDBY_SCOPE)
+      config_set_value_if_env_unset "$key" "CRASHSIM_MAA_STANDBY_SCOPE" MAA_STANDBY_SCOPE "$value"
       ;;
     CRASHSIM_ADB_WALLET_DIR|ADB_WALLET_DIR)
       config_validate_path_value "$key" "$value" || return "$SUCCESS"
@@ -851,6 +995,9 @@ apply_config_entry() {
     CRASHSIM_ADB_OCI_CONFIG_FILE|ADB_OCI_CONFIG_FILE)
       config_validate_path_value "$key" "$value" || return "$SUCCESS"
       config_set_value_if_env_unset "$key" "CRASHSIM_ADB_OCI_CONFIG_FILE" ADB_OCI_CONFIG_FILE "$value"
+      ;;
+    CRASHSIM_ADB_OCI_AUTH|ADB_OCI_AUTH)
+      config_set_value_if_env_unset "$key" "CRASHSIM_ADB_OCI_AUTH" ADB_OCI_AUTH "$value"
       ;;
     CRASHSIM_ADB_APEX_URL|ADB_APEX_URL)
       config_set_value_if_env_unset "$key" "CRASHSIM_ADB_APEX_URL" ADB_APEX_URL "$value"
@@ -1006,11 +1153,34 @@ show_active_config() {
   echo "  Audit retain=${AUDIT_RETAIN}"
   echo "  Audit retention days=${AUDIT_RETENTION_DAYS}"
   echo "  Audit dir=${AUDIT_DIR:-not set}"
+  echo "  Auto resilience scorecard refresh=${AUTO_SCORECARD}"
+  echo "  Destructive lab acknowledgement=$([[ "${DESTRUCTIVE_LAB_ACK^^}" == "YES" ]] && echo set || echo not set)"
+  echo "  Topology cache TTL seconds=${TOPOLOGY_CACHE_TTL_SECONDS}"
+  echo "  Topology cache disabled=${TOPOLOGY_CACHE_DISABLED}"
+  echo "  Secret scan path=${SECRET_SCAN_PATH}"
+  echo "  Sanitize source=${SANITIZE_SOURCE_DIR}"
+  echo "  Sanitize output=${SANITIZE_OUTPUT_DIR:-auto}"
   echo "  RMAN catalog=$(redact_config_value RMAN_CATALOG_CONNECT "$RMAN_CATALOG_CONNECT")"
   echo "  Baseline tag prefix=${BASELINE_TAG_PREFIX}"
   echo "  ORDS URL=${ORDS_URL:-not set}"
   echo "  ORDS config dir=${ORDS_CONFIG_DIR:-not set}"
   echo "  APEX session URL=${APEX_SESSION_URL:-not set}"
+  echo
+  echo "MAA decision-tree context:"
+  echo "  Application=${MAA_APP_NAME:-not set}"
+  echo "  Criticality=${MAA_CRITICALITY:-not set}"
+  echo "  Local unplanned RTO=${MAA_LOCAL_RTO:-not set}"
+  echo "  Local unplanned RPO=${MAA_LOCAL_RPO:-not set}"
+  echo "  Local HA target=${MAA_LOCAL_HA_TARGET:-not set}"
+  echo "  Disaster/site RTO=${MAA_DR_RTO:-not set}"
+  echo "  Disaster/site RPO=${MAA_DR_RPO:-not set}"
+  echo "  DR required=${MAA_DR_REQUIRED:-not set}"
+  echo "  Automatic failover required=${MAA_AUTOMATIC_FAILOVER_REQUIRED:-not set}"
+  echo "  Planned maintenance RTO=${MAA_PLANNED_RTO:-not set}"
+  echo "  Planned maintenance RPO=${MAA_PLANNED_RPO:-not set}"
+  echo "  Active-active required=${MAA_ACTIVE_ACTIVE_REQUIRED:-not set}"
+  echo "  Platform hint=${MAA_PLATFORM_HINT:-not set}"
+  echo "  Standby scope=${MAA_STANDBY_SCOPE:-unknown}"
   echo
   echo "Autonomous Database defaults:"
   echo "  ADB wallet dir=${ADB_WALLET_DIR:-not set}"
@@ -1027,6 +1197,7 @@ show_active_config() {
   echo "  ADB region=${ADB_REGION:-not set}"
   echo "  ADB OCI profile=${ADB_OCI_PROFILE:-not set}"
   echo "  ADB OCI config file=${ADB_OCI_CONFIG_FILE:-not set}"
+  echo "  ADB OCI auth=${ADB_OCI_AUTH:-not set}"
   echo "  ADB APEX URL=${ADB_APEX_URL:-not set}"
   echo "  ADB Database Actions URL=${ADB_DATABASE_ACTIONS_URL:-not set}"
   echo "  ADB private endpoint=${ADB_PRIVATE_ENDPOINT:-not set}"
@@ -1207,7 +1378,33 @@ CRASHSIM_LOG_DIR=${LOG_DIR:-}
 CRASHSIM_SQLPLUS_LOGON='${template_sqlplus_logon}'
 CRASHSIM_AUDIT_RETAIN=${AUDIT_RETAIN}
 CRASHSIM_AUDIT_RETENTION_DAYS=${AUDIT_RETENTION_DAYS}
+CRASHSIM_AUTO_SCORECARD=${AUTO_SCORECARD}
+CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=
+CRASHSIM_TOPOLOGY_CACHE_TTL_SECONDS=${TOPOLOGY_CACHE_TTL_SECONDS}
+CRASHSIM_DISABLE_TOPOLOGY_CACHE=${TOPOLOGY_CACHE_DISABLED}
+CRASHSIM_SECRET_SCAN_PATH=${SECRET_SCAN_PATH}
+CRASHSIM_SANITIZE_SOURCE_DIR=${SANITIZE_SOURCE_DIR}
+CRASHSIM_SANITIZE_OUTPUT_DIR=${SANITIZE_OUTPUT_DIR}
+# Optional RMAN catalog connect string. Prefer an Oracle wallet alias such as
+# CRASHSIM_RMAN_CATALOG=/@crashsim_rman_catalog instead of a password here.
+CRASHSIM_RMAN_CATALOG=
 CRASHSIM_BASELINE_TAG_PREFIX=${BASELINE_TAG_PREFIX}
+
+# Optional MAA decision-tree context. These are non-secret planning values.
+CRASHSIM_MAA_APP_NAME="${MAA_APP_NAME}"
+CRASHSIM_MAA_LOCAL_RTO="${MAA_LOCAL_RTO}"
+CRASHSIM_MAA_LOCAL_RPO="${MAA_LOCAL_RPO}"
+CRASHSIM_MAA_DR_RTO="${MAA_DR_RTO}"
+CRASHSIM_MAA_DR_RPO="${MAA_DR_RPO}"
+CRASHSIM_MAA_PLANNED_RTO="${MAA_PLANNED_RTO}"
+CRASHSIM_MAA_PLANNED_RPO="${MAA_PLANNED_RPO}"
+CRASHSIM_MAA_CRITICALITY="${MAA_CRITICALITY}"
+CRASHSIM_MAA_LOCAL_HA_TARGET="${MAA_LOCAL_HA_TARGET}"
+CRASHSIM_MAA_DR_REQUIRED="${MAA_DR_REQUIRED}"
+CRASHSIM_MAA_AUTOMATIC_FAILOVER_REQUIRED="${MAA_AUTOMATIC_FAILOVER_REQUIRED}"
+CRASHSIM_MAA_ACTIVE_ACTIVE_REQUIRED="${MAA_ACTIVE_ACTIVE_REQUIRED}"
+CRASHSIM_MAA_PLATFORM_HINT="${MAA_PLATFORM_HINT}"
+CRASHSIM_MAA_STANDBY_SCOPE="${MAA_STANDBY_SCOPE}"
 
 # Optional APEX/ORDS defaults.
 CRASHSIM_ORDS_SERVICE=${ORDS_SERVICE_NAME}
@@ -1235,6 +1432,7 @@ CRASHSIM_ADB_COMPARTMENT_OCID=${ADB_COMPARTMENT_OCID}
 CRASHSIM_ADB_REGION=${ADB_REGION}
 CRASHSIM_ADB_OCI_PROFILE=${ADB_OCI_PROFILE}
 CRASHSIM_ADB_OCI_CONFIG_FILE=${ADB_OCI_CONFIG_FILE}
+CRASHSIM_ADB_OCI_AUTH=${ADB_OCI_AUTH}
 CRASHSIM_ADB_APEX_URL=${ADB_APEX_URL}
 CRASHSIM_ADB_DATABASE_ACTIONS_URL=${ADB_DATABASE_ACTIONS_URL}
 CRASHSIM_ADB_PRIVATE_ENDPOINT=${ADB_PRIVATE_ENDPOINT}
@@ -1274,6 +1472,13 @@ normalize_targets() {
   LOCAL_ONLY="$(normalize_bool "$LOCAL_ONLY")" || die "Invalid local-only value: $LOCAL_ONLY"
   REPORT_DEEP_VALIDATE="$(normalize_bool "$REPORT_DEEP_VALIDATE")" || die "Invalid report deep-validate value: $REPORT_DEEP_VALIDATE"
   AUDIT_RETAIN="$(normalize_bool "$AUDIT_RETAIN")" || die "Invalid audit retain value: $AUDIT_RETAIN"
+  local raw_auto_scorecard="$AUTO_SCORECARD"
+  AUTO_SCORECARD="$(normalize_bool "$raw_auto_scorecard")" || die "Invalid auto scorecard value: $raw_auto_scorecard"
+  local raw_topology_cache_disabled="$TOPOLOGY_CACHE_DISABLED"
+  TOPOLOGY_CACHE_DISABLED="$(normalize_bool "$raw_topology_cache_disabled")" ||
+    die "Invalid topology cache disabled value: $raw_topology_cache_disabled"
+  [[ "$TOPOLOGY_CACHE_TTL_SECONDS" =~ ^[0-9]+$ ]] ||
+    die "Invalid topology cache TTL seconds: $TOPOLOGY_CACHE_TTL_SECONDS"
   AUDIT_STREAM_CAPTURE="$(normalize_auto_bool "$AUDIT_STREAM_CAPTURE")" ||
     die "Invalid audit stream capture value: $AUDIT_STREAM_CAPTURE"
   [[ "$AUDIT_RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "Invalid audit retention days: $AUDIT_RETENTION_DAYS"
@@ -2650,9 +2855,9 @@ order by name;
     esac
   done < <(trim_blank_lines <"$params_file")
 
-  if command -v srvctl >/dev/null 2>&1; then
+  if grid_tool_available srvctl; then
     local srvctl_config srvctl_type
-    srvctl_config="$(srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
+    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
     if [[ -n "$srvctl_config" ]]; then
       GI_MANAGED=1
       PASSWORD_FILE_PATH="$(printf "%s\n" "$srvctl_config" |
@@ -2670,7 +2875,7 @@ order by name;
         CLUSTER_TYPE="$srvctl_type"
         ;;
       SINGLE)
-        if command -v crsctl >/dev/null 2>&1; then
+        if grid_tool_available crsctl; then
           CLUSTER_TYPE="GI_SINGLE"
         else
           CLUSTER_TYPE="SINGLE"
@@ -2691,7 +2896,7 @@ order by name;
     esac
   elif [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
     CLUSTER_TYPE="RAC"
-  elif command -v crsctl >/dev/null 2>&1; then
+  elif grid_tool_available crsctl; then
     CLUSTER_TYPE="GI_SINGLE"
   else
     CLUSTER_TYPE="SINGLE"
@@ -2715,6 +2920,8 @@ order by con_id;
 
 detect_storage_type() {
   local file="$WORK_DIR/storage.env"
+  local srvctl_storage_file="$WORK_DIR/storage_srvctl.env"
+  local crs_storage_file="$WORK_DIR/storage_crs.env"
   local has_asm=0 has_fex=0 has_acfs=0 has_fs=0 line class
   sql_query "$file" "
 select name from v\$datafile where rownum <= 50
@@ -2739,6 +2946,55 @@ where name in ('spfile','db_recovery_file_dest')
       filesystem) has_fs=1 ;;
     esac
   done < <(trim_blank_lines <"$file")
+
+  if [[ -n "$DB_UNIQUE_NAME" ]] && grid_tool_available srvctl; then
+    if run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" >"$srvctl_storage_file" 2>/dev/null; then
+      while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        case "$line" in
+          "Mount point paths:"*|"Spfile:"*|"Password file:"*)
+            line="${line#*:}"
+            ;;
+          *)
+            continue
+            ;;
+        esac
+        line="$(trim_value "$line")"
+        [[ -n "$line" ]] || continue
+        IFS=',' read -r -a storage_values <<<"$line"
+        local storage_value
+        for storage_value in "${storage_values[@]}"; do
+          storage_value="$(trim_value "$storage_value")"
+          [[ -n "$storage_value" ]] || continue
+          class="$(storage_path_class "$storage_value")"
+          case "$class" in
+            asm) has_asm=1 ;;
+            fex) has_fex=1 ;;
+            acfs) has_acfs=1 ;;
+            filesystem) has_fs=1 ;;
+          esac
+        done
+      done <"$srvctl_storage_file"
+    fi
+  fi
+
+  if grid_tool_available crsctl; then
+    if run_grid_tool crsctl stat res -p >"$crs_storage_file" 2>/dev/null; then
+      while IFS= read -r line; do
+        [[ "$line" == MOUNTPOINT_PATH=* || "$line" == INTERNAL_MOUNTPOINT_PATH=* || "$line" == VOLUME_DEVICE=* ]] || continue
+        line="${line#*=}"
+        line="$(trim_value "$line")"
+        [[ -n "$line" ]] || continue
+        class="$(storage_path_class "$line")"
+        case "$class" in
+          asm) has_asm=1 ;;
+          fex) has_fex=1 ;;
+          acfs) has_acfs=1 ;;
+          filesystem) has_fs=1 ;;
+        esac
+      done <"$crs_storage_file"
+    fi
+  fi
 
   for line in "$SPFILE_PATH" "$FRA_PATH" "$PASSWORD_FILE_PATH"; do
     [[ -n "$line" ]] || continue
@@ -2781,6 +3037,8 @@ storage_path_class() {
       if [[ "$path" == *"/dbaas_acfs/"* ||
             "$path" == *"/acfs/"* ||
             "$path" == /acfs/* ||
+            "$path" == /acfs ||
+            "$path" == /var/opt/oracle/dbaas_acfs ||
             "$path" == /var/opt/oracle/dbaas_acfs/* ]]; then
         printf "acfs"
       else
@@ -2921,6 +3179,367 @@ print_discovery() {
   maybe_render_html "$topology_file"
 }
 
+file_mtime_epoch() {
+  local file="$1"
+  stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null || return "$FAIL"
+}
+
+topology_cache_value() {
+  local file="$1" label="$2"
+  awk -F: -v label="$label" '
+    index($1, label) {
+      value=$0
+      sub(/^[^:]*:[[:space:]]*/, "", value)
+      print value
+      exit
+    }
+  ' "$file"
+}
+
+load_topology_cache() {
+  local cache_file="${LOG_DIR}/crashsim_topology_latest.txt"
+  local now mtime age row name con_id open_mode
+
+  [[ "$TOPOLOGY_CACHE_DISABLED" -eq 0 ]] || return "$FAIL"
+  [[ "$TOPOLOGY_CACHE_REFRESH" -eq 0 ]] || return "$FAIL"
+  [[ "$TOPOLOGY_CACHE_TTL_SECONDS" -gt 0 ]] || return "$FAIL"
+  [[ -f "$cache_file" ]] || return "$FAIL"
+
+  now="$(date +%s)"
+  mtime="$(file_mtime_epoch "$cache_file")" || return "$FAIL"
+  age=$((now - mtime))
+  [[ "$age" -le "$TOPOLOGY_CACHE_TTL_SECONDS" ]] || return "$FAIL"
+
+  HOST_NAME="$(topology_cache_value "$cache_file" "Host")"
+  DB_NAME="$(topology_cache_value "$cache_file" "Database name")"
+  DB_UNIQUE_NAME="$(topology_cache_value "$cache_file" "DB unique name")"
+  DB_CDB="$(topology_cache_value "$cache_file" "CDB")"
+  DB_OPEN_MODE="$(topology_cache_value "$cache_file" "Open mode")"
+  DB_ROLE="$(topology_cache_value "$cache_file" "Database role")"
+  DB_PROTECTION_MODE="$(topology_cache_value "$cache_file" "Protection mode")"
+  DB_SWITCHOVER_STATUS="$(topology_cache_value "$cache_file" "Switchover status")"
+  INSTANCE_NAME="$(topology_cache_value "$cache_file" "Instance")"
+  INSTANCE_THREAD="$(topology_cache_value "$cache_file" "Thread")"
+  INSTANCE_PARALLEL="$(topology_cache_value "$cache_file" "RAC parallel")"
+  CLUSTER_TYPE="$(topology_cache_value "$cache_file" "Cluster type")"
+  GI_MANAGED="$(topology_cache_value "$cache_file" "GI managed")"
+  STORAGE_TYPE="$(topology_cache_value "$cache_file" "Storage type")"
+  SPFILE_PATH="$(topology_cache_value "$cache_file" "SPFILE")"
+  PASSWORD_FILE_PATH="$(topology_cache_value "$cache_file" "Password file")"
+  FRA_PATH="$(topology_cache_value "$cache_file" "FRA")"
+
+  PDB_ROWS=()
+  while IFS= read -r row; do
+    if [[ "$row" =~ ^[[:space:]]+([^[:space:]]+)[[:space:]]+\(CON_ID=([^,]+),[[:space:]]*OPEN_MODE=(.*)\)$ ]]; then
+      name="${BASH_REMATCH[1]}"
+      con_id="${BASH_REMATCH[2]}"
+      open_mode="${BASH_REMATCH[3]}"
+      PDB_ROWS+=("${name}|${con_id}|${open_mode}")
+    fi
+  done <"$cache_file"
+
+  echo "Using cached topology snapshot (${age}s old): ${cache_file}"
+  return "$SUCCESS"
+}
+
+doctor_tool_path() {
+  local tool="$1"
+  if [[ -n "${ORACLE_HOME:-}" && -x "${ORACLE_HOME}/bin/${tool}" ]]; then
+    printf "%s" "${ORACLE_HOME}/bin/${tool}"
+    return "$SUCCESS"
+  fi
+  if [[ -n "${CRASHSIM_GRID_HOME:-}" && -x "${CRASHSIM_GRID_HOME}/bin/${tool}" ]]; then
+    printf "%s" "${CRASHSIM_GRID_HOME}/bin/${tool}"
+    return "$SUCCESS"
+  fi
+  command -v "$tool" 2>/dev/null || true
+}
+
+DOCTOR_REPORT_FILE=""
+DOCTOR_ERRORS=0
+DOCTOR_WARNINGS=0
+
+doctor_add_check() {
+  local status="$1" area="$2" check="$3" evidence="$4" action="$5"
+  case "$status" in
+    GAP|ERROR) DOCTOR_ERRORS=$((DOCTOR_ERRORS + 1)) ;;
+    WARN) DOCTOR_WARNINGS=$((DOCTOR_WARNINGS + 1)) ;;
+  esac
+  printf '| `%s` | %s | %s | %s | %s |\n' \
+    "$status" \
+    "$(md_escape "$area")" \
+    "$(md_escape "$check")" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$action")" >>"$DOCTOR_REPORT_FILE"
+}
+
+doctor_check_command() {
+  local tool="$1" area="$2" required="$3" reason="$4"
+  local path
+  path="$(doctor_tool_path "$tool")"
+  if [[ -n "$path" ]]; then
+    doctor_add_check "OK" "$area" "${tool} available" "$path" "No action needed."
+  elif [[ "$required" == "required" ]]; then
+    doctor_add_check "GAP" "$area" "${tool} available" "not found" "$reason"
+  else
+    doctor_add_check "WARN" "$area" "${tool} available" "not found" "$reason"
+  fi
+}
+
+run_doctor() {
+  local report_file latest_file bash_major bash_status log_probe node_path script_root
+  local config_status destructive_status cache_status
+
+  report_file="${LOG_DIR}/crashsim_doctor_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_doctor_latest.md"
+  DOCTOR_REPORT_FILE="$report_file"
+  DOCTOR_ERRORS=0
+  DOCTOR_WARNINGS=0
+  script_root="$(script_dir)"
+
+  {
+    printf "# CrashSimulator Doctor / Public Readiness Preflight\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un)"
+    printf -- '- Log directory: `%s`\n' "$LOG_DIR"
+    printf '%s\n\n' 'This preflight is read-only. It checks local tooling, configuration hygiene, public-release safety posture, and optional HA/DR helpers. Use `--health-check`, `--scenario-readiness-report`, and `--prepare-environment --dry-run` for database-specific evidence.'
+    printf "## Evidence Policy\n\n"
+    printf "| Evidence state | Meaning |\n"
+    printf "| --- | --- |\n"
+    printf "| Confirmed | Direct dated evidence from this environment exists. |\n"
+    printf "| Observed | Tool output or configuration was observed, but not tested end to end. |\n"
+    printf "| Candidate | Component appears installed/configured; service-level claims still need drills. |\n"
+    printf "| Inferred | Conclusion follows from topology pattern; verify before relying on it. |\n"
+    printf "| Gap | Evidence is absent, stale, or contradictory. |\n"
+    printf "\n## Checks\n\n"
+    printf "| Status | Area | Check | Evidence | Recommended action |\n"
+    printf "| --- | --- | --- | --- | --- |\n"
+  } >"$report_file" || die "Unable to write doctor report: $report_file"
+
+  bash_major="${BASH_VERSINFO[0]:-0}"
+  if [[ "$bash_major" -ge 4 ]]; then
+    doctor_add_check "OK" "Runtime" "Bash version" "${BASH_VERSION}" "No action needed."
+  else
+    doctor_add_check "GAP" "Runtime" "Bash version" "${BASH_VERSION:-unknown}" "Run with Bash 4 or later."
+  fi
+
+  if [[ -w "$LOG_DIR" ]]; then
+    log_probe="${LOG_DIR}/.crashsim_doctor_write_test_${RUN_ID}"
+    if : >"$log_probe" 2>/dev/null; then
+      rm -f "$log_probe" 2>/dev/null || true
+      doctor_add_check "OK" "Logging" "Log directory writable" "$LOG_DIR" "No action needed."
+    else
+      doctor_add_check "GAP" "Logging" "Log directory writable" "$LOG_DIR" "Fix permissions or choose --log-dir."
+    fi
+  else
+    doctor_add_check "GAP" "Logging" "Log directory writable" "$LOG_DIR" "Fix permissions or choose --log-dir."
+  fi
+
+  if [[ -n "$CONFIG_SOURCE" ]]; then
+    config_status="loaded: ${CONFIG_SOURCE}"
+  else
+    config_status="not loaded"
+  fi
+  doctor_add_check "INFO" "Configuration" "Startup config" "$config_status" "Run --write-config-template to create a reusable non-secret config."
+
+  if [[ "${DESTRUCTIVE_LAB_ACK^^}" == "YES" ]]; then
+    destructive_status="set for this run"
+    doctor_add_check "WARN" "Safety" "Destructive lab acknowledgement" "$destructive_status" "Keep this enabled only in approved non-production labs."
+  else
+    destructive_status="not set"
+    doctor_add_check "OK" "Safety" "Destructive lab acknowledgement" "$destructive_status" "Destructive --execute --yes actions remain blocked until explicitly acknowledged."
+  fi
+
+  if [[ "$TOPOLOGY_CACHE_DISABLED" -eq 1 ]]; then
+    cache_status="disabled"
+  else
+    cache_status="ttl=${TOPOLOGY_CACHE_TTL_SECONDS}s"
+  fi
+  doctor_add_check "INFO" "Efficiency" "Topology cache" "$cache_status" "Use --refresh-topology when you need live topology discovery."
+
+  [[ -n "${ORACLE_HOME:-}" && -d "${ORACLE_HOME:-}" ]] &&
+    doctor_add_check "OK" "Oracle environment" "ORACLE_HOME" "$ORACLE_HOME" "No action needed." ||
+    doctor_add_check "WARN" "Oracle environment" "ORACLE_HOME" "${ORACLE_HOME:-not set}" "Set ORACLE_HOME or use SQLPLUS/RMAN overrides before database-host scenarios."
+  [[ -n "${ORACLE_SID:-}" ]] &&
+    doctor_add_check "OK" "Oracle environment" "ORACLE_SID" "$ORACLE_SID" "No action needed." ||
+    doctor_add_check "WARN" "Oracle environment" "ORACLE_SID" "not set" "Set ORACLE_SID for bequeath SYSDBA workflows."
+
+  doctor_check_command "sqlplus" "Oracle client" "required" "Install Oracle client/database software or set SQLPLUS."
+  doctor_check_command "rman" "Oracle client" "required" "Install Oracle client/database software or set RMAN."
+  doctor_check_command "lsnrctl" "Oracle network" "optional" "Install Oracle networking tools for listener checks."
+  doctor_check_command "srvctl" "RAC/GI" "optional" "Required only for RAC/GI service and instance drills."
+  doctor_check_command "crsctl" "RAC/GI" "optional" "Required only for Grid Infrastructure readiness checks."
+  doctor_check_command "asmcmd" "ASM/GI" "optional" "Required only for ASM/FEX/ACFS storage evidence."
+  doctor_check_command "dgmgrl" "Data Guard" "optional" "Required only for Broker/FSFO checks."
+  doctor_check_command "ords" "APEX/ORDS" "optional" "Required only for ORDS/APEX service-path scenarios."
+  doctor_check_command "oci" "OCI/ADB" "optional" "Required only for OCI control-plane and ADB readiness checks."
+  doctor_check_command "java" "APEX/ORDS" "optional" "Required for ORDS installation/runtime validation."
+  doctor_check_command "curl" "HTTP smoke" "optional" "Useful for ORDS/APEX/ADB smoke URLs."
+  doctor_check_command "node" "APEX session driver" "optional" "Required only for the optional Playwright APEX session driver."
+  doctor_check_command "git" "Release" "optional" "Useful for release checks and source synchronization."
+  doctor_check_command "zip" "Release" "optional" "Useful for runtime package creation."
+  doctor_check_command "unzip" "Release" "optional" "Useful for runtime package validation."
+
+  node_path="$(doctor_tool_path node)"
+  if [[ -n "$node_path" && -f "${script_root}/tools/crashsim_apex_session_driver.cjs" ]]; then
+    if "$node_path" -e "require('playwright')" >/dev/null 2>&1; then
+      doctor_add_check "OK" "APEX session driver" "Playwright Node module" "available" "No action needed."
+    else
+      doctor_add_check "WARN" "APEX session driver" "Playwright Node module" "not found in current Node path" "Install Playwright only if scenario 80 browser-session evidence is required."
+    fi
+  fi
+
+  if [[ -n "${CRASHSIM_REMOTE_NODES:-}" ]]; then
+    doctor_add_check "INFO" "Multi-node" "Remote node sync list" "${CRASHSIM_REMOTE_NODES}" "Run tools/crashsim_node_sync_check.sh before RAC/ORDS multi-node drills."
+  else
+    doctor_add_check "INFO" "Multi-node" "Remote node sync list" "not set" "Set CRASHSIM_REMOTE_NODES for RAC/ORDS multi-node version/config sync checks."
+  fi
+
+  {
+    printf "\n## Summary\n\n"
+    printf -- '- Errors/Gaps: `%s`\n' "$DOCTOR_ERRORS"
+    printf -- '- Warnings: `%s`\n' "$DOCTOR_WARNINGS"
+    printf -- '- Latest report: `%s`\n' "$latest_file"
+    printf "\n## Suggested First Public-Readiness Sequence\n\n"
+    printf '```bash\n'
+    printf "./%s --doctor --html\n" "$PROGRAM"
+    printf "./%s --secret-scan --scan-path .\n" "$PROGRAM"
+    printf "./%s --scenario-lifecycle-check --html\n" "$PROGRAM"
+    printf "./%s --prepare-environment --dry-run --html\n" "$PROGRAM"
+    printf "./%s --scenario-readiness-report --html\n" "$PROGRAM"
+    printf "./%s --release-check\n" "$PROGRAM"
+    printf '```\n'
+  } >>"$report_file"
+
+  cp "$report_file" "$latest_file" 2>/dev/null || true
+  echo "Doctor report generated: ${report_file}"
+  echo "Latest doctor report: ${latest_file}"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+  [[ "$DOCTOR_ERRORS" -eq 0 ]]
+}
+
+run_first_run_guide() {
+  local report_file latest_file
+  report_file="${LOG_DIR}/crashsim_first_run_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_first_run_latest.md"
+  {
+    printf "# CrashSimulator First-Run Guide\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf "\nThis guide is intentionally read-only. It gives new users a safe order of operations before they try destructive drills.\n\n"
+    printf "## Recommended Flow\n\n"
+    printf '1. Configure the Oracle environment or create `crashsimulator.conf`, then run `./%s --show-config` and `./%s --validate-config`.\n' "$PROGRAM" "$PROGRAM"
+    printf '2. Run `./%s --public-limitations --html` so the team understands plan-only, provider-specific, ADB, licensing-sensitive, and destructive-drill expectations.\n' "$PROGRAM"
+    printf '3. Run `./%s --doctor --html` to check local tooling, config, and public-safety posture.\n' "$PROGRAM"
+    printf '4. Run `./%s --discover` or open the Guided Workflow menu to collect topology evidence.\n' "$PROGRAM"
+    printf '5. Run `./%s --prepare-environment --dry-run --html` to detect missing lab seeds for this topology without changing the database.\n' "$PROGRAM"
+    printf '6. Run `./%s --scenario-readiness-report --html` to see which scenarios are runnable, plan-only, or blocked.\n' "$PROGRAM"
+    printf '7. Run `./%s --scenario-lifecycle-report --html` to review validation/protection/execution/recovery/runbook/evidence coverage.\n' "$PROGRAM"
+    printf "8. Start with read-only reports, then low-risk logical/tempfile drills, then destructive drills only after backup, runbook, and recovery validation review.\n"
+    printf '%s\n' '9. Before any non-interactive destructive execution, set `CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` only in an approved non-production lab.'
+    printf "\n## Safe Starter Commands\n\n"
+    printf '```bash\n'
+    printf "./%s --show-config\n" "$PROGRAM"
+    printf "./%s --validate-config\n" "$PROGRAM"
+    printf "./%s --public-limitations --html\n" "$PROGRAM"
+    printf "./%s --doctor --html\n" "$PROGRAM"
+    printf "./%s --discover\n" "$PROGRAM"
+    printf "./%s --prepare-environment --dry-run --html\n" "$PROGRAM"
+    printf "./%s --scenario-lifecycle-check --html\n" "$PROGRAM"
+    printf "./%s --scenario-readiness-report --html\n" "$PROGRAM"
+    printf "./%s --backup-report\n" "$PROGRAM"
+    printf "./%s --maa-report --html\n" "$PROGRAM"
+    printf "./%s --resilience-scorecard --html\n" "$PROGRAM"
+    printf '```\n'
+    printf "\n## Evidence Interpretation\n\n"
+    printf "Treat installed or configured components as candidates until a drill has measured them. Do not claim near-zero downtime without client/service/FAN/AC/TAC evidence, and do not claim zero data loss without synchronous protection and tested transition evidence.\n"
+    printf "\n## Safe Starter Scenario Ideas\n\n"
+    printf -- '- Read-only first: health check, configuration report, backup/recoverability report, MAA report, service review, resilience scorecard, APEX/ORDS readiness, and ADB readiness where applicable.\n'
+    printf -- '- Low-risk drills after readiness passes: scenarios `6` and `31` for tempfile loss, `11` and `36` for disposable index rebuild practice, `43` for disposable table loss, and `63` for controlled TEMP pressure.\n'
+    printf -- '- Defer plan-only/provider-specific drills such as ASM/GI/OCR/voting, OCI control-plane, Exadata, GoldenGate, switchover/failback, PDB PITR, GRP rollback, and AC/TAC replay until the external runbook and approvals are complete.\n'
+  } >"$report_file" || die "Unable to write first-run guide: $report_file"
+  cp "$report_file" "$latest_file" 2>/dev/null || true
+  echo "First-run guide generated: ${report_file}"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+run_public_limitations_page() {
+  local report_file latest_file docs_file
+  report_file="${LOG_DIR}/crashsim_public_limitations_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_public_limitations_latest.md"
+  docs_file="$(script_dir)/docs/CRASHSIMULATOR_PUBLIC_LIMITATIONS.md"
+
+  {
+    printf "# CrashSimulator Public Beta Limitations And Expectations\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf "\nCrashSimulator is an open-source resilience validation platform for Oracle Database labs. It helps teams practice, validate, and document recoverability, but it is not a production chaos tool, an Oracle certification program, a licensing verifier, or a substitute for tested backups and change control.\n"
+
+    printf "\n## Safety Expectations\n\n"
+    printf -- '- Dry-run is the default. Destructive activity requires `--execute`, typed confirmation, and for non-interactive runs `CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or `--accept-destructive-lab`.\n'
+    printf -- '- Use destructive scenarios only in approved non-production or dedicated resilience-test environments.\n'
+    printf -- '- Run `--doctor`, `--discover`, `--prepare-environment --dry-run`, `--scenario-readiness-report`, `--runbook <id>`, and a backup/recoverability review before destructive drills.\n'
+    printf -- '- Keep manifests, runbooks, health checks, RMAN/SQL evidence, audit logs, and HTML reports until recovery validation is complete.\n'
+
+    printf "\n## Plan-Only And Provider-Specific Scenarios\n\n"
+    printf "Some scenarios intentionally produce runbook/evidence instead of directly changing infrastructure. This is by design when the safe action depends on storage provider, Grid/root privileges, OCI control-plane boundaries, load balancers, GoldenGate deployment names, application client behavior, or a formal change window.\n\n"
+    printf "| Scenario family | Examples | Public expectation |\n"
+    printf "| --- | --- | --- |\n"
+    printf '%s\n' '| ASM/GI/FEX/ACFS storage | `46`, `47`, `48`, `49`, `72` | Plan-only or provider-aware until redundant lab disks, failgroups, OCR/voting recovery, and rollback are explicitly approved. |'
+    printf '%s\n' '| Data Guard role transition | `52`, `54`, `66`, `85`, `86` | Broker/FSFO/switchover/failback evidence and runbooks first; role transitions remain operator-approved. |'
+    printf '%s\n' '| RAC network/service infrastructure | `70`, selected `83`, `84`, `87` | Validate services/FAN/AC/TAC metadata; client replay and VIP/notification disruption need application evidence and approval. |'
+    printf '%s\n' '| PDB PITR and lifecycle rollback | `88`, `89`, `90` | Generate evidence and templates; actual PDB PITR, GRP flashback, patch rollback, and resetlogs remain change-window actions. |'
+    printf '%s\n' '| Exadata | `EXA01`-`EXA04` | Requires Exadata tooling, cell/storage evidence, and supportable lab procedures; generic hosts remain readiness-only. |'
+    printf '%s\n' '| OCI Base Database | `OCI01`-`OCI05` | Requires OCI CLI/profile/OCIDs and approved cloud-control-plane scope; network/security-list changes are not guessed. |'
+    printf '%s\n' '| GoldenGate | `GG01`-`GG04` | Requires deployment-specific Extract/Replicat/trail targets, lag thresholds, and resync runbooks. |'
+
+    printf "\n## Autonomous Database Differences\n\n"
+    printf "Autonomous Database does not expose host-level files, ASM disks, control files, redo members, password files, SPFILEs, or ORACLE_HOME for destructive manipulation. ADB scenarios use a separate coverage model focused on logical/user-error recovery, PITR/clone readiness, wallet/connectivity, private endpoints, IAM, Object Storage, Autonomous Data Guard, resource pressure, Database Actions, APEX, and application access-path checks. OCI metadata checks require a configured OCI CLI/profile and the relevant OCIDs.\n"
+
+    printf "\n## Licensing And Support Sensitivity\n\n"
+    printf "CrashSimulator can detect and report signals for features such as RAC, Active Data Guard, Application Continuity/TAC, Diagnostics/Tuning-related evidence, TDE, Exadata, GoldenGate, and OCI services, but it does not validate license entitlement or support contracts. Confirm licensing and supportability with Oracle documentation, contracts, and authorized advisors before relying on a feature in production.\n"
+
+    printf "\n## Evidence And MAA Claims\n\n"
+    printf -- '- Treat installed/configured components as candidate capabilities until measured drills prove the service level.\n'
+    printf -- '- Do not claim zero data loss without protection mode, synchronous transport/commit behavior, standby receive/apply state, and tested transition evidence.\n'
+    printf -- '- Do not claim near-zero downtime without service placement, FAN/ONS, AC/TAC or client retry evidence, draining/replay behavior, and measured outage timing.\n'
+    printf -- '- Use `--resilience-scorecard`, MAA reports, and scenario lifecycle/readiness reports as evidence summaries, not as formal certification.\n'
+
+    printf "\n## Recommended New-User Order\n\n"
+    printf '```bash\n'
+    printf "./%s --show-config\n" "$PROGRAM"
+    printf "./%s --validate-config\n" "$PROGRAM"
+    printf "./%s --doctor --html\n" "$PROGRAM"
+    printf "./%s --discover\n" "$PROGRAM"
+    printf "./%s --prepare-environment --dry-run --html\n" "$PROGRAM"
+    printf "./%s --scenario-readiness-report --html\n" "$PROGRAM"
+    printf "./%s --scenario-lifecycle-report --html\n" "$PROGRAM"
+    printf "./%s --backup-report --html\n" "$PROGRAM"
+    printf "./%s --runbook 6 --html\n" "$PROGRAM"
+    printf "./%s --scenario 6 --dry-run\n" "$PROGRAM"
+    printf '```\n'
+
+    printf "\n## Safe Starter Scenario Ideas\n\n"
+    printf -- '- Read-only/reporting: `--health-check`, `--config-report`, `--backup-report`, `--service-review`, `--maa-report`, `--resilience-scorecard`, `--apex-ords-report`, `--adb-readiness-report`.\n'
+    printf -- '- Low-risk database drills after readiness passes: `6`/`31` tempfile loss, `11`/`36` disposable index rebuild, `43` disposable table loss, `63` controlled TEMP pressure.\n'
+    printf -- '- RAC/Data Guard/application drills should start with readiness/reporting scenarios before service relocation, apply/transport lag, switchover/failback, or client replay tests.\n'
+  } >"$report_file" || die "Unable to write public limitations page: $report_file"
+
+  cp "$report_file" "$latest_file" 2>/dev/null || true
+  if [[ -d "$(dirname "$docs_file")" ]]; then
+    cp "$report_file" "$docs_file" 2>/dev/null || true
+  fi
+  echo "Public limitations page generated: ${report_file}"
+  echo "Latest public limitations page: ${latest_file}"
+  [[ -f "$docs_file" ]] && echo "Documentation copy: ${docs_file}"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
 register_scenario() {
   local id="$1"
   local title="$2"
@@ -3023,6 +3642,27 @@ register_scenarios() {
   register_scenario "80" "APEX session continuity test"                      "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_session_continuity" "Read-only APEX/ORDS continuity evidence, with optional seeded browser-session driver for full validation."
   register_scenario "81" "APEX mail queue and configuration validation"       "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_mail_config_validation" "Read-only SMTP/wallet/ACL evidence for notification recovery readiness."
   register_scenario "82" "APEX upgrade or patch rollback readiness"           "APEX/ORDS"  "Application" "logical"     "any"               "scenario_apex_patch_rollback_readiness" "Read-only pre/post APEX version, object, and runtime-account evidence."
+  register_scenario "83" "Application Continuity replay validation"           "Services"   "Application" "logical"     "any"               "scenario_ac_tac_replay_validation" "Validates AC/TAC service metadata and plans replay-safe client drill evidence."
+  register_scenario "84" "FAN notification unavailable"                       "Services"   "RAC/GI"      "logical"     "rac,gi"            "scenario_fan_ons_unavailable" "Captures FAN/ONS/service evidence and plans notification outage validation."
+  register_scenario "85" "Planned Data Guard switchover"                      "DataGuard"  "DG"          "logical"     "dg"                "scenario_dg_switchover_drill" "Plan-only DGMGRL/SQL readiness drill for planned switchover."
+  register_scenario "86" "Data Guard failback rehearsal"                      "DataGuard"  "DG"          "logical"     "dg"                "scenario_dg_failback_rehearsal" "Plan-only failback/reinstate readiness drill after failover or switchover."
+  register_scenario "87" "Role-based service validation"                      "Services"   "RAC/DG"      "logical"     "rac"               "scenario_role_based_service_validation" "Read-only srvctl/SQL evidence for PRIMARY and STANDBY role-scoped services."
+  register_scenario "88" "PDB point-in-time recovery drill"                   "PDB"        "PDB"        "logical"     "cdb,pdb,primary"   "scenario_pdb_pitr_drill" "Generates RMAN PDB PITR validation/runbook evidence; execution remains operator-approved."
+  register_scenario "89" "Guaranteed restore point rollback"                  "Recovery"   "CDB/non-CDB" "logical"     "primary"           "scenario_guaranteed_restore_point_drill" "Validates Flashback/GRP posture and generates rollback runbook evidence."
+  register_scenario "90" "Database patch rollback readiness"                  "Lifecycle"  "CDB/non-CDB" "logical"     "primary"           "scenario_database_patch_rollback_readiness" "Read-only patch fallback readiness review for backups, GRP, Data Guard, and services."
+  register_scenario "EXA01" "Exadata cell failure review"                     "Exadata"    "Platform"   "logical"     "any"               "scenario_exadata_cell_failure_review" "Read-only Exadata cell/storage evidence when Exadata tooling is present; otherwise plan-only."
+  register_scenario "EXA02" "Exadata storage server outage"                   "Exadata"    "Platform"   "logical"     "any"               "scenario_exadata_storage_server_outage" "Plan-only storage-server outage runbook with cellcli/exachk evidence hooks."
+  register_scenario "EXA03" "Exadata Smart Scan validation"                   "Exadata"    "Platform"   "logical"     "any"               "scenario_exadata_smart_scan_validation" "Read-only Smart Scan readiness and validation planning."
+  register_scenario "EXA04" "Exadata Flash Cache failure"                     "Exadata"    "Platform"   "logical"     "any"               "scenario_exadata_flash_cache_failure" "Plan-only Flash Cache failure/recovery evidence and runbook."
+  register_scenario "OCI01" "OCI Base DB backup policy validation"            "OCI DB"     "Cloud"      "logical"     "any"               "scenario_oci_db_backup_policy_validation" "Read-only OCI/DB backup-policy posture and DBaaS backup evidence."
+  register_scenario "OCI02" "OCI cross-region backup recovery"                "OCI DB"     "Cloud"      "logical"     "any"               "scenario_oci_cross_region_backup_recovery" "Plan-only cross-region backup restore validation drill."
+  register_scenario "OCI03" "OCI database system failover"                    "OCI DB"     "Cloud"      "logical"     "any"               "scenario_oci_db_system_failover" "Plan-only DB system failure/recovery evidence for OCI Base DB."
+  register_scenario "OCI04" "OCI VCN connectivity loss"                       "OCI DB"     "Cloud"      "logical"     "any"               "scenario_oci_vcn_connectivity_loss" "Read-only network-context evidence and plan-only VCN connectivity drill."
+  register_scenario "OCI05" "OCI NSG misconfiguration"                        "OCI DB"     "Cloud"      "logical"     "any"               "scenario_oci_nsg_misconfiguration" "Plan-only NSG/security-list misconfiguration validation with OCI evidence hooks."
+  register_scenario "GG01" "GoldenGate Extract stopped"                       "GoldenGate" "Replication" "logical"    "any"               "scenario_goldengate_extract_stopped" "Read-only GoldenGate deployment/process evidence and plan-only Extract stop drill."
+  register_scenario "GG02" "GoldenGate Replicat stopped"                      "GoldenGate" "Replication" "logical"    "any"               "scenario_goldengate_replicat_stopped" "Read-only GoldenGate deployment/process evidence and plan-only Replicat stop drill."
+  register_scenario "GG03" "GoldenGate lag exceeds SLA"                       "GoldenGate" "Replication" "logical"    "any"               "scenario_goldengate_lag_sla" "Read-only lag evidence hooks and SLA runbook for GoldenGate."
+  register_scenario "GG04" "GoldenGate trail corruption"                      "GoldenGate" "Replication" "destructive" "any"              "scenario_goldengate_trail_corruption" "Plan-only trail corruption/loss recovery runbook; no file changes are automated."
 }
 
 register_adb_scenario() {
@@ -3059,6 +3699,11 @@ register_adb_scenarios() {
   register_adb_scenario "ADB13" "Autonomous Data Guard role transition" "Autonomous Data Guard" "OCI ADG role, region, lag, switchover/failover eligibility, URL/service validation." "Switchover/failover and fallback runbook." "OCI/ADG helper pending."
   register_adb_scenario "ADB14" "IAM administrator access misconfiguration" "OCI/IAM" "Read-only IAM policy/group/compartment evidence, break-glass account, and approved test boundary." "Restore IAM access and validate admin and automation access." "Plan/runbook; IAM helper pending."
   register_adb_scenario "ADB15" "Object Storage export dependency unavailable" "Object Storage" "Bucket, credential, DBMS_CLOUD object, network path, IAM policy, and export/import procedure evidence." "Restore bucket/policy/credential/network access; validate export/import." "Plan/runbook; object-storage helper pending."
+  register_adb_scenario "ADB16" "Database Actions unavailable" "Application access" "Database Actions URL, SQL probe, OCI service state, wallet/connectivity, and administrator access evidence." "Restore Database Actions/ORDS access path, validate SQL/API access, and capture application smoke evidence." "Plan/runbook; URL smoke helper pending."
+  register_adb_scenario "ADB17" "APEX workspace unavailable" "APEX" "APEX URL, workspace/application inventory, SQL probe, runtime users, and browser/login smoke-test path." "Restore workspace/application access, validate runtime users and application login." "Plan/runbook; browser helper pending."
+  register_adb_scenario "ADB18" "Cross-region clone validation" "Clone/PITR" "OCI metadata for supported clone regions, backup retention, target compartment/region, and validation timestamp." "Create cross-region clone, validate data/application access, measure elapsed time, and clean up clone." "OCI control-plane helper pending."
+  register_adb_scenario "ADB19" "Wallet distribution drift" "Connectivity" "Wallet age, local bundle path, tnsnames aliases, application distribution inventory, and reconnect smoke path." "Refresh wallet distribution, rotate credentials where required, and validate all client pools." "Plan/runbook; wallet inventory helper pending."
+  register_adb_scenario "ADB20" "OCI IAM token expiration" "OCI/IAM" "OCI CLI auth mode/profile, token/session freshness, break-glass path, and automation credential ownership." "Refresh/rotate OCI auth, validate control-plane access, and update automation secrets." "Plan/runbook; OCI auth helper pending."
 }
 
 adb_scenario_exists() {
@@ -3148,7 +3793,10 @@ adb_scenario_readiness() {
       fi
       ;;
     ADB05|ADB06|ADB07)
-      if adb_control_plane_ready; then
+      if [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+        readiness_status="OCI VALIDATION READY"
+        readiness_reason="Latest ADB readiness evidence includes OCI metadata; clone, PITR, and backup posture can be validated from control-plane data."
+      elif adb_control_plane_ready; then
         readiness_status="OCI VALIDATION READY"
         readiness_reason="ADB OCID and OCI CLI are configured; collect clone/PITR/backup metadata before execution."
       else
@@ -3184,16 +3832,25 @@ adb_scenario_readiness() {
       fi
       ;;
     ADB12|ADB13)
-      if adb_control_plane_ready; then
+      if adb_truthy_value oci_is_data_guard_enabled; then
+        readiness_status="OCI VALIDATION READY"
+        readiness_reason="OCI metadata reports Autonomous Data Guard enabled; verify role, lag, transition eligibility, and application reconnect path."
+      elif [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+        readiness_status="ADG DISABLED"
+        readiness_reason="OCI metadata reports Autonomous Data Guard is not enabled for this ADB; enable ADG or document that DR is out of scope before ADB12/ADB13."
+      elif adb_control_plane_ready; then
         readiness_status="OCI VALIDATION READY IF ADG ENABLED"
-        readiness_reason="ADB OCID and OCI CLI are configured; verify Autonomous Data Guard metadata, role, lag, and transition eligibility."
+        readiness_reason="ADB OCID and OCI CLI are configured; run the readiness report to inspect Autonomous Data Guard metadata."
       else
         readiness_status="OCI CONFIG NEEDED"
         readiness_reason="Configure OCI CLI/profile and ADB OCID to inspect Autonomous Data Guard metadata."
       fi
       ;;
     ADB14)
-      if adb_control_plane_ready; then
+      if [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Latest ADB readiness evidence includes OCI metadata; keep IAM checks read-only unless an approved IAM test boundary exists."
+      elif adb_control_plane_ready; then
         readiness_status="PLAN/RUNBOOK"
         readiness_reason="OCI metadata access is configured; keep IAM checks read-only unless an approved IAM test boundary exists."
       else
@@ -3202,12 +3859,69 @@ adb_scenario_readiness() {
       fi
       ;;
     ADB15)
-      if adb_control_plane_ready; then
+      if [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Latest ADB readiness evidence includes OCI metadata; add bucket, credential, DBMS_CLOUD, and network evidence before execution."
+      elif adb_control_plane_ready; then
         readiness_status="PLAN/RUNBOOK"
         readiness_reason="OCI metadata access is configured; add bucket, credential, DBMS_CLOUD, and network evidence before execution."
       else
         readiness_status="OCI CONFIG NEEDED"
         readiness_reason="Configure OCI CLI/profile and ADB/compartment context to validate Object Storage dependencies."
+      fi
+      ;;
+    ADB16)
+      if [[ -n "$ADB_DATABASE_ACTIONS_URL" && ( "$(adb_value oci_metadata_status UNKNOWN)" == "OK" || "$(adb_value connect_status UNKNOWN)" == "OK" ) ]]; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Database Actions URL and database/OCI evidence are available; add URL smoke checks before outage execution."
+      elif [[ -n "$ADB_DATABASE_ACTIONS_URL" ]]; then
+        readiness_status="CONFIG PARTIAL"
+        readiness_reason="Database Actions URL is configured, but SQL/OCI readiness evidence is not fresh."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="Set CRASHSIM_ADB_DATABASE_ACTIONS_URL and refresh the ADB readiness report."
+      fi
+      ;;
+    ADB17)
+      if [[ -n "$ADB_APEX_URL" && adb_sql_probe_ok ]]; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="APEX URL and live SQL probe are available; add workspace/application browser-smoke evidence before execution."
+      elif [[ -n "$ADB_APEX_URL" ]]; then
+        readiness_status="CONFIG PARTIAL"
+        readiness_reason="APEX URL is configured, but live SQL probe evidence is not healthy or fresh."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="Set CRASHSIM_ADB_APEX_URL and refresh SQL readiness evidence."
+      fi
+      ;;
+    ADB18)
+      if [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+        readiness_status="OCI VALIDATION READY"
+        readiness_reason="OCI metadata is available; verify supported clone regions, target compartment, timestamp, cost limits, and cleanup before creating a cross-region clone."
+      elif adb_control_plane_ready; then
+        readiness_status="OCI VALIDATION READY"
+        readiness_reason="ADB OCID and OCI CLI are configured; run readiness to inspect clone region and backup retention evidence."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure CRASHSIM_ADB_OCID plus OCI CLI/profile before validating cross-region clone readiness."
+      fi
+      ;;
+    ADB19)
+      if adb_wallet_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="Wallet or working connect descriptor evidence exists; inventory application wallet distribution points before drift testing."
+      else
+        readiness_status="CONFIG NEEDED"
+        readiness_reason="Configure ADB wallet directory or working descriptor before wallet drift validation."
+      fi
+      ;;
+    ADB20)
+      if adb_control_plane_ready; then
+        readiness_status="PLAN/RUNBOOK"
+        readiness_reason="OCI CLI/profile and ADB OCID are configured; validate auth mode, token freshness, and automation credential ownership."
+      else
+        readiness_status="OCI CONFIG NEEDED"
+        readiness_reason="Configure OCI CLI/profile/auth mode and CRASHSIM_ADB_OCID before IAM token-expiration readiness."
       fi
       ;;
     *)
@@ -3264,11 +3978,11 @@ print_adb_scenario_detail() {
 }
 
 list_scenarios() {
-  printf "%-4s %-12s %-13s %-12s %s\n" "ID" "Group" "Scope" "Impact" "Scenario"
-  printf "%-4s %-12s %-13s %-12s %s\n" "--" "-----" "-----" "------" "--------"
+  printf "%-6s %-12s %-13s %-12s %s\n" "ID" "Group" "Scope" "Impact" "Scenario"
+  printf "%-6s %-12s %-13s %-12s %s\n" "------" "-----" "-----" "------" "--------"
   local id
   for id in "${SCENARIO_IDS[@]}"; do
-    printf "%-4s %-12s %-13s %-12s %s\n" \
+    printf "%-6s %-12s %-13s %-12s %s\n" \
       "$id" \
       "${SCENARIO_GROUP[$id]}" \
       "${SCENARIO_SCOPE[$id]}" \
@@ -3322,7 +4036,15 @@ select_pdb_if_needed() {
 check_requirements() {
   local id="$1"
   local requires="${SCENARIO_REQUIRES[$id]}"
-  discover_environment
+
+  if scenario_requires_sqlplus_context "$id"; then
+    if ! find_sqlplus_if_available; then
+      die "Scenario $id requires database SQL*Plus context, but sqlplus was not found. Set ORACLE_HOME or SQLPLUS after the database is created or installed."
+    fi
+    discover_environment
+  elif find_sqlplus_if_available; then
+    discover_environment
+  fi
 
   IFS=',' read -ra reqs <<<"$requires"
   local req
@@ -3357,13 +4079,26 @@ check_requirements() {
           die "Scenario $id requires ASM or GI-managed FEX/ACFS-style storage. Current storage: $STORAGE_TYPE"
         ;;
       gi)
-        command -v crsctl >/dev/null 2>&1 || die "Scenario $id requires Grid Infrastructure commands."
+        grid_tool_available crsctl || die "Scenario $id requires Grid Infrastructure commands. Set CRASHSIM_GRID_HOME or run with Grid Infrastructure tools in PATH."
         ;;
       *)
         die "Unknown requirement '$req' for scenario $id"
         ;;
     esac
   done
+}
+
+scenario_requires_sqlplus_context() {
+  local id="$1"
+  local requires=",${SCENARIO_REQUIRES[$id]:-},"
+
+  case "$requires" in
+    *",primary,"*|*",standby,"*|*",dg,"*|*",cdb,"*|*",pdb,"*|*",rac,"*|*",asm,"*)
+      return "$SUCCESS"
+      ;;
+  esac
+
+  return "$FAIL"
 }
 
 scenario_is_topology_compatible() {
@@ -3413,7 +4148,7 @@ scenario_is_topology_compatible() {
         storage_supports_gi_storage_planning || return "$FAIL"
         ;;
       gi)
-        command -v crsctl >/dev/null 2>&1 || return "$FAIL"
+        grid_tool_available crsctl || return "$FAIL"
         ;;
       *)
         return "$FAIL"
@@ -3500,6 +4235,7 @@ confirm_execution() {
     return "$SUCCESS"
   fi
   if [[ "$ASSUME_YES" -eq 1 ]]; then
+    require_destructive_lab_ack "scenario ${id} execution"
     return "$SUCCESS"
   fi
 
@@ -3516,6 +4252,7 @@ confirm_execution() {
   local answer
   read -r answer
   [[ "$answer" == "EXECUTE-${id}" ]] || die "Confirmation did not match. Aborting."
+  require_destructive_lab_ack "scenario ${id} execution"
 }
 
 run_scenario() {
@@ -3530,7 +4267,7 @@ run_scenario() {
     echo "Scenario ${id} is not possible to run at this moment."
     echo "Reason: ${SCENARIO_VALIDATION_REASON}"
     if [[ "$EXECUTE" -eq 1 || "$SCENARIO_VALIDATION_STATUS" != "PLAN_ONLY" ]]; then
-      return "$FAIL"
+      die "Scenario ${id} execution is blocked by readiness validation."
     fi
     echo "Continuing with dry-run planning only; execution will remain blocked until the validation blocker is resolved."
     echo
@@ -3571,6 +4308,7 @@ confirm_mode_execution() {
     return "$SUCCESS"
   fi
   if [[ "$ASSUME_YES" -eq 1 ]]; then
+    require_destructive_lab_ack "${mode_name,,} for scenario ${id}"
     return "$SUCCESS"
   fi
 
@@ -3584,6 +4322,25 @@ confirm_mode_execution() {
   local answer
   read -r answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
+  require_destructive_lab_ack "${mode_name,,} for scenario ${id}"
+}
+
+require_destructive_lab_ack() {
+  local action="$1"
+  local answer
+
+  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
+  [[ "${DESTRUCTIVE_LAB_ACK^^}" == "YES" ]] && return "$SUCCESS"
+
+  if [[ "$ASSUME_YES" -eq 1 ]]; then
+    die "${action} is blocked because destructive lab acknowledgement is not set. Set CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES or pass --accept-destructive-lab only in an approved non-production lab."
+  fi
+
+  echo
+  echo "Public safety guardrail: ${action} must run only in an approved non-production lab."
+  echo "Type LAB-APPROVED to confirm this environment is approved for destructive CrashSimulator execution:"
+  read -r answer
+  [[ "$answer" == "LAB-APPROVED" ]] || die "Lab acknowledgement did not match. Aborting."
 }
 
 supports_file_recovery_automation() {
@@ -3636,13 +4393,16 @@ scenario_execution_capability() {
 
   case "$id" in
     28)
-      printf "Manual-only external restore plan"
+      printf "guarded manual-only external restore plan"
       ;;
-    46|47|48|49|52|54|66|70|72)
-      printf "Plan-only evidence; external approved action"
+    46|47|48|49|52|54|66|70|72|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
+      printf "guarded plan-only evidence; external approved action"
       ;;
-    53|64|65|69|78|81|82)
+    53|64|65|69|78|80|81|82|87)
       printf "Automated read-only report"
+      ;;
+    83|84)
+      printf "Automated evidence collection; approved client/provider action external"
       ;;
     *)
       printf "Automated dry-run/execute with guardrails"
@@ -3658,13 +4418,13 @@ scenario_recovery_capability() {
   fi
 
   case "$id" in
-    53|64|65|69|78|80|81|82)
+    53|64|65|69|78|80|81|82|87)
       printf "Not required: read-only report"
       ;;
     11|36|43|44)
       printf "Manual logical restore/reseed runbook"
       ;;
-    28|29|45|46|47|48|49|52|54|60|63|66|70|72)
+    28|29|45|46|47|48|49|52|54|60|63|66|70|72|83|84|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
       printf "Manual/external runbook"
       ;;
     *)
@@ -3703,10 +4463,10 @@ scenario_lifecycle_next_step() {
   fi
   if ! supports_recovery_automation "$id"; then
     case "$id" in
-      53|64|65|69|78|80|81|82)
+      53|64|65|69|78|80|81|82|87)
         printf "No recovery helper required; keep report evidence current."
         ;;
-      52|54|66|70|72)
+      52|54|66|70|72|83|84|85|86|87|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
         printf "Plan-only by design; keep external-action runbook and evidence current."
         ;;
       11|36|43|44)
@@ -3735,8 +4495,12 @@ generate_scenario_lifecycle_report() {
     supports_recovery_automation "$id" && auto_recover_count=$((auto_recover_count + 1))
     [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder_count=$((placeholder_count + 1))
     case "$id" in
-      46|47|48|49|52|54|66|70|72) plan_only_count=$((plan_only_count + 1)) ;;
-      53|64|65|69|78|80|81|82) read_only_count=$((read_only_count + 1)) ;;
+      46|47|48|49|52|54|66|70|72|83|84|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
+        plan_only_count=$((plan_only_count + 1))
+        ;;
+      53|64|65|69|78|80|81|82|87)
+        read_only_count=$((read_only_count + 1))
+        ;;
     esac
   done
 
@@ -3813,6 +4577,95 @@ generate_scenario_lifecycle_report() {
   if [[ "$HTML_OUTPUT" -eq 1 ]]; then
     render_artifact_html "$latest_file"
   fi
+}
+
+scenario_lifecycle_check() {
+  local id report_file latest_file status failures=0 warnings=0 handler
+  local title group scope impact requires notes validation protection execution recovery runbook evidence
+
+  report_file="${LOG_DIR}/crashsim_scenario_lifecycle_check_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_scenario_lifecycle_check_latest.md"
+
+  {
+    printf "# CrashSimulator Scenario Lifecycle Consistency Check\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Tool version: `%s`\n' "$VERSION"
+    printf -- '- Registered database scenarios: `%s`\n' "${#SCENARIO_IDS[@]}"
+    printf -- '- Registered ADB scenarios: `%s`\n' "${#ADB_SCENARIO_IDS[@]}"
+    printf "\nThis check is release-oriented. It validates that each registered scenario has metadata, a callable handler, and lifecycle text for validation, protection, execution, recovery, runbook, and evidence posture. It does not connect to a database.\n\n"
+    printf "## Scenario Checks\n\n"
+    printf "| Status | ID | Scenario | Finding |\n"
+    printf "| --- | --- | --- | --- |\n"
+  } >"$report_file" || die "Unable to write lifecycle check report: $report_file"
+
+  for id in "${SCENARIO_IDS[@]}"; do
+    status="OK"
+    title="${SCENARIO_TITLE[$id]:-}"
+    group="${SCENARIO_GROUP[$id]:-}"
+    scope="${SCENARIO_SCOPE[$id]:-}"
+    impact="${SCENARIO_IMPACT[$id]:-}"
+    requires="${SCENARIO_REQUIRES[$id]:-}"
+    handler="${SCENARIO_HANDLER[$id]:-}"
+    notes="${SCENARIO_NOTES[$id]:-}"
+    validation="$(scenario_validation_capability "$id")"
+    protection="$(scenario_protection_capability "$id")"
+    execution="$(scenario_execution_capability "$id")"
+    recovery="$(scenario_recovery_capability "$id")"
+    runbook="$(scenario_runbook_capability "$id")"
+    evidence="$(scenario_evidence_capability "$id")"
+
+    if [[ -z "$title" || -z "$group" || -z "$scope" || -z "$impact" || -z "$requires" || -z "$handler" || -z "$notes" ]]; then
+      printf '| `FAIL` | `%s` | %s | Missing required scenario metadata. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
+      failures=$((failures + 1))
+      status="FAIL"
+    fi
+    if [[ -n "$handler" && -z "$(declare -F "$handler" 2>/dev/null)" ]]; then
+      printf '| `FAIL` | `%s` | %s | Handler `%s` is not defined. |\n' "$id" "$(md_escape "${title:-unknown}")" "$(md_escape "$handler")" >>"$report_file"
+      failures=$((failures + 1))
+      status="FAIL"
+    fi
+    if [[ -z "$validation" || -z "$protection" || -z "$execution" || -z "$recovery" || -z "$runbook" || -z "$evidence" ]]; then
+      printf '| `FAIL` | `%s` | %s | One or more lifecycle capability strings are empty. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
+      failures=$((failures + 1))
+      status="FAIL"
+    fi
+    if [[ "$impact" == "destructive" && "$execution" != *"guard"* && "$execution" != *"plan-only"* ]]; then
+      printf '| `WARN` | `%s` | %s | Destructive scenario execution text should mention guardrails or plan-only posture. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
+      warnings=$((warnings + 1))
+    fi
+    if [[ "$status" == "OK" ]]; then
+      printf '| `OK` | `%s` | %s | Metadata, handler, and lifecycle text are present. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
+    fi
+  done
+
+  {
+    printf "\n## Autonomous Database Scenario Checks\n\n"
+    printf "| Status | ID | Scenario | Finding |\n"
+    printf "| --- | --- | --- | --- |\n"
+  } >>"$report_file"
+
+  for id in "${ADB_SCENARIO_IDS[@]}"; do
+    title="${ADB_SCENARIO_TITLE[$id]:-}"
+    if [[ -z "$title" || -z "${ADB_SCENARIO_AREA[$id]:-}" || -z "${ADB_SCENARIO_VALIDATION[$id]:-}" || -z "${ADB_SCENARIO_RECOVERY[$id]:-}" || -z "${ADB_SCENARIO_HELPER[$id]:-}" ]]; then
+      printf '| `FAIL` | `%s` | %s | Missing ADB scenario metadata. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
+      failures=$((failures + 1))
+    else
+      printf '| `OK` | `%s` | %s | ADB scenario metadata is present. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
+    fi
+  done
+
+  {
+    printf "\n## Summary\n\n"
+    printf -- '- Failures: `%s`\n' "$failures"
+    printf -- '- Warnings: `%s`\n' "$warnings"
+    printf -- '- Latest report: `%s`\n' "$latest_file"
+  } >>"$report_file"
+
+  cp "$report_file" "$latest_file" 2>/dev/null || true
+  echo "Scenario lifecycle consistency check generated: ${report_file}"
+  cat "$report_file"
+  maybe_render_html "$report_file"
+  [[ "$failures" -eq 0 ]]
 }
 
 plan_scenario_actions() {
@@ -3905,7 +4758,7 @@ validation_requirement_blocker_reason() {
         return "$SUCCESS"
       fi
       ;;
-    52|66|69)
+    52|66|69|85|86)
       if printf "%s\n" "$output" | grep -q "requires Data Guard metadata"; then
         printf "Scenario %s requires a Data Guard configuration. Configure a standby and verify SQL/Data Guard Broker evidence before running this scenario." "$id"
         return "$SUCCESS"
@@ -4371,7 +5224,11 @@ print_scenario_validation() {
 validate_all_scenarios() {
   local id status reason runnable_count=0 blocked_count=0
 
-  discover_environment
+  if find_sqlplus_if_available; then
+    discover_environment
+  else
+    warn "Database topology discovery skipped: sqlplus was not found. Database-scoped scenarios will be marked not runnable until ORACLE_HOME or SQLPLUS is set."
+  fi
 
   printf "%-4s %-12s %s\n" "ID" "Status" "Reason"
   printf "%-4s %-12s %s\n" "--" "------" "------"
@@ -4416,14 +5273,20 @@ scenario_readiness_append_rows() {
 }
 
 generate_scenario_readiness_report() {
-  local id status reason row name con_id open_mode
+  local id status reason row name con_id open_mode discovery_note
   local runnable_count=0 plan_only_count=0 not_runnable_count=0 total_count=0
   local report_file latest_file
   local -a runnable_rows=()
   local -a plan_only_rows=()
   local -a not_runnable_rows=()
 
-  discover_environment
+  if find_sqlplus_if_available; then
+    discover_environment
+    discovery_note="SQL*Plus discovery completed."
+  else
+    discovery_note="SQL*Plus was not found. Database-scoped scenarios are blocked until ORACLE_HOME or SQLPLUS is set on a host with a created database."
+    warn "Database topology discovery skipped: sqlplus was not found. Scenario readiness report will still be generated with blockers."
+  fi
 
   for id in "${SCENARIO_IDS[@]}"; do
     total_count=$((total_count + 1))
@@ -4471,6 +5334,7 @@ generate_scenario_readiness_report() {
     printf "| OS user | %s |\n" "$(md_escape "$(id -un)")"
     printf "| Oracle home | %s |\n" "$(md_escape "${ORACLE_HOME:-unknown}")"
     printf "| SQL*Plus | %s |\n" "$(md_escape "${SQLPLUS_BIN:-unknown}")"
+    printf "| Discovery note | %s |\n" "$(md_escape "$discovery_note")"
     printf "| Database name | %s |\n" "$(md_escape "${DB_NAME:-unknown}")"
     printf "| DB unique name | %s |\n" "$(md_escape "${DB_UNIQUE_NAME:-unknown}")"
     printf "| Database role | %s |\n" "$(md_escape "${DB_ROLE:-unknown}")"
@@ -6123,6 +6987,37 @@ script_dir() {
   (cd "$dir_name" >/dev/null 2>&1 && pwd)
 }
 
+run_project_tool() {
+  local tool_name="$1"
+  shift
+  local tool_path
+  tool_path="$(script_dir)/tools/${tool_name}"
+  [[ -f "$tool_path" ]] || die "Required helper was not found: $tool_path"
+  if [[ -x "$tool_path" ]]; then
+    "$tool_path" "$@"
+  else
+    bash "$tool_path" "$@"
+  fi
+}
+
+run_secret_scan() {
+  run_project_tool "crashsim_secret_scan.sh" "$SECRET_SCAN_PATH"
+}
+
+run_sanitize_artifacts() {
+  local -a args=("--source" "$SANITIZE_SOURCE_DIR")
+  [[ -n "$SANITIZE_OUTPUT_DIR" ]] && args+=("--output" "$SANITIZE_OUTPUT_DIR")
+  run_project_tool "crashsim_sanitize_artifacts.sh" "${args[@]}"
+}
+
+run_release_check() {
+  run_project_tool "crashsim_release_check.sh"
+}
+
+run_node_sync_check() {
+  run_project_tool "crashsim_node_sync_check.sh"
+}
+
 write_builtin_health_check_sql_file() {
   local sql_file="$1"
 
@@ -6227,6 +7122,567 @@ run_baseline_backup() {
   fi
 }
 
+prepare_reset() {
+  PREP_IDS=()
+  PREP_TITLE=()
+  PREP_STATUS=()
+  PREP_REQUIRED=()
+  PREP_EVIDENCE_TEXT=()
+  PREP_ACTION=()
+  PREP_AUTO=()
+  PREP_COMMAND=()
+  PREP_NOTES=()
+}
+
+prepare_add() {
+  local id="$1" title="$2" status="$3" required="$4" evidence="$5" action="$6" auto="$7" command="$8" notes="$9"
+  PREP_IDS+=("$id")
+  PREP_TITLE[$id]="$title"
+  PREP_STATUS[$id]="$status"
+  PREP_REQUIRED[$id]="$required"
+  PREP_EVIDENCE_TEXT[$id]="$evidence"
+  PREP_ACTION[$id]="$action"
+  PREP_AUTO[$id]="$auto"
+  PREP_COMMAND[$id]="$command"
+  PREP_NOTES[$id]="$notes"
+}
+
+prepare_value() {
+  local key="$1"
+  local default="${2:-UNKNOWN}"
+  printf "%s" "${PREP_EVIDENCE[$key]:-$default}"
+}
+
+parse_prepare_evidence_file() {
+  local file="$1"
+  local line key value
+
+  PREP_EVIDENCE=()
+  [[ -f "$file" ]] || return "$FAIL"
+  while IFS= read -r line; do
+    case "$line" in
+      *CSIM_PREP\|*\|*)
+        key="${line#*CSIM_PREP|}"
+        value="${key#*|}"
+        key="${key%%|*}"
+        PREP_EVIDENCE[$key]="$value"
+        ;;
+    esac
+  done <"$file"
+}
+
+write_prepare_environment_sql_file() {
+  local sql_file="$1"
+  local target_pdb_literal
+  target_pdb_literal="$(sql_quote "$TARGET_PDB")"
+
+  cat >"$sql_file" <<SQL || die "Unable to write prepare-environment SQL file: $sql_file"
+whenever sqlerror exit sql.sqlcode
+set serveroutput on feedback off pages 0 lines 32767 trimspool on verify off
+
+declare
+  l_cdb varchar2(3) := 'NO';
+  l_target_pdb varchar2(128) := ${target_pdb_literal};
+  l_target_con_id number := null;
+
+  procedure emit(p_key varchar2, p_value varchar2) is
+  begin
+    dbms_output.put_line('CSIM_PREP|' || p_key || '|' || nvl(p_value, 'UNKNOWN'));
+  end;
+
+  function scalar_value(p_sql varchar2, p_default varchar2 := 'UNKNOWN') return varchar2 is
+    l_value varchar2(32767);
+  begin
+    execute immediate p_sql into l_value;
+    return nvl(l_value, p_default);
+  exception
+    when others then
+      return 'ERROR:' || sqlcode;
+  end;
+
+  function scalar_count(p_sql varchar2) return varchar2 is
+    l_value number;
+  begin
+    execute immediate p_sql into l_value;
+    return to_char(nvl(l_value, 0));
+  exception
+    when others then
+      return 'ERROR:' || sqlcode;
+  end;
+begin
+  select cdb into l_cdb from v\$database;
+
+  emit('db_name', scalar_value(q'[select name from v\$database]'));
+  emit('db_unique_name', scalar_value(q'[select db_unique_name from v\$database]'));
+  emit('database_role', scalar_value(q'[select database_role from v\$database]'));
+  emit('open_mode', scalar_value(q'[select open_mode from v\$database]'));
+  emit('cdb', l_cdb);
+  emit('log_mode', scalar_value(q'[select log_mode from v\$database]'));
+  emit('flashback_on', scalar_value(q'[select flashback_on from v\$database]'));
+  emit('fs_failover_status', scalar_value(q'[select fs_failover_status from v\$database]'));
+  emit('fs_failover_observer_present', scalar_value(q'[select fs_failover_observer_present from v\$database]'));
+  emit('dg_broker_start', scalar_value(q'[select value from v\$parameter where name = 'dg_broker_start']'));
+  emit('standby_dest_count', scalar_count(q'[select count(*) from v\$archive_dest where target = 'STANDBY' and destination is not null]'));
+  emit('redo_groups_under2', scalar_count(q'[select count(*) from v\$log where members < 2]'));
+  emit('redo_min_members', scalar_value(q'[select min(members) from v\$log]', '0'));
+  emit('control_file_count', scalar_count(q'[select count(*) from v\$controlfile]'));
+  emit('fra_dest', scalar_value(q'[select value from v\$parameter where name = 'db_recovery_file_dest']', ''));
+  emit('db_create_file_dest', scalar_value(q'[select value from v\$parameter where name = 'db_create_file_dest']', ''));
+
+  if l_cdb = 'YES' then
+    if l_target_pdb is null then
+      begin
+        select coalesce(
+                 max(case when name = 'CRASHPDB' and open_mode = 'READ WRITE' then name end),
+                 min(case when name <> 'PDB\$SEED' and open_mode = 'READ WRITE' then name end)
+               )
+        into l_target_pdb
+        from v\$pdbs;
+      exception
+        when others then
+          l_target_pdb := null;
+      end;
+    end if;
+
+    if l_target_pdb is not null then
+      begin
+        execute immediate 'select con_id from v\$pdbs where name = :1' into l_target_con_id using upper(l_target_pdb);
+      exception
+        when others then
+          l_target_con_id := null;
+      end;
+    end if;
+
+    emit('target_pdb', l_target_pdb);
+    emit('target_con_id', case when l_target_con_id is null then null else to_char(l_target_con_id) end);
+    emit('root_lab_user_count', scalar_count(q'[select count(*) from cdb_users where username = 'C##CRASHSIM_ROOT_LAB']'));
+    emit('root_lab_tablespace_count', scalar_count(q'[select count(*) from cdb_tablespaces where tablespace_name in ('CRASHSIM_ROOT_RO_TBS','CRASHSIM_ROOT_INDEX_TBS')]'));
+    if l_target_con_id is not null then
+      emit('pdb_lab_user_count', scalar_count('select count(*) from cdb_users where con_id = ' || l_target_con_id || q'[ and username in ('CRASHSIM_TABLE_LAB','CRASHSIM_SCHEMA_LAB','CRASHSIM_INDEX_LAB')]'));
+      emit('pdb_lab_tablespace_count', scalar_count('select count(*) from cdb_tablespaces where con_id = ' || l_target_con_id || q'[ and tablespace_name in ('CRASHSIM_RO_TBS','CRASHSIM_INDEX_TBS')]'));
+      emit('target_apex_registry_count', scalar_count('select count(*) from cdb_registry where con_id = ' || l_target_con_id || q'[ and (comp_id = 'APEX' or upper(comp_name) like '%APEX%')]'));
+      emit('target_ords_user_count', scalar_count('select count(*) from cdb_users where con_id = ' || l_target_con_id || q'[ and username in ('ORDS_PUBLIC_USER','ORDS_METADATA','APEX_PUBLIC_USER')]'));
+    else
+      emit('pdb_lab_user_count', '0');
+      emit('pdb_lab_tablespace_count', '0');
+      emit('target_apex_registry_count', '0');
+      emit('target_ords_user_count', '0');
+    end if;
+    emit('catalog_owner_count', scalar_count(q'[select count(*) from cdb_role_privs where granted_role = 'RECOVERY_CATALOG_OWNER']'));
+    emit('catalog_metadata_count', scalar_count(q'[select count(*) from cdb_objects where object_name = 'RC_DATABASE' and owner not in ('SYS','SYSTEM')]'));
+  else
+    emit('target_pdb', '');
+    emit('target_con_id', '');
+    emit('root_lab_user_count', '0');
+    emit('root_lab_tablespace_count', '0');
+    emit('pdb_lab_user_count', scalar_count(q'[select count(*) from dba_users where username in ('CRASHSIM_TABLE_LAB','CRASHSIM_SCHEMA_LAB','CRASHSIM_INDEX_LAB')]'));
+    emit('pdb_lab_tablespace_count', scalar_count(q'[select count(*) from dba_tablespaces where tablespace_name in ('CRASHSIM_RO_TBS','CRASHSIM_INDEX_TBS')]'));
+    emit('target_apex_registry_count', scalar_count(q'[select count(*) from dba_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%']'));
+    emit('target_ords_user_count', scalar_count(q'[select count(*) from dba_users where username in ('ORDS_PUBLIC_USER','ORDS_METADATA','APEX_PUBLIC_USER')]'));
+    emit('catalog_owner_count', scalar_count(q'[select count(*) from dba_role_privs where granted_role = 'RECOVERY_CATALOG_OWNER']'));
+    emit('catalog_metadata_count', scalar_count(q'[select count(*) from dba_objects where object_name = 'RC_DATABASE' and owner not in ('SYS','SYSTEM')]'));
+  end if;
+
+  emit('service_crashsim_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac')]'));
+  emit('service_crashsim_ha_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac') and (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO'))]'));
+end;
+/
+
+exit
+SQL
+}
+
+collect_prepare_environment_evidence() {
+  local sql_file="$1" evidence_file="$2"
+  write_prepare_environment_sql_file "$sql_file"
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "Prepare-environment SQL failed: $sql_file (evidence: $evidence_file)"
+  parse_prepare_evidence_file "$evidence_file"
+
+  PREP_EVIDENCE[cluster_type]="$CLUSTER_TYPE"
+  PREP_EVIDENCE[storage_type]="$STORAGE_TYPE"
+  PREP_EVIDENCE[gi_managed]="$GI_MANAGED"
+  PREP_EVIDENCE[instance_parallel]="$INSTANCE_PARALLEL"
+  PREP_EVIDENCE[db_unique_name_discovered]="$DB_UNIQUE_NAME"
+  PREP_EVIDENCE[baseline_artifact_count]="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_baseline_backup_*.log' 2>/dev/null | wc -l | tr -d '[:space:]')"
+  PREP_EVIDENCE[ords_binary]="$(command -v ords 2>/dev/null || true)"
+  if command -v systemctl >/dev/null 2>&1; then
+    PREP_EVIDENCE[ords_service_state]="$(systemctl is-active "$ORDS_SERVICE_NAME" 2>/dev/null || true)"
+  else
+    PREP_EVIDENCE[ords_service_state]="systemctl_not_found"
+  fi
+  if [[ -d "$ORDS_CONFIG_DIR" ]]; then
+    PREP_EVIDENCE[ords_config_state]="present"
+  else
+    PREP_EVIDENCE[ords_config_state]="missing"
+  fi
+  if [[ -n "$APEX_IMAGES_DIR" && -d "$APEX_IMAGES_DIR" ]]; then
+    PREP_EVIDENCE[apex_images_state]="present"
+  else
+    PREP_EVIDENCE[apex_images_state]="missing"
+  fi
+}
+
+prepare_numeric_ge() {
+  local value="$1" threshold="$2"
+  [[ "$value" =~ ^[0-9]+$ && "$value" -ge "$threshold" ]]
+}
+
+prepare_is_primary() {
+  [[ "$(prepare_value database_role)" == "PRIMARY" ]]
+}
+
+prepare_is_cdb() {
+  [[ "$(prepare_value cdb)" == "YES" ]]
+}
+
+evaluate_prepare_environment() {
+  local script_root
+  local cdb redo_under control_count service_count service_ha_count apex_count ords_count
+  local root_users root_tbs pdb_users pdb_tbs catalog_owners catalog_metadata baseline_count
+  local dg_dest fsfo_status fsfo_observer cluster storage gi ords_bin ords_service ords_config apex_images
+
+  prepare_reset
+  script_root="$(script_dir)"
+  cdb="$(prepare_value cdb)"
+  redo_under="$(prepare_value redo_groups_under2 0)"
+  control_count="$(prepare_value control_file_count 0)"
+  service_count="$(prepare_value service_crashsim_count 0)"
+  service_ha_count="$(prepare_value service_crashsim_ha_count 0)"
+  apex_count="$(prepare_value target_apex_registry_count 0)"
+  ords_count="$(prepare_value target_ords_user_count 0)"
+  root_users="$(prepare_value root_lab_user_count 0)"
+  root_tbs="$(prepare_value root_lab_tablespace_count 0)"
+  pdb_users="$(prepare_value pdb_lab_user_count 0)"
+  pdb_tbs="$(prepare_value pdb_lab_tablespace_count 0)"
+  catalog_owners="$(prepare_value catalog_owner_count 0)"
+  catalog_metadata="$(prepare_value catalog_metadata_count 0)"
+  baseline_count="$(prepare_value baseline_artifact_count 0)"
+  dg_dest="$(prepare_value standby_dest_count 0)"
+  fsfo_status="$(prepare_value fs_failover_status UNKNOWN)"
+  fsfo_observer="$(prepare_value fs_failover_observer_present UNKNOWN)"
+  cluster="$(prepare_value cluster_type "$CLUSTER_TYPE")"
+  storage="$(prepare_value storage_type "$STORAGE_TYPE")"
+  gi="$(prepare_value gi_managed "$GI_MANAGED")"
+  ords_bin="$(prepare_value ords_binary)"
+  ords_service="$(prepare_value ords_service_state)"
+  ords_config="$(prepare_value ords_config_state)"
+  apex_images="$(prepare_value apex_images_state)"
+
+  if prepare_is_cdb; then
+    if prepare_numeric_ge "$root_users" 1 && prepare_numeric_ge "$root_tbs" 2 &&
+       prepare_numeric_ge "$pdb_users" 3 && prepare_numeric_ge "$pdb_tbs" 2; then
+      prepare_add "logical_lab" "Logical/root/PDB lab objects" "PRESENT" "Required for table/schema/index/read-only/index-only scenarios" \
+        "root_users=${root_users}, root_tbs=${root_tbs}, pdb_users=${pdb_users}, pdb_tbs=${pdb_tbs}, target_pdb=$(prepare_value target_pdb)" \
+        "No action needed." "no" "" "Re-run only when logical drills intentionally dropped lab objects."
+    else
+      prepare_add "logical_lab" "Logical/root/PDB lab objects" "MISSING" "Required for scenarios 9-11, 34-36, 43-44 and related logical drills" \
+        "root_users=${root_users}, root_tbs=${root_tbs}, pdb_users=${pdb_users}, pdb_tbs=${pdb_tbs}, target_pdb=$(prepare_value target_pdb)" \
+        "Run seed_crashsim_lab.sql. This recreates disposable CRASHSIM lab schemas and tablespaces." \
+        "yes" "${SQLPLUS_BIN:-sqlplus} ${SQLPLUS_LOGON} @${script_root}/seed_crashsim_lab.sql" \
+        "Destructive only to CRASHSIM disposable lab schemas/tablespaces."
+    fi
+  elif prepare_numeric_ge "$pdb_users" 3 && prepare_numeric_ge "$pdb_tbs" 2; then
+    prepare_add "logical_lab" "Logical lab objects" "PRESENT" "Required for logical scenarios" \
+      "users=${pdb_users}, tbs=${pdb_tbs}" "No action needed." "no" "" "Non-CDB seed posture detected."
+  else
+    prepare_add "logical_lab" "Logical lab objects" "PLAN_ONLY" "Required for logical scenarios" \
+      "cdb=${cdb}, users=${pdb_users}, tbs=${pdb_tbs}" \
+      "Create/reseed disposable CRASHSIM schemas and read-only/index-only tablespaces for this non-CDB target." \
+      "no" "" "Current seed_crashsim_lab.sql is CDB-oriented; use a non-CDB seed helper before automation."
+  fi
+
+  if [[ "$redo_under" =~ ^[0-9]+$ && "$redo_under" -eq 0 ]]; then
+    prepare_add "redo_multiplex" "Multiplex online redo logs" "PRESENT" "Required for redo-loss scenarios 3 and 18" \
+      "redo_groups_under2=${redo_under}, min_members=$(prepare_value redo_min_members)" "No action needed." "no" "" "Redo is already multiplexed."
+  elif prepare_is_primary; then
+    prepare_add "redo_multiplex" "Multiplex online redo logs" "MISSING" "Required for redo-loss scenarios 3 and 18" \
+      "redo_groups_under2=${redo_under}, storage=${storage}, fra=$(prepare_value fra_dest)" \
+      "Add missing redo members using the topology-aware redo preparation SQL." \
+      "yes" "${SQLPLUS_BIN:-sqlplus} ${SQLPLUS_LOGON} @${script_root}/prepare_crashsim_fex_redo_multiplex.sql" \
+      "Uses the configured recovery destination for this FEX/OCI posture."
+  else
+    prepare_add "redo_multiplex" "Multiplex online redo logs" "NOT_REQUIRED" "Primary database required" \
+      "role=$(prepare_value database_role)" "Run only on the primary database." "no" "" ""
+  fi
+
+  if [[ "$control_count" =~ ^[0-9]+$ && "$control_count" -ge 2 ]]; then
+    prepare_add "controlfile_multiplex" "Multiplex control files" "PRESENT" "Recommended before control-file scenarios 1, 2, and 23" \
+      "control_file_count=${control_count}" "No action needed." "no" "" "Control files are already multiplexed."
+  elif prepare_is_primary; then
+    prepare_add "controlfile_multiplex" "Multiplex control files" "PLAN_ONLY" "Recommended before control-file scenarios 1, 2, and 23" \
+      "control_file_count=${control_count}, storage=${storage}" \
+      "Generate provider-aware control-file multiplexing runbook." \
+      "no" "${script_root}/prepare_crashsim_fex_controlfile_multiplex.sh --dry-run --log-dir ${LOG_DIR}" \
+      "Requires outage/restart and provider-approved byte-copy or CREATE CONTROLFILE procedure; not auto-executed."
+  else
+    prepare_add "controlfile_multiplex" "Multiplex control files" "NOT_REQUIRED" "Primary database required" \
+      "role=$(prepare_value database_role)" "Run only on the primary database." "no" "" ""
+  fi
+
+  if [[ "$cluster" == RAC* || "$cluster" == "GI_SINGLE" || "$gi" == "1" ]]; then
+    if prepare_numeric_ge "$service_count" 2 && prepare_numeric_ge "$service_ha_count" 2; then
+      prepare_add "services_ac_tac" "AC/TAC/FAN lab services" "PRESENT" "Required for service continuity scenarios 56, 83, 84, and 87" \
+        "services=${service_count}, ha_services=${service_ha_count}" "No action needed." "no" "" "CrashSimulator AC/TAC services are present."
+    else
+      prepare_add "services_ac_tac" "AC/TAC/FAN lab services" "MISSING" "Required for service continuity scenarios 56, 83, 84, and 87" \
+        "cluster=${cluster}, services=${service_count}, ha_services=${service_ha_count}" \
+        "Create or repair crashsim_ac and crashsim_tac services with FAN/AC/TAC attributes." \
+        "yes" "${script_root}/tools/crashsim_configure_ha_lab.sh --services" \
+        "Requires srvctl/GI privileges and current DB_UNIQUE_NAME/PDB defaults."
+    fi
+  else
+    prepare_add "services_ac_tac" "AC/TAC/FAN lab services" "NOT_REQUIRED" "RAC/GI-managed topology required" \
+      "cluster=${cluster}, gi=${gi}" "Standalone database does not need RAC service lab seeds." "no" "" ""
+  fi
+
+  if prepare_numeric_ge "$apex_count" 1 && prepare_numeric_ge "$ords_count" 2 &&
+     [[ -n "$ords_bin" && "$ords_service" == "active" && "$ords_config" == "present" ]]; then
+    prepare_add "apex_ords" "APEX/ORDS application access path" "PRESENT" "Required for APEX/ORDS scenarios 73-82" \
+      "apex=${apex_count}, ords_users=${ords_count}, ords_service=${ords_service}, config=${ords_config}, images=${apex_images}" \
+      "No action needed." "no" "" "Scenario 79 still needs a load-balancer or peer URL when executed."
+  else
+    prepare_add "apex_ords" "APEX/ORDS application access path" "MISSING" "Required for APEX/ORDS scenarios 73-82" \
+      "apex=${apex_count}, ords_users=${ords_count}, ords_bin=${ords_bin:-not_found}, ords_service=${ords_service}, config=${ords_config}, images=${apex_images}" \
+      "Install/configure APEX and ORDS with the lab helper when media and passwords are approved." \
+      "conditional" "${script_root}/tools/crashsim_install_apex_ords_lab.sh" \
+      "Requires APEX/ORDS media plus SYS_PASSWORD, ORDS_PUBLIC_PASSWORD, and APEX_ADMIN_PASSWORD environment variables."
+  fi
+
+  if [[ -n "$RMAN_CATALOG_CONNECT" ]] || prepare_numeric_ge "$catalog_metadata" 1; then
+    if prepare_numeric_ge "$catalog_metadata" 1; then
+      prepare_add "rman_catalog" "RMAN recovery catalog" "PRESENT" "Required for catalog outage and catalog-aware backup evidence" \
+        "catalog_owners=${catalog_owners}, catalog_metadata=${catalog_metadata}, configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
+        "No action needed." "no" "" "Confirm catalog is outside the target failure domain for production-like DR tests."
+    else
+      prepare_add "rman_catalog" "RMAN recovery catalog" "MISSING" "Required for catalog outage and catalog-aware backup evidence" \
+        "catalog_owners=${catalog_owners}, catalog_metadata=${catalog_metadata}, configured=yes" \
+        "Create local lab recovery catalog metadata and register/resync the target." \
+        "conditional" "${script_root}/tools/crashsim_configure_ha_lab.sh --catalog" \
+        "Requires CRASHSIM_RMAN_CATALOG_PASSWORD; production catalogs should live outside the target DB."
+    fi
+  else
+    prepare_add "rman_catalog" "RMAN recovery catalog" "MISSING" "Optional unless testing recovery-catalog scenarios/reporting" \
+      "catalog_owners=${catalog_owners}, catalog_metadata=${catalog_metadata}, configured=no" \
+      "Set CRASHSIM_RMAN_CATALOG and create/configure a catalog when catalog scenarios are in scope." \
+      "conditional" "${script_root}/tools/crashsim_configure_ha_lab.sh --catalog" \
+      "Skipped by default because it requires credentials and topology decisions."
+  fi
+
+  if prepare_numeric_ge "$dg_dest" 1 || [[ "$(prepare_value database_role)" == *"STANDBY"* ]]; then
+    if [[ "$fsfo_status" == *"SYNCHRONIZED"* || "$fsfo_status" == *"TARGET"* || "$fsfo_status" == *"ENABLED"* || "$fsfo_observer" == "YES" ]]; then
+      prepare_add "fsfo" "Data Guard FSFO observer posture" "PRESENT" "Required for FSFO observer scenario 66 and FSFO MAA evidence" \
+        "dg_dest=${dg_dest}, fsfo_status=${fsfo_status}, observer=${fsfo_observer}" "No action needed." "no" "" "Validate observer placement and preferred observer hosts."
+    else
+      prepare_add "fsfo" "Data Guard FSFO observer posture" "PLAN_ONLY" "Required for FSFO observer scenario 66 and FSFO MAA evidence" \
+        "dg_dest=${dg_dest}, fsfo_status=${fsfo_status}, observer=${fsfo_observer}, broker=$(prepare_value dg_broker_start)" \
+        "Run FSFO readiness checks and configure observer only after Broker, flashback, SRLs, transport, and apply are healthy." \
+        "no" "${script_root}/tools/crashsim_configure_ha_lab.sh --fsfo-check" \
+        "FSFO enablement is disruptive/risk-sensitive and remains runbook-driven."
+    fi
+  else
+    prepare_add "fsfo" "Data Guard FSFO observer posture" "NOT_REQUIRED" "Data Guard topology required" \
+      "dg_dest=${dg_dest}, role=$(prepare_value database_role)" "No standby/transport evidence detected." "no" "" ""
+  fi
+
+  if [[ "$storage" == "ASM" || "$storage" == "FEX_ACFS" || "$gi" == "1" ]]; then
+    prepare_add "asm_gi_redundant_lab" "ASM/GI redundant storage lab" "PLAN_ONLY" "Required for ASM/FEX/GI destructive storage scenarios 46-49 and 72" \
+      "storage=${storage}, gi=${gi}" \
+      "Review or create a purpose-built redundant GI/ASM lab with additional shared disks and failgroups." \
+      "no" "${script_root}/crashsim_prepare_redundant_gi_lab.sh --dry-run" \
+      "Needs explicit disk/LUN approval; never auto-create storage from the generic prepare menu."
+  else
+    prepare_add "asm_gi_redundant_lab" "ASM/GI redundant storage lab" "NOT_REQUIRED" "ASM/GI/FEX topology required" \
+      "storage=${storage}, gi=${gi}" "Filesystem-only topology does not require ASM/GI storage lab seeds." "no" "" ""
+  fi
+
+  if prepare_numeric_ge "$baseline_count" 1; then
+    prepare_add "baseline_backup" "Fresh RMAN baseline backup evidence" "PRESENT" "Recommended after environment preparation changes" \
+      "baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
+      "Run again after executing any preparation changes." "no" "" "Use Reports -> Run fresh RMAN baseline backup after changes."
+  else
+    prepare_add "baseline_backup" "Fresh RMAN baseline backup evidence" "MISSING" "Recommended before destructive scenario batches" \
+      "baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
+      "Run a dry-run or confirmed baseline backup from the Reports menu." \
+      "no" "${SCRIPT_PATH} --baseline-backup --dry-run" \
+      "Not auto-executed because it can consume backup storage and I/O."
+  fi
+}
+
+write_prepare_environment_report() {
+  local report_file="$1" evidence_file="$2"
+  local id generated_at
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  {
+    printf "# CrashSimulator Seed / Prepare Environment Planner\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Database: `%s`\n' "$(md_escape "$(prepare_value db_name "$DB_NAME")")"
+    printf -- '- DB unique name: `%s`\n' "$(md_escape "$(prepare_value db_unique_name "$DB_UNIQUE_NAME")")"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(md_escape "$(prepare_value database_role "$DB_ROLE")")" "$(md_escape "$(prepare_value open_mode "$DB_OPEN_MODE")")"
+    printf -- '- CDB / target PDB: `%s` / `%s`\n' "$(md_escape "$(prepare_value cdb "$DB_CDB")")" "$(md_escape "$(prepare_value target_pdb "${TARGET_PDB:-not selected}")")"
+    printf -- '- Cluster/storage: `%s` / `%s`\n' "$(md_escape "$(prepare_value cluster_type "$CLUSTER_TYPE")")" "$(md_escape "$(prepare_value storage_type "$STORAGE_TYPE")")"
+    printf -- '- Mode: `%s`\n' "$([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
+    printf -- '- SQL evidence file: `%s`\n' "$evidence_file"
+    printf "\n"
+    printf "This planner detects missing lab seeds and environment preparations needed by the scenario catalog. It only recommends actions relevant to the current topology. Execution remains guarded; credentials, storage provisioning, FSFO enablement, and provider-specific copy operations are not guessed.\n"
+  } >"$report_file" || die "Unable to write prepare-environment report: $report_file"
+
+  append_report_section "$report_file" "Preparation Matrix"
+  {
+    printf '| ID | Preparation | Status | Required for | Evidence | Action | Auto-execute |\n'
+    printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+    for id in "${PREP_IDS[@]}"; do
+      printf '| `%s` | %s | `%s` | %s | %s | %s | `%s` |\n' \
+        "$(md_escape "$id")" \
+        "$(md_escape "${PREP_TITLE[$id]}")" \
+        "$(md_escape "${PREP_STATUS[$id]}")" \
+        "$(md_escape "${PREP_REQUIRED[$id]}")" \
+        "$(md_escape "${PREP_EVIDENCE_TEXT[$id]}")" \
+        "$(md_escape "${PREP_ACTION[$id]}")" \
+        "$(md_escape "${PREP_AUTO[$id]}")"
+    done
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Suggested Commands"
+  {
+    printf '| ID | Command / Helper |\n'
+    printf '| --- | --- |\n'
+    for id in "${PREP_IDS[@]}"; do
+      [[ -n "${PREP_COMMAND[$id]}" ]] || continue
+      printf '| `%s` | `%s` |\n' "$(md_escape "$id")" "$(md_escape "${PREP_COMMAND[$id]}")"
+    done
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Notes And Guardrails"
+  {
+    for id in "${PREP_IDS[@]}"; do
+      [[ -n "${PREP_NOTES[$id]}" ]] || continue
+      printf -- '- `%s`: %s\n' "$(md_escape "$id")" "$(md_escape "${PREP_NOTES[$id]}")"
+    done
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Raw Evidence"
+  {
+    printf '```text\n'
+    for id in "${!PREP_EVIDENCE[@]}"; do
+      printf 'CSIM_PREP|%s|%s\n' "$id" "${PREP_EVIDENCE[$id]}"
+    done | sort
+    printf '```\n'
+  } >>"$report_file"
+}
+
+confirm_prepare_environment_execution() {
+  local token="PREPARE-ENVIRONMENT"
+
+  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
+  if [[ "$ASSUME_YES" -eq 1 ]]; then
+    require_destructive_lab_ack "environment preparation"
+    return "$SUCCESS"
+  fi
+  echo
+  echo "About to execute eligible CrashSimulator environment preparation helpers."
+  echo "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))"
+  echo "Only items marked auto-execute yes/conditional and currently missing will be attempted."
+  echo "Type ${token} to continue:"
+  local answer
+  read -r answer
+  [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
+  require_destructive_lab_ack "environment preparation"
+}
+
+run_prepare_helper_command() {
+  local id="$1"
+  shift
+  echo
+  echo "Preparing ${id}: ${PREP_TITLE[$id]}"
+  printf "Command:"
+  printf " %q" "$@"
+  printf "\n"
+  "$@"
+}
+
+execute_prepare_environment_actions() {
+  local id helper status
+  local script_root
+  script_root="$(script_dir)"
+
+  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
+  confirm_prepare_environment_execution
+
+  for id in "${PREP_IDS[@]}"; do
+    [[ "${PREP_STATUS[$id]}" == "MISSING" ]] || continue
+    case "$id" in
+      logical_lab)
+        [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
+        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"${script_root}/seed_crashsim_lab.sql" \
+          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
+        status=$?
+        [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
+        echo "Preparation ${id} completed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
+        ;;
+      redo_multiplex)
+        [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
+        helper="${script_root}/prepare_crashsim_fex_redo_multiplex.sql"
+        [[ -f "$helper" ]] || die "Redo preparation SQL not found: $helper"
+        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$helper" \
+          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
+        status=$?
+        [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
+        echo "Preparation ${id} completed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
+        ;;
+      services_ac_tac)
+        [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
+        helper="${script_root}/tools/crashsim_configure_ha_lab.sh"
+        [[ -f "$helper" ]] || die "HA lab helper not found: $helper"
+        run_prepare_helper_command "$id" bash "$helper" --services
+        ;;
+      apex_ords)
+        [[ "${PREP_AUTO[$id]}" == "conditional" ]] || continue
+        if [[ -n "${SYS_PASSWORD:-}" && -n "${ORDS_PUBLIC_PASSWORD:-}" && -n "${APEX_ADMIN_PASSWORD:-}" ]]; then
+          helper="${script_root}/tools/crashsim_install_apex_ords_lab.sh"
+          [[ -f "$helper" ]] || die "APEX/ORDS lab helper not found: $helper"
+          run_prepare_helper_command "$id" bash "$helper"
+        else
+          warn "Skipping ${id}: SYS_PASSWORD, ORDS_PUBLIC_PASSWORD, and APEX_ADMIN_PASSWORD must be set in the environment."
+        fi
+        ;;
+      rman_catalog)
+        [[ "${PREP_AUTO[$id]}" == "conditional" ]] || continue
+        if [[ -n "${CRASHSIM_RMAN_CATALOG_PASSWORD:-}" ]]; then
+          helper="${script_root}/tools/crashsim_configure_ha_lab.sh"
+          [[ -f "$helper" ]] || die "HA lab helper not found: $helper"
+          run_prepare_helper_command "$id" bash "$helper" --catalog
+        else
+          warn "Skipping ${id}: CRASHSIM_RMAN_CATALOG_PASSWORD is required."
+        fi
+        ;;
+      *)
+        ;;
+    esac
+  done
+}
+
+run_prepare_environment() {
+  local sql_file evidence_file report_file
+
+  discover_environment
+  ensure_sqlplus
+  sql_file="${LOG_DIR}/crashsim_prepare_environment_${RUN_ID}.sql"
+  evidence_file="${LOG_DIR}/crashsim_prepare_environment_${RUN_ID}.evidence"
+  report_file="${LOG_DIR}/crashsim_prepare_environment_${RUN_ID}.md"
+
+  collect_prepare_environment_evidence "$sql_file" "$evidence_file"
+  evaluate_prepare_environment
+  write_prepare_environment_report "$report_file" "$evidence_file"
+  echo "Seed/prepare environment planner generated: ${report_file}"
+  maybe_render_html "$report_file"
+
+  execute_prepare_environment_actions
+}
+
 html_escape_stream() {
   awk '
     function esc(s) {
@@ -6311,6 +7767,9 @@ find_latest_artifact() {
     apex-ords|apex|ords|apex-report|ords-report|apex-ords-report)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_apex_ords_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
+    prepare|seed|prepare-environment|seed-environment|lab-prepare)
+      latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_prepare_environment_*.md' 2>/dev/null | sort | tail -n 1)"
+      ;;
     adb|autonomous|autonomous-database|adb-report|adb-readiness)
       if [[ -f "${LOG_DIR}/crashsim_adb_readiness_latest.md" ]]; then
         latest="${LOG_DIR}/crashsim_adb_readiness_latest.md"
@@ -6335,8 +7794,43 @@ find_latest_artifact() {
     maa|maa-report)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_maa_report_*.md' 2>/dev/null | sort | tail -n 1)"
       ;;
+    resilience|resilience-score|resilience-scorecard|scorecard)
+      if [[ -f "${LOG_DIR}/crashsim_resilience_scorecard_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_resilience_scorecard_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_resilience_scorecard_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
     health)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_health_check_*.log' 2>/dev/null | sort | tail -n 1)"
+      ;;
+    doctor|preflight|public-readiness)
+      if [[ -f "${LOG_DIR}/crashsim_doctor_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_doctor_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_doctor_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
+    first-run|getting-started)
+      if [[ -f "${LOG_DIR}/crashsim_first_run_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_first_run_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_first_run_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
+    limitations|public-limitations|public-beta-limitations)
+      if [[ -f "${LOG_DIR}/crashsim_public_limitations_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_public_limitations_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_public_limitations_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
+      ;;
+    lifecycle-check|scenario-lifecycle-check)
+      if [[ -f "${LOG_DIR}/crashsim_scenario_lifecycle_check_latest.md" ]]; then
+        latest="${LOG_DIR}/crashsim_scenario_lifecycle_check_latest.md"
+      else
+        latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_lifecycle_check_*.md' 2>/dev/null | sort | tail -n 1)"
+      fi
       ;;
     scenario)
       latest="$(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_scenario_s*.manifest' 2>/dev/null | sort | tail -n 1)"
@@ -6439,7 +7933,7 @@ review_append_file_list() {
 }
 
 generate_review_index() {
-  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_lifecycle latest_maa latest_adb latest_health latest_review
+  local report_file latest_topology latest_config latest_backup latest_service latest_readiness latest_lifecycle latest_maa latest_resilience latest_adb latest_health latest_review
   local manifest audit_dir metadata command status started mode
 
   report_file="${LOG_DIR}/crashsim_review_index_${RUN_ID}.md"
@@ -6450,6 +7944,7 @@ generate_review_index() {
   latest_readiness="$(find_latest_artifact scenario-readiness 2>/dev/null || true)"
   latest_lifecycle="$(find_latest_artifact lifecycle 2>/dev/null || true)"
   latest_maa="$(find_latest_artifact maa 2>/dev/null || true)"
+  latest_resilience="$(find_latest_artifact resilience 2>/dev/null || true)"
   latest_adb="$(find_latest_artifact adb 2>/dev/null || true)"
   latest_health="$(find_latest_artifact health 2>/dev/null || true)"
 
@@ -6472,6 +7967,7 @@ generate_review_index() {
     [[ -n "$latest_readiness" ]] && printf -- '- Latest scenario readiness report: `%s`\n' "$latest_readiness"
     [[ -n "$latest_lifecycle" ]] && printf -- '- Latest scenario lifecycle coverage report: `%s`\n' "$latest_lifecycle"
     [[ -n "$latest_maa" ]] && printf -- '- Latest MAA readiness report: `%s`\n' "$latest_maa"
+    [[ -n "$latest_resilience" ]] && printf -- '- Latest resilience scorecard: `%s`\n' "$latest_resilience"
     [[ -n "$latest_adb" ]] && printf -- '- Latest Autonomous Database readiness report: `%s`\n' "$latest_adb"
     [[ -n "$latest_health" ]] && printf -- '- Latest health check: `%s`\n' "$latest_health"
 
@@ -6487,13 +7983,19 @@ generate_review_index() {
 
   review_append_file_list "$report_file" "Runbooks" 20 -name 'crashsim_runbook_s*.txt'
   review_append_file_list "$report_file" "Health Checks" 20 -name 'crashsim_health_check_*.log'
+  review_append_file_list "$report_file" "Doctor / Public Readiness Reports" 20 -name 'crashsim_doctor_*.md'
+  review_append_file_list "$report_file" "First-Run Guides" 20 -name 'crashsim_first_run_*.md'
+  review_append_file_list "$report_file" "Public Limitations Pages" 20 -name 'crashsim_public_limitations_*.md'
   review_append_file_list "$report_file" "Configuration Reports" 20 -name 'crashsim_config_report_*.md'
   review_append_file_list "$report_file" "Backup Strategy / Recoverability Reports" 20 -name 'crashsim_backup_report_*.md'
   review_append_file_list "$report_file" "Service HA Reviews" 20 -name 'crashsim_service_review_*.md'
   review_append_file_list "$report_file" "APEX / ORDS Readiness Reports" 20 -name 'crashsim_apex_ords_report_*.md'
+  review_append_file_list "$report_file" "Seed / Prepare Environment Reports" 20 -name 'crashsim_prepare_environment_*.md'
   review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
   review_append_file_list "$report_file" "Scenario Lifecycle Coverage Reports" 20 -name 'crashsim_scenario_lifecycle_*.md'
+  review_append_file_list "$report_file" "Scenario Lifecycle Consistency Checks" 20 -name 'crashsim_scenario_lifecycle_check_*.md'
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
+  review_append_file_list "$report_file" "Resilience Scorecards" 20 -name 'crashsim_resilience_scorecard_*.md'
   review_append_file_list "$report_file" "Autonomous Database Readiness Reports" 20 -name 'crashsim_adb_readiness_*.md'
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
   review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
@@ -6523,7 +8025,9 @@ generate_review_index() {
     printf -- '- Show latest topology: `./%s --review-topology`\n' "$PROGRAM"
     printf -- '- Show latest scenario readiness report: `./%s --show-artifact latest:scenario-readiness`\n' "$PROGRAM"
     printf -- '- Show latest scenario lifecycle report: `./%s --show-artifact latest:lifecycle`\n' "$PROGRAM"
+    printf -- '- Show latest resilience scorecard: `./%s --show-artifact latest:resilience`\n' "$PROGRAM"
     printf -- '- Show latest Autonomous Database readiness report: `./%s --show-artifact latest:adb`\n' "$PROGRAM"
+    printf -- '- Show latest public limitations page: `./%s --show-artifact latest:public-limitations`\n' "$PROGRAM"
     printf -- '- Show latest health check: `./%s --show-artifact latest:health`\n' "$PROGRAM"
     printf -- '- Generate HTML for latest review index: `./%s --render-html latest:review`\n' "$PROGRAM"
     printf -- '- Generate HTML for a specific artifact: `./%s --render-html /path/to/artifact`\n' "$PROGRAM"
@@ -6666,6 +8170,13 @@ adb_positive() {
   [[ "$value" =~ ^[0-9]+$ && "$value" -gt 0 ]]
 }
 
+adb_truthy_value() {
+  local key="$1"
+  local value
+  value="$(printf "%s" "$(adb_value "$key" "false")" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "true" || "$value" == "yes" || "$value" == "1" ]]
+}
+
 parse_adb_evidence_file() {
   local evidence_file="$1"
   local prefix key value
@@ -6678,10 +8189,119 @@ parse_adb_evidence_file() {
   done <"$evidence_file"
 }
 
+collect_adb_oci_metadata() {
+  local evidence_file="$1"
+  local metadata_file="$2"
+  local -a oci_cmd
+  local py
+
+  if [[ -z "$ADB_OCID" ]]; then
+    printf 'CSIM_ADB|oci_metadata_status|SKIPPED\n' >>"$evidence_file"
+    printf 'CSIM_ADB|oci_metadata_reason|ADB OCID is not configured.\n' >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+  if ! command -v oci >/dev/null 2>&1; then
+    printf 'CSIM_ADB|oci_metadata_status|SKIPPED\n' >>"$evidence_file"
+    printf 'CSIM_ADB|oci_metadata_reason|OCI CLI was not found in PATH.\n' >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+
+  oci_cmd=(oci db autonomous-database get --autonomous-database-id "$ADB_OCID")
+  [[ -n "$ADB_OCI_PROFILE" ]] && oci_cmd+=(--profile "$ADB_OCI_PROFILE")
+  [[ -n "$ADB_OCI_CONFIG_FILE" ]] && oci_cmd+=(--config-file "$ADB_OCI_CONFIG_FILE")
+  [[ -n "$ADB_REGION" ]] && oci_cmd+=(--region "$ADB_REGION")
+  [[ -n "$ADB_OCI_AUTH" ]] && oci_cmd+=(--auth "$ADB_OCI_AUTH")
+
+  if ! "${oci_cmd[@]}" >"$metadata_file" 2>"${metadata_file}.err"; then
+    printf 'CSIM_ADB|oci_metadata_status|ERROR\n' >>"$evidence_file"
+    printf 'CSIM_ADB|oci_metadata_file|%s\n' "$metadata_file" >>"$evidence_file"
+    printf 'CSIM_ADB|oci_metadata_reason|%s\n' "$(tr '\n' ' ' <"${metadata_file}.err" | cut -c1-1000)" >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+
+  printf 'CSIM_ADB|oci_metadata_status|OK\n' >>"$evidence_file"
+  printf 'CSIM_ADB|oci_metadata_file|%s\n' "$metadata_file" >>"$evidence_file"
+  py="$(adb_python_bin 2>/dev/null || command -v python3 2>/dev/null || true)"
+  if [[ -z "$py" ]]; then
+    printf 'CSIM_ADB|oci_metadata_parse_status|SKIPPED_NO_PYTHON\n' >>"$evidence_file"
+    return "$SUCCESS"
+  fi
+
+  "$py" - "$metadata_file" >>"$evidence_file" <<'PY' || printf 'CSIM_ADB|oci_metadata_parse_status|ERROR\n' >>"$evidence_file"
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as handle:
+    data = json.load(handle).get("data", {})
+
+def clean(value):
+    if value is None:
+        return "NONE"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(clean(v) for v in value) if value else "NONE"
+    if isinstance(value, dict):
+        return json.dumps(value, sort_keys=True)
+    return str(value).replace("\n", " ").replace("\r", " ")[:4000]
+
+fields = {
+    "oci_display_name": "display-name",
+    "oci_db_name": "db-name",
+    "oci_lifecycle_state": "lifecycle-state",
+    "oci_compartment_id": "compartment-id",
+    "oci_time_created": "time-created",
+    "oci_backup_retention_days": "backup-retention-period-in-days",
+    "oci_total_backup_storage_gb": "total-backup-storage-size-in-gbs",
+    "oci_manual_backup_type": ("backup-config", "manual-backup-type"),
+    "oci_manual_backup_bucket_name": ("backup-config", "manual-backup-bucket-name"),
+    "oci_is_backup_retention_locked": "is-backup-retention-locked",
+    "oci_is_data_guard_enabled": "is-data-guard-enabled",
+    "oci_is_local_data_guard_enabled": "is-local-data-guard-enabled",
+    "oci_is_remote_data_guard_enabled": "is-remote-data-guard-enabled",
+    "oci_dataguard_region_type": "dataguard-region-type",
+    "oci_standby_db": "standby-db",
+    "oci_peer_db_ids": "peer-db-ids",
+    "oci_private_endpoint": "private-endpoint",
+    "oci_private_endpoint_label": "private-endpoint-label",
+    "oci_private_endpoint_ip": "private-endpoint-ip",
+    "oci_nsg_ids": "nsg-ids",
+    "oci_data_safe_status": "data-safe-status",
+    "oci_operations_insights_status": "operations-insights-status",
+    "oci_permission_level": "permission-level",
+    "oci_license_model": "license-model",
+    "oci_compute_model": "compute-model",
+    "oci_compute_count": "compute-count",
+    "oci_data_storage_size_gb": "data-storage-size-in-gbs",
+    "oci_actual_used_data_storage_tb": "actual-used-data-storage-size-in-tbs",
+    "oci_apex_version": ("apex-details", "apex-version"),
+    "oci_ords_version": ("apex-details", "ords-version"),
+    "oci_supported_clone_regions": "supported-regions-to-clone-to",
+}
+
+def value_for(selector):
+    current = data
+    if isinstance(selector, tuple):
+        for item in selector:
+            if not isinstance(current, dict):
+                return None
+            current = current.get(item)
+        return current
+    return data.get(selector)
+
+print("CSIM_ADB|oci_metadata_parse_status|OK")
+for key, selector in fields.items():
+    print(f"CSIM_ADB|{key}|{clean(value_for(selector))}")
+PY
+}
+
 adb_check_ok=0
 adb_check_warn=0
 adb_check_gap=0
 adb_check_info=0
+adb_scorecard_sum=0
+adb_scorecard_count=0
 
 adb_append_check() {
   local report_file="$1"
@@ -6704,6 +8324,52 @@ adb_append_check() {
     "$(md_escape "$check_name")" \
     "$(md_escape "$evidence")" \
     "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+adb_scorecard_reset() {
+  adb_scorecard_sum=0
+  adb_scorecard_count=0
+}
+
+adb_scorecard_points() {
+  local status="$1"
+  case "$status" in
+    PASS) printf "100" ;;
+    PARTIAL) printf "60" ;;
+    WARN) printf "40" ;;
+    GAP) printf "0" ;;
+    INFO) printf "0" ;;
+    *) printf "0" ;;
+  esac
+}
+
+adb_append_scorecard_row() {
+  local report_file="$1"
+  local domain="$2"
+  local status="$3"
+  local evidence="$4"
+  local recommendation="$5"
+  local points
+
+  points="$(adb_scorecard_points "$status")"
+  if [[ "$status" != "INFO" ]]; then
+    adb_scorecard_sum=$((adb_scorecard_sum + points))
+    adb_scorecard_count=$((adb_scorecard_count + 1))
+  fi
+
+  printf '| %s | `%s` | %s | %s |\n' \
+    "$(md_escape "$domain")" \
+    "$(md_escape "$status")" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+adb_scorecard_score() {
+  if [[ "$adb_scorecard_count" -gt 0 ]]; then
+    printf "%s" $((adb_scorecard_sum / adb_scorecard_count))
+  else
+    printf "0"
+  fi
 }
 
 run_adb_sql_probe() {
@@ -6880,14 +8546,16 @@ adb_append_scenario_row() {
 }
 
 run_adb_readiness_report() {
-  local report_file latest_file latest_evidence_file evidence_file generated_at aliases alias_list python_bin wallet_state tns_state dsn_label oci_state control_plane_state
+  local report_file latest_file latest_evidence_file evidence_file oci_metadata_file generated_at aliases alias_list python_bin wallet_state tns_state dsn_label oci_state control_plane_state
   local score_den score id status reason
+  local adb_domain_score resource_plan flashback_on connect_status tls_mode_lower backup_retention clone_regions metadata_status
 
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.md"
   latest_file="${LOG_DIR}/crashsim_adb_readiness_latest.md"
   latest_evidence_file="${LOG_DIR}/crashsim_adb_readiness_latest.evidence"
   evidence_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}.evidence"
+  oci_metadata_file="${LOG_DIR}/crashsim_adb_readiness_${RUN_ID}_oci_adb.json"
   adb_check_ok=0
   adb_check_warn=0
   adb_check_gap=0
@@ -6924,7 +8592,13 @@ run_adb_readiness_report() {
   fi
 
   run_adb_sql_probe "$evidence_file"
+  collect_adb_oci_metadata "$evidence_file" "$oci_metadata_file"
   parse_adb_evidence_file "$evidence_file" || true
+  if [[ "$(adb_value oci_metadata_status UNKNOWN)" == "OK" ]]; then
+    control_plane_state="metadata collected"
+  elif [[ -n "$ADB_OCID" && "$oci_state" == "found" ]]; then
+    control_plane_state="configured, metadata query $(adb_value oci_metadata_status UNKNOWN)"
+  fi
 
   {
     printf "# CrashSimulator Autonomous Database Readiness Report\n\n"
@@ -6956,6 +8630,10 @@ run_adb_readiness_report() {
     printf '| SQL connection | `%s` |\n' "$(md_escape "$(adb_value connect_status UNKNOWN)")"
     printf '| OCI CLI | `%s` |\n' "$(md_escape "$oci_state")"
     printf '| OCI control-plane posture | `%s` |\n' "$(md_escape "$control_plane_state")"
+    printf '| OCI auth mode | `%s` |\n' "$(md_escape "${ADB_OCI_AUTH:-default}")"
+    printf '| OCI metadata status | `%s` |\n' "$(md_escape "$(adb_value oci_metadata_status UNKNOWN)")"
+    printf '| OCI ADB lifecycle | `%s` |\n' "$(md_escape "$(adb_value oci_lifecycle_state UNKNOWN)")"
+    printf '| OCI backup retention days | `%s` |\n' "$(md_escape "$(adb_value oci_backup_retention_days UNKNOWN)")"
     printf '| APEX URL | `%s` |\n' "$(md_escape "${ADB_APEX_URL:-not configured}")"
     printf '| Database Actions URL | `%s` |\n' "$(md_escape "${ADB_DATABASE_ACTIONS_URL:-not configured}")"
     printf '| Private endpoint expectation | `%s` |\n' "$(md_escape "${ADB_PRIVATE_ENDPOINT:-not configured}")"
@@ -6980,6 +8658,132 @@ run_adb_readiness_report() {
     printf '| Invalid objects | `%s` |\n' "$(md_escape "$(adb_value invalid_object_count "not connected")")"
     printf '| Recycle bin rows | `%s` |\n' "$(md_escape "$(adb_value recyclebin_count "not connected")")"
     printf '| Resource plan | `%s` |\n' "$(md_escape "$(adb_value resource_plan "not connected")")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "OCI Control-Plane Evidence Summary"
+  {
+    printf '| Signal | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Metadata status | `%s` |\n' "$(md_escape "$(adb_value oci_metadata_status UNKNOWN)")"
+    printf '| Metadata file | `%s` |\n' "$(md_escape "$(adb_value oci_metadata_file "not collected")")"
+    printf '| Display name / DB name | `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_display_name UNKNOWN)")" "$(md_escape "$(adb_value oci_db_name UNKNOWN)")"
+    printf '| Lifecycle state | `%s` |\n' "$(md_escape "$(adb_value oci_lifecycle_state UNKNOWN)")"
+    printf '| Compartment OCID | `%s` |\n' "$(md_escape "$(adb_value oci_compartment_id UNKNOWN)")"
+    printf '| Backup retention days | `%s` |\n' "$(md_escape "$(adb_value oci_backup_retention_days UNKNOWN)")"
+    printf '| Total backup storage GB | `%s` |\n' "$(md_escape "$(adb_value oci_total_backup_storage_gb UNKNOWN)")"
+    printf '| Manual backup type / bucket | `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_manual_backup_type UNKNOWN)")" "$(md_escape "$(adb_value oci_manual_backup_bucket_name UNKNOWN)")"
+    printf '| Data Guard enabled | `%s` |\n' "$(md_escape "$(adb_value oci_is_data_guard_enabled UNKNOWN)")"
+    printf '| Local / remote Data Guard | `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_is_local_data_guard_enabled UNKNOWN)")" "$(md_escape "$(adb_value oci_is_remote_data_guard_enabled UNKNOWN)")"
+    printf '| Data Guard region type | `%s` |\n' "$(md_escape "$(adb_value oci_dataguard_region_type UNKNOWN)")"
+    printf '| Peer DB IDs | `%s` |\n' "$(md_escape "$(adb_value oci_peer_db_ids UNKNOWN)")"
+    printf '| Private endpoint / label / IP | `%s` / `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_private_endpoint UNKNOWN)")" "$(md_escape "$(adb_value oci_private_endpoint_label UNKNOWN)")" "$(md_escape "$(adb_value oci_private_endpoint_ip UNKNOWN)")"
+    printf '| NSGs | `%s` |\n' "$(md_escape "$(adb_value oci_nsg_ids UNKNOWN)")"
+    printf '| Data Safe / Operations Insights | `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_data_safe_status UNKNOWN)")" "$(md_escape "$(adb_value oci_operations_insights_status UNKNOWN)")"
+    printf '| Permission level | `%s` |\n' "$(md_escape "$(adb_value oci_permission_level UNKNOWN)")"
+    printf '| APEX / ORDS version | `%s` / `%s` |\n' "$(md_escape "$(adb_value oci_apex_version UNKNOWN)")" "$(md_escape "$(adb_value oci_ords_version UNKNOWN)")"
+    printf '| Supported clone regions | `%s` |\n' "$(md_escape "$(adb_value oci_supported_clone_regions UNKNOWN)")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "ADB Readiness Scorecard"
+  {
+    printf 'This scorecard summarizes Autonomous Database resilience domains separately from host-based Oracle Database scenarios. PASS means CrashSimulator found direct evidence in the current report. PARTIAL means the control path or prerequisite exists, but a drill or deeper OCI metadata check is still needed. GAP means the report cannot currently prove the domain.\n\n'
+    printf '| Domain | Status | Evidence | Next action |\n'
+    printf '| --- | --- | --- | --- |\n'
+  } >>"$report_file"
+
+  adb_scorecard_reset
+  connect_status="$(adb_value connect_status UNKNOWN)"
+  flashback_on="$(adb_value flashback_on UNKNOWN)"
+  resource_plan="$(adb_value resource_plan UNKNOWN)"
+  metadata_status="$(adb_value oci_metadata_status UNKNOWN)"
+  backup_retention="$(adb_value oci_backup_retention_days 0)"
+  clone_regions="$(adb_value oci_supported_clone_regions NONE)"
+  tls_mode_lower="$(printf "%s" "$ADB_TLS_MODE" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$metadata_status" == "OK" ]]; then
+    if [[ "$backup_retention" =~ ^[0-9]+$ && "$backup_retention" -gt 0 ]]; then
+      adb_append_scorecard_row "$report_file" "Backup Readiness" "PASS" "OCI backup retention is ${backup_retention} days; total backup storage is $(adb_value oci_total_backup_storage_gb UNKNOWN) GB." "Run ADB07 clone/restore validation to convert configured backup posture into measured recoverability evidence."
+    else
+      adb_append_scorecard_row "$report_file" "Backup Readiness" "GAP" "OCI metadata was collected, but backup retention is ${backup_retention}." "Review ADB backup policy and confirm restore/clone capability."
+    fi
+    if [[ "$backup_retention" =~ ^[0-9]+$ && "$backup_retention" -gt 0 && "$clone_regions" != "NONE" && "$clone_regions" != "UNKNOWN" ]]; then
+      adb_append_scorecard_row "$report_file" "PITR Validation" "PARTIAL" "Backup retention is ${backup_retention} days and supported clone regions are visible." "Run ADB06 with a selected timestamp and record elapsed clone, validation, and data-merge evidence before marking PASS."
+    else
+      adb_append_scorecard_row "$report_file" "PITR Validation" "GAP" "PITR/clone evidence is incomplete: retention=${backup_retention}, clone_regions=${clone_regions}." "Validate clone-to-time eligibility and run an ADB06 drill."
+    fi
+    if adb_truthy_value oci_is_data_guard_enabled; then
+      adb_append_scorecard_row "$report_file" "Autonomous Data Guard Protection" "PASS" "OCI reports Autonomous Data Guard enabled; local=$(adb_value oci_is_local_data_guard_enabled UNKNOWN), remote=$(adb_value oci_is_remote_data_guard_enabled UNKNOWN), peer=$(adb_value oci_peer_db_ids NONE)." "Run ADB12/ADB13 to measure failover/switchover RTO/RPO and application reconnect."
+    else
+      adb_append_scorecard_row "$report_file" "Autonomous Data Guard Protection" "GAP" "OCI reports Autonomous Data Guard disabled; local=$(adb_value oci_is_local_data_guard_enabled UNKNOWN), remote=$(adb_value oci_is_remote_data_guard_enabled UNKNOWN)." "Enable/configure Autonomous Data Guard when DR requirements require managed standby protection."
+    fi
+    if adb_truthy_value oci_is_remote_data_guard_enabled || [[ "$(adb_value oci_dataguard_region_type NONE)" != "NONE" && "$(adb_value oci_dataguard_region_type NONE)" != "UNKNOWN" ]]; then
+      adb_append_scorecard_row "$report_file" "Cross-Region DR" "PASS" "OCI remote Data Guard evidence exists: region_type=$(adb_value oci_dataguard_region_type UNKNOWN), peer=$(adb_value oci_peer_db_ids NONE)." "Validate failover/reconnect behavior and fallback plan with ADB12/ADB13."
+    else
+      adb_append_scorecard_row "$report_file" "Cross-Region DR" "GAP" "No remote Autonomous Data Guard peer is visible in OCI metadata." "Configure cross-region ADG or document accepted risk when regional DR is not required."
+    fi
+    if [[ "$(adb_value oci_data_safe_status NONE)" == "REGISTERED" ]]; then
+      adb_append_scorecard_row "$report_file" "IAM / Administrator Access" "PASS" "OCI metadata is available and Data Safe is registered; permission level=$(adb_value oci_permission_level UNKNOWN)." "Keep IAM policy, break-glass, and automation-principal evidence current."
+    else
+      adb_append_scorecard_row "$report_file" "IAM / Administrator Access" "PARTIAL" "OCI metadata is available; Data Safe status=$(adb_value oci_data_safe_status UNKNOWN), permission level=$(adb_value oci_permission_level UNKNOWN)." "Review policies, groups, break-glass access, automation principal, and least-privilege boundaries before marking PASS."
+    fi
+  else
+    adb_append_scorecard_row "$report_file" "Backup Readiness" "GAP" "OCI control-plane evidence is not configured: ${control_plane_state}." "Set CRASHSIM_ADB_OCID, OCI CLI/profile, and region to validate backup retention/latest backup."
+    adb_append_scorecard_row "$report_file" "PITR Validation" "GAP" "PITR/clone windows cannot be proven from SQL-only evidence." "Configure OCI metadata collection and run an ADB06 clone-to-time validation."
+    adb_append_scorecard_row "$report_file" "Autonomous Data Guard Protection" "GAP" "Autonomous Data Guard status, peer, lag, and transition eligibility require OCI metadata." "Configure OCI metadata collection before ADB12/ADB13 readiness claims."
+    adb_append_scorecard_row "$report_file" "Cross-Region DR" "GAP" "Cross-region peer/standby evidence is not available in this report." "Add OCI metadata and validate regional failover/reconnect behavior."
+    adb_append_scorecard_row "$report_file" "IAM / Administrator Access" "GAP" "IAM policy/group/break-glass posture cannot be validated without OCI context." "Configure compartment/OCI context and keep IAM checks read-only unless an approved test boundary exists."
+  fi
+
+  if [[ "$tls_mode_lower" == "mtls" ]]; then
+    if [[ "$wallet_state" == "present" && "$tns_state" == "present" && "$connect_status" == "OK" ]]; then
+      adb_append_scorecard_row "$report_file" "Wallet Management" "PASS" "mTLS wallet and tnsnames.ora are present, aliases are visible, and SQL probe connects." "Keep wallet rotation owner, distribution inventory, expiry review, and reconnect test evidence current."
+    elif [[ "$wallet_state" == "present" && "$tns_state" == "present" ]]; then
+      adb_append_scorecard_row "$report_file" "Wallet Management" "PARTIAL" "mTLS wallet files are present, but live SQL connectivity is not proven." "Fix password/network/alias issues and rerun the report before wallet rotation drills."
+    else
+      adb_append_scorecard_row "$report_file" "Wallet Management" "GAP" "mTLS wallet state=${wallet_state}, tnsnames=${tns_state}." "Download/extract the wallet, protect it as a credential, and configure client distribution runbooks."
+    fi
+  else
+    adb_append_scorecard_row "$report_file" "Wallet Management" "INFO" "TLS mode is ${ADB_TLS_MODE}; mTLS wallet may not be required for this client path." "Confirm walletless TLS, hostname verification, and certificate lifecycle procedures."
+  fi
+
+  if [[ "$(adb_value oci_private_endpoint NONE)" != "NONE" && "$(adb_value oci_private_endpoint UNKNOWN)" != "UNKNOWN" ]]; then
+    adb_append_scorecard_row "$report_file" "Private Endpoint Validation" "PARTIAL" "OCI private endpoint is configured: endpoint=$(adb_value oci_private_endpoint), label=$(adb_value oci_private_endpoint_label NONE), ip=$(adb_value oci_private_endpoint_ip NONE)." "Add DNS, route-table, NSG/security-list, bastion, and client reconnect evidence before marking PASS."
+  elif [[ -n "$ADB_PRIVATE_ENDPOINT" ]]; then
+    adb_append_scorecard_row "$report_file" "Private Endpoint Validation" "PARTIAL" "Private endpoint expectation is documented: ${ADB_PRIVATE_ENDPOINT}." "Add DNS, route-table, NSG/security-list, bastion, and client reconnect evidence before marking PASS."
+  else
+    adb_append_scorecard_row "$report_file" "Private Endpoint Validation" "INFO" "No private endpoint expectation was configured." "Set CRASHSIM_ADB_PRIVATE_ENDPOINT when the ADB uses private endpoints."
+  fi
+
+  if [[ "$connect_status" == "OK" && "$resource_plan" != "NONE" && "$resource_plan" != "UNKNOWN" && "$resource_plan" != "not connected" && "$resource_plan" != ERROR:* ]]; then
+    adb_append_scorecard_row "$report_file" "Resource Manager" "PASS" "Resource plan evidence: ${resource_plan}." "Add workload threshold evidence for ADB10/ADB11 when validating saturation or concurrency pressure."
+  elif [[ "$connect_status" == "OK" ]]; then
+    adb_append_scorecard_row "$report_file" "Resource Manager" "PARTIAL" "SQL connection works, but Resource Manager plan evidence is ${resource_plan}." "Capture service class, scaling, workload, and concurrency evidence before resource-pressure drills."
+  else
+    adb_append_scorecard_row "$report_file" "Resource Manager" "GAP" "No live SQL evidence is available for Resource Manager posture." "Fix ADB connectivity, then rerun readiness collection."
+  fi
+
+  if adb_positive flashback_archive_count; then
+    adb_append_scorecard_row "$report_file" "Logical / Object Recovery" "PASS" "Flashback Archive rows exist with retention_days=$(adb_value flashback_archive_retention_days UNKNOWN)." "Run seeded ADB01/ADB03/ADB04 drills to prove object-level recovery, not only configuration."
+  elif [[ "$flashback_on" == "YES" ]]; then
+    adb_append_scorecard_row "$report_file" "Logical / Object Recovery" "PARTIAL" "Database flashback is reported as YES, but Flashback Archive evidence is not present." "Validate Flashback Query/Table, Data Pump export, and clone/PITR fallback paths."
+  else
+    adb_append_scorecard_row "$report_file" "Logical / Object Recovery" "GAP" "Flashback/logical recovery evidence is insufficient: flashback_on=${flashback_on}, archives=$(adb_value flashback_archive_count UNKNOWN)." "Seed logical ADB lab objects and validate flashback/export/clone recovery paths."
+  fi
+
+  if [[ "$connect_status" == "OK" && ( -n "$ADB_APEX_URL" || -n "$ADB_DATABASE_ACTIONS_URL" ) ]]; then
+    adb_append_scorecard_row "$report_file" "Application Access Path" "PASS" "SQL probe connects and user-facing URL context is recorded." "Add URL smoke checks and application login/session validation after wallet, clone/PITR, or ADG drills."
+  elif [[ -n "$ADB_APEX_URL" || -n "$ADB_DATABASE_ACTIONS_URL" || "$(adb_value apex_registry_count 0)" =~ ^[1-9][0-9]*$ ]]; then
+    adb_append_scorecard_row "$report_file" "Application Access Path" "PARTIAL" "Application or APEX evidence exists, but complete user-path validation is not proven." "Configure URL checks and application-specific validation."
+  else
+    adb_append_scorecard_row "$report_file" "Application Access Path" "INFO" "No APEX/Database Actions/application URL context is configured." "Record application access paths when ADB hosts user-facing applications."
+  fi
+
+  adb_domain_score="$(adb_scorecard_score)"
+  {
+    printf "\n| Metric | Value |\n"
+    printf "| --- | ---: |\n"
+    printf "| ADB Readiness Score | %s%% |\n" "$adb_domain_score"
+    printf "| Scored domains | %s |\n" "$adb_scorecard_count"
   } >>"$report_file"
 
   append_report_section "$report_file" "Readiness Checks"
@@ -7052,7 +8856,8 @@ run_adb_readiness_report() {
   {
     printf '| Metric | Value |\n'
     printf '| --- | ---: |\n'
-    printf '| Readiness score | %s%% |\n' "$score"
+    printf '| ADB readiness scorecard | %s%% |\n' "$adb_domain_score"
+    printf '| Operational check score | %s%% |\n' "$score"
     printf '| OK checks | %s |\n' "$adb_check_ok"
     printf '| Warnings | %s |\n' "$adb_check_warn"
     printf '| Gaps | %s |\n' "$adb_check_gap"
@@ -7087,6 +8892,8 @@ run_adb_readiness_report() {
     printf 'CRASHSIM_ADB_PYTHON=/path/to/python\n'
     printf 'CRASHSIM_ADB_OCID=ocid1.autonomousdatabase...\n'
     printf 'CRASHSIM_ADB_REGION=us-ashburn-1\n'
+    printf 'CRASHSIM_ADB_OCI_PROFILE=DEFAULT\n'
+    printf 'CRASHSIM_ADB_OCI_AUTH=security_token\n'
     printf 'CRASHSIM_ADB_APEX_URL=https://example.adb.region.oraclecloudapps.com/ords/apex\n'
     printf '```\n'
   } >>"$report_file"
@@ -7103,6 +8910,8 @@ run_adb_readiness_report() {
     local -a oci_cmd=(oci db autonomous-database get --autonomous-database-id "$ADB_OCID")
     [[ -n "$ADB_OCI_PROFILE" ]] && oci_cmd+=(--profile "$ADB_OCI_PROFILE")
     [[ -n "$ADB_OCI_CONFIG_FILE" ]] && oci_cmd+=(--config-file "$ADB_OCI_CONFIG_FILE")
+    [[ -n "$ADB_REGION" ]] && oci_cmd+=(--region "$ADB_REGION")
+    [[ -n "$ADB_OCI_AUTH" ]] && oci_cmd+=(--auth "$ADB_OCI_AUTH")
     append_report_command "$report_file" "OCI Autonomous Database Metadata" "${oci_cmd[@]}"
   fi
 
@@ -7414,7 +9223,12 @@ run_apex_ords_report() {
 
   ords_bin="$(command -v ords 2>/dev/null || true)"
   if [[ -n "$ords_bin" ]]; then
-    ords_version="$(ords --version 2>&1 | awk '/Oracle REST Data Services/ {line=$0} END {if (line != "") print line; else print "version unavailable"}')"
+    if command -v timeout >/dev/null 2>&1; then
+      ords_version="$(timeout 15 ords --version 2>&1 | awk '/Oracle REST Data Services/ {line=$0} END {if (line != "") print line; else print "version unavailable"}' || true)"
+    else
+      ords_version="$(ords --version 2>&1 | awk '/Oracle REST Data Services/ {line=$0} END {if (line != "") print line; else print "version unavailable"}' || true)"
+    fi
+    [[ -n "$ords_version" ]] || ords_version="version unavailable"
   else
     ords_version="not found"
   fi
@@ -7967,6 +9781,24 @@ maa_append_check() {
     "$(md_escape "$recommendation")" >>"$report_file"
 }
 
+maa_promote_count_from_srvctl() {
+  local target_key="$1"
+  shift
+  local current source_key source_value promoted=0
+
+  current="$(maa_value "$target_key" "0")"
+  [[ "$current" =~ ^[0-9]+$ ]] || current=0
+  for source_key in "$@"; do
+    source_value="$(maa_value "$source_key" "0")"
+    [[ "$source_value" =~ ^[0-9]+$ ]] || source_value=0
+    promoted=$((promoted + source_value))
+  done
+
+  if [[ "$promoted" -gt "$current" ]]; then
+    MAA_EVIDENCE["$target_key"]="$promoted"
+  fi
+}
+
 collect_srvctl_service_evidence() {
   local output_file="$1"
   local summary_file="${output_file}.summary"
@@ -7982,18 +9814,26 @@ collect_srvctl_service_evidence() {
   MAA_EVIDENCE["srvctl_automatic_service_count"]="UNAVAILABLE"
   MAA_EVIDENCE["srvctl_singleton_service_count"]="UNAVAILABLE"
   MAA_EVIDENCE["srvctl_uniform_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_ac_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_tac_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_fan_notification_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_commit_outcome_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_runtime_load_balancing_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_drain_timeout_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_session_state_consistency_service_count"]="UNAVAILABLE"
+  MAA_EVIDENCE["srvctl_failover_restore_service_count"]="UNAVAILABLE"
 
-  if ! command -v srvctl >/dev/null 2>&1 || [[ -z "$DB_UNIQUE_NAME" ]]; then
+  if ! grid_tool_available srvctl || [[ -z "$DB_UNIQUE_NAME" ]]; then
     {
       printf "srvctl unavailable or DB_UNIQUE_NAME not discovered.\n"
-      printf "srvctl=%s\n" "$(command -v srvctl 2>/dev/null || printf not-found)"
+      printf "srvctl=%s\n" "$(discover_grid_home_for_tool srvctl 2>/dev/null || printf not-found)"
       printf "DB_UNIQUE_NAME=%s\n" "${DB_UNIQUE_NAME:-unknown}"
     } >"$output_file" || true
     return "$SUCCESS"
   fi
 
   MAA_EVIDENCE["srvctl_available"]="YES"
-  if srvctl config service -d "$DB_UNIQUE_NAME" >"$output_file" 2>&1; then
+  if run_grid_tool srvctl config service -d "$DB_UNIQUE_NAME" >"$output_file" 2>&1; then
     status="OK"
   else
     status="ERROR_OR_NO_SERVICES"
@@ -8010,37 +9850,105 @@ collect_srvctl_service_evidence() {
       automatic=0
       singleton=0
       uniform=0
+      ac=0
+      tac=0
+      fan=0
+      commit=0
+      rlb=0
+      drain=0
+      session_state=0
+      failover_restore=0
+      in_service=0
     }
     function trim(v) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
       return v
     }
+    function field_value(line) {
+      sub(/^[^:]+:[[:space:]]*/, "", line)
+      return trim(line)
+    }
+    function flush_service() {
+      if (!in_service) return
+      if (svc_role != "" && svc_role != "none" && svc_role != "null") role_based++
+      if (svc_role ~ /primary/) primary_role++
+      if (svc_role ~ /standby|physical_standby|logical_standby|snapshot_standby/) standby_role++
+      if (svc_role ~ /all/) all_role++
+      if (svc_policy ~ /automatic/) automatic++
+      if (svc_cardinality ~ /singleton/) singleton++
+      if (svc_cardinality ~ /uniform/) uniform++
+      if (svc_failover_type == "transaction") ac++
+      if (svc_failover_type == "auto") tac++
+      if (svc_fan ~ /true|yes/) fan++
+      if (svc_commit ~ /true|yes/) commit++
+      if (svc_rlb !~ /^$|none/) rlb++
+      if (svc_drain + 0 > 0) drain++
+      if (svc_session_state !~ /^$|none|static/) session_state++
+      if (svc_failover_restore !~ /^$|none|no/) failover_restore++
+    }
+    function reset_service() {
+      svc_role=""
+      svc_policy=""
+      svc_cardinality=""
+      svc_failover_type=""
+      svc_fan=""
+      svc_commit=""
+      svc_rlb=""
+      svc_drain=0
+      svc_session_state=""
+      svc_failover_restore=""
+    }
     /^Service name:/ {
+      flush_service()
+      reset_service()
+      in_service=1
       service_count++
       next
     }
     /^(Service )?[Rr]ole:/ {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      role=tolower(trim(value))
-      if (role != "" && role != "none" && role != "null") role_based++
-      if (role ~ /primary/) primary_role++
-      if (role ~ /standby|physical_standby|logical_standby|snapshot_standby/) standby_role++
-      if (role ~ /all/) all_role++
+      svc_role=tolower(field_value($0))
       next
     }
     /^Management policy:/ {
-      value=tolower($0)
-      if (value ~ /automatic/) automatic++
+      svc_policy=tolower(field_value($0))
       next
     }
     /^Cardinality:/ {
-      value=tolower($0)
-      if (value ~ /singleton/) singleton++
-      if (value ~ /uniform/) uniform++
+      svc_cardinality=tolower(field_value($0))
+      next
+    }
+    /^Failover type:/ {
+      svc_failover_type=tolower(field_value($0))
+      next
+    }
+    /^AQ HA notifications:/ {
+      svc_fan=tolower(field_value($0))
+      next
+    }
+    /^Commit Outcome:/ {
+      svc_commit=tolower(field_value($0))
+      next
+    }
+    /^Runtime Load Balancing Goal:/ {
+      svc_rlb=tolower(field_value($0))
+      next
+    }
+    /^Drain timeout:/ {
+      value=tolower(field_value($0))
+      gsub(/[^0-9]/, "", value)
+      svc_drain=value + 0
+      next
+    }
+    /^Session State Consistency:/ {
+      svc_session_state=tolower(field_value($0))
+      next
+    }
+    /^Failover restore:/ {
+      svc_failover_restore=tolower(field_value($0))
       next
     }
     END {
+      flush_service()
       print "srvctl_service_count=" service_count
       print "srvctl_role_based_service_count=" role_based
       print "srvctl_primary_role_service_count=" primary_role
@@ -8049,6 +9957,14 @@ collect_srvctl_service_evidence() {
       print "srvctl_automatic_service_count=" automatic
       print "srvctl_singleton_service_count=" singleton
       print "srvctl_uniform_service_count=" uniform
+      print "srvctl_ac_service_count=" ac
+      print "srvctl_tac_service_count=" tac
+      print "srvctl_fan_notification_service_count=" fan
+      print "srvctl_commit_outcome_service_count=" commit
+      print "srvctl_runtime_load_balancing_service_count=" rlb
+      print "srvctl_drain_timeout_service_count=" drain
+      print "srvctl_session_state_consistency_service_count=" session_state
+      print "srvctl_failover_restore_service_count=" failover_restore
     }
   ' "$output_file" >"$summary_file" 2>/dev/null || true
 
@@ -8056,6 +9972,16 @@ collect_srvctl_service_evidence() {
     [[ -n "$key" ]] || continue
     MAA_EVIDENCE["$key"]="${value:-0}"
   done <"$summary_file"
+
+  maa_promote_count_from_srvctl "ac_service_count" "srvctl_ac_service_count"
+  maa_promote_count_from_srvctl "tac_service_count" "srvctl_tac_service_count"
+  maa_promote_count_from_srvctl "application_continuity_service_count" "srvctl_ac_service_count" "srvctl_tac_service_count"
+  maa_promote_count_from_srvctl "commit_outcome_service_count" "srvctl_commit_outcome_service_count"
+  maa_promote_count_from_srvctl "fan_notification_service_count" "srvctl_fan_notification_service_count"
+  maa_promote_count_from_srvctl "runtime_load_balancing_service_count" "srvctl_runtime_load_balancing_service_count"
+  maa_promote_count_from_srvctl "drain_timeout_service_count" "srvctl_drain_timeout_service_count"
+  maa_promote_count_from_srvctl "session_state_consistency_service_count" "srvctl_session_state_consistency_service_count"
+  maa_promote_count_from_srvctl "failover_restore_service_count" "srvctl_failover_restore_service_count"
 }
 
 maa_observer_csv_add_unique() {
@@ -8469,14 +10395,600 @@ maa_sla_hint() {
   fi
 }
 
+maa_normalized_yes_no() {
+  local raw="$1"
+  raw="$(printf "%s" "$raw" | tr '[:upper:]' '[:lower:]')"
+  case "$raw" in
+    y|yes|true|1|required|enabled|enable) printf "yes" ;;
+    n|no|false|0|not|required|disabled|disable|none) printf "no" ;;
+    *) printf "unknown" ;;
+  esac
+}
+
+maa_duration_le() {
+  local value="$1"
+  local threshold="$2"
+  local seconds
+  seconds="$(duration_to_seconds "$value" 2>/dev/null)" || return "$FAIL"
+  [[ "$seconds" -le "$threshold" ]]
+}
+
+maa_tier_rank() {
+  case "$1" in
+    Below\ Bronze) printf "0" ;;
+    Bronze) printf "1" ;;
+    Silver) printf "2" ;;
+    Gold) printf "3" ;;
+    Platinum) printf "4" ;;
+    Diamond) printf "5" ;;
+    *) printf "0" ;;
+  esac
+}
+
+maa_rank_tier() {
+  case "$1" in
+    5) printf "Diamond" ;;
+    4) printf "Platinum" ;;
+    3) printf "Gold" ;;
+    2) printf "Silver" ;;
+    1) printf "Bronze" ;;
+    *) printf "Below Bronze" ;;
+  esac
+}
+
+maa_latest_manifest_for_ids() {
+  local ids_csv="$1"
+  local manifest scenario_id
+  while IFS= read -r manifest; do
+    scenario_id="$(awk -F= '$1=="scenario_id"{print $2; exit}' "$manifest" 2>/dev/null || true)"
+    [[ -n "$scenario_id" ]] || continue
+    case ",${ids_csv}," in
+      *,"${scenario_id}",*) printf "%s\n" "$manifest"; return "$SUCCESS" ;;
+    esac
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_*s*.manifest' 2>/dev/null | sort -r)
+  return "$FAIL"
+}
+
+maa_target_tier_from_context() {
+  local criticality local_ha dr_required auto_failover active_active platform
+  local target="Unknown" reason="Business RTO/RPO and outage-class context is incomplete."
+  local gaps=""
+
+  criticality="$(printf "%s" "$MAA_CRITICALITY" | tr '[:upper:]' '[:lower:]')"
+  local_ha="$(maa_normalized_yes_no "$MAA_LOCAL_HA_TARGET")"
+  dr_required="$(maa_normalized_yes_no "$MAA_DR_REQUIRED")"
+  auto_failover="$(maa_normalized_yes_no "$MAA_AUTOMATIC_FAILOVER_REQUIRED")"
+  active_active="$(maa_normalized_yes_no "$MAA_ACTIVE_ACTIVE_REQUIRED")"
+  platform="$(printf "%s" "$MAA_PLATFORM_HINT" | tr '[:upper:]' '[:lower:]')"
+
+  [[ -n "$MAA_CRITICALITY" ]] || gaps="${gaps}criticality; "
+  [[ -n "$MAA_LOCAL_RTO" || -n "$MAA_DR_RTO" || -n "$MAA_PLANNED_RTO" ]] || gaps="${gaps}RTO objectives; "
+  [[ -n "$MAA_LOCAL_RPO" || -n "$MAA_DR_RPO" || -n "$MAA_PLANNED_RPO" ]] || gaps="${gaps}RPO objectives; "
+  [[ "$local_ha" != "unknown" ]] || gaps="${gaps}local HA target; "
+  [[ "$dr_required" != "unknown" ]] || gaps="${gaps}DR requirement; "
+
+  if [[ "$active_active" == "yes" ]] ||
+     [[ "$criticality" =~ ultra|extreme ]] ||
+     { maa_duration_le "$MAA_DR_RTO" 60 && maa_duration_le "$MAA_DR_RPO" 60; }; then
+    target="Diamond"
+    reason="Business context indicates active-active/extreme availability or very-low-seconds DR RTO/RPO."
+  elif [[ "$platform" =~ exadata|engineered ]] &&
+       { maa_duration_le "$MAA_PLANNED_RTO" 60 || maa_duration_le "$MAA_DR_RTO" 300; }; then
+    target="Platinum"
+    reason="Business context indicates near-zero interruption on an Exadata or engineered-platform strategy."
+  elif [[ "$dr_required" == "yes" || "$auto_failover" == "yes" ]] ||
+       maa_duration_le "$MAA_DR_RTO" 300 ||
+       [[ "$(printf "%s" "$MAA_DR_RPO" | tr '[:upper:]' '[:lower:]')" =~ ^(zero|near-zero|near\ zero)$ ]]; then
+    target="Gold"
+    reason="Business context indicates low-minute disaster recovery, strong RPO, or automatic failover."
+  elif [[ "$local_ha" == "yes" ]] ||
+       maa_duration_le "$MAA_LOCAL_RTO" 60 ||
+       [[ "$criticality" =~ production|mission ]]; then
+    target="Silver"
+    reason="Business context indicates production-grade local HA or sub-minute local recovery."
+  elif [[ -n "$MAA_LOCAL_RTO$MAA_DR_RTO$MAA_PLANNED_RTO$MAA_LOCAL_RPO$MAA_DR_RPO$MAA_PLANNED_RPO$MAA_CRITICALITY" ]]; then
+    target="Bronze"
+    reason="Supplied context appears compatible with restart/restore-based recoverability."
+  fi
+
+  MAA_TARGET_LEVEL="$target"
+  MAA_TARGET_REASON="$reason"
+  MAA_TARGET_GAPS="${gaps%; }"
+}
+
+maa_compute_decision_model() {
+  local db_role open_mode standby_scope platform version_major
+  local capture_count apply_count app_continuity user_services role_services fan_count rlb_count drain_count
+  local fsfo_status fsfo_observer observer_count dgmgrl_status backup_manifest
+  local local_manifest dr_manifest app_manifest
+  local candidate="Bronze" candidate_reason="Backup/restart posture only; no local HA, DR, or active-replication topology was confirmed."
+  local evidenced_rank=0 evidenced_reason=""
+  local dg_detected=0 local_ha_candidate=0 remote_dg_candidate=0
+
+  maa_target_tier_from_context
+
+  db_role="$(maa_value db_role UNKNOWN)"
+  open_mode="$(maa_value open_mode UNKNOWN)"
+  standby_scope="$(printf "%s" "${MAA_STANDBY_SCOPE:-unknown}" | tr '[:upper:]' '[:lower:]')"
+  platform="$(printf "%s" "$MAA_PLATFORM_HINT $STORAGE_TYPE $(maa_value platform_name UNKNOWN)" | tr '[:upper:]' '[:lower:]')"
+  version_major="$(maa_value version_major 0)"
+  capture_count="$(maa_value capture_process_count 0)"
+  apply_count="$(maa_value apply_process_count 0)"
+  app_continuity="$(maa_value application_continuity_service_count 0)"
+  user_services="$(maa_value service_user_count UNKNOWN)"
+  role_services="$(maa_value srvctl_role_based_service_count UNKNOWN)"
+  fan_count="$(maa_value fan_notification_service_count 0)"
+  rlb_count="$(maa_value runtime_load_balancing_service_count 0)"
+  drain_count="$(maa_value drain_timeout_service_count 0)"
+  fsfo_status="$(maa_value fsfo_status UNKNOWN)"
+  fsfo_observer="$(maa_value fsfo_observer_present UNKNOWN)"
+  observer_count="$(maa_value fsfo_observer_count 0)"
+  dgmgrl_status="$(maa_value dgmgrl_fsfo_status UNAVAILABLE)"
+
+  if [[ "$db_role" != "PRIMARY" && "$db_role" != "UNKNOWN" ]] || maa_positive remote_standby_dest_count; then
+    dg_detected=1
+  fi
+  if [[ "$CLUSTER_TYPE" =~ ^(RAC|RACONE|RACONENODE|RAC_ONE_NODE)$ ||
+        "$(maa_value cluster_database FALSE)" == "TRUE" ||
+        "$(maa_value instance_parallel NO)" == "YES" ]]; then
+    local_ha_candidate=1
+  fi
+  if [[ "$dg_detected" -eq 1 && "$standby_scope" == "local" ]]; then
+    local_ha_candidate=1
+  fi
+  if [[ "$dg_detected" -eq 1 && "$standby_scope" != "local" ]]; then
+    remote_dg_candidate=1
+  fi
+
+  if [[ "$local_ha_candidate" -eq 1 ]]; then
+    candidate="Silver"
+    candidate_reason="RAC/RAC One Node or explicitly local Data Guard standby evidence indicates a Silver local-HA candidate."
+  fi
+  if [[ "$remote_dg_candidate" -eq 1 ]]; then
+    candidate="Gold"
+    candidate_reason="Data Guard/Active Data Guard or remote standby transport evidence indicates a Gold DR candidate."
+  fi
+  if [[ "$candidate" == "Gold" &&
+        "$capture_count" =~ ^[0-9]+$ && "$apply_count" =~ ^[0-9]+$ &&
+        ( "$capture_count" -gt 0 || "$apply_count" -gt 0 ) ]]; then
+    candidate="Platinum"
+    candidate_reason="Data Guard plus replication dictionary evidence indicates a Platinum candidate; GoldenGate/active-replication supportability still needs manual confirmation."
+  fi
+  if [[ "$candidate" == "Platinum" &&
+        "$version_major" =~ ^[0-9]+$ && "$version_major" -ge 26 &&
+        "$(maa_normalized_yes_no "$MAA_ACTIVE_ACTIVE_REQUIRED")" == "yes" &&
+        "$platform" =~ exadata ]]; then
+    candidate="Diamond"
+    candidate_reason="26ai, Exadata/platform hint, and active-active requirement indicate a Diamond candidate; architecture and measured evidence require manual confirmation."
+  fi
+
+  MAA_CANDIDATE_LEVEL="$candidate"
+  MAA_CANDIDATE_REASON="$candidate_reason"
+  MAA_DG_DETECTED="$dg_detected"
+  MAA_LOCAL_HA_CANDIDATE="$local_ha_candidate"
+  MAA_REMOTE_DG_CANDIDATE="$remote_dg_candidate"
+
+  MAA_SCORE_BUSINESS=0
+  [[ -n "$MAA_LOCAL_RTO$MAA_LOCAL_RPO$MAA_DR_RTO$MAA_DR_RPO$MAA_PLANNED_RTO$MAA_PLANNED_RPO" ]] && MAA_SCORE_BUSINESS=2
+  [[ -n "$MAA_CRITICALITY" && "$MAA_SCORE_BUSINESS" -gt 0 ]] && MAA_SCORE_BUSINESS=3
+  [[ -n "$MAA_CRITICALITY" && -n "$MAA_LOCAL_RTO" && -n "$MAA_DR_RTO" && -n "$MAA_LOCAL_RPO" && -n "$MAA_DR_RPO" ]] && MAA_SCORE_BUSINESS=4
+
+  MAA_SCORE_BACKUP=0
+  [[ "$(maa_value log_mode UNKNOWN)" == "ARCHIVELOG" ]] && MAA_SCORE_BACKUP=1
+  maa_positive recent_successful_backup_jobs_7d && MAA_SCORE_BACKUP=2
+  if maa_positive recent_successful_backup_jobs_7d && maa_zero datafiles_without_backup_metadata &&
+     maa_zero recover_file_count && maa_zero block_corruption_count; then
+    MAA_SCORE_BACKUP=3
+  fi
+  backup_manifest="$(latest_completed_recovery_manifest 2>/dev/null || true)"
+  [[ -n "$backup_manifest" && "$MAA_SCORE_BACKUP" -ge 3 ]] && MAA_SCORE_BACKUP=4
+
+  MAA_SCORE_LOCAL_HA=0
+  [[ "$local_ha_candidate" -eq 1 ]] && MAA_SCORE_LOCAL_HA=1
+  [[ "$user_services" =~ ^[0-9]+$ && "$user_services" -gt 0 && "$MAA_SCORE_LOCAL_HA" -gt 0 ]] && MAA_SCORE_LOCAL_HA=2
+  if [[ "$MAA_SCORE_LOCAL_HA" -gt 0 ]] &&
+     { [[ "$role_services" =~ ^[0-9]+$ && "$role_services" -gt 0 ]] ||
+       [[ "$fan_count" =~ ^[0-9]+$ && "$fan_count" -gt 0 ]] ||
+       [[ "$rlb_count" =~ ^[0-9]+$ && "$rlb_count" -gt 0 ]] ||
+       [[ "$drain_count" =~ ^[0-9]+$ && "$drain_count" -gt 0 ]]; }; then
+    MAA_SCORE_LOCAL_HA=3
+  fi
+  local_manifest="$(maa_latest_manifest_for_ids "55,56,70,71" 2>/dev/null || true)"
+  [[ -n "$local_manifest" && "$MAA_SCORE_LOCAL_HA" -ge 3 ]] && MAA_SCORE_LOCAL_HA=4
+
+  MAA_SCORE_DR=0
+  [[ "$dg_detected" -eq 1 ]] && MAA_SCORE_DR=1
+  [[ "$dg_detected" -eq 1 && ( "$(maa_value valid_remote_standby_dest_count 0)" =~ ^[0-9]+$ || "$db_role" == *"STANDBY"* ) ]] && MAA_SCORE_DR=2
+  if [[ "$dg_detected" -eq 1 ]] &&
+     { [[ "$dgmgrl_status" == "OK" ]] ||
+       [[ "$(maa_value dataguard_stats_count 0)" =~ ^[1-9][0-9]*$ ]] ||
+       [[ "$role_services" =~ ^[0-9]+$ && "$role_services" -gt 0 ]]; }; then
+    MAA_SCORE_DR=3
+  fi
+  dr_manifest="$(maa_latest_manifest_for_ids "50,51,52,54,66,67,68,69" 2>/dev/null || true)"
+  [[ -n "$dr_manifest" && "$MAA_SCORE_DR" -ge 3 ]] && MAA_SCORE_DR=4
+  if [[ "$MAA_SCORE_DR" -ge 3 &&
+        ( "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED || "$fsfo_observer" == "YES" ) &&
+        "$observer_count" =~ ^[0-9]+$ && "$observer_count" -gt 0 ]]; then
+    MAA_SCORE_DR=4
+  fi
+
+  MAA_SCORE_APP=0
+  [[ "$user_services" =~ ^[0-9]+$ && "$user_services" -gt 0 ]] && MAA_SCORE_APP=1
+  if [[ "$fan_count" =~ ^[0-9]+$ && "$fan_count" -gt 0 ]] ||
+     [[ "$rlb_count" =~ ^[0-9]+$ && "$rlb_count" -gt 0 ]] ||
+     [[ "$drain_count" =~ ^[0-9]+$ && "$drain_count" -gt 0 ]]; then
+    MAA_SCORE_APP=2
+  fi
+  [[ "$app_continuity" =~ ^[0-9]+$ && "$app_continuity" -gt 0 ]] && MAA_SCORE_APP=3
+  app_manifest="$(maa_latest_manifest_for_ids "56,70,71,80" 2>/dev/null || true)"
+  [[ -n "$app_manifest" && "$MAA_SCORE_APP" -ge 2 ]] && MAA_SCORE_APP=4
+
+  MAA_SCORE_OPERATIONS=1
+  [[ "$AUDIT_RETAIN" =~ ^(1|yes|true)$ ]] && MAA_SCORE_OPERATIONS=2
+  [[ -n "$(find "$LOG_DIR" -maxdepth 1 -type f \( -name 'crashsim_scenario_lifecycle_*.md' -o -name 'crashsim_scenario_readiness_*.md' \) 2>/dev/null | head -n 1)" ]] && MAA_SCORE_OPERATIONS=3
+
+  if [[ "$MAA_SCORE_BACKUP" -ge 3 ]]; then
+    evidenced_rank=1
+    evidenced_reason="Bronze evidenced: backup/recovery baseline is configured and no immediate recovery/corruption blockers were detected."
+  else
+    evidenced_rank=0
+    evidenced_reason="Below Bronze: backup/recovery baseline lacks enough evidence for Bronze confirmation."
+  fi
+  if [[ "$evidenced_rank" -ge 1 && "$MAA_SCORE_LOCAL_HA" -ge 4 && "$MAA_SCORE_APP" -ge 3 ]]; then
+    evidenced_rank=2
+    evidenced_reason="Silver evidenced: Bronze plus local HA, application-service integration, and measured local-failure evidence were found."
+  fi
+  if [[ "$evidenced_rank" -ge 2 && "$MAA_SCORE_DR" -ge 4 && "$MAA_SCORE_APP" -ge 3 ]]; then
+    evidenced_rank=3
+    evidenced_reason="Gold evidenced: Silver plus Data Guard/ADG DR evidence, role/service integration, and measured DR/lag/failover evidence were found."
+  fi
+  if [[ "$evidenced_rank" -ge 3 && "$MAA_CANDIDATE_LEVEL" =~ Platinum|Diamond &&
+        "$MAA_SCORE_APP" -ge 4 && "$MAA_SCORE_OPERATIONS" -ge 4 ]]; then
+    evidenced_rank=4
+    evidenced_reason="Platinum evidenced: Gold plus active-replication/platform and measured application-continuity evidence were found."
+  fi
+  if [[ "$evidenced_rank" -ge 4 && "$MAA_CANDIDATE_LEVEL" == "Diamond" &&
+        "$MAA_SCORE_OPERATIONS" -ge 4 ]]; then
+    evidenced_rank=5
+    evidenced_reason="Diamond evidenced: extreme-availability candidate plus operational evidence was found; verify supportability manually."
+  fi
+
+  MAA_EVIDENCED_LEVEL="$(maa_rank_tier "$evidenced_rank")"
+  MAA_EVIDENCED_REASON="$evidenced_reason"
+  MAA_FIT_GAP_RANK=$(( $(maa_tier_rank "${MAA_TARGET_LEVEL:-Unknown}") - evidenced_rank ))
+  if [[ "${MAA_TARGET_LEVEL:-Unknown}" == "Unknown" ]]; then
+    MAA_FIT_GAP_SUMMARY="Target MAA level is unknown because business context is incomplete."
+  elif [[ "$MAA_FIT_GAP_RANK" -le 0 ]]; then
+    MAA_FIT_GAP_SUMMARY="Current evidenced level meets or exceeds the supplied target context."
+  else
+    MAA_FIT_GAP_SUMMARY="Current evidenced level is below the supplied target context by ${MAA_FIT_GAP_RANK} tier(s)."
+  fi
+}
+
+score_clamp() {
+  local value="$1"
+  [[ "$value" =~ ^-?[0-9]+$ ]] || value=0
+  (( value < 0 )) && value=0
+  (( value > 100 )) && value=100
+  printf "%s" "$value"
+}
+
+score_from_maturity() {
+  local value="$1"
+  [[ "$value" =~ ^[0-9]+$ ]] || value=0
+  score_clamp $((value * 20))
+}
+
+score_level_gap_points() {
+  local target="$1"
+  local evidenced="$2"
+  local gap
+  if [[ "$target" == "Unknown" || -z "$target" ]]; then
+    printf "50"
+    return "$SUCCESS"
+  fi
+  gap=$(( $(maa_tier_rank "$target") - $(maa_tier_rank "$evidenced") ))
+  if [[ "$gap" -le 0 ]]; then
+    printf "100"
+  else
+    score_clamp $((100 - gap * 20))
+  fi
+}
+
+resilience_score_level() {
+  local score="$1"
+  if [[ "$score" -ge 90 ]]; then
+    printf "Excellent"
+  elif [[ "$score" -ge 80 ]]; then
+    printf "Strong"
+  elif [[ "$score" -ge 70 ]]; then
+    printf "Good"
+  elif [[ "$score" -ge 55 ]]; then
+    printf "Developing"
+  elif [[ "$score" -ge 40 ]]; then
+    printf "At Risk"
+  else
+    printf "Critical Gaps"
+  fi
+}
+
+score_badge() {
+  local score="$1"
+  local label
+  label="$(resilience_score_level "$score")"
+  printf "%s/100 (%s)" "$score" "$label"
+}
+
+resilience_domain_append() {
+  local report_file="$1"
+  local domain="$2"
+  local score="$3"
+  local weight="$4"
+  local evidence="$5"
+  local recommendation="$6"
+  local weighted
+  weighted=$((score * weight))
+  RESILIENCE_TOTAL_WEIGHT=$((RESILIENCE_TOTAL_WEIGHT + weight))
+  RESILIENCE_WEIGHTED_SUM=$((RESILIENCE_WEIGHTED_SUM + weighted))
+  printf '| %s | `%s` | `%s%%` | %s | %s |\n' \
+    "$(md_escape "$domain")" \
+    "$(md_escape "$(score_badge "$score")")" \
+    "$weight" \
+    "$(md_escape "$evidence")" \
+    "$(md_escape "$recommendation")" >>"$report_file"
+}
+
+resilience_scenario_coverage_score() {
+  local id total=0 automated=0 read_only=0 plan_only=0 placeholder=0 score
+  for id in "${SCENARIO_IDS[@]}"; do
+    total=$((total + 1))
+    if supports_recovery_automation "$id" || supports_file_recovery_automation "$id"; then
+      automated=$((automated + 1))
+    fi
+    case "$id" in
+      53|64|65|69|78|80|81|82) read_only=$((read_only + 1)) ;;
+      46|47|48|49|52|54|66|70|72) plan_only=$((plan_only + 1)) ;;
+    esac
+    [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder=$((placeholder + 1))
+  done
+  if [[ "$total" -eq 0 ]]; then
+    printf "0|registered=0"
+    return "$SUCCESS"
+  fi
+  score=$(( (automated * 70 + read_only * 55 + plan_only * 35) / total ))
+  (( placeholder > 0 )) && score=$((score - placeholder * 2))
+  score="$(score_clamp "$score")"
+  printf "%s|registered=%s, automated=%s, read_only=%s, plan_only=%s, placeholders=%s" \
+    "$score" "$total" "$automated" "$read_only" "$plan_only" "$placeholder"
+}
+
+run_resilience_scorecard() {
+  discover_environment
+  ensure_sqlplus
+
+  local report_file latest_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
+  local backup_score rac_score security_score dr_score recoverability_score maa_score scenario_score app_score
+  local scenario_evidence overall score_line backup_manifest rto_manifest rpo_manifest
+  local encrypted wallet_not_open wallet_open tde_config log_mode force_logging recent_jobs missing_files failed_jobs
+  local recover_files corrupt_rows flashback
+
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  report_file="${LOG_DIR}/crashsim_resilience_scorecard_${RUN_ID}.md"
+  latest_file="${LOG_DIR}/crashsim_resilience_scorecard_latest.md"
+  sql_file="${LOG_DIR}/crashsim_resilience_scorecard_${RUN_ID}.sql"
+  evidence_file="${LOG_DIR}/crashsim_resilience_scorecard_${RUN_ID}.evidence"
+  srvctl_service_file="${LOG_DIR}/crashsim_resilience_scorecard_${RUN_ID}_srvctl_services.out"
+  dgmgrl_fsfo_file="${LOG_DIR}/crashsim_resilience_scorecard_${RUN_ID}_dgmgrl_fsfo.out"
+
+  write_maa_assessment_sql_file "$sql_file"
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
+    die "Resilience scorecard SQL failed: $sql_file (evidence: $evidence_file)"
+  parse_maa_evidence_file "$evidence_file"
+  collect_srvctl_service_evidence "$srvctl_service_file"
+  collect_maa_dgmgrl_fsfo_evidence "$dgmgrl_fsfo_file"
+  maa_compute_decision_model
+
+  log_mode="$(maa_value log_mode UNKNOWN)"
+  force_logging="$(maa_value force_logging UNKNOWN)"
+  recent_jobs="$(maa_value recent_successful_backup_jobs_7d 0)"
+  missing_files="$(maa_value datafiles_without_backup_metadata 0)"
+  failed_jobs="$(maa_value recent_failed_backup_jobs_7d 0)"
+  recover_files="$(maa_value recover_file_count 0)"
+  corrupt_rows=$(( $(maa_value block_corruption_count 0) + $(maa_value copy_corruption_count 0) + $(maa_value backup_corruption_count 0) ))
+  flashback="$(maa_value flashback_on UNKNOWN)"
+  wallet_open="$(maa_value tde_wallet_open_count 0)"
+  wallet_not_open="$(maa_value tde_wallet_not_open_count 0)"
+  encrypted="$(maa_value encrypted_tablespace_count 0)"
+  tde_config="$(maa_value tde_configuration NONE)"
+
+  backup_score=0
+  [[ "$log_mode" == "ARCHIVELOG" ]] && backup_score=$((backup_score + 20))
+  [[ "$recent_jobs" =~ ^[0-9]+$ && "$recent_jobs" -gt 0 ]] && backup_score=$((backup_score + 25))
+  [[ "$missing_files" =~ ^[0-9]+$ && "$missing_files" -eq 0 ]] && backup_score=$((backup_score + 25))
+  [[ "$failed_jobs" =~ ^[0-9]+$ && "$failed_jobs" -eq 0 ]] && backup_score=$((backup_score + 15))
+  backup_manifest="$(latest_completed_recovery_manifest 2>/dev/null || true)"
+  [[ -n "$backup_manifest" ]] && backup_score=$((backup_score + 15))
+  backup_score="$(score_clamp "$backup_score")"
+
+  rac_score="$(score_from_maturity "${MAA_SCORE_LOCAL_HA:-0}")"
+  app_score="$(score_from_maturity "${MAA_SCORE_APP:-0}")"
+  dr_score="$(score_from_maturity "${MAA_SCORE_DR:-0}")"
+
+  security_score=20
+  [[ "$force_logging" == "YES" ]] && security_score=$((security_score + 20))
+  [[ "$tde_config" != "NONE" && "$tde_config" != "UNKNOWN" ]] && security_score=$((security_score + 15))
+  [[ "$wallet_not_open" =~ ^[0-9]+$ && "$wallet_not_open" -eq 0 ]] && security_score=$((security_score + 20))
+  [[ "$encrypted" =~ ^[0-9]+$ && "$encrypted" -gt 0 ]] && security_score=$((security_score + 15))
+  [[ "$wallet_open" =~ ^[0-9]+$ && "$wallet_open" -gt 0 ]] && security_score=$((security_score + 10))
+  security_score="$(score_clamp "$security_score")"
+
+  recoverability_score=0
+  [[ "$log_mode" == "ARCHIVELOG" ]] && recoverability_score=$((recoverability_score + 20))
+  [[ "$flashback" == "YES" ]] && recoverability_score=$((recoverability_score + 15))
+  [[ "$recover_files" =~ ^[0-9]+$ && "$recover_files" -eq 0 ]] && recoverability_score=$((recoverability_score + 20))
+  [[ "$corrupt_rows" -eq 0 ]] && recoverability_score=$((recoverability_score + 20))
+  [[ -n "$backup_manifest" ]] && recoverability_score=$((recoverability_score + 15))
+  rto_manifest="$(maa_latest_manifest_for_ids "64" 2>/dev/null || true)"
+  rpo_manifest="$(maa_latest_manifest_for_ids "65" 2>/dev/null || true)"
+  [[ -n "$rto_manifest" || -n "$rpo_manifest" ]] && recoverability_score=$((recoverability_score + 10))
+  recoverability_score="$(score_clamp "$recoverability_score")"
+
+  maa_score="$(score_level_gap_points "${MAA_TARGET_LEVEL:-Unknown}" "${MAA_EVIDENCED_LEVEL:-Below Bronze}")"
+  if [[ "${MAA_TARGET_LEVEL:-Unknown}" == "Unknown" ]]; then
+    maa_score=$((maa_score - 15))
+  fi
+  maa_score="$(score_clamp "$maa_score")"
+
+  score_line="$(resilience_scenario_coverage_score)"
+  scenario_score="${score_line%%|*}"
+  scenario_evidence="${score_line#*|}"
+
+  RESILIENCE_TOTAL_WEIGHT=0
+  RESILIENCE_WEIGHTED_SUM=0
+
+  {
+    printf "# CrashSimulator Resilience Scorecard\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- Database: `%s`\n' "$(maa_value db_name "$DB_NAME")"
+    printf -- '- DB unique name: `%s`\n' "$(maa_value db_unique_name "$DB_UNIQUE_NAME")"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "$(maa_value db_role "$DB_ROLE")" "$(maa_value open_mode "$DB_OPEN_MODE")"
+    printf -- '- Cluster/storage: `%s` / `%s`\n' "$CLUSTER_TYPE" "$STORAGE_TYPE"
+    printf -- '- Target MAA level: `%s`\n' "${MAA_TARGET_LEVEL:-Unknown}"
+    printf -- '- Candidate MAA level: `%s`\n' "${MAA_CANDIDATE_LEVEL:-Unknown}"
+    printf -- '- Current evidenced MAA level: `%s`\n' "${MAA_EVIDENCED_LEVEL:-Unknown}"
+    printf -- '- SQL evidence file: `%s`\n' "$evidence_file"
+    printf "\n"
+    printf "This scorecard is an evidence-weighted management view. Scores are planning indicators, not Oracle certification or SLA guarantees. Re-run after topology changes, backups, recovery drills, switchover/failover tests, and scenario validations.\n\n"
+
+    printf "## Domain Scores\n\n"
+    printf '| Domain | Score | Weight | Evidence | Recommendation |\n'
+    printf '| --- | ---: | ---: | --- | --- |\n'
+  } >"$report_file" || die "Unable to write resilience scorecard: $report_file"
+
+  resilience_domain_append "$report_file" "Backup" "$backup_score" 15 "ARCHIVELOG=${log_mode}, jobs_7d=${recent_jobs}, failed_7d=${failed_jobs}, missing_datafiles=${missing_files}, recovery_manifest=$([[ -n "$backup_manifest" ]] && printf yes || printf no)" "Keep backup cadence aligned to RPO and prove restore time with timed recovery drills."
+  resilience_domain_append "$report_file" "RAC / Local HA" "$rac_score" 12 "candidate=${MAA_LOCAL_HA_CANDIDATE:-0}, score=${MAA_SCORE_LOCAL_HA:-0}/5, services=$(maa_value service_user_count UNKNOWN), FAN=$(maa_value fan_notification_service_count UNKNOWN), local_drill=$([[ -n "$(maa_latest_manifest_for_ids "55,56,70,71" 2>/dev/null || true)" ]] && printf yes || printf no)" "Use services, FAN/ONS, drain, AC/TAC where applicable, and measure local failure drills."
+  resilience_domain_append "$report_file" "Security" "$security_score" 10 "force_logging=${force_logging}, tde_config=${tde_config}, encrypted_tbs=${encrypted}, wallet_open=${wallet_open}, wallet_not_open=${wallet_not_open}" "Validate TDE/wallet backup posture and add DBSAT/Data Safe evidence for a fuller security score."
+  resilience_domain_append "$report_file" "DR / Data Guard" "$dr_score" 15 "dg_detected=${MAA_DG_DETECTED:-0}, valid_standby_dests=$(maa_value valid_remote_standby_dest_count 0), FSFO=$(maa_value fsfo_status UNKNOWN), observer=$(maa_value fsfo_observer_present UNKNOWN), score=${MAA_SCORE_DR:-0}/5" "Validate Broker, lag, role-based services, FSFO observer placement, switchover/failover, and application reconnect behavior."
+  resilience_domain_append "$report_file" "Recoverability" "$recoverability_score" 15 "recover_files=${recover_files}, corruption_rows=${corrupt_rows}, flashback=${flashback}, recovery_manifest=$([[ -n "$backup_manifest" ]] && printf yes || printf no), rto_rpo_drills=$([[ -n "$rto_manifest$rpo_manifest" ]] && printf yes || printf no)" "Use scenarios 64/65 and timed recoveries to prove actual RTO/RPO, not only configuration readiness."
+  resilience_domain_append "$report_file" "MAA Alignment" "$maa_score" 15 "target=${MAA_TARGET_LEVEL:-Unknown}, candidate=${MAA_CANDIDATE_LEVEL:-Unknown}, evidenced=${MAA_EVIDENCED_LEVEL:-Unknown}, gap=${MAA_FIT_GAP_SUMMARY:-Unknown}" "Close the largest target-versus-evidence gaps first; avoid claiming candidate tiers without measured evidence."
+  resilience_domain_append "$report_file" "Scenario Coverage" "$scenario_score" 10 "$scenario_evidence" "Run scenario readiness/lifecycle reports and prioritize missing automation for high-value HA/DR drills."
+  resilience_domain_append "$report_file" "Application Continuity" "$app_score" 8 "score=${MAA_SCORE_APP:-0}/5, AC=$(maa_value ac_service_count 0), TAC=$(maa_value tac_service_count 0), role_services=$(maa_value srvctl_role_based_service_count UNKNOWN), APEX/session_drill=$([[ -n "$(maa_latest_manifest_for_ids "80" 2>/dev/null || true)" ]] && printf yes || printf no)" "Validate client pools, FAN/ONS, AC/TAC replay safety, role-based services, and APEX/ORDS session behavior where applicable."
+
+  if [[ "$RESILIENCE_TOTAL_WEIGHT" -gt 0 ]]; then
+    overall=$((RESILIENCE_WEIGHTED_SUM / RESILIENCE_TOTAL_WEIGHT))
+  else
+    overall=0
+  fi
+
+  {
+    printf "\n## Overall Score\n\n"
+    printf '| Metric | Value |\n'
+    printf '| --- | --- |\n'
+    printf '| Resilience Score | `%s` |\n' "$(score_badge "$overall")"
+    printf '| Total weight | `%s` |\n' "$RESILIENCE_TOTAL_WEIGHT"
+    printf '| MAA fit-gap | %s |\n' "$(md_escape "${MAA_FIT_GAP_SUMMARY:-Unknown}")"
+
+    printf "\n## How The Score Updates\n\n"
+    printf -- '- New backups, RMAN validation, and recovery manifests improve Backup and Recoverability evidence.\n'
+    printf -- '- RAC/service relocation, VIP/service placement, and APEX session manifests improve Local HA and Application Continuity evidence.\n'
+    printf -- '- Data Guard apply/transport, FSFO, SRL, switchover/failover, and standby drill manifests improve DR evidence.\n'
+    printf -- '- Updated MAA context can raise or lower the target tier; measured evidence determines the evidenced tier.\n'
+
+    printf "\n## Recommended Next Actions\n\n"
+    if [[ "$dr_score" -lt 60 ]]; then
+      printf -- '- DR score is low: validate or configure Data Guard/ADG, Broker, SRLs, lag monitoring, role-based services, and FSFO where required.\n'
+    fi
+    if [[ "$recoverability_score" -lt 75 ]]; then
+      printf -- '- Recoverability needs stronger proof: run timed restore/recovery drills and scenarios `64` and `65` for RTO/RPO validation.\n'
+    fi
+    if [[ "$rac_score" -lt 70 && "${MAA_LOCAL_HA_TARGET:-}" =~ ^(yes|YES|true|TRUE|1)$ ]]; then
+      printf -- '- Local HA target is set but score is below target: validate service relocation, FAN/ONS, drain, AC/TAC, and instance failure behavior.\n'
+    fi
+    if [[ "$security_score" -lt 75 ]]; then
+      printf -- '- Security score is partial: add DBSAT/Data Safe evidence and validate TDE wallet backup/open behavior across RAC/DG sites.\n'
+    fi
+    if [[ "$scenario_score" -lt 70 ]]; then
+      printf -- '- Scenario coverage can improve: run `--scenario-lifecycle-report` and prioritize lifecycle helpers for high-risk HA/DR scenarios.\n'
+    fi
+    printf -- '- Save this report as audit evidence before and after major resilience improvements.\n'
+
+    printf "\n## Raw Evidence References\n\n"
+    printf -- '- MAA SQL evidence: `%s`\n' "$evidence_file"
+    printf -- '- srvctl service evidence: `%s`\n' "$srvctl_service_file"
+    printf -- '- DGMGRL/FSFO evidence: `%s`\n' "$dgmgrl_fsfo_file"
+  } >>"$report_file"
+
+  cp "$report_file" "$latest_file" || die "Unable to update latest resilience scorecard: $latest_file"
+  echo "Resilience scorecard generated: ${report_file}"
+  echo "Latest resilience scorecard: ${latest_file}"
+  echo "Resilience Score: $(score_badge "$overall")"
+  maybe_render_html "$report_file"
+  if [[ "$HTML_OUTPUT" -eq 1 ]]; then
+    render_artifact_html "$latest_file"
+  fi
+}
+
+maybe_refresh_resilience_scorecard() {
+  local trigger="$1"
+  local id="${2:-}"
+  local probe_sql probe_out refresh_out
+
+  [[ "${AUTO_SCORECARD:-0}" -eq 1 ]] || return "$SUCCESS"
+  [[ "${AUTO_SCORECARD_REFRESHING:-0}" -eq 0 ]] || return "$SUCCESS"
+
+  case "$trigger" in
+    scenario|random|protect|recover|validate|validate_all|scenario_readiness_report|scenario_lifecycle_report|health|baseline_backup)
+      ;;
+    *)
+      return "$SUCCESS"
+      ;;
+  esac
+
+  if ! ensure_sqlplus >/dev/null 2>&1; then
+    warn "Resilience scorecard auto-refresh skipped after ${trigger}: SQL*Plus is not available."
+    return "$SUCCESS"
+  fi
+
+  mkdir -p "$WORK_DIR" 2>/dev/null || return "$SUCCESS"
+  probe_sql="${WORK_DIR}/crashsim_resilience_scorecard_probe_${RUN_ID}.sql"
+  probe_out="${WORK_DIR}/crashsim_resilience_scorecard_probe_${RUN_ID}.out"
+  refresh_out="${WORK_DIR}/crashsim_resilience_scorecard_refresh_${RUN_ID}.out"
+  {
+    printf "set heading off feedback off pages 0 verify off echo off termout on\n"
+    printf "whenever sqlerror exit failure\n"
+    printf "select 'OK' from dual;\n"
+    printf "exit\n"
+  } >"$probe_sql" || return "$SUCCESS"
+
+  if ! "$SQLPLUS_BIN" -L -s "$SQLPLUS_LOGON" @"$probe_sql" >"$probe_out" 2>&1 </dev/null; then
+    warn "Resilience scorecard auto-refresh skipped after ${trigger}: target database is not ready for SQL evidence collection."
+    return "$SUCCESS"
+  fi
+
+  if (
+    AUTO_SCORECARD_REFRESHING=1
+    HTML_OUTPUT=0
+    run_resilience_scorecard >"$refresh_out" 2>&1
+  ); then
+    if [[ -n "$id" ]]; then
+      echo "Resilience scorecard auto-refreshed after ${trigger} ${id}: ${LOG_DIR}/crashsim_resilience_scorecard_latest.md"
+    else
+      echo "Resilience scorecard auto-refreshed after ${trigger}: ${LOG_DIR}/crashsim_resilience_scorecard_latest.md"
+    fi
+  else
+    warn "Resilience scorecard auto-refresh skipped after ${trigger}; details: ${refresh_out}"
+  fi
+}
+
 run_maa_report() {
   discover_environment
   ensure_sqlplus
 
   local report_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
-  local detected_level detected_reason readiness_status sla_hint
-  local has_silver=0 has_gold=0 has_platinum=0 has_diamond=0 baseline_gap=0
-  local version_major app_continuity capture_count apply_count
+  local readiness_status sla_hint baseline_gap=0
+  local app_continuity capture_count apply_count
 
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.md"
@@ -8492,47 +11004,9 @@ run_maa_report() {
   collect_srvctl_service_evidence "$srvctl_service_file"
   collect_maa_dgmgrl_fsfo_evidence "$dgmgrl_fsfo_file"
 
-  case "$CLUSTER_TYPE" in
-    RAC|RACONE|RACONENODE|RAC_ONE_NODE)
-      has_silver=1
-      ;;
-  esac
-  if [[ "$(maa_value cluster_database FALSE)" == "TRUE" || "$(maa_value instance_parallel NO)" == "YES" ]]; then
-    has_silver=1
-  fi
-  if [[ "$(maa_value db_role UNKNOWN)" != "PRIMARY" && "$(maa_value db_role UNKNOWN)" != "UNKNOWN" ]] || maa_positive remote_standby_dest_count; then
-    has_gold=1
-  fi
   capture_count="$(maa_value capture_process_count 0)"
   apply_count="$(maa_value apply_process_count 0)"
   app_continuity="$(maa_value application_continuity_service_count 0)"
-  if [[ "$has_gold" -eq 1 && "$capture_count" =~ ^[0-9]+$ && "$apply_count" =~ ^[0-9]+$ &&
-        ( "$capture_count" -gt 0 || "$apply_count" -gt 0 ) ]]; then
-    has_platinum=1
-  fi
-  version_major="$(maa_value version_major 0)"
-  if [[ "$has_platinum" -eq 1 && "$version_major" =~ ^[0-9]+$ && "$version_major" -ge 26 ]]; then
-    has_diamond=1
-  fi
-
-  detected_level="Bronze"
-  detected_reason="Single-instance, Oracle Restart, or no RAC/Data Guard/GoldenGate topology was detected."
-  if [[ "$has_silver" -eq 1 ]]; then
-    detected_level="Silver"
-    detected_reason="RAC or RAC One Node style topology was detected."
-  fi
-  if [[ "$has_gold" -eq 1 ]]; then
-    detected_level="Gold"
-    detected_reason="Data Guard standby role or remote standby transport destination was detected."
-  fi
-  if [[ "$has_platinum" -eq 1 ]]; then
-    detected_level="Platinum"
-    detected_reason="Data Guard plus GoldenGate/replication dictionary evidence was detected."
-  fi
-  if [[ "$has_diamond" -eq 1 ]]; then
-    detected_level="Diamond"
-    detected_reason="26ai-or-later plus Platinum-style replication evidence was detected. Exadata and active/active details still require manual confirmation."
-  fi
 
   [[ "$(maa_value log_mode UNKNOWN)" == "ARCHIVELOG" ]] || baseline_gap=1
   [[ "$(maa_value force_logging UNKNOWN)" == "YES" ]] || baseline_gap=1
@@ -8544,6 +11018,7 @@ run_maa_report() {
   readiness_status="Baseline checks passed"
   [[ "$baseline_gap" -eq 0 ]] || readiness_status="Baseline gaps detected"
   sla_hint="$(maa_sla_hint)"
+  maa_compute_decision_model
 
   {
     printf "# CrashSimulator Oracle MAA Readiness Report\n\n"
@@ -8557,22 +11032,42 @@ run_maa_report() {
     printf -- '- CDB: `%s`\n' "$(maa_value cdb "$DB_CDB")"
     printf -- '- Cluster type: `%s`\n' "$CLUSTER_TYPE"
     printf -- '- Storage type: `%s`\n' "$STORAGE_TYPE"
-    printf -- '- Detected MAA posture: `%s`\n' "$detected_level"
+    printf -- '- Target MAA level: `%s`\n' "${MAA_TARGET_LEVEL:-Unknown}"
+    printf -- '- Candidate MAA level: `%s`\n' "${MAA_CANDIDATE_LEVEL:-Unknown}"
+    printf -- '- Current evidenced MAA level: `%s`\n' "${MAA_EVIDENCED_LEVEL:-Unknown}"
     printf -- '- Readiness status: `%s`\n' "$readiness_status"
     printf -- '- Raw SQL evidence file: `%s`\n' "$evidence_file"
     printf -- '- Data Guard Broker FSFO evidence file: `%s`\n' "$dgmgrl_fsfo_file"
     printf "\n"
-    printf "This report is a best-effort posture assessment, not an Oracle certification. It maps observable database, Grid Infrastructure, backup, Data Guard, and security evidence to the MAA reference architecture model and highlights gaps that should be validated with timed drills.\n\n"
+    printf "This report is a best-effort posture assessment, not an Oracle certification. It separates business target, topology candidate, and current evidenced MAA level so product presence alone does not overclaim HA/DR maturity.\n\n"
   } >"$report_file" || die "Unable to write MAA report file: $report_file"
 
-  append_report_section "$report_file" "Detected MAA Level"
+  append_report_section "$report_file" "MAA Decision-Tree Result"
   {
     printf '| Field | Value |\n'
     printf '| --- | --- |\n'
-    printf '| Detected posture | `%s` |\n' "$(md_escape "$detected_level")"
-    printf '| Basis | %s |\n' "$(md_escape "$detected_reason")"
+    printf '| Target MAA level | `%s` |\n' "$(md_escape "${MAA_TARGET_LEVEL:-Unknown}")"
+    printf '| Target basis | %s |\n' "$(md_escape "${MAA_TARGET_REASON:-Unknown}")"
+    printf '| Target gaps to verify | %s |\n' "$(md_escape "${MAA_TARGET_GAPS:-none}")"
+    printf '| Candidate MAA level | `%s` |\n' "$(md_escape "${MAA_CANDIDATE_LEVEL:-Unknown}")"
+    printf '| Candidate basis | %s |\n' "$(md_escape "${MAA_CANDIDATE_REASON:-Unknown}")"
+    printf '| Current evidenced MAA level | `%s` |\n' "$(md_escape "${MAA_EVIDENCED_LEVEL:-Unknown}")"
+    printf '| Evidenced basis | %s |\n' "$(md_escape "${MAA_EVIDENCED_REASON:-Unknown}")"
+    printf '| Fit-gap summary | %s |\n' "$(md_escape "${MAA_FIT_GAP_SUMMARY:-Unknown}")"
     printf '| Baseline readiness | `%s` |\n' "$(md_escape "$readiness_status")"
-    printf '| Detection confidence | %s |\n' "$(md_escape "Medium: based on target-host SQL/GI evidence; application failover behavior and external schedulers require confirmation.")"
+    printf '| Detection confidence | %s |\n' "$(md_escape "Medium: based on target-host SQL/GI evidence; application failover behavior, external monitoring, and measured business outage need confirmation.")"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "Evidence Maturity Scorecard"
+  {
+    printf '| Domain | Score | Meaning |\n'
+    printf '| --- | ---: | --- |\n'
+    printf '| Business requirements | `%s` | RTO/RPO, criticality, outage class, and target context completeness. |\n' "${MAA_SCORE_BUSINESS:-0}"
+    printf '| Backup and recovery | `%s` | ARCHIVELOG, RMAN coverage, corruption/recovery blockers, and measured recovery manifest evidence. |\n' "${MAA_SCORE_BACKUP:-0}"
+    printf '| Local HA | `%s` | RAC/RAC One/local standby, service placement, client HA attributes, and measured local-failure drills. |\n' "${MAA_SCORE_LOCAL_HA:-0}"
+    printf '| Data Guard / ADG / FSFO | `%s` | DG configuration, Broker/lag/role services, FSFO observer, and measured role/lag/failover drills. |\n' "${MAA_SCORE_DR:-0}"
+    printf '| Application continuity | `%s` | Dedicated services, FAN/RLB/drain, AC/TAC/replay, and application/session validation evidence. |\n' "${MAA_SCORE_APP:-0}"
+    printf '| Operations and evidence | `%s` | Audit retention, readiness/lifecycle evidence, runbook/report evidence, and repeatability. |\n' "${MAA_SCORE_OPERATIONS:-0}"
   } >>"$report_file"
 
   append_report_section "$report_file" "MAA Reference Model Used"
@@ -8580,10 +11075,10 @@ run_maa_report() {
     printf '| MAA level | Observable capabilities used by this report |\n'
     printf '| --- | --- |\n'
     printf '| Bronze | Single-instance or Oracle Restart style database with ARCHIVELOG, RMAN backup/recovery evidence, corruption checks, and basic restart/restore readiness. |\n'
-    printf '| Silver | Bronze plus RAC or RAC One Node style local HA; Application Continuity evidence is checked when dictionary columns are available. |\n'
-    printf '| Gold | Silver/Bronze plus Data Guard or Active Data Guard evidence for disaster recovery and low/zero data-loss posture. |\n'
-    printf '| Platinum | Gold plus GoldenGate/advanced replication or sharding-style evidence for near-zero or zero application outage patterns. |\n'
-    printf '| Diamond | Next-generation 26ai-or-later/Exadata/GoldenGate active-active pattern; this report can only flag partial evidence and requires manual confirmation. |\n'
+    printf '| Silver | Bronze plus strong local HA using RAC/RAC One Node or explicitly local Data Guard standby, with service/client failover and application-aware continuity evidence. |\n'
+    printf '| Gold | Silver plus Data Guard/Active Data Guard DR evidence, Broker/lag/role-services/FSFO where applicable, and measured role-transition/application behavior. |\n'
+    printf '| Platinum | Gold plus Exadata/optimized platform and/or supported active replication patterns with seconds-class measured service behavior. |\n'
+    printf '| Diamond | Extreme-availability active/global architecture such as 26ai/Exadata/GoldenGate or distributed patterns; supportability and measured evidence require manual confirmation. |\n'
   } >>"$report_file"
 
   append_report_section "$report_file" "Evidence Summary"
@@ -8676,10 +11171,10 @@ run_maa_report() {
   else
     maa_append_check "$report_file" "INFO" "Disaster recovery" "Fast-Start Failover evidence" "FSFO=$(maa_value fsfo_status), observer=$(maa_value fsfo_observer_present)" "For strict RTO/RPO, evaluate FSFO with appropriate protection mode and observer design."
   fi
-  if [[ "$has_silver" -eq 1 ]]; then
-    maa_append_check "$report_file" "OK" "Local HA" "RAC/RAC One Node evidence" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database), parallel=$(maa_value instance_parallel)" "Validate service placement, FAN/ONS, Application Continuity, and rolling maintenance drills."
+  if [[ "${MAA_LOCAL_HA_CANDIDATE:-0}" -eq 1 ]]; then
+    maa_append_check "$report_file" "OK" "Local HA" "RAC/RAC One/local standby candidate" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database), parallel=$(maa_value instance_parallel), standby_scope=${MAA_STANDBY_SCOPE:-unknown}" "Validate service placement, FAN/ONS, Application Continuity, and measured local-failure drills before claiming Silver evidenced."
   else
-    maa_append_check "$report_file" "INFO" "Local HA" "RAC/RAC One Node evidence" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database)" "Silver or higher local HA normally requires RAC or RAC One Node plus service failover design."
+    maa_append_check "$report_file" "INFO" "Local HA" "RAC/RAC One/local standby candidate" "cluster=${CLUSTER_TYPE}, cluster_database=$(maa_value cluster_database), standby_scope=${MAA_STANDBY_SCOPE:-unknown}" "Silver local HA normally requires RAC/RAC One Node or an explicitly local standby plus service/client failover design."
   fi
   if [[ "$app_continuity" =~ ^[0-9]+$ && "$app_continuity" -gt 0 ]]; then
     maa_append_check "$report_file" "OK" "Application continuity" "AC-style service metadata" "services=$(maa_value application_continuity_service_count)" "Validate replay safety with application teams and planned/unplanned failover drills."
@@ -8688,6 +11183,8 @@ run_maa_report() {
   fi
   if [[ "$(maa_value redo_min_members 0)" =~ ^[0-9]+$ && "$(maa_value redo_min_members 0)" -ge 2 && "$(maa_value control_file_count 0)" =~ ^[0-9]+$ && "$(maa_value control_file_count 0)" -ge 2 ]]; then
     maa_append_check "$report_file" "OK" "File redundancy" "Control file and redo multiplexing" "control_files=$(maa_value control_file_count), redo_min_members=$(maa_value redo_min_members)" "Keep members separated across failure domains where possible."
+  elif [[ "$STORAGE_TYPE" =~ ^FEX && "$(maa_value redo_min_members 0)" =~ ^[0-9]+$ && "$(maa_value redo_min_members 0)" -ge 2 && "$(maa_value control_file_count 0)" == "1" ]]; then
+    maa_append_check "$report_file" "INFO" "File redundancy" "FEX control-file posture" "control_files=$(maa_value control_file_count), redo_min_members=$(maa_value redo_min_members), storage=${STORAGE_TYPE}" "OCI FEX exposes provider-managed @... file handles and may not expose a host byte-copy path for manual control-file multiplexing. Validate control-file autobackups, fresh baseline backups, provider storage redundancy, and use a provider-approved offline byte-copy or CREATE CONTROLFILE runbook before attempting active multiplexing."
   else
     maa_append_check "$report_file" "WARN" "File redundancy" "Control file and redo multiplexing" "control_files=$(maa_value control_file_count), redo_min_members=$(maa_value redo_min_members), redo_under2=$(maa_value redo_groups_less_than_two_members)" "Multiplex control files and redo members across independent storage failure domains."
   fi
@@ -8711,7 +11208,14 @@ run_maa_report() {
     printf '| Disaster/site RTO | `%s` |\n' "$(md_escape "${MAA_DR_RTO:-not supplied}")"
     printf '| Disaster/site RPO | `%s` |\n' "$(md_escape "${MAA_DR_RPO:-not supplied}")"
     printf '| Planned maintenance RTO | `%s` |\n' "$(md_escape "${MAA_PLANNED_RTO:-not supplied}")"
-    printf '| Planned maintenance RPO | `%s` |\n\n' "$(md_escape "${MAA_PLANNED_RPO:-not supplied}")"
+    printf '| Planned maintenance RPO | `%s` |\n' "$(md_escape "${MAA_PLANNED_RPO:-not supplied}")"
+    printf '| Criticality | `%s` |\n' "$(md_escape "${MAA_CRITICALITY:-not supplied}")"
+    printf '| Local HA target | `%s` |\n' "$(md_escape "${MAA_LOCAL_HA_TARGET:-not supplied}")"
+    printf '| DR required | `%s` |\n' "$(md_escape "${MAA_DR_REQUIRED:-not supplied}")"
+    printf '| Automatic failover required | `%s` |\n' "$(md_escape "${MAA_AUTOMATIC_FAILOVER_REQUIRED:-not supplied}")"
+    printf '| Active-active required | `%s` |\n' "$(md_escape "${MAA_ACTIVE_ACTIVE_REQUIRED:-not supplied}")"
+    printf '| Platform hint | `%s` |\n' "$(md_escape "${MAA_PLATFORM_HINT:-not supplied}")"
+    printf '| Standby scope | `%s` |\n\n' "$(md_escape "${MAA_STANDBY_SCOPE:-unknown}")"
     printf "Preliminary recommendation hint: %s\n" "$sla_hint"
   } >>"$report_file"
 
@@ -8747,7 +11251,9 @@ run_maa_report() {
   fi
 
   echo "MAA readiness report generated: ${report_file}"
-  echo "Detected MAA posture: ${detected_level}"
+  echo "Target MAA level: ${MAA_TARGET_LEVEL:-Unknown}"
+  echo "Candidate MAA level: ${MAA_CANDIDATE_LEVEL:-Unknown}"
+  echo "Current evidenced MAA level: ${MAA_EVIDENCED_LEVEL:-Unknown}"
   echo "Readiness status: ${readiness_status}"
   maybe_render_html "$report_file"
 }
@@ -8831,7 +11337,9 @@ append_report_command() {
   local report_file="$1"
   local title="$2"
   shift 2
-  local status
+  local status timeout_seconds
+  timeout_seconds="${CRASHSIM_REPORT_COMMAND_TIMEOUT:-30}"
+  [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || timeout_seconds=30
 
   append_report_section "$report_file" "$title"
   {
@@ -8840,7 +11348,11 @@ append_report_command() {
     printf "\n\n"
     printf '```text\n'
   } >>"$report_file"
-  "$@" >>"$report_file" 2>&1
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$timeout_seconds" "$@" >>"$report_file" 2>&1
+  else
+    "$@" >>"$report_file" 2>&1
+  fi
   status=$?
   if [[ "$status" -ne 0 ]]; then
     printf "\n[command exited with status %s]\n" "$status" >>"$report_file"
@@ -10582,6 +13094,66 @@ RUNBOOK
     2. For RTO, run a scenario recovery first so CrashSimulator has measured recovery start/complete timestamps.
     3. For RPO, review archived redo, backed-up archived redo, Data Guard lag, and archive-gap evidence.
     4. Treat PASS/FAIL as an operational drill result, then update backup cadence, Data Guard transport/apply, monitoring, and runbooks.
+RUNBOOK
+      ;;
+    83|84|87)
+      cat <<'RUNBOOK'
+  - Service continuity, AC/TAC, FAN/ONS, and role-service validation:
+    1. Inventory service attributes from SQL and srvctl before changing anything.
+    2. Confirm application drivers/pools support FAN, Transaction Guard, AC/TAC, and service drain behavior.
+    3. Run replay/notification tests with a replay-safe client workload and capture application-visible behavior.
+    4. For Data Guard role services, validate service placement before and after an approved role transition.
+RUNBOOK
+      ;;
+    85|86)
+      cat <<'RUNBOOK'
+  - Data Guard switchover/failback:
+    1. Validate Broker configuration, lag, SRLs, flashback, protection mode, and service role placement before transition.
+    2. Communicate the planned window, drain services, run DGMGRL validation, and capture pre-transition evidence.
+    3. Execute switchover/failback only in an approved lab or change window.
+    4. Validate new roles, apply, services, applications, monitoring, backups, and the path back to the original topology.
+RUNBOOK
+      ;;
+    88)
+      cat <<'RUNBOOK'
+  - PDB point-in-time recovery:
+    1. Choose an exact recovery timestamp/SCN and confirm backups plus archived redo cover it.
+    2. Allocate an auxiliary destination with enough free space and run RMAN preview before recovery.
+    3. Recover only the intended PDB, validate open state, services, application data, and invalid objects.
+    4. Take a fresh backup after successful PITR and document RTO/RPO.
+RUNBOOK
+      ;;
+    89|90)
+      cat <<'RUNBOOK'
+  - Restore point and patch rollback readiness:
+    1. Confirm Flashback Database, FRA headroom, recent backups, restore points, and Data Guard/app service posture.
+    2. Create a guaranteed restore point only for an approved change window and monitor FRA growth.
+    3. Validate rollback in a lab, including OPEN RESETLOGS consequences where applicable.
+    4. Drop restore points only after fallback closure and a new backup baseline.
+RUNBOOK
+      ;;
+    EXA01|EXA02|EXA03|EXA04)
+      cat <<'RUNBOOK'
+  - Exadata platform drill:
+    1. Collect cell, ASM, database, service, and workload evidence before any platform fault.
+    2. Use an Exadata-approved lab and tooling path; do not simulate storage/cell faults from generic OS commands.
+    3. Validate rebalance/repair, database service continuity, Smart Scan/Flash Cache behavior, and application impact.
+RUNBOOK
+      ;;
+    OCI01|OCI02|OCI03|OCI04|OCI05)
+      cat <<'RUNBOOK'
+  - OCI Base Database Service drill:
+    1. Capture OCI control-plane, DBaaS tooling, RMAN, network, service, and wallet evidence.
+    2. Keep cloud fault injection inside an approved compartment/VCN/lab boundary with rollback commands prepared.
+    3. Validate backups, cross-region restore, DB system recovery, DNS/VCN/NSG behavior, and application reconnect.
+RUNBOOK
+      ;;
+    GG01|GG02|GG03|GG04)
+      cat <<'RUNBOOK'
+  - GoldenGate drill:
+    1. Inventory deployment, Extract, Replicat, trail, checkpoint, heartbeat, and lag evidence.
+    2. Confirm source/target consistency checks and resync path before stopping processes or manipulating trails.
+    3. Validate lag alerts, restart/catch-up behavior, trail recovery, and application/data consistency after the drill.
 RUNBOOK
       ;;
     73|79)
@@ -12586,6 +15158,9 @@ discover_grid_home_for_tool() {
   fi
 
   for tool_path in \
+    "/u01/app/23.0.0.0/gridhome_1/bin/${tool}" \
+    "/u01/app/23.0.0.0/grid/bin/${tool}" \
+    "/u01/app/grid/product/23.0.0/grid/bin/${tool}" \
     "/u01/app/19.0.0.0/gridhome_1/bin/${tool}" \
     "/u01/app/19.0.0.0/grid/bin/${tool}" \
     "/u01/app/grid/product/19.0.0/grid/bin/${tool}"; do
@@ -12599,6 +15174,35 @@ discover_grid_home_for_tool() {
   done
 
   return "$FAIL"
+}
+
+grid_tool_available() {
+  local tool="$1"
+  discover_grid_home_for_tool "$tool" >/dev/null 2>&1
+}
+
+run_grid_tool() {
+  local tool="$1"
+  shift
+  local grid_home status
+  grid_home="$(discover_grid_home_for_tool "$tool" || true)"
+  [[ -n "$grid_home" && -x "${grid_home}/bin/${tool}" ]] || return "$FAIL"
+
+  if [[ "$(id -un 2>/dev/null || true)" == "$GRID_USER" ]]; then
+    env ORACLE_HOME="$grid_home" PATH="${grid_home}/bin:${PATH}" "${grid_home}/bin/${tool}" "$@"
+    return "$?"
+  fi
+
+  env ORACLE_HOME="$grid_home" PATH="${grid_home}/bin:${PATH}" "${grid_home}/bin/${tool}" "$@"
+  status=$?
+  [[ "$status" -eq 0 ]] && return "$SUCCESS"
+
+  if command -v sudo >/dev/null 2>&1 && sudo -n -u "$GRID_USER" true >/dev/null 2>&1; then
+    sudo -n -u "$GRID_USER" env ORACLE_HOME="$grid_home" PATH="${grid_home}/bin:${PATH}" "${grid_home}/bin/${tool}" "$@"
+    return "$?"
+  fi
+
+  return "$status"
 }
 
 run_asmcmd_with_grid_env() {
@@ -12703,15 +15307,15 @@ order by name;
 scenario_ocr_restore_drill() {
   reset_actions
   echo "OCR restore planning helper"
-  if command -v ocrcheck >/dev/null 2>&1; then
-    print_optional_tool_output "ocrcheck" ocrcheck
+  if grid_tool_available ocrcheck; then
+    print_optional_tool_output "ocrcheck" run_grid_tool ocrcheck
   else
-    warn "ocrcheck not found in PATH."
+    warn "ocrcheck not found in Grid Infrastructure home or PATH."
   fi
-  if command -v ocrconfig >/dev/null 2>&1; then
-    print_optional_tool_output "ocrconfig -showbackup" ocrconfig -showbackup
+  if grid_tool_available ocrconfig; then
+    print_optional_tool_output "ocrconfig -showbackup" run_grid_tool ocrconfig -showbackup
   else
-    warn "ocrconfig not found in PATH."
+    warn "ocrconfig not found in Grid Infrastructure home or PATH."
   fi
   add_action "external" "OCR" "OCR restore practice must use a root/Grid procedure, verified OCR backups, and CRS validation"
   execute_actions
@@ -12720,10 +15324,10 @@ scenario_ocr_restore_drill() {
 scenario_voting_disk_drill() {
   reset_actions
   echo "Voting disk planning helper"
-  if command -v crsctl >/dev/null 2>&1; then
-    print_optional_tool_output "crsctl query css votedisk" crsctl query css votedisk
+  if grid_tool_available crsctl; then
+    print_optional_tool_output "crsctl query css votedisk" run_grid_tool crsctl query css votedisk
   else
-    warn "crsctl not found in PATH."
+    warn "crsctl not found in Grid Infrastructure home or PATH."
   fi
   add_action "external" "VOTING_DISK" "Voting disk replacement practice must use a root/Grid procedure and cluster membership validation"
   execute_actions
@@ -12731,19 +15335,31 @@ scenario_voting_disk_drill() {
 
 scenario_asm_spfile_loss() {
   reset_actions
-  local asm_spfile="" asm_config_file
+  local asm_spfile="" asm_config_file db_config_file
   echo "ASM/FEX managed SPFILE planning helper"
-  if command -v srvctl >/dev/null 2>&1; then
+  if grid_tool_available srvctl; then
+    if [[ -n "$DB_UNIQUE_NAME" ]]; then
+      db_config_file="$WORK_DIR/srvctl_config_database.out"
+      if run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" >"$db_config_file" 2>&1; then
+        echo
+        echo "srvctl config database -d ${DB_UNIQUE_NAME}:"
+        sed 's/^/  /' "$db_config_file"
+      else
+        warn "Unable to collect srvctl database configuration for ${DB_UNIQUE_NAME}."
+      fi
+    fi
     asm_config_file="$WORK_DIR/srvctl_config_asm.out"
-    if srvctl config asm >"$asm_config_file" 2>&1; then
+    if run_grid_tool srvctl config asm >"$asm_config_file" 2>&1; then
       echo
       echo "srvctl config asm:"
       sed 's/^/  /' "$asm_config_file"
     else
       warn "Unable to collect srvctl config asm."
     fi
+  else
+    warn "srvctl not found in Grid Infrastructure home or PATH."
   fi
-  if command -v asmcmd >/dev/null 2>&1; then
+  if grid_tool_available asmcmd; then
     asm_spfile="$(run_asmcmd_with_grid_env spget 2>/dev/null | trim_blank_lines | head -n 1 || true)"
     if [[ -n "$asm_spfile" ]]; then
       print_optional_tool_output "asmcmd spget" run_asmcmd_with_grid_env spget
@@ -12751,7 +15367,7 @@ scenario_asm_spfile_loss() {
       warn "asmcmd spget was not available from the current OS user; use the Grid owner if ASM SPFILE path discovery is required."
     fi
   else
-    warn "asmcmd not found in PATH."
+    warn "asmcmd not found in Grid Infrastructure home or PATH."
   fi
   if [[ -z "$asm_spfile" && "$(storage_path_class "$SPFILE_PATH")" == "fex" ]]; then
     asm_spfile="$SPFILE_PATH"
@@ -13361,6 +15977,424 @@ order by dg.name;
   add_action "external" "${dg_name}:${disk_name}" "Single ASM disk failure should be injected only in a redundant lab. Example plan: alter diskgroup ${dg_name} offline disk ${disk_name}; monitor rebalance; restore with online/drop/add disk as appropriate."
   execute_actions
 }
+
+collect_service_continuity_evidence() {
+  local evidence_file="$1"
+  sql_query "$evidence_file" "
+select 'DATABASE|' || name || '|' || db_unique_name || '|' || database_role || '|' || open_mode
+from v\$database;
+select 'SERVICE_COLUMN|' || column_name
+from dba_tab_columns
+where owner = 'SYS'
+  and table_name = 'DBA_SERVICES'
+  and column_name in (
+    'NAME','NETWORK_NAME','PDB','FAILOVER_TYPE','FAILOVER_METHOD',
+    'COMMIT_OUTCOME','REPLAY_INITIATION_TIMEOUT','RETENTION_TIMEOUT',
+    'SESSION_STATE_CONSISTENCY','FAILOVER_RESTORE','AQ_HA_NOTIFICATIONS',
+    'DRAIN_TIMEOUT','STOP_OPTION','CLB_GOAL','GOAL'
+  )
+order by column_name;
+select 'SERVICE|' || name || '|' || nvl(network_name, 'UNKNOWN') || '|' || nvl(pdb, 'UNKNOWN')
+from dba_services
+where name not like 'SYS\$%'
+order by name;
+select 'GV_SERVICE|' || inst_id || '|' || name || '|' || nvl(network_name, 'UNKNOWN') || '|' || nvl(pdb, 'UNKNOWN')
+from gv\$services
+where name not like 'SYS\$%'
+order by inst_id, name;
+"
+}
+
+collect_scenario_srvctl_service_evidence() {
+  local prefix="$1"
+  local config_file="${prefix}_srvctl_config_service.out"
+  local status_file="${prefix}_srvctl_status_service.out"
+  local ons_file="${prefix}_srvctl_config_ons.out"
+  local crs_file="${prefix}_crs_service_resources.out"
+
+  if [[ -n "$DB_UNIQUE_NAME" ]] && grid_tool_available srvctl; then
+    run_grid_tool srvctl config service -d "$DB_UNIQUE_NAME" >"$config_file" 2>&1 || true
+    run_grid_tool srvctl status service -d "$DB_UNIQUE_NAME" >"$status_file" 2>&1 || true
+    run_grid_tool srvctl config ons >"$ons_file" 2>&1 || true
+  else
+    printf "srvctl or DB_UNIQUE_NAME not available.\n" >"$config_file"
+    printf "srvctl or DB_UNIQUE_NAME not available.\n" >"$status_file"
+    printf "srvctl not available.\n" >"$ons_file"
+  fi
+  if grid_tool_available crsctl; then
+    run_grid_tool crsctl stat res -t >"$crs_file" 2>&1 || true
+  else
+    printf "crsctl not available.\n" >"$crs_file"
+  fi
+  manifest_append "srvctl_service_config_evidence" "$config_file"
+  manifest_append "srvctl_service_status_evidence" "$status_file"
+  manifest_append "srvctl_ons_evidence" "$ons_file"
+  manifest_append "crs_resource_evidence" "$crs_file"
+}
+
+write_scenario_evidence_report() {
+  local report_file="$1"
+  local title="$2"
+  local purpose="$3"
+  shift 3
+  local evidence_file
+  {
+    printf "# %s\n\n" "$title"
+    printf -- '- Generated UTC: `%s`\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf -- '- Database: `%s`\n' "${DB_UNIQUE_NAME:-unknown}"
+    printf -- '- Role/open mode: `%s` / `%s`\n' "${DB_ROLE:-unknown}" "${DB_OPEN_MODE:-unknown}"
+    [[ -n "${TARGET_PDB:-}" ]] && printf -- '- PDB: `%s`\n' "$TARGET_PDB"
+    printf '\n%s\n\n' "$purpose"
+    printf "## Evidence Files\n\n"
+    for evidence_file in "$@"; do
+      [[ -n "$evidence_file" ]] || continue
+      printf -- '- `%s`\n' "$evidence_file"
+    done
+    printf "\n## Guardrails\n\n"
+    printf -- '- Keep this drill read-only until the exact lab topology, rollback path, and approval boundary are documented.\n'
+    printf -- '- Capture before/after service, database, application, and monitoring evidence.\n'
+    printf -- '- Do not claim RTO/RPO or replay success without measured client/application evidence.\n'
+  } >"$report_file" || die "Unable to write report: $report_file"
+}
+
+scenario_ac_tac_replay_validation() {
+  reset_actions
+  local evidence_file report_file prefix
+  prefix="${LOG_DIR}/crashsim_s83_${RUN_ID}_ac_tac"
+  evidence_file="${prefix}.evidence"
+  report_file="${prefix}.md"
+  collect_service_continuity_evidence "$evidence_file"
+  collect_scenario_srvctl_service_evidence "$prefix"
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Application Continuity / TAC Replay Validation" \
+    "This scenario validates whether services expose AC/TAC/Transaction Guard/FAN prerequisites and prepares an application replay drill. Full replay validation still requires an approved replay-safe client workload and driver/pool evidence." \
+    "$evidence_file" "${prefix}_srvctl_config_service.out" "${prefix}_srvctl_status_service.out" "${prefix}_srvctl_config_ons.out"
+  manifest_append "ac_tac_evidence" "$evidence_file"
+  manifest_append "ac_tac_report" "$report_file"
+  add_action "external" "AC_TAC_CLIENT_REPLAY" "Run an approved replay-safe client workload, trigger planned relocation or instance failure, and capture replay/FAN/application evidence; CrashSimulator keeps workload injection external."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_fan_ons_unavailable() {
+  reset_actions
+  local evidence_file report_file prefix onsctl_file
+  prefix="${LOG_DIR}/crashsim_s84_${RUN_ID}_fan_ons"
+  evidence_file="${prefix}.evidence"
+  report_file="${prefix}.md"
+  onsctl_file="${prefix}_onsctl.out"
+  collect_service_continuity_evidence "$evidence_file"
+  collect_scenario_srvctl_service_evidence "$prefix"
+  if command -v onsctl >/dev/null 2>&1; then
+    onsctl debug >"$onsctl_file" 2>&1 || onsctl ping >"$onsctl_file" 2>&1 || true
+  else
+    printf "onsctl not found in PATH.\n" >"$onsctl_file"
+  fi
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator FAN / ONS Notification Availability" \
+    "This scenario reviews FAN/ONS/service evidence and prepares a notification outage drill. Stopping ONS or breaking client notification paths is intentionally external because the correct action depends on Grid Infrastructure, client pools, and application failover design." \
+    "$evidence_file" "${prefix}_srvctl_config_ons.out" "$onsctl_file" "${prefix}_crs_service_resources.out"
+  manifest_append "fan_ons_evidence" "$evidence_file"
+  manifest_append "fan_ons_report" "$report_file"
+  add_action "external" "FAN_ONS_NOTIFICATION_PATH" "Approved lab action: interrupt ONS/FAN notification path, relocate/stop service, validate client reaction/replay, then restore notifications."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+collect_dg_transition_evidence() {
+  local evidence_file="$1"
+  sql_query "$evidence_file" "
+select 'DATABASE|' || db_unique_name || '|' || database_role || '|' || open_mode || '|' || protection_mode || '|' || switchover_status || '|' || flashback_on
+from v\$database;
+select 'DEST|' || dest_id || '|' || nvl(status, 'UNKNOWN') || '|' || nvl(target, 'UNKNOWN') || '|' || nvl(destination, 'UNKNOWN') || '|' || nvl(db_unique_name, 'UNKNOWN') || '|' || nvl(error, 'NONE')
+from v\$archive_dest
+where target = 'STANDBY'
+order by dest_id;
+select 'DG_STAT|' || name || '|' || nvl(value, 'UNKNOWN') || '|' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+select 'SRL_COUNT|' || count(*) from v\$standby_log;
+"
+}
+
+scenario_dg_switchover_drill() {
+  reset_actions
+  local evidence_file dgmgrl_file report_file
+  evidence_file="${LOG_DIR}/crashsim_s85_${RUN_ID}_dg_switchover.evidence"
+  dgmgrl_file="${LOG_DIR}/crashsim_s85_${RUN_ID}_dg_switchover_dgmgrl.out"
+  report_file="${LOG_DIR}/crashsim_s85_${RUN_ID}_dg_switchover.md"
+  collect_dg_transition_evidence "$evidence_file"
+  collect_dgmgrl_fsfo_evidence "$dgmgrl_file" || true
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Planned Data Guard Switchover Drill" \
+    "This scenario prepares a planned switchover rehearsal. Execution remains external so operators can choose the broker target, communication window, service behavior, application drain, validation, and optional switchback plan." \
+    "$evidence_file" "$dgmgrl_file"
+  manifest_append "dg_switchover_evidence" "$evidence_file"
+  manifest_append "dg_switchover_report" "$report_file"
+  add_action "external" "DG_SWITCHOVER" "Approved lab action: DGMGRL validate database/configuration, switchover to selected standby, validate role-based services/application, then document switchback/failback criteria."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_dg_failback_rehearsal() {
+  reset_actions
+  local evidence_file dgmgrl_file report_file
+  evidence_file="${LOG_DIR}/crashsim_s86_${RUN_ID}_dg_failback.evidence"
+  dgmgrl_file="${LOG_DIR}/crashsim_s86_${RUN_ID}_dg_failback_dgmgrl.out"
+  report_file="${LOG_DIR}/crashsim_s86_${RUN_ID}_dg_failback.md"
+  collect_dg_transition_evidence "$evidence_file"
+  collect_dgmgrl_fsfo_evidence "$dgmgrl_file" || true
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Data Guard Failback Rehearsal" \
+    "This scenario prepares failback/reinstate readiness after a failover or switchover. Execution remains external because the safe path depends on whether the original primary can be reinstated, flashed back, rebuilt, or switched back." \
+    "$evidence_file" "$dgmgrl_file"
+  manifest_append "dg_failback_evidence" "$evidence_file"
+  manifest_append "dg_failback_report" "$report_file"
+  add_action "external" "DG_FAILBACK_REINSTATE" "Approved lab action: validate broker state, reinstate or rebuild old primary as standby, validate apply/lag/services, then optionally switchover back."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_role_based_service_validation() {
+  reset_actions
+  local evidence_file report_file prefix
+  prefix="${LOG_DIR}/crashsim_s87_${RUN_ID}_role_services"
+  evidence_file="${prefix}.evidence"
+  report_file="${prefix}.md"
+  collect_service_continuity_evidence "$evidence_file"
+  collect_scenario_srvctl_service_evidence "$prefix"
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Role-Based Service Validation" \
+    "This scenario reviews whether srvctl services are role-scoped for PRIMARY and PHYSICAL_STANDBY/ADG use. Full validation requires a switchover/failover rehearsal and application reconnect evidence." \
+    "$evidence_file" "${prefix}_srvctl_config_service.out" "${prefix}_srvctl_status_service.out"
+  manifest_append "role_service_evidence" "$evidence_file"
+  manifest_append "role_service_report" "$report_file"
+  add_action "external" "ROLE_BASED_SERVICES" "Run after an approved role transition: confirm primary services only start on primary and ADG/read-only services only start on standby role."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_pdb_pitr_drill() {
+  reset_actions
+  select_pdb_if_needed
+  local evidence_file rman_file report_file aux_dest
+  evidence_file="${LOG_DIR}/crashsim_s88_${RUN_ID}_pdb_pitr.evidence"
+  rman_file="${LOG_DIR}/crashsim_s88_${RUN_ID}_pdb_pitr_preview.rman"
+  report_file="${LOG_DIR}/crashsim_s88_${RUN_ID}_pdb_pitr.md"
+  aux_dest="${CRASHSIM_PDB_PITR_AUX_DEST:-/tmp/crashsim_pdb_pitr_aux}"
+  sql_query "$evidence_file" "
+select 'DATABASE|' || db_unique_name || '|' || database_role || '|' || open_mode || '|' || log_mode || '|' || flashback_on
+from v\$database;
+select 'PDB|' || name || '|' || open_mode
+from v\$pdbs
+where name = $(sql_quote "$TARGET_PDB");
+select 'DATAFILE|' || file_id || '|' || tablespace_name || '|' || file_name
+from cdb_data_files
+where con_id = (select con_id from v\$pdbs where name = $(sql_quote "$TARGET_PDB"))
+order by file_id;
+select 'BACKUP_JOB|' || nvl(status, 'UNKNOWN') || '|' || to_char(end_time, 'YYYY-MM-DD HH24:MI:SS')
+from (
+  select status, end_time
+  from v\$rman_backup_job_details
+  where end_time is not null
+  order by end_time desc
+)
+where rownum <= 5;
+"
+  {
+    printf "recover pluggable database %s until time \"to_date('<YYYY-MM-DD HH24:MI:SS>','YYYY-MM-DD HH24:MI:SS')\" auxiliary destination '%s' preview;\n" "$(sql_identifier "$TARGET_PDB")" "$aux_dest"
+    printf "# Replace the timestamp and auxiliary destination after approval; run preview/validate before any recovery.\n"
+  } >"$rman_file" || die "Unable to write PDB PITR RMAN preview file: $rman_file"
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator PDB Point-In-Time Recovery Drill" \
+    "This scenario prepares PDB PITR evidence and an RMAN preview template. Actual PDB PITR is intentionally operator-approved because it can close/recover the PDB and consume auxiliary storage." \
+    "$evidence_file" "$rman_file"
+  manifest_append "pdb_pitr_evidence" "$evidence_file"
+  manifest_append "pdb_pitr_rman_preview" "$rman_file"
+  manifest_append "pdb_pitr_report" "$report_file"
+  add_action "external" "PDB_PITR_${TARGET_PDB}" "Approved recovery action: select timestamp, run RMAN preview/validate, recover PDB using auxiliary destination, open/validate PDB and application."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_guaranteed_restore_point_drill() {
+  reset_actions
+  local evidence_file report_file sql_template flashback
+  evidence_file="${LOG_DIR}/crashsim_s89_${RUN_ID}_grp.evidence"
+  report_file="${LOG_DIR}/crashsim_s89_${RUN_ID}_grp.md"
+  sql_template="${LOG_DIR}/crashsim_s89_${RUN_ID}_grp_template.sql"
+  sql_query "$evidence_file" "
+select 'DATABASE|' || name || '|' || db_unique_name || '|' || open_mode || '|' || database_role || '|' || flashback_on
+from v\$database;
+select 'RESTORE_POINT|' || name || '|' || guarantee_flashback_database || '|' || to_char(time, 'YYYY-MM-DD HH24:MI:SS') || '|' || storage_size
+from v\$restore_point
+order by time desc;
+select 'FRA|' || name || '|' || space_limit || '|' || space_used || '|' || space_reclaimable
+from v\$recovery_file_dest;
+"
+  flashback="$(awk -F'|' '/^DATABASE/ {print $6; exit}' "$evidence_file")"
+  [[ "$flashback" == "YES" ]] || die "Scenario 89 requires Flashback Database enabled. Current FLASHBACK_ON=${flashback:-unknown}."
+  {
+    printf "create guaranteed restore point CRASHSIM_GRP_<YYYYMMDDHH24MISS>;\n"
+    printf "-- execute approved change here\n"
+    printf "shutdown immediate;\nstartup mount;\n"
+    printf "flashback database to restore point CRASHSIM_GRP_<YYYYMMDDHH24MISS>;\n"
+    printf "alter database open resetlogs;\n"
+    printf "drop restore point CRASHSIM_GRP_<YYYYMMDDHH24MISS>;\n"
+  } >"$sql_template" || die "Unable to write GRP template: $sql_template"
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Guaranteed Restore Point Rollback Drill" \
+    "This scenario validates Flashback/GRP readiness and creates an operator template for upgrade/patch/migration rollback drills. It does not create or flash back the database automatically." \
+    "$evidence_file" "$sql_template"
+  manifest_append "grp_evidence" "$evidence_file"
+  manifest_append "grp_template" "$sql_template"
+  manifest_append "grp_report" "$report_file"
+  add_action "external" "GUARANTEED_RESTORE_POINT_ROLLBACK" "Approved change-window action: create GRP, execute change, flashback/open resetlogs if rollback is required, validate, and drop GRP when safe."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_database_patch_rollback_readiness() {
+  reset_actions
+  local evidence_file dgmgrl_file report_file
+  evidence_file="${LOG_DIR}/crashsim_s90_${RUN_ID}_patch_rollback.evidence"
+  dgmgrl_file="${LOG_DIR}/crashsim_s90_${RUN_ID}_patch_rollback_dgmgrl.out"
+  report_file="${LOG_DIR}/crashsim_s90_${RUN_ID}_patch_rollback.md"
+  sql_query "$evidence_file" "
+select 'DATABASE|' || name || '|' || db_unique_name || '|' || open_mode || '|' || database_role || '|' || flashback_on || '|' || log_mode
+from v\$database;
+select 'REGISTRY|' || comp_id || '|' || version || '|' || status from dba_registry order by comp_id;
+select 'SQLPATCH|' || patch_id || '|' || action || '|' || status || '|' || to_char(action_time, 'YYYY-MM-DD HH24:MI:SS') from dba_registry_sqlpatch order by action_time desc;
+select 'RESTORE_POINT_COUNT|' || count(*) from v\$restore_point where guarantee_flashback_database = 'YES';
+select 'BACKUP_JOB|' || nvl(status, 'UNKNOWN') || '|' || to_char(end_time, 'YYYY-MM-DD HH24:MI:SS') || '|' || nvl(input_type, 'UNKNOWN')
+from (
+  select status, end_time, input_type
+  from v\$rman_backup_job_details
+  where end_time is not null
+  order by end_time desc
+)
+where rownum <= 10;
+"
+  collect_dgmgrl_fsfo_evidence "$dgmgrl_file" || true
+  write_scenario_evidence_report "$report_file" \
+    "CrashSimulator Database Patch Rollback Readiness" \
+    "This scenario reviews whether patch/upgrade rollback controls are ready: recent backups, Flashback/GRP posture, SQL patch inventory, Data Guard/Broker evidence, and service behavior." \
+    "$evidence_file" "$dgmgrl_file"
+  manifest_append "patch_rollback_evidence" "$evidence_file"
+  manifest_append "patch_rollback_report" "$report_file"
+  add_action "external" "PATCH_ROLLBACK_READINESS" "Approved lifecycle action: create baseline backup/GRP, validate standby/app services, patch in a lab, and rehearse fallback before production."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+write_platform_plan_report() {
+  local report_file="$1" title="$2" purpose="$3" evidence_file="$4"
+  write_scenario_evidence_report "$report_file" "$title" "$purpose" "$evidence_file"
+}
+
+scenario_exadata_plan() {
+  reset_actions
+  local code="$1" title="$2" focus="$3" evidence_file report_file
+  evidence_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_exadata.evidence"
+  report_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_exadata.md"
+  {
+    printf "Exadata tooling evidence generated UTC %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    for tool in cellcli dcli exacli exachk; do
+      printf "\n== %s ==\n" "$tool"
+      command -v "$tool" 2>/dev/null || printf "not found\n"
+    done
+    printf "\n== database storage evidence ==\n"
+  } >"$evidence_file"
+  collect_managed_storage_targets "${evidence_file}.storage" || true
+  cat "${evidence_file}.storage" >>"$evidence_file" 2>/dev/null || true
+  write_platform_plan_report "$report_file" "$title" "$focus" "$evidence_file"
+  manifest_append "${code}_evidence" "$evidence_file"
+  manifest_append "${code}_report" "$report_file"
+  add_action "external" "$code" "Exadata-specific fault injection requires Exadata lab approval, cell/storage evidence, monitoring, and recovery runbook validation."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_exadata_cell_failure_review() { scenario_exadata_plan "EXA01" "CrashSimulator Exadata Cell Failure Review" "Review Exadata cell failure readiness, cell status evidence, database service continuity, ASM redundancy, and storage-server repair/rebalance runbooks."; }
+scenario_exadata_storage_server_outage() { scenario_exadata_plan "EXA02" "CrashSimulator Exadata Storage Server Outage" "Prepare storage-server outage validation with cell status, ASM redundancy, database service continuity, and application impact evidence."; }
+scenario_exadata_smart_scan_validation() { scenario_exadata_plan "EXA03" "CrashSimulator Exadata Smart Scan Validation" "Prepare Smart Scan validation before and after storage changes, SQL plans, cell offload metrics, and performance baselines."; }
+scenario_exadata_flash_cache_failure() { scenario_exadata_plan "EXA04" "CrashSimulator Exadata Flash Cache Failure" "Prepare Flash Cache failure/recovery validation with cell metrics, workload response, and repair/rebalance evidence."; }
+
+scenario_oci_db_plan() {
+  reset_actions
+  local code="$1" title="$2" focus="$3" evidence_file report_file
+  evidence_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_oci_db.evidence"
+  report_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_oci_db.md"
+  {
+    printf "OCI DB evidence generated UTC %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf "Host: %s\n" "$(hostname)"
+    printf "\n== OCI CLI ==\n"
+    command -v oci 2>/dev/null || printf "oci not found\n"
+    [[ -n "${CRASHSIM_DB_SYSTEM_OCID:-}" ]] && printf "CRASHSIM_DB_SYSTEM_OCID=set\n" || printf "CRASHSIM_DB_SYSTEM_OCID=not set\n"
+    [[ -n "${CRASHSIM_DB_HOME_OCID:-}" ]] && printf "CRASHSIM_DB_HOME_OCID=set\n" || printf "CRASHSIM_DB_HOME_OCID=not set\n"
+    [[ -n "${CRASHSIM_DATABASE_OCID:-}" ]] && printf "CRASHSIM_DATABASE_OCID=set\n" || printf "CRASHSIM_DATABASE_OCID=not set\n"
+    printf "\n== DBaaS tooling ==\n"
+    for tool in /var/opt/oracle/dbaascli/dbaascli dbaascli dbcli odacli; do
+      printf "%s: " "$tool"
+      if command -v "$tool" >/dev/null 2>&1 || [[ -x "$tool" ]]; then
+        printf "available\n"
+      else
+        printf "not found\n"
+      fi
+    done
+  } >"$evidence_file"
+  write_platform_plan_report "$report_file" "$title" "$focus" "$evidence_file"
+  manifest_append "${code}_evidence" "$evidence_file"
+  manifest_append "${code}_report" "$report_file"
+  add_action "external" "$code" "OCI Base DB drill requires OCI CLI/DBaaS evidence, approved cloud-control-plane boundary, rollback path, and application validation."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_oci_db_backup_policy_validation() { scenario_oci_db_plan "OCI01" "CrashSimulator OCI Base DB Backup Policy Validation" "Validate OCI backup policy, RMAN/control-file evidence, retention, scheduling, Object Storage destination, and restore-test posture."; }
+scenario_oci_cross_region_backup_recovery() { scenario_oci_db_plan "OCI02" "CrashSimulator OCI Cross-Region Backup Recovery" "Prepare cross-region backup restore validation, including target region, networking, encryption/wallets, RTO/RPO, and cleanup."; }
+scenario_oci_db_system_failover() { scenario_oci_db_plan "OCI03" "CrashSimulator OCI Database System Failover" "Prepare DB system/node failure validation for OCI Base DB, including GI/RAC services, replacement procedures, and app reconnect."; }
+scenario_oci_vcn_connectivity_loss() { scenario_oci_db_plan "OCI04" "CrashSimulator OCI VCN Connectivity Loss" "Prepare VCN connectivity-loss validation with route tables, NSGs, security lists, DNS, bastion, and client reconnect evidence."; }
+scenario_oci_nsg_misconfiguration() { scenario_oci_db_plan "OCI05" "CrashSimulator OCI NSG Misconfiguration" "Prepare NSG/security-list misconfiguration validation with approved rollback and least-privilege evidence."; }
+
+scenario_goldengate_plan() {
+  reset_actions
+  local code="$1" title="$2" focus="$3" evidence_file report_file
+  evidence_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_goldengate.evidence"
+  report_file="${LOG_DIR}/crashsim_${code}_${RUN_ID}_goldengate.md"
+  {
+    printf "GoldenGate evidence generated UTC %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    for tool in ggsci adminclient oggca; do
+      printf "\n== %s ==\n" "$tool"
+      command -v "$tool" 2>/dev/null || printf "not found\n"
+    done
+    printf "\nOGG_HOME=%s\n" "${OGG_HOME:-not set}"
+    printf "TNS_ADMIN=%s\n" "${TNS_ADMIN:-not set}"
+  } >"$evidence_file"
+  write_platform_plan_report "$report_file" "$title" "$focus" "$evidence_file"
+  manifest_append "${code}_evidence" "$evidence_file"
+  manifest_append "${code}_report" "$report_file"
+  add_action "external" "$code" "GoldenGate drill requires approved deployment name, Extract/Replicat/trail targets, lag thresholds, and resync/recovery runbook."
+  execute_actions
+  cat "$report_file"
+  maybe_render_html "$report_file"
+}
+
+scenario_goldengate_extract_stopped() { scenario_goldengate_plan "GG01" "CrashSimulator GoldenGate Extract Stopped" "Prepare Extract stop/restart validation, checkpoint evidence, source capture lag, and downstream application impact evidence."; }
+scenario_goldengate_replicat_stopped() { scenario_goldengate_plan "GG02" "CrashSimulator GoldenGate Replicat Stopped" "Prepare Replicat stop/restart validation, target apply lag, conflict handling, and resync evidence."; }
+scenario_goldengate_lag_sla() { scenario_goldengate_plan "GG03" "CrashSimulator GoldenGate Lag Exceeds SLA" "Prepare GoldenGate lag threshold validation, monitoring evidence, alert routing, and catch-up behavior."; }
+scenario_goldengate_trail_corruption() { scenario_goldengate_plan "GG04" "CrashSimulator GoldenGate Trail Corruption" "Prepare trail corruption/loss recovery runbook, including trail backup, reposition, resync, and data validation."; }
 
 scenario_standby_apply_cancel() {
   reset_actions
@@ -14201,6 +17235,18 @@ parse_args() {
         MODE="menu"
         shift
         ;;
+      --doctor|--preflight|--public-readiness)
+        MODE="doctor"
+        shift
+        ;;
+      --first-run|--first-run-guide|--getting-started)
+        MODE="first_run"
+        shift
+        ;;
+      --public-limitations|--limitations|--public-beta-limitations)
+        MODE="public_limitations"
+        shift
+        ;;
       --health-check)
         MODE="health"
         shift
@@ -14219,6 +17265,10 @@ parse_args() {
         ;;
       --apex-ords-report|--apex-report|--ords-report|--apex-ords-readiness|--apex-readiness|--ords-readiness)
         MODE="apex_ords_report"
+        shift
+        ;;
+      --prepare-environment|--seed-environment|--prepare-lab|--prepare-scenario-lab|--scenario-lab-prepare)
+        MODE="prepare_environment"
         shift
         ;;
       --adb-readiness-report|--adb-report|--adb-discover|--autonomous-readiness|--autonomous-report|--autonomous-database-report)
@@ -14288,6 +17338,10 @@ parse_args() {
         MODE="maa_report"
         shift
         ;;
+      --resilience-scorecard|--resilience-score|--scorecard|--resilience-report)
+        MODE="resilience_scorecard"
+        shift
+        ;;
       --deep-validate)
         REPORT_DEEP_VALIDATE=1
         shift
@@ -14315,6 +17369,42 @@ parse_args() {
       --scenario-lifecycle-report|--scenario-lifecycle|--lifecycle-report|--scenario-coverage-report|--lifecycle-coverage-report)
         MODE="scenario_lifecycle_report"
         SCENARIO_ID=""
+        shift
+        ;;
+      --scenario-lifecycle-check|--lifecycle-check|--scenario-coverage-check)
+        MODE="scenario_lifecycle_check"
+        SCENARIO_ID=""
+        shift
+        ;;
+      --secret-scan|--scan-secrets)
+        MODE="secret_scan"
+        shift
+        ;;
+      --scan-path)
+        [[ "$#" -ge 2 ]] || die "--scan-path requires a path"
+        SECRET_SCAN_PATH="$2"
+        shift 2
+        ;;
+      --sanitize-artifacts|--sanitize-public-artifacts)
+        MODE="sanitize_artifacts"
+        shift
+        ;;
+      --sanitize-source)
+        [[ "$#" -ge 2 ]] || die "--sanitize-source requires a directory"
+        SANITIZE_SOURCE_DIR="$2"
+        shift 2
+        ;;
+      --sanitize-output)
+        [[ "$#" -ge 2 ]] || die "--sanitize-output requires a directory"
+        SANITIZE_OUTPUT_DIR="$2"
+        shift 2
+        ;;
+      --release-check|--public-release-check)
+        MODE="release_check"
+        shift
+        ;;
+      --node-sync-check|--multi-node-sync-check)
+        MODE="node_sync_check"
         shift
         ;;
       --runbook)
@@ -14543,6 +17633,11 @@ parse_args() {
         ADB_OCI_CONFIG_FILE="$2"
         shift 2
         ;;
+      --adb-oci-auth)
+        [[ "$#" -ge 2 ]] || die "--adb-oci-auth requires an auth mode"
+        ADB_OCI_AUTH="$2"
+        shift 2
+        ;;
       --adb-apex-url)
         [[ "$#" -ge 2 ]] || die "--adb-apex-url requires a URL"
         ADB_APEX_URL="$2"
@@ -14621,6 +17716,15 @@ parse_args() {
         AUDIT_DIR="$2"
         shift 2
         ;;
+      --auto-scorecard|--auto-resilience-scorecard)
+        [[ "$#" -ge 2 ]] || die "$1 requires yes or no"
+        AUTO_SCORECARD="$2"
+        shift 2
+        ;;
+      --no-auto-scorecard|--no-auto-resilience-scorecard)
+        AUTO_SCORECARD=0
+        shift
+        ;;
       --maa-app-name)
         [[ "$#" -ge 2 ]] || die "--maa-app-name requires a value"
         MAA_APP_NAME="$2"
@@ -14656,6 +17760,41 @@ parse_args() {
         MAA_PLANNED_RPO="$2"
         shift 2
         ;;
+      --maa-criticality)
+        [[ "$#" -ge 2 ]] || die "--maa-criticality requires a value"
+        MAA_CRITICALITY="$2"
+        shift 2
+        ;;
+      --maa-local-ha-target)
+        [[ "$#" -ge 2 ]] || die "--maa-local-ha-target requires a value"
+        MAA_LOCAL_HA_TARGET="$2"
+        shift 2
+        ;;
+      --maa-dr-required)
+        [[ "$#" -ge 2 ]] || die "--maa-dr-required requires a value"
+        MAA_DR_REQUIRED="$2"
+        shift 2
+        ;;
+      --maa-automatic-failover-required)
+        [[ "$#" -ge 2 ]] || die "--maa-automatic-failover-required requires a value"
+        MAA_AUTOMATIC_FAILOVER_REQUIRED="$2"
+        shift 2
+        ;;
+      --maa-active-active-required)
+        [[ "$#" -ge 2 ]] || die "--maa-active-active-required requires a value"
+        MAA_ACTIVE_ACTIVE_REQUIRED="$2"
+        shift 2
+        ;;
+      --maa-platform-hint)
+        [[ "$#" -ge 2 ]] || die "--maa-platform-hint requires a value"
+        MAA_PLATFORM_HINT="$2"
+        shift 2
+        ;;
+      --maa-standby-scope)
+        [[ "$#" -ge 2 ]] || die "--maa-standby-scope requires a value"
+        MAA_STANDBY_SCOPE="$2"
+        shift 2
+        ;;
       --dry-run)
         EXECUTE=0
         shift
@@ -14666,6 +17805,23 @@ parse_args() {
         ;;
       --yes)
         ASSUME_YES=1
+        shift
+        ;;
+      --accept-destructive-lab)
+        DESTRUCTIVE_LAB_ACK="YES"
+        shift
+        ;;
+      --topology-cache-ttl)
+        [[ "$#" -ge 2 ]] || die "--topology-cache-ttl requires seconds"
+        TOPOLOGY_CACHE_TTL_SECONDS="$2"
+        shift 2
+        ;;
+      --refresh-topology)
+        TOPOLOGY_CACHE_REFRESH=1
+        shift
+        ;;
+      --no-topology-cache)
+        TOPOLOGY_CACHE_DISABLED=1
         shift
         ;;
       --log-dir)
@@ -14709,6 +17865,10 @@ menu_selected_scenario_label() {
 }
 
 menu_discover_environment_optional() {
+  if load_topology_cache; then
+    return "$SUCCESS"
+  fi
+
   if [[ "$ORACLE_USER_REQUIRED" -eq 1 && "$(id -un)" != "oracle" ]]; then
     warn "Database topology discovery skipped: this run requires OS user oracle, current user is $(id -un)."
     warn "ADB scenarios, ADB readiness reports, review, and configuration menus remain available."
@@ -15648,6 +18808,7 @@ menu_append_common_child_args() {
   [[ -n "$ADB_REGION" ]] && MENU_CMD+=("--adb-region" "$ADB_REGION")
   [[ -n "$ADB_OCI_PROFILE" ]] && MENU_CMD+=("--adb-oci-profile" "$ADB_OCI_PROFILE")
   [[ -n "$ADB_OCI_CONFIG_FILE" ]] && MENU_CMD+=("--adb-oci-config-file" "$ADB_OCI_CONFIG_FILE")
+  [[ -n "$ADB_OCI_AUTH" ]] && MENU_CMD+=("--adb-oci-auth" "$ADB_OCI_AUTH")
   [[ -n "$ADB_APEX_URL" ]] && MENU_CMD+=("--adb-apex-url" "$ADB_APEX_URL")
   [[ -n "$ADB_DATABASE_ACTIONS_URL" ]] && MENU_CMD+=("--adb-database-actions-url" "$ADB_DATABASE_ACTIONS_URL")
   [[ -n "$ADB_PRIVATE_ENDPOINT" ]] && MENU_CMD+=("--adb-private-endpoint" "$ADB_PRIVATE_ENDPOINT")
@@ -15665,6 +18826,13 @@ menu_append_common_child_args() {
   [[ -n "$MAA_DR_RPO" ]] && MENU_CMD+=("--maa-dr-rpo" "$MAA_DR_RPO")
   [[ -n "$MAA_PLANNED_RTO" ]] && MENU_CMD+=("--maa-planned-rto" "$MAA_PLANNED_RTO")
   [[ -n "$MAA_PLANNED_RPO" ]] && MENU_CMD+=("--maa-planned-rpo" "$MAA_PLANNED_RPO")
+  [[ -n "$MAA_CRITICALITY" ]] && MENU_CMD+=("--maa-criticality" "$MAA_CRITICALITY")
+  [[ -n "$MAA_LOCAL_HA_TARGET" ]] && MENU_CMD+=("--maa-local-ha-target" "$MAA_LOCAL_HA_TARGET")
+  [[ -n "$MAA_DR_REQUIRED" ]] && MENU_CMD+=("--maa-dr-required" "$MAA_DR_REQUIRED")
+  [[ -n "$MAA_AUTOMATIC_FAILOVER_REQUIRED" ]] && MENU_CMD+=("--maa-automatic-failover-required" "$MAA_AUTOMATIC_FAILOVER_REQUIRED")
+  [[ -n "$MAA_ACTIVE_ACTIVE_REQUIRED" ]] && MENU_CMD+=("--maa-active-active-required" "$MAA_ACTIVE_ACTIVE_REQUIRED")
+  [[ -n "$MAA_PLATFORM_HINT" ]] && MENU_CMD+=("--maa-platform-hint" "$MAA_PLATFORM_HINT")
+  [[ -n "$MAA_STANDBY_SCOPE" ]] && MENU_CMD+=("--maa-standby-scope" "$MAA_STANDBY_SCOPE")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
@@ -15874,10 +19042,24 @@ menu_run_maa_report() {
   [[ -n "$MAA_DR_RPO" ]] && MENU_CMD+=("--maa-dr-rpo" "$MAA_DR_RPO")
   [[ -n "$MAA_PLANNED_RTO" ]] && MENU_CMD+=("--maa-planned-rto" "$MAA_PLANNED_RTO")
   [[ -n "$MAA_PLANNED_RPO" ]] && MENU_CMD+=("--maa-planned-rpo" "$MAA_PLANNED_RPO")
+  [[ -n "$MAA_CRITICALITY" ]] && MENU_CMD+=("--maa-criticality" "$MAA_CRITICALITY")
+  [[ -n "$MAA_LOCAL_HA_TARGET" ]] && MENU_CMD+=("--maa-local-ha-target" "$MAA_LOCAL_HA_TARGET")
+  [[ -n "$MAA_DR_REQUIRED" ]] && MENU_CMD+=("--maa-dr-required" "$MAA_DR_REQUIRED")
+  [[ -n "$MAA_AUTOMATIC_FAILOVER_REQUIRED" ]] && MENU_CMD+=("--maa-automatic-failover-required" "$MAA_AUTOMATIC_FAILOVER_REQUIRED")
+  [[ -n "$MAA_ACTIVE_ACTIVE_REQUIRED" ]] && MENU_CMD+=("--maa-active-active-required" "$MAA_ACTIVE_ACTIVE_REQUIRED")
+  [[ -n "$MAA_PLATFORM_HINT" ]] && MENU_CMD+=("--maa-platform-hint" "$MAA_PLATFORM_HINT")
+  [[ -n "$MAA_STANDBY_SCOPE" ]] && MENU_CMD+=("--maa-standby-scope" "$MAA_STANDBY_SCOPE")
   MENU_CMD+=("--html")
   [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
   [[ -n "$SQLPLUS_LOGON" ]] && MENU_CMD+=("--sqlplus-logon" "$SQLPLUS_LOGON")
   [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_run_resilience_scorecard() {
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--resilience-scorecard")
+  menu_append_common_child_args
+  MENU_CMD+=("--html")
   menu_run_child_command
 }
 
@@ -15895,6 +19077,130 @@ menu_run_apex_ords_report() {
   menu_append_common_child_args
   MENU_CMD+=("--html")
   menu_run_child_command
+}
+
+menu_run_prepare_environment() {
+  local run_mode="$1"
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--prepare-environment")
+  menu_append_common_child_args
+  MENU_CMD+=("--html")
+  case "$run_mode" in
+    execute) MENU_CMD+=("--execute") ;;
+    dry-run) MENU_CMD+=("--dry-run") ;;
+    *) warn "Unknown prepare mode: $run_mode"; return "$FAIL" ;;
+  esac
+  menu_run_child_command
+}
+
+menu_run_show_latest_prepare_report() {
+  local html_mode="$1"
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "--show-artifact" "latest:prepare")
+  [[ "$html_mode" == "html" ]] && MENU_CMD+=("--html")
+  [[ -n "$LOG_DIR" ]] && MENU_CMD+=("--log-dir" "$LOG_DIR")
+  [[ "$VERBOSE" -eq 1 ]] && MENU_CMD+=("--verbose")
+  menu_run_child_command
+}
+
+menu_prepare_environment() {
+  local answer
+
+  while true; do
+    echo
+    echo "Seed / Prepare Scenario Lab"
+    echo "  1. Analyze missing preparations for current topology"
+    echo "  2. Execute eligible missing preparations"
+    echo "  3. Generate scenario readiness report after preparation"
+    echo "  4. Show latest preparation report"
+    echo "  5. Show latest preparation report and generate HTML"
+    echo "  6. Run fresh RMAN baseline backup dry-run"
+    echo "  7. Run fresh RMAN baseline backup after preparation"
+    echo "  b. Back"
+    echo
+    echo "The prepare planner is topology-aware. It skips non-applicable seeds and does not auto-enable FSFO, provision disks, or install APEX/ORDS without required credentials/media."
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1|a|A)
+        menu_run_prepare_environment "dry-run"
+        menu_pause
+        ;;
+      2|e|E)
+        menu_run_prepare_environment "execute"
+        menu_pause
+        ;;
+      3)
+        menu_run_scenario_readiness_report
+        menu_pause
+        ;;
+      4)
+        menu_run_show_latest_prepare_report "text"
+        menu_pause
+        ;;
+      5)
+        menu_run_show_latest_prepare_report "html"
+        menu_pause
+        ;;
+      6)
+        menu_run_baseline_backup "dry-run"
+        menu_pause
+        ;;
+      7)
+        menu_run_baseline_backup "execute"
+        menu_pause
+        ;;
+      b|B|q|Q)
+        return "$SUCCESS"
+        ;;
+      *)
+        warn "Unknown prepare menu choice: $answer"
+        menu_pause
+        ;;
+    esac
+  done
+}
+
+menu_run_simple_mode() {
+  local mode_arg="$1"
+  MENU_CMD=("$BASH_EXECUTABLE" "$SCRIPT_PATH" "$mode_arg")
+  menu_append_common_child_args
+  case "$mode_arg" in
+    --doctor|--first-run|--public-limitations|--scenario-lifecycle-check) MENU_CMD+=("--html") ;;
+  esac
+  menu_run_child_command
+}
+
+menu_public_readiness() {
+  local answer
+
+  while true; do
+    echo
+    echo "Public Readiness And Safety"
+    echo "  1. Run doctor / preflight"
+    echo "  2. Generate first-run guide"
+    echo "  3. Check scenario lifecycle consistency"
+    echo "  4. Scan repository/artifacts for secrets"
+    echo "  5. Create sanitized public artifact copies"
+    echo "  6. Run multi-node sync check"
+    echo "  7. Run full release check"
+    echo "  8. Generate public limitations page"
+    echo "  b. Back"
+    echo
+    echo "Choice:"
+    read -r answer || return "$FAIL"
+    case "$answer" in
+      1) menu_run_simple_mode "--doctor"; menu_pause ;;
+      2) menu_run_simple_mode "--first-run"; menu_pause ;;
+      3) menu_run_simple_mode "--scenario-lifecycle-check"; menu_pause ;;
+      4) menu_run_simple_mode "--secret-scan"; menu_pause ;;
+      5) menu_run_simple_mode "--sanitize-artifacts"; menu_pause ;;
+      6) menu_run_simple_mode "--node-sync-check"; menu_pause ;;
+      7) menu_run_simple_mode "--release-check"; menu_pause ;;
+      8) menu_run_simple_mode "--public-limitations"; menu_pause ;;
+      b|B|q|Q) return "$SUCCESS" ;;
+      *) warn "Unknown public readiness choice: $answer"; menu_pause ;;
+    esac
+  done
 }
 
 menu_run_adb_readiness_report() {
@@ -15923,6 +19229,13 @@ menu_configure_maa_context() {
   menu_prompt_path "disaster/site-outage RPO" MAA_DR_RPO "$MAA_DR_RPO"
   menu_prompt_path "planned-maintenance RTO" MAA_PLANNED_RTO "$MAA_PLANNED_RTO"
   menu_prompt_path "planned-maintenance RPO" MAA_PLANNED_RPO "$MAA_PLANNED_RPO"
+  menu_prompt_path "criticality (dev/production/mission-critical/ultra-critical)" MAA_CRITICALITY "$MAA_CRITICALITY"
+  menu_prompt_path "local HA target (yes/no)" MAA_LOCAL_HA_TARGET "$MAA_LOCAL_HA_TARGET"
+  menu_prompt_path "DR required (yes/no)" MAA_DR_REQUIRED "$MAA_DR_REQUIRED"
+  menu_prompt_path "automatic failover required (yes/no)" MAA_AUTOMATIC_FAILOVER_REQUIRED "$MAA_AUTOMATIC_FAILOVER_REQUIRED"
+  menu_prompt_path "active-active required (yes/no)" MAA_ACTIVE_ACTIVE_REQUIRED "$MAA_ACTIVE_ACTIVE_REQUIRED"
+  menu_prompt_path "platform hint (generic/Exadata/ODA/BaseDB/etc.)" MAA_PLATFORM_HINT "$MAA_PLATFORM_HINT"
+  menu_prompt_path "standby scope (local/remote/unknown)" MAA_STANDBY_SCOPE "$MAA_STANDBY_SCOPE"
 }
 
 menu_configure_adb_context() {
@@ -15942,6 +19255,7 @@ menu_configure_adb_context() {
   menu_prompt_path "OCI region" ADB_REGION "$ADB_REGION"
   menu_prompt_path "OCI CLI profile" ADB_OCI_PROFILE "$ADB_OCI_PROFILE"
   menu_prompt_path "OCI CLI config file" ADB_OCI_CONFIG_FILE "$ADB_OCI_CONFIG_FILE"
+  menu_prompt_path "OCI CLI auth mode" ADB_OCI_AUTH "$ADB_OCI_AUTH"
   menu_prompt_path "Autonomous APEX URL" ADB_APEX_URL "$ADB_APEX_URL"
   menu_prompt_path "Autonomous Database Actions URL" ADB_DATABASE_ACTIONS_URL "$ADB_DATABASE_ACTIONS_URL"
   menu_prompt_path "Private endpoint/DNS label" ADB_PRIVATE_ENDPOINT "$ADB_PRIVATE_ENDPOINT"
@@ -16007,7 +19321,7 @@ menu_adb_scenarios() {
     echo
     echo "Autonomous Database Scenarios"
     echo "Selected ADB scenario: $(menu_selected_adb_scenario_label)"
-    echo "  1. List ADB01-ADB15 with readiness status"
+    echo "  1. List ADB01-ADB20 with readiness status"
     echo "  2. Select ADB scenario"
     echo "  3. Show selected ADB scenario detail and validation status"
     echo "  4. Configure Autonomous Database report context"
@@ -16106,7 +19420,7 @@ menu_prompt_artifact_reference() {
   local answer
 
   echo "Enter artifact path or latest:<kind> reference."
-  echo "Kinds: topology, config, backup, service, apex-ords, adb, scenario-readiness, lifecycle, maa, health, scenario, protect, recover, runbook, baseline, review, audit, any"
+  echo "Kinds: topology, config, backup, service, apex-ords, adb, scenario-readiness, lifecycle, lifecycle-check, maa, health, doctor, first-run, public-limitations, scenario, protect, recover, runbook, baseline, review, audit, any"
   echo "Blank uses latest:any:"
   read -r answer || return "$FAIL"
   [[ -n "$answer" ]] || answer="latest:any"
@@ -16435,20 +19749,21 @@ menu_reports() {
     echo "  2. Generate target configuration report with deep RMAN validation (read-only, heavier)"
     echo "  3. Generate Oracle MAA readiness report"
     echo "  4. Set MAA / SLA planning context"
-    echo "  5. Generate Oracle service HA best-practice review"
-    echo "  6. Generate backup strategy and recoverability report"
-    echo "  7. Generate backup report with deep RMAN validation (read-only, heavier)"
-    echo "  8. Dry-run fresh RMAN baseline backup"
-    echo "  9. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)"
-    echo " 10. Generate scenario lifecycle coverage report"
-    echo " 11. Generate APEX / ORDS readiness report"
-    echo " 12. Set Autonomous Database report context"
-    echo " 13. Generate Autonomous Database readiness report"
-    echo " 14. Browse generated reports and inspect contents"
-    echo " 15. List Autonomous Database scenarios with readiness status"
-    echo " 16. Select Autonomous Database scenario"
-    echo " 17. Show selected Autonomous Database scenario detail"
-    echo " 18. Open Autonomous Database scenarios submenu"
+    echo "  5. Generate resilience scorecard"
+    echo "  6. Generate Oracle service HA best-practice review"
+    echo "  7. Generate backup strategy and recoverability report"
+    echo "  8. Generate backup report with deep RMAN validation (read-only, heavier)"
+    echo "  9. Dry-run fresh RMAN baseline backup"
+    echo " 10. Run fresh RMAN baseline backup (requires BASELINE-BACKUP confirmation)"
+    echo " 11. Generate scenario lifecycle coverage report"
+    echo " 12. Generate APEX / ORDS readiness report"
+    echo " 13. Set Autonomous Database report context"
+    echo " 14. Generate Autonomous Database readiness report"
+    echo " 15. Browse generated reports and inspect contents"
+    echo " 16. List Autonomous Database scenarios with readiness status"
+    echo " 17. Select Autonomous Database scenario"
+    echo " 18. Show selected Autonomous Database scenario detail"
+    echo " 19. Open Autonomous Database scenarios submenu"
     echo "  b. Back"
     echo
     echo "Choice:"
@@ -16473,59 +19788,63 @@ menu_reports() {
         menu_pause
         ;;
       5)
-        menu_run_service_review
+        menu_run_resilience_scorecard
         menu_pause
         ;;
       6)
+        menu_run_service_review
+        menu_pause
+        ;;
+      7)
         REPORT_DEEP_VALIDATE=0
         menu_run_backup_report
         menu_pause
         ;;
-      7)
+      8)
         REPORT_DEEP_VALIDATE=1
         menu_run_backup_report
         menu_pause
         ;;
-      8)
+      9)
         menu_run_baseline_backup "dry-run"
         menu_pause
         ;;
-      9)
+      10)
         menu_run_baseline_backup "execute"
         menu_pause
         ;;
-      10)
+      11)
         menu_run_scenario_lifecycle_report
         menu_pause
         ;;
-      11)
+      12)
         menu_run_apex_ords_report
         menu_pause
         ;;
-      12)
+      13)
         menu_configure_adb_context
         menu_pause
         ;;
-      13)
+      14)
         menu_run_adb_readiness_report
         menu_pause
         ;;
-      14)
+      15)
         menu_browse_artifacts "Generated Reports And HTML Artifacts" "reports" 80
         ;;
-      15)
+      16)
         print_adb_scenario_catalog
         menu_pause
         ;;
-      16)
+      17)
         menu_select_adb_scenario
         menu_pause
         ;;
-      17)
+      18)
         menu_show_selected_adb_scenario
         menu_pause
         ;;
-      18)
+      19)
         menu_adb_scenarios
         ;;
       b|B|q|Q)
@@ -16569,6 +19888,8 @@ interactive_menu() {
     echo " 18. Audit / retention settings"
     echo " 19. Review collected topology, logs, reports, and history"
     echo " 20. Autonomous Database scenarios"
+    echo " 21. Seed / prepare scenario lab for this topology"
+    echo " 22. Public readiness and safety checks"
     echo
     echo "Execution actions - typed confirmation required"
     echo "  7. Execute protection for selected scenario"
@@ -16662,6 +19983,12 @@ interactive_menu() {
       20)
         menu_adb_scenarios
         ;;
+      21)
+        menu_prepare_environment
+        ;;
+      22)
+        menu_public_readiness
+        ;;
       q|Q|0)
         break
         ;;
@@ -16689,6 +20016,15 @@ main() {
     list)
       list_scenarios
       ;;
+    doctor)
+      run_doctor
+      ;;
+    first_run)
+      run_first_run_guide
+      ;;
+    public_limitations)
+      run_public_limitations_page
+      ;;
     health)
       run_health_check
       ;;
@@ -16703,6 +20039,9 @@ main() {
       ;;
     apex_ords_report)
       run_apex_ords_report
+      ;;
+    prepare_environment)
+      run_prepare_environment
       ;;
     adb_readiness_report)
       run_adb_readiness_report
@@ -16749,6 +20088,9 @@ main() {
     maa_report)
       run_maa_report
       ;;
+    resilience_scorecard)
+      run_resilience_scorecard
+      ;;
     validate)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
       print_scenario_validation "$SCENARIO_ID"
@@ -16761,6 +20103,21 @@ main() {
       ;;
     scenario_lifecycle_report)
       generate_scenario_lifecycle_report
+      ;;
+    scenario_lifecycle_check)
+      scenario_lifecycle_check
+      ;;
+    secret_scan)
+      run_secret_scan
+      ;;
+    sanitize_artifacts)
+      run_sanitize_artifacts
+      ;;
+    node_sync_check)
+      run_node_sync_check
+      ;;
+    release_check)
+      run_release_check
       ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
@@ -16792,6 +20149,8 @@ main() {
       die "Unknown mode: $MODE"
       ;;
   esac
+
+  maybe_refresh_resilience_scorecard "$MODE" "$SCENARIO_ID"
 }
 
 main "$@"

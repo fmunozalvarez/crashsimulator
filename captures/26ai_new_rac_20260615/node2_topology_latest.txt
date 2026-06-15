@@ -1,0 +1,26 @@
+CrashSimulator V2 discovery
+  Version:           2.0.1-beta
+  Generated UTC:     2026-06-15T07:28:51Z
+  Host:              crashrac2-sxnsq
+  OS user:           oracle
+  Oracle home:       /u02/app/oracle/product/23.0.0.0/dbhome_1
+  SQL*Plus:          /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  Database name:     CRASHDB
+  DB unique name:    crashrac
+  Version family:    12c or later required by v2
+  CDB:               YES
+  Open mode:         READ WRITE
+  Database role:     PRIMARY
+  Protection mode:   MAXIMUM PERFORMANCE
+  Switchover status: NOT ALLOWED
+  Instance:          crashdb2
+  Thread:            2
+  RAC parallel:      YES
+  Cluster type:      RAC
+  GI managed:        0
+  Storage type:      FEX
+  SPFILE:            @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PARAMETERFILE/spfile.OMF.2A36CF7C
+  Password file:     not detected
+  FRA:               @gB2Ac2II(RECO_HC_HIGHREDUNDANCY)
+  PDBs:
+    CRASHPDB (CON_ID=3, OPEN_MODE=READ WRITE)

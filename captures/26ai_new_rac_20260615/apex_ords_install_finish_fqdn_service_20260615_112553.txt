@@ -1,0 +1,149 @@
+[2026-06-15T11:25:55Z] CrashSimulator APEX/ORDS lab installation started
+java version "17.0.18" 2026-01-20 LTS
+Java(TM) SE Runtime Environment (build 17.0.18+7-LTS-263)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.18+7-LTS-263, mixed mode, sharing)
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:25:58 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /home/oracle
+
+Oracle REST Data Services 26.1.2.r1401916
+[2026-06-15T11:25:58Z] Creating guaranteed restore point CSIM_APEX_20260615112555
+
+Restore point created.
+
+[2026-06-15T11:25:58Z] APEX is already installed and VALID in CRASHPDB; skipping APEX install
+[2026-06-15T11:25:58Z] Creating/updating APEX instance administrator APEXLAB
+
+Session altered.
+
+
+Session altered.
+
+
+PL/SQL procedure successfully completed.
+
+
+User altered.
+
+[2026-06-15T11:25:59Z] Installing ORDS metadata and pool crashpdb
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:02 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+Oracle REST Data Services - Non-Interactive Install
+
+Retrieving information.
+The setting named: db.connectionType was set to: basic in configuration: crashpdb
+The setting named: db.hostname was set to: 10.0.0.216 in configuration: crashpdb
+The setting named: db.port was set to: 1521 in configuration: crashpdb
+The setting named: db.servicename was set to: crashsim_tac.sub05260219130.operationsvcn.oraclevcn.com in configuration: crashpdb
+The setting named: plsql.gateway.mode was set to: proxied in configuration: crashpdb
+The setting named: db.username was set to: ORDS_PUBLIC_USER in configuration: crashpdb
+The setting named: db.password was set to: ****** in configuration: crashpdb
+The setting named: feature.sdw was set to: false in configuration: crashpdb
+The setting named: restEnabledSql.active was set to: false in configuration: crashpdb
+The setting named: security.requestValidationFunction was set to: ords_util.authorize_plsql_gateway in configuration: crashpdb
+2026-06-15T11:26:06.979Z INFO        Installing Oracle REST Data Services version 26.1.2.r1401916 in CRASHPDB
+2026-06-15T11:26:09.341Z INFO        ... Verified database prerequisites
+2026-06-15T11:26:09.980Z INFO        ... Created Oracle REST Data Services proxy user
+2026-06-15T11:26:10.630Z INFO        ... Created Oracle REST Data Services schema
+2026-06-15T11:26:11.966Z INFO        ... Granted privileges to Oracle REST Data Services
+2026-06-15T11:26:21.075Z INFO        ... Created Oracle REST Data Services database objects
+2026-06-15T11:26:43.180Z INFO        Completed installation for Oracle REST Data Services version 26.1.2.r1401916. Elapsed time: 00:00:36.153 
+
+2026-06-15T11:26:43.318Z INFO        Completed configuring PL/SQL gateway user for Oracle REST Data Services version 26.1.2.r1401916. Elapsed time: 00:00:00.137 
+
+2026-06-15T11:26:43.321Z INFO        Log file written to /u01/app/oracle/product/crashsim_apex_ords/logs/install_20260615T112555Z/ords_install_2026-06-15_112606_65820.log
+2026-06-15T11:26:43.328Z INFO        To run in standalone mode, use the ords serve command:
+2026-06-15T11:26:43.328Z INFO        ords --config /u01/app/oracle/product/crashsim_apex_ords/ords_config serve
+2026-06-15T11:26:43.328Z INFO        Visit the ORDS Documentation to access tutorials, developer guides and more to help you get started with the new ORDS Command Line Interface (http://oracle.com/rest).
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:46 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+The global setting named: standalone.http.port was set to: 8080
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:49 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+The global setting named: standalone.static.path was set to: /u01/app/oracle/product/crashsim_apex_ords/apex_26.1/apex/images
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:52 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+The global setting named: standalone.context.path was set to: /ords
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:55 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+Database pool: default
+INFO: The configuration does not contain database pool default.
+
+Setting                   Value                                                Source
+-----------------------   --------------------------------------------------   ------
+standalone.context.path   /ords                                                Global
+standalone.http.port      8080                                                 Global
+standalone.static.path    /u01/app/oracle/product/crashsim_apex_ords/apex_26   Global
+                          .1/apex/images                                             
+
+
+ORDS: Release 26.1 Production on Mon Jun 15 11:26:58 2026
+
+Copyright (c) 2010, 2026, Oracle.
+
+Configuration:
+  /u01/app/oracle/product/crashsim_apex_ords/ords_config
+
+Database pool crashpdb: 
+Connection state: valid
+ORDS installed version in database: 26.1.2.r1401916
+[2026-06-15T11:27:01Z] Validating APEX and ORDS database objects
+
+Session altered.
+
+
+COMP_ID 		       COMP_NAME			      VERSION		 STATUS
+------------------------------ -------------------------------------- ------------------ ------------
+APEX			       Oracle APEX			      26.1.0		 VALID
+
+
+USERNAME															 ACCOUNT_STATUS
+-------------------------------------------------------------------------------------------------------------------------------- --------------------------------
+APEX_260100															 LOCKED
+APEX_PUBLIC_ROUTER														 OPEN
+APEX_PUBLIC_USER														 OPEN
+ORDS_METADATA															 OPEN
+ORDS_PUBLIC_USER														 OPEN
+
+
+no rows selected
+
+[2026-06-15T11:27:01Z] CrashSimulator APEX/ORDS lab installation completed
+[2026-06-15T11:27:01Z] APEX images: /u01/app/oracle/product/crashsim_apex_ords/apex_26.1/apex/images
+[2026-06-15T11:27:01Z] ORDS executable: /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/bin/ords
+[2026-06-15T11:27:01Z] ORDS config: /u01/app/oracle/product/crashsim_apex_ords/ords_config
+[2026-06-15T11:27:01Z] Restore point: CSIM_APEX_20260615112555

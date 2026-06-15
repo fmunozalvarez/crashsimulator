@@ -1,0 +1,155 @@
+===== SCENARIO 83 =====
+Validation: NOT RUNNABLE
+Scenario 83 is not possible to run at this moment.
+Reason: Selected target requires a provider-specific or manual handler before safe execution: AC_TAC_CLIENT_REPLAY (Run an approved replay-safe client workload, trigger planned relocation or instance failure, and capture replay/FAN/application evidence; CrashSimulator keeps workload injection external.)
+Continuing with dry-run planning only; execution will remain blocked until the validation blocker is resolved.
+
+Scenario 83: Application Continuity replay validation
+Group: Services
+Scope: Application
+Impact: logical
+Requires: any
+Notes: Validates AC/TAC service metadata and plans replay-safe client drill evidence.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s83_20260615_103621.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Service continuity, AC/TAC, FAN/ONS, and role-service validation:
+    1. Inventory service attributes from SQL and srvctl before changing anything.
+    2. Confirm application drivers/pools support FAN, Transaction Guard, AC/TAC, and service drain behavior.
+    3. Run replay/notification tests with a replay-safe client workload and capture application-visible behavior.
+    4. For Data Guard role services, validate service placement before and after an approved role transition.
+
+Planned actions:
+ 1. external       AC_TAC_CLIENT_REPLAY (Run an approved replay-safe client workload, trigger planned relocation or instance failure, and capture replay/FAN/application evidence; CrashSimulator keeps workload injection external.)
+
+DRY-RUN complete. One or more targets require a provider-specific handler before execution.
+# CrashSimulator Application Continuity / TAC Replay Validation
+
+- Generated UTC: `2026-06-15T10:36:40Z`
+- Database: `crashrac`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- PDB: `CRASHPDB`
+
+This scenario validates whether services expose AC/TAC/Transaction Guard/FAN prerequisites and prepares an application replay drill. Full replay validation still requires an approved replay-safe client workload and driver/pool evidence.
+
+## Evidence Files
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s83_20260615_103621_ac_tac.evidence`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s83_20260615_103621_ac_tac_srvctl_config_service.out`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s83_20260615_103621_ac_tac_srvctl_status_service.out`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s83_20260615_103621_ac_tac_srvctl_config_ons.out`
+
+## Guardrails
+
+- Keep this drill read-only until the exact lab topology, rollback path, and approval boundary are documented.
+- Capture before/after service, database, application, and monitoring evidence.
+- Do not claim RTO/RPO or replay success without measured client/application evidence.
+Resilience scorecard auto-refreshed after scenario 83: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+===== SCENARIO 84 =====
+Validation: NOT RUNNABLE
+Scenario 84 is not possible to run at this moment.
+Reason: Selected target requires a provider-specific or manual handler before safe execution: FAN_ONS_NOTIFICATION_PATH (Approved lab action: interrupt ONS/FAN notification path, relocate/stop service, validate client reaction/replay, then restore notifications.)
+Continuing with dry-run planning only; execution will remain blocked until the validation blocker is resolved.
+
+Scenario 84: FAN notification unavailable
+Group: Services
+Scope: RAC/GI
+Impact: logical
+Requires: rac,gi
+Notes: Captures FAN/ONS/service evidence and plans notification outage validation.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s84_20260615_103644.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Service continuity, AC/TAC, FAN/ONS, and role-service validation:
+    1. Inventory service attributes from SQL and srvctl before changing anything.
+    2. Confirm application drivers/pools support FAN, Transaction Guard, AC/TAC, and service drain behavior.
+    3. Run replay/notification tests with a replay-safe client workload and capture application-visible behavior.
+    4. For Data Guard role services, validate service placement before and after an approved role transition.
+
+Planned actions:
+ 1. external       FAN_ONS_NOTIFICATION_PATH (Approved lab action: interrupt ONS/FAN notification path, relocate/stop service, validate client reaction/replay, then restore notifications.)
+
+DRY-RUN complete. One or more targets require a provider-specific handler before execution.
+# CrashSimulator FAN / ONS Notification Availability
+
+- Generated UTC: `2026-06-15T10:37:02Z`
+- Database: `crashrac`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- PDB: `CRASHPDB`
+
+This scenario reviews FAN/ONS/service evidence and prepares a notification outage drill. Stopping ONS or breaking client notification paths is intentionally external because the correct action depends on Grid Infrastructure, client pools, and application failover design.
+
+## Evidence Files
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s84_20260615_103644_fan_ons.evidence`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s84_20260615_103644_fan_ons_srvctl_config_ons.out`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s84_20260615_103644_fan_ons_onsctl.out`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s84_20260615_103644_fan_ons_crs_service_resources.out`
+
+## Guardrails
+
+- Keep this drill read-only until the exact lab topology, rollback path, and approval boundary are documented.
+- Capture before/after service, database, application, and monitoring evidence.
+- Do not claim RTO/RPO or replay success without measured client/application evidence.
+Resilience scorecard auto-refreshed after scenario 84: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md
+===== SCENARIO 87 =====
+Validation: NOT RUNNABLE
+Scenario 87 is not possible to run at this moment.
+Reason: Selected target requires a provider-specific or manual handler before safe execution: ROLE_BASED_SERVICES (Run after an approved role transition: confirm primary services only start on primary and ADG/read-only services only start on standby role.)
+Continuing with dry-run planning only; execution will remain blocked until the validation blocker is resolved.
+
+Scenario 87: Role-based service validation
+Group: Services
+Scope: RAC/DG
+Impact: logical
+Requires: rac
+Notes: Read-only srvctl/SQL evidence for PRIMARY and STANDBY role-scoped services.
+Mode: DRY-RUN
+Manifest: /tmp/crashsimulator/crashsimulator_logs/crashsim_scenario_s87_20260615_103706.manifest
+
+Recovery runbook hints:
+  - Capture evidence first: alert log, trace files, Data Guard/RAC status, RMAN output, and exact error stack.
+  - Confirm scope: CDB root vs PDB, file number/name, tablespace, redo group/thread, database role, and storage backend.
+  - Prefer restoring from known-good backups or copies; do not reuse files corrupted by the scenario.
+  - Record RTO/RPO timestamps: fault injection, detection, restore start, recovery complete, application validation.
+  - Service continuity, AC/TAC, FAN/ONS, and role-service validation:
+    1. Inventory service attributes from SQL and srvctl before changing anything.
+    2. Confirm application drivers/pools support FAN, Transaction Guard, AC/TAC, and service drain behavior.
+    3. Run replay/notification tests with a replay-safe client workload and capture application-visible behavior.
+    4. For Data Guard role services, validate service placement before and after an approved role transition.
+
+Planned actions:
+ 1. external       ROLE_BASED_SERVICES (Run after an approved role transition: confirm primary services only start on primary and ADG/read-only services only start on standby role.)
+
+DRY-RUN complete. One or more targets require a provider-specific handler before execution.
+# CrashSimulator Role-Based Service Validation
+
+- Generated UTC: `2026-06-15T10:37:24Z`
+- Database: `crashrac`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- PDB: `CRASHPDB`
+
+This scenario reviews whether srvctl services are role-scoped for PRIMARY and PHYSICAL_STANDBY/ADG use. Full validation requires a switchover/failover rehearsal and application reconnect evidence.
+
+## Evidence Files
+
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s87_20260615_103706_role_services.evidence`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s87_20260615_103706_role_services_srvctl_config_service.out`
+- `/tmp/crashsimulator/crashsimulator_logs/crashsim_s87_20260615_103706_role_services_srvctl_status_service.out`
+
+## Guardrails
+
+- Keep this drill read-only until the exact lab topology, rollback path, and approval boundary are documented.
+- Capture before/after service, database, application, and monitoring evidence.
+- Do not claim RTO/RPO or replay success without measured client/application evidence.
+Resilience scorecard auto-refreshed after scenario 87: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md

@@ -530,7 +530,7 @@ function writeScenarioCatalogPage() {
       <div class="column">${leftCards}</div>
       <div class="column">${rightCards}</div>
     </section>
-    <div class="brand">Generated from ./CrashSimulatorV2.sh --list plus ADB01-ADB15 registry</div>
+    <div class="brand">Generated from ./CrashSimulatorV2.sh --list plus ADB01-ADB20 registry</div>
   </main>
 </body>
 </html>`;
@@ -1038,7 +1038,7 @@ async function renderMaaSummary(browser) {
         html: "26ai_scenario_readiness.html",
         output: "crashsim_26ai_scenario_readiness.png",
         title: "26ai Scenario Readiness",
-        subtitle: "44 runnable checks | 82-scenario registry",
+        subtitle: "Topology-aware scenario readiness and guardrails",
         prompt: "$ ./CrashSimulatorV2.sh --scenario-readiness-report --pdb CRASHDB_PDB1 --html",
         height: 1900,
         lineLimit: 56,
@@ -1104,11 +1104,44 @@ async function renderMaaSummary(browser) {
         html: "adb_scenario_menu.html",
         output: "crashsim_adb_scenario_menu.png",
         title: "Autonomous Database Scenarios",
-        subtitle: "Guided menu | ADB01-ADB15 readiness and scenario detail",
+        subtitle: "Guided menu | ADB01-ADB20 readiness and scenario detail",
         prompt: "$ ./CrashSimulatorV2.sh --menu",
         height: 1650,
         lineLimit: 43,
         wrap: 118,
+      },
+      {
+        input: "captures/menu_prepare_environment_option21.txt",
+        html: "prepare_environment_option21.html",
+        output: "crashsim_prepare_environment_option21.png",
+        title: "Seed / Prepare Scenario Lab",
+        subtitle: "Guided Workflow option 21 | topology-aware lab preparation",
+        prompt: "$ ./CrashSimulatorV2.sh --menu",
+        height: 1700,
+        lineLimit: 48,
+        wrap: 120,
+      },
+      {
+        input: "captures/first_run_public_readiness.txt",
+        html: "first_run_public_readiness.html",
+        output: "crashsim_first_run_public_readiness.png",
+        title: "Guided First-Run Path",
+        subtitle: "Public readiness | safe order before drills",
+        prompt: "$ ./CrashSimulatorV2.sh --first-run --html",
+        height: 1750,
+        lineLimit: 48,
+        wrap: 120,
+      },
+      {
+        input: "captures/public_limitations_page.txt",
+        html: "public_limitations_page.html",
+        output: "crashsim_public_limitations_page.png",
+        title: "Public Limitations And Expectations",
+        subtitle: "Plan-only, provider-specific, ADB, licensing, destructive labs",
+        prompt: "$ ./CrashSimulatorV2.sh --public-limitations --html",
+        height: 1900,
+        lineLimit: 54,
+        wrap: 120,
       },
       {
         input: "captures/best_practices_workflow.txt",

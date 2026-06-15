@@ -2,13 +2,16 @@
 
 Release: `v2.0.1-beta`
 
+Historical note: this document describes the previous `v2.0.1-beta` release.
+For the current beta update, use `docs/RELEASE_NOTES_V2_0_2_BETA.md`.
+
 ## Summary
 
 CrashSimulator `v2.0.1 beta` is the first public beta release of the V2
 framework. It packages the current open-source Oracle resilience validation
 platform with topology discovery, guarded scenario execution, recovery runbook
 hints, evidence collection, reporting, Guided Workflow menu support, APEX/ORDS
-awareness, Autonomous Database readiness coverage, and a 97-entry scenario
+awareness, Autonomous Database readiness coverage, and a 123-entry scenario
 catalog.
 
 This release is intended for controlled lab, development, training, and
@@ -18,13 +21,24 @@ resilience-test environments. Do not use destructive scenarios in production.
 
 - Current product version reports as `2.0.1-beta`.
 - Apache License 2.0 open-source repository.
-- `97` total scenario catalog entries:
-  - `82` database-host, infrastructure, application access-path, and
+- `123` total scenario catalog entries:
+  - `103` database-host, infrastructure, application access-path, platform, and
     compliance scenarios.
-  - `15` Autonomous Database cloud-service scenarios, `ADB01` through `ADB15`.
+  - `20` Autonomous Database cloud-service scenarios, `ADB01` through `ADB20`.
+  - New readiness/runbook-first families for AC/TAC/FAN services, Data Guard
+    switchover/failback, PDB PITR, guaranteed restore points, patch rollback,
+    Exadata, OCI Base Database Service, GoldenGate, and expanded ADB access
+    path/cloud-control-plane drills.
 - CLI and Guided Workflow menu modes.
 - Topology-aware scenario validation and blocker messages.
 - Recovery runbook hints and lifecycle coverage reporting.
+- Public-readiness hardening: `--doctor`, `--first-run`,
+  `--scenario-lifecycle-check`, `--secret-scan`, `--sanitize-artifacts`,
+  `--node-sync-check`, and `--release-check`.
+- Additional destructive-lab acknowledgement guardrail for non-interactive
+  `--execute --yes` lab runs.
+- Guided Workflow option `22. Public readiness and safety checks`.
+- Guided Workflow topology cache with refresh controls for faster menu startup.
 - Configuration file support for non-secret defaults.
 - Review Center for existing topology snapshots, reports, manifests, logs,
   HTML artifacts, and audit evidence.
@@ -66,7 +80,9 @@ chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh cras
 
 Run as the Oracle software owner, or as an OS user that can connect locally as
 SYSDBA. `--dry-run` is the default. Destructive scenarios require `--execute`
-and typed confirmation.
+and typed confirmation. Non-interactive destructive lab runs using
+`--execute --yes` also require `CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or
+`--accept-destructive-lab`.
 
 ## Important Documentation
 
@@ -76,7 +92,7 @@ and typed confirmation.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md`
 - `docs/AUTONOMOUS_DATABASE_COVERAGE.md`
 - `SCENARIO_STATUS.md`
-- `docs/reference/scenario_registry_97_reference.md`
+- `docs/reference/scenario_registry_123_reference.md`
 
 ## Known Limitations
 

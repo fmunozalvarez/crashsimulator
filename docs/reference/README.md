@@ -21,10 +21,17 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
 
 ## Scenario Registry And Readiness References
 
+- `scenario_registry_123_reference.md`
+  - Generated from `./CrashSimulatorV2.sh --list --audit-retain no` plus the
+    `ADB01`-`ADB20` Autonomous Database scenario registry.
+  - Summarizes the current 123-scenario catalog, including database-host,
+    infrastructure, application access-path, compliance, service-continuity,
+    platform-readiness, GoldenGate, and ADB cloud-service scenarios.
+  - HTML copy: `scenario_registry_123_reference.md.html`
 - `scenario_registry_97_reference.md`
   - Generated from `./CrashSimulatorV2.sh --list --audit-retain no` plus the
     `ADB01`-`ADB15` Autonomous Database scenario registry.
-  - Summarizes the current 97-scenario catalog, including database-host,
+  - Historical reference for the 97-scenario catalog, including database-host,
     infrastructure, application access-path, compliance, and ADB cloud-service
     scenarios.
   - HTML copy: `scenario_registry_97_reference.md.html`
@@ -38,6 +45,12 @@ The examples are anonymized: hostnames, DBID, ASM disk group names, temporary pa
   - Shows validation, protection, execution, recovery, and runbook/evidence
     coverage for every registered scenario.
   - HTML copy: `scenario_lifecycle_coverage_reference.md.html`
+- `public_limitations_reference.md`
+  - Generated with `./CrashSimulatorV2.sh --public-limitations --html`
+  - Explains public beta expectations, plan-only scenarios, provider-specific
+    operations, licensing-sensitive checks, ADB differences, and destructive
+    scenario guardrails.
+  - HTML copy: `public_limitations_reference.md.html`
 
 ## APEX / ORDS Scenario 80 Evidence Examples
 
@@ -79,9 +92,9 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
   - Shows Oracle service HA, AC/TAC, FSFO, DML redirection, and role-based
     service awareness evidence for the lab.
 - `26ai/26ai_scenario_lifecycle_reference.md`
-  - Shows lifecycle coverage for the 82 database-host/application scenarios
-    from the 26ai run. ADB scenarios are tracked separately in
-    `scenario_registry_97_reference.md` and ADB readiness reports.
+  - Shows lifecycle coverage for the database-host/application/platform
+    scenarios from the 26ai run. ADB scenarios are tracked separately in
+    `scenario_registry_123_reference.md` and ADB readiness reports.
 - `26ai/26ai_apex_ords_readiness_reference.md`
   - Shows the APEX/ORDS readiness report after installing APEX 26.1.0 and ORDS
     26.1.2 on the 26ai RAC lab.
@@ -140,9 +153,11 @@ with the CrashSimulator HTML artifact renderer:
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_target_control_file_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_recovery_catalog_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/backup_strategy_recoverability_report_deep_validate_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_123_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_97_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_registry_82_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/scenario_lifecycle_coverage_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
+./CrashSimulatorV2.sh --render-html docs/reference/public_limitations_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/26ai/26ai_scenario_readiness_reference.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ./CrashSimulatorV2.sh --render-html docs/reference/apex_session_driver_example.md --audit-retain no --log-dir /tmp/crashsim_html_reference
 ```

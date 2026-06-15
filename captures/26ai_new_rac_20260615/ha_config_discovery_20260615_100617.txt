@@ -1,0 +1,435 @@
+=== CrashSimulator HA configuration collector ===
+Generated UTC: 2026-06-15T10:06:19Z
+Host: crashrac1-mlprn.sub05260219130.operationsvcn.oraclevcn.com
+User: oracle
+DB_UNIQUE_NAME=crashrac
+ORACLE_SID=crashdb1
+ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+GRID_HOME=/u01/app/23.0.0.0/gridhome_1
+
+=== Tooling ===
+sqlplus:   /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+rman:      /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/rman
+dgmgrl:    /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/dgmgrl
+srvctl:    /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/srvctl
+crsctl:    /u01/app/23.0.0.0/gridhome_1/bin/crsctl
+onsctl:    /u02/app/oracle/product/23.0.0.0/dbhome_1/bin/onsctl
+
+=== SQL evidence ===
+
+NAME			     DB_UNIQUE_NAME	      DATABASE_ROLE	     OPEN_MODE		      PROTECTION_MODE		     SWITCHOVER_STATUS	      FLASHBACK_ON   LOG_MODE	    FS_FAILOVER_STATUS
+---------------------------- ------------------------ ---------------------- ------------------------ ------------------------------ ------------------------ -------------- -------------- ----------------------------
+FS_FAILOVER_OBSERV
+------------------
+CRASHDB 		     crashrac		      PRIMARY		     READ WRITE 	      MAXIMUM PERFORMANCE	     NOT ALLOWED	      YES	     ARCHIVELOG     DISABLED
+
+
+
+
+   INST_ID INSTANCE_NAME      HOST_NAME 			   STATUS
+---------- ------------------ ------------------------------------ ------------
+	 1 crashdb1	      crashrac1-mlprn			   OPEN
+	 2 crashdb2	      crashrac2-sxnsq			   OPEN
+
+
+    CON_ID NAME 			  OPEN_MODE
+---------- ------------------------------ ----------------------
+	 2 PDB$SEED			  READ ONLY
+	 3 CRASHPDB			  READ WRITE
+
+
+NAME			       VALUE
+------------------------------ ------------------------------------------------------------------------------------------------------------------------------------------------------
+control_files		       @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/Current.OMF.70545531
+db_recovery_file_dest	       @gB2Ac2II(RECO_HC_HIGHREDUNDANCY)
+db_recovery_file_dest_size     472446402560
+dg_broker_start 	       FALSE
+local_listener			(ADDRESS=(PROTOCOL=TCP)(HOST=10.0.0.216)(PORT=1521)), (ADDRESS=(PROTOCOL=TCPS)(HOST=10.0.0.216)(PORT=2484))
+remote_listener 	       crashrac-scan-ijmof.sub05260219130.operationsvcn.oraclevcn.com:1521
+service_names		       crashrac.sub05260219130.operationsvcn.oraclevcn.com
+
+7 rows selected.
+
+
+   DEST_ID STATUS	TARGET		 DESTINATION								ERROR
+---------- ------------ ---------------- ---------------------------------------------------------------------- --------------------------------------------------------------------------------
+	 1 VALID	PRIMARY 	 USE_DB_RECOVERY_FILE_DEST
+	 2 INACTIVE	PRIMARY
+	 3 INACTIVE	PRIMARY
+	 4 INACTIVE	PRIMARY
+	 5 INACTIVE	PRIMARY
+	 6 INACTIVE	PRIMARY
+	 7 INACTIVE	PRIMARY
+	 8 INACTIVE	PRIMARY
+	 9 INACTIVE	PRIMARY
+	10 ALTERNATE	PRIMARY 	 @gB2Ac2II
+
+10 rows selected.
+
+select con_id, owner, granted_role
+               *
+ERROR at line 1:
+ORA-00904: "OWNER": invalid identifier
+Help: https://docs.oracle.com/error-help/db/ora-00904/
+
+
+
+no rows selected
+
+
+NAME			       NETWORK_NAME					PDB		   FAILOVER_METHOD    FAILOVER_TYPE	 FAILOVER_RETRIES FAILOVER_DELAY COMMIT_OUTCOME AQ_HA_NOTIFICATION CLB_G
+------------------------------ ------------------------------------------------ ------------------ ------------------ ------------------ ---------------- -------------- -------------- ------------------ -----
+GOAL
+------------
+SYS$BACKGROUND									CDB$ROOT										 NO		NO		   LONG
+
+
+SYS$USERS									CDB$ROOT										 NO		NO		   LONG
+
+
+crashdbXDB		       crashdbXDB					CDB$ROOT										 NO		NO		   LONG
+
+
+crashrac.sub05260219130.operat crashrac.sub05260219130.operationsvcn.oraclevcn. CDB$ROOT										 NO		NO		   LONG
+ionsvcn.oraclevcn.com	       com
+
+
+
+
+=== Data Guard Broker evidence ===
+Connected to "crashrac"
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+Connected to "crashrac"
+ORA-16525: The Oracle Data Guard broker is not yet available.
+
+Configuration details cannot be determined by DGMGRL
+
+=== GI service evidence ===
+Database unique name: crashrac
+Database name: crashdb
+Oracle home: /u02/app/oracle/product/23.0.0.0/dbhome_1
+Oracle user: oracle
+Spfile: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PARAMETERFILE/spfile.OMF.2A36CF7C
+Password file: @gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/PASSWORD/pwdCRASHRAC.53CD439C
+Domain: sub05260219130.operationsvcn.oraclevcn.com
+Start options: open
+Stop options: immediate
+Database role: PRIMARY
+Management policy: AUTOMATIC
+Server pools: 
+Disk Groups: 
+Mount point paths: /var/opt/oracle/dbaas_acfs
+Services: crashdb_CRASHPDB.paas.oracle.com
+Type: RAC
+Start concurrency: 
+Stop concurrency: 
+OSDBA group: dba
+OSOPER group: racoper
+Database instances: crashdb1,crashdb2
+Configured nodes: crashrac1-mlprn,crashrac2-sxnsq
+CSS critical: no
+CPU count: 0
+Memory target: 0
+Maximum memory: 0
+Default network number for database services: 
+Database is administrator managed
+Instance crashdb1 is running on node crashrac1-mlprn
+Instance crashdb2 is running on node crashrac2-sxnsq
+Service name: crashdb_CRASHPDB.paas.oracle.com
+Cardinality: 2
+Service role: PRIMARY
+Management policy: AUTOMATIC
+DTP transaction: FALSE
+AQ HA notifications: FALSE
+Global: FALSE
+Commit Outcome: FALSE
+Commit Outcome Fastpath: FALSE
+Reset State: NONE
+Failover type: NONE
+Failover method: NONE
+Failover retries: 
+Failover delay: 
+Failover restore: NONE
+Connection Load Balancing Goal: LONG
+Runtime Load Balancing Goal: NONE
+TAF policy specification: NONE
+Edition: 
+Pluggable database name: CRASHPDB
+True Cache service: 
+Maximum lag time: ANY
+SQL Translation Profile: 
+Retention: 86400 seconds
+Failback :  no  
+Replay Initiation Time: 300 seconds
+Drain timeout: 
+Template timeout: 86400 seconds
+Stop option: 
+Session State Consistency: 
+Auto Connection Rebalance: DEFAULT
+GSM Flags: 0
+Service is enabled
+Preferred instances: crashdb1,crashdb2
+Available instances: 
+CSS critical: no
+Service crashdb_CRASHPDB.paas.oracle.com is running on instances crashdb1,crashdb2
+ONS exists: Local port 6100, remote port 6200, EM port 2016, Uses SSL true, Allow unsecure YES
+ONS is enabled
+ONS is individually enabled on nodes: 
+ONS is individually disabled on nodes: 
+ONS ons is enabled.
+ONS ons is running.
+
+=== CRS storage evidence ===
+--------------------------------------------------------------------------------
+Name           Target  State        Server                   State details       
+--------------------------------------------------------------------------------
+Local Resources
+--------------------------------------------------------------------------------
+ora.LISTENER.lsnr
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.acfsrm
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.ccmb
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.chad
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.gb2ac2ii.vexdb22.acfs
+               ONLINE  ONLINE       crashrac1-mlprn          mounted on /var/opt/
+                                                             oracle/dbaas_acfs,ST
+                                                             ABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          mounted on /var/opt/
+                                                             oracle/dbaas_acfs,ST
+                                                             ABLE
+ora.helper
+               OFFLINE OFFLINE      crashrac1-mlprn          STABLE
+               OFFLINE OFFLINE      crashrac2-sxnsq          STABLE
+ora.net1.network
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.ons
+               ONLINE  ONLINE       crashrac1-mlprn          STABLE
+               ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+--------------------------------------------------------------------------------
+Cluster Resources
+--------------------------------------------------------------------------------
+ora.LISTENER_SCAN1.lsnr
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.LISTENER_SCAN2.lsnr
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.LISTENER_SCAN3.lsnr
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.cdp1.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp2.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.cdp3.cdp
+      1        OFFLINE OFFLINE                               STABLE
+ora.crashrac.crashdb_crashpdb.paas.oracle.com.svc
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.crashrac.crashpdb.pdb
+      1        ONLINE  ONLINE       crashrac1-mlprn          READ WRITE,STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          READ WRITE,STABLE
+ora.crashrac.db
+      1        ONLINE  ONLINE       crashrac1-mlprn          Open,HOME=/u02/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+      2        ONLINE  ONLINE       crashrac2-sxnsq          Open,HOME=/u02/app/o
+                                                             racle/product/23.0.0
+                                                             .0/dbhome_1,STABLE
+ora.crashrac1-mlprn.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.crashrac2-sxnsq.vip
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.cvu
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.cvuhelper
+      1        OFFLINE OFFLINE                               STABLE
+ora.rhpserver
+      1        OFFLINE OFFLINE                               STABLE
+ora.scan1.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+ora.scan2.vip
+      1        ONLINE  ONLINE       crashrac2-sxnsq          STABLE
+ora.scan3.vip
+      1        ONLINE  ONLINE       crashrac1-mlprn          STABLE
+--------------------------------------------------------------------------------
+NAME=ora.LISTENER.lsnr
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+DESCRIPTION=Oracle Listener resource
+ORACLE_HOME=%CRS_HOME%
+NAME=ora.LISTENER_SCAN1.lsnr
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle SCAN listener resource
+SERVER_POOLS=*
+NAME=ora.LISTENER_SCAN2.lsnr
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle SCAN listener resource
+SERVER_POOLS=*
+NAME=ora.LISTENER_SCAN3.lsnr
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle SCAN listener resource
+SERVER_POOLS=*
+NAME=ora.acfsrm
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+SERVER_POOLS=*
+NAME=ora.ccmb
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+DESCRIPTION=Oracle Client Cluster Membership and Barrier Resource
+SERVER_POOLS=*
+NAME=ora.cdp1.cdp
+ACL=owner:grid:rwx,pgrp:asmdba:r-x,other::r--
+ACTIVE_PLACEMENT=0
+SERVER_POOLS=*
+NAME=ora.cdp2.cdp
+ACL=owner:grid:rwx,pgrp:asmdba:r-x,other::r--
+ACTIVE_PLACEMENT=0
+SERVER_POOLS=*
+NAME=ora.cdp3.cdp
+ACL=owner:grid:rwx,pgrp:asmdba:r-x,other::r--
+ACTIVE_PLACEMENT=0
+SERVER_POOLS=*
+NAME=ora.chad
+ACL=owner:grid:rwx,pgrp:oinstall:r--,other::r--,group:asmdba:r--
+DESCRIPTION=Oracle CHAD resource
+NAME=ora.crashrac.crashdb_crashpdb.paas.oracle.com.svc
+ACL=owner:oracle:rwx,pgrp:oinstall:r--,other::r--,group:dba:r-x,group:racoper:r-x,user:grid:r-x
+ACTIONS=isJavaService,group:"dba",group:"racoper",user:"grid",user:"oracle" rf_action,group:"dba",group:"racoper",user:"grid",user:"oracle"
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle Service resource
+GEN_PDB_DB_DOMAIN=sub05260219130.operationsvcn.oraclevcn.com
+GEN_SERVICE_NAME=crashdb_CRASHPDB.paas.oracle.com
+SERVER_POOLS=
+SERVICE_NAME=crashdb_CRASHPDB.paas.oracle.com
+NAME=ora.crashrac.crashpdb.pdb
+ACL=owner:oracle:rwx,pgrp:oinstall:r--,other::r--,group:dba:r-x,group:racoper:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=0
+DESCRIPTION=CRS resource type definition for Oracle Pluggable Database
+SERVER_POOLS=ora.crashrac
+NAME=ora.crashrac.db
+ACL=owner:oracle:rwx,pgrp:oinstall:r--,other::r--,group:dba:r-x,group:racoper:r-x,user:grid:r-x
+ACTIONS=relocate_client,group:"dba",group:"racoper",user:"grid",user:"oracle" status_target,group:"dba",group:"racoper",user:"grid",user:"oracle" listJavaServices,group:"dba",group:"racoper",user:"grid",user:"oracle" isPUJSDone,group:"dba",group:"racoper",user:"grid",user:"oracle" unmonitor,user:"grid" serviceDrain,group:"dba",group:"racoper",user:"grid",user:"oracle" monitor,user:"grid" startoption,group:"dba",group:"racoper",user:"grid",user:"oracle" listDBInst,group:"dba",group:"racoper",user:"grid",user:"oracle"
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle Database resource
+GEN_AUDIT_FILE_DEST=/u02/app/oracle/product/23.0.0.0/dbhome_1/rdbms/audit
+ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+ORACLE_HOME_OLD=
+SERVER_POOLS=ora.crashrac
+SERVER_POOLS_PQ=
+SERVER_POOLS_RF=
+USR_ORA_DOMAIN=sub05260219130.operationsvcn.oraclevcn.com
+USR_ORA_ENV=TNS_ADMIN=/u02/app/oracle/product/23.0.0.0/dbhome_1/network/admin/crashdb
+NAME=ora.crashrac1-mlprn.vip
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=1
+DESCRIPTION=Oracle VIP resource
+SERVER_POOLS=*
+NAME=ora.crashrac2-sxnsq.vip
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=1
+DESCRIPTION=Oracle VIP resource
+SERVER_POOLS=*
+NAME=ora.cvu
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle CVU resource
+SERVER_POOLS=*
+NAME=ora.cvuhelper
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+ACTIVE_PLACEMENT=0
+SERVER_POOLS=*
+NAME=ora.gb2ac2ii.vexdb22.acfs
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,user:grid:r-x,user:oracle:r-x
+AUX_VOLUMES=
+CANONICAL_VOLUME_DEVICE=/dev/exc/vExdb22
+INTERNAL_MOUNTPOINT_PATH=/var/opt/oracle/dbaas_acfs
+MOUNTPOINT_PATH=/var/opt/oracle/dbaas_acfs
+MOUNT_ACL=owner:oracle:rwx,pgrp:oinstall:r-x,other::r-x
+VOLUME_DEVICE=/dev/exc/vExdb22
+NAME=ora.helper
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+DESCRIPTION=Oracle Admin Helper resource
+NAME=ora.net1.network
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+DESCRIPTION=Oracle Network resource
+NAME=ora.ons
+ACL=owner:grid:rwx,pgrp:oinstall:r-x,other::r--
+DESCRIPTION=Oracle ONS resource
+GEN_ORACLE_CONFIG_HOME=
+GEN_ORACLE_CONFIG_HOME@SERVERNAME(crashrac1-mlprn)=/u01/app/23.0.0.0/gridhome_1
+GEN_ORACLE_CONFIG_HOME@SERVERNAME(crashrac2-sxnsq)=/u01/app/23.0.0.0/gridhome_1
+NAME=ora.rhpserver
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:rwx
+ACTIVE_PLACEMENT=0
+DESCRIPTION=Oracle RHP Server resource
+SERVER_POOLS=*
+STORAGE_BASE_PATH=/opt/oracle/rhp_images
+NAME=ora.scan1.vip
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=1
+DESCRIPTION=Oracle SCAN VIP resource
+SCAN_NAME=crashrac-scan-ijmof.sub05260219130.operationsvcn.oraclevcn.com
+SERVER_POOLS=*
+NAME=ora.scan2.vip
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=1
+DESCRIPTION=Oracle SCAN VIP resource
+SCAN_NAME=crashrac-scan-ijmof.sub05260219130.operationsvcn.oraclevcn.com
+SERVER_POOLS=*
+NAME=ora.scan3.vip
+ACL=owner:root:rwx,pgrp:root:r-x,other::r--,group:oinstall:r-x,user:grid:r-x
+ACTIVE_PLACEMENT=1
+DESCRIPTION=Oracle SCAN VIP resource
+SCAN_NAME=crashrac-scan-ijmof.sub05260219130.operationsvcn.oraclevcn.com
+SERVER_POOLS=*
+
+=== RMAN no-catalog smoke ===
+
+Recovery Manager: Release 23.26.2.0.0 - Production on Mon Jun 15 10:06:26 2026
+Version 23.26.2.0.0
+
+Copyright (c) 1982, 2026, Oracle and/or its affiliates.  All rights reserved.
+
+connected to target database: CRASHDB (DBID=1275818439)
+
+RMAN> show all;
+using target database control file instead of recovery catalog
+RMAN configuration parameters for database with db_unique_name CRASHRAC are:
+CONFIGURE RETENTION POLICY TO REDUNDANCY 1; # default
+CONFIGURE BACKUP OPTIMIZATION OFF; # default
+CONFIGURE DEFAULT DEVICE TYPE TO DISK; # default
+CONFIGURE CONTROLFILE AUTOBACKUP ON; # default
+CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '%F'; # default
+CONFIGURE DEVICE TYPE DISK PARALLELISM 1 BACKUP TYPE TO BACKUPSET; # default
+CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+CONFIGURE MAXSETSIZE TO UNLIMITED; # default
+CONFIGURE ENCRYPTION FOR DATABASE OFF; # default
+CONFIGURE ENCRYPTION ALGORITHM 'AES256'; # default
+CONFIGURE COMPRESSION ALGORITHM 'BASIC' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE ; # default
+CONFIGURE RMAN OUTPUT TO KEEP FOR 7 DAYS; # default
+CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '@gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/snapcf_crashdb.f';
+
+
+RMAN> list incarnation;
+
+List of Database Incarnations
+DB Key  Inc Key DB Name  DB ID            STATUS  Reset SCN  Reset Time
+------- ------- -------- ---------------- --- ---------- ----------
+1       1       CRASHDB  1275818439       PARENT  1          29-APR-26
+2       2       CRASHDB  1275818439       CURRENT 1140537    15-JUN-26
+
+
+RMAN> exit;
+
+Recovery Manager complete.

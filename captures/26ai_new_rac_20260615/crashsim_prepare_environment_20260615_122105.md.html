@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crashsim_prepare_environment_20260615_122105.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>crashsim_prepare_environment_20260615_122105.md</h1><div class="meta">Source: /tmp/crashsimulator/crashsimulator_logs/crashsim_prepare_environment_20260615_122105.md<br>Generated UTC: 2026-06-15T12:21:14Z</div></header>
+<pre>
+# CrashSimulator Seed / Prepare Environment Planner
+
+- Generated UTC: `2026-06-15T12:21:14Z`
+- Host: `crashrac1-mlprn`
+- OS user: `oracle`
+- Database: `CRASHDB`
+- DB unique name: `crashrac`
+- Role/open mode: `PRIMARY` / `READ WRITE`
+- CDB / target PDB: `YES` / `CRASHPDB`
+- Cluster/storage: `RAC` / `FEX_ACFS`
+- Mode: `DRY-RUN`
+- SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_prepare_environment_20260615_122105.evidence`
+
+This planner detects missing lab seeds and environment preparations needed by the scenario catalog. It only recommends actions relevant to the current topology. Execution remains guarded; credentials, storage provisioning, FSFO enablement, and provider-specific copy operations are not guessed.
+
+## Preparation Matrix
+
+| ID | Preparation | Status | Required for | Evidence | Action | Auto-execute |
+| --- | --- | --- | --- | --- | --- | --- |
+| `logical_lab` | Logical lab objects | `PLAN_ONLY` | Required for logical scenarios | cdb=UNKNOWN, users=0, tbs=0 | Create/reseed disposable CRASHSIM schemas and read-only/index-only tablespaces for this non-CDB target. | `no` |
+| `redo_multiplex` | Multiplex online redo logs | `PRESENT` | Required for redo-loss scenarios 3 and 18 | redo_groups_under2=0, min_members=UNKNOWN | No action needed. | `no` |
+| `controlfile_multiplex` | Multiplex control files | `NOT_REQUIRED` | Primary database required | role=UNKNOWN | Run only on the primary database. | `no` |
+| `services_ac_tac` | AC/TAC/FAN lab services | `MISSING` | Required for service continuity scenarios 56, 83, 84, and 87 | cluster=RAC, services=0, ha_services=0 | Create or repair crashsim_ac and crashsim_tac services with FAN/AC/TAC attributes. | `yes` |
+| `apex_ords` | APEX/ORDS application access path | `MISSING` | Required for APEX/ORDS scenarios 73-82 | apex=0, ords_users=0, ords_bin=UNKNOWN, ords_service=UNKNOWN, config=UNKNOWN, images=UNKNOWN | Install/configure APEX and ORDS with the lab helper when media and passwords are approved. | `conditional` |
+| `rman_catalog` | RMAN recovery catalog | `MISSING` | Required for catalog outage and catalog-aware backup evidence | catalog_owners=0, catalog_metadata=0, configured=yes | Create local lab recovery catalog metadata and register/resync the target. | `conditional` |
+| `fsfo` | Data Guard FSFO observer posture | `NOT_REQUIRED` | Data Guard topology required | dg_dest=0, role=UNKNOWN | No standby/transport evidence detected. | `no` |
+| `asm_gi_redundant_lab` | ASM/GI redundant storage lab | `PLAN_ONLY` | Required for ASM/FEX/GI destructive storage scenarios 46-49 and 72 | storage=FEX_ACFS, gi=1 | Review or create a purpose-built redundant GI/ASM lab with additional shared disks and failgroups. | `no` |
+| `baseline_backup` | Fresh RMAN baseline backup evidence | `MISSING` | Recommended before destructive scenario batches | baseline_logs=0, catalog_configured=yes | Run a dry-run or confirmed baseline backup from the Reports menu. | `no` |
+
+## Suggested Commands
+
+| ID | Command / Helper |
+| --- | --- |
+| `services_ac_tac` | `/tmp/crashsimulator/tools/crashsim_configure_ha_lab.sh --services` |
+| `apex_ords` | `/tmp/crashsimulator/tools/crashsim_install_apex_ords_lab.sh` |
+| `rman_catalog` | `/tmp/crashsimulator/tools/crashsim_configure_ha_lab.sh --catalog` |
+| `asm_gi_redundant_lab` | `/tmp/crashsimulator/crashsim_prepare_redundant_gi_lab.sh --dry-run` |
+| `baseline_backup` | `/tmp/crashsimulator/CrashSimulatorV2.sh --baseline-backup --dry-run` |
+
+## Notes And Guardrails
+
+- `logical_lab`: Current seed_crashsim_lab.sql is CDB-oriented; use a non-CDB seed helper before automation.
+- `redo_multiplex`: Redo is already multiplexed.
+- `services_ac_tac`: Requires srvctl/GI privileges and current DB_UNIQUE_NAME/PDB defaults.
+- `apex_ords`: Requires APEX/ORDS media plus SYS_PASSWORD, ORDS_PUBLIC_PASSWORD, and APEX_ADMIN_PASSWORD environment variables.
+- `rman_catalog`: Requires CRASHSIM_RMAN_CATALOG_PASSWORD; production catalogs should live outside the target DB.
+- `asm_gi_redundant_lab`: Needs explicit disk/LUN approval; never auto-create storage from the generic prepare menu.
+- `baseline_backup`: Not auto-executed because it can consume backup storage and I/O.
+
+## Raw Evidence
+
+```text
+```
+</pre>
+</main></body></html>

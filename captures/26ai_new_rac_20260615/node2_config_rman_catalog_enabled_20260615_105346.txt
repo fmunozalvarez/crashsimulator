@@ -1,0 +1,45 @@
+CrashSimulator active startup configuration
+  Loaded config: ./crashsimulator.conf
+  Config disabled: 0
+
+Oracle environment:
+  ORACLE_SID=crashdb2
+  ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1
+  ORACLE_BASE=/u02/app/oracle
+  TNS_ADMIN=/u02/app/oracle/product/23.0.0.0/dbhome_1/network/admin
+  SQLPLUS=/u02/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus
+  RMAN=/u02/app/oracle/product/23.0.0.0/dbhome_1/bin/rman
+  CRASHSIM_GRID_HOME=/u01/app/23.0.0.0/gridhome_1
+  CRASHSIM_ASM_SID=not set
+
+CrashSimulator defaults:
+  PDB=CRASHPDB
+  Schema=not set
+  FILE#=not set
+  Log dir=/tmp/crashsimulator/crashsimulator_logs
+  SQL*Plus logon=/ as sysdba
+  Audit retain=0
+  Audit retention days=365
+  Audit dir=/tmp/crashsimulator/crashsimulator_logs/audit
+  Auto resilience scorecard refresh=1
+  RMAN catalog=<redacted>
+  Baseline tag prefix=CSIM_BASE
+  ORDS URL=http://localhost:8080/ords/
+  ORDS config dir=/etc/ords/config
+  APEX session URL=not set
+
+MAA decision-tree context:
+  Application=not set
+  Criticality=not set
+  Local unplanned RTO=not set
+  Local unplanned RPO=not set
+  Local HA target=not set
+  Disaster/site RTO=not set
+  Disaster/site RPO=not set
+  DR required=not set
+  Automatic failover required=not set
+  Planned maintenance RTO=not set
+  Planned maintenance RPO=not set
+  Active-active required=not set
+  Platform hint=not set
+  Standby scope=unknown

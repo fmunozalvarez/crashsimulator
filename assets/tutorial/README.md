@@ -32,6 +32,15 @@ Generated assets:
 - `crashsimulator_best_practices_tutorial.mp4`: short 1080p CrashSimulator best-practice operating model tutorial with burned-in subtitles.
 - `crashsimulator_best_practices_tutorial_with_audio.mp4`: narrated best-practices tutorial generated from the subtitles.
 - `crashsimulator_best_practices_tutorial_subtitles.vtt`: best-practices tutorial WebVTT subtitle sidecar.
+- `crashsimulator_prepare_environment_tutorial.mp4`: short 1080p seed/prepare environment tutorial for CLI and Guided Workflow option 21 with burned-in subtitles.
+- `crashsimulator_prepare_environment_tutorial_with_audio.mp4`: narrated seed/prepare environment tutorial generated from the subtitles.
+- `crashsimulator_prepare_environment_tutorial_subtitles.vtt`: seed/prepare tutorial WebVTT subtitle sidecar.
+- `crashsimulator_first_run_public_readiness_tutorial.mp4`: short 1080p guided first-run public-readiness tutorial with burned-in subtitles.
+- `crashsimulator_first_run_public_readiness_tutorial_with_audio.mp4`: narrated guided first-run public-readiness tutorial generated from the subtitles.
+- `crashsimulator_first_run_public_readiness_tutorial_subtitles.vtt`: guided first-run tutorial WebVTT subtitle sidecar.
+- `crashsimulator_public_limitations_tutorial.mp4`: short 1080p public limitations and safety expectations tutorial with burned-in subtitles.
+- `crashsimulator_public_limitations_tutorial_with_audio.mp4`: narrated public limitations tutorial generated from the subtitles.
+- `crashsimulator_public_limitations_tutorial_subtitles.vtt`: public limitations tutorial WebVTT subtitle sidecar.
 
 Regenerate from the repository root with:
 
@@ -47,6 +56,9 @@ python3 tools/render_config_review_tutorial_video.py
 python3 tools/render_adb_readiness_tutorial_video.py
 python3 tools/render_adb_scenario_tutorial_video.py
 python3 tools/render_best_practices_tutorial_video.py
+python3 tools/render_prepare_environment_tutorial_video.py
+python3 tools/render_first_run_public_readiness_tutorial_video.py
+python3 tools/render_public_limitations_tutorial_video.py
 ```
 
 On macOS, regenerate the narrated copies from the subtitle scripts with:
@@ -66,8 +78,13 @@ backup strategy/recoverability, baseline backups, lifecycle coverage, and HTML
 evidence review. The configuration and review tutorial covers saved defaults,
 target prompts, FILE# selection, and inspecting retained audit/report/manifest
 artifacts. The ADB tutorials cover ADB readiness reporting, report context,
-ADB01-ADB15 browsing, and ADB scenario validation posture. The APEX/ORDS
+ADB01-ADB20 browsing, and ADB scenario validation posture. The APEX/ORDS
 tutorial covers readiness reporting, seeded scenario 80 browser-session
 evidence, and preserving user-facing artifacts. The best-practices tutorial
 summarizes the recommended operating model from discovery to post-drill
-stabilization and evidence retention.
+stabilization and evidence retention. The prepare-environment tutorial covers
+CLI `--prepare-environment` and Guided Workflow option 21. The first-run
+tutorial gives new users the safest order of operations before scenario
+execution. The public limitations tutorial explains plan-only scenarios,
+provider-specific operations, licensing-sensitive features, ADB differences,
+and destructive scenario expectations.

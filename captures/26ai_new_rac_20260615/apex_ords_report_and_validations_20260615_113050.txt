@@ -1,0 +1,27 @@
+=== APEX_ORDS_REPORT ===
+APEX/ORDS readiness report generated: /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260615_113127.md
+HTML artifact generated: /tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_report_20260615_113127.md.html
+=== VALIDATIONS ===
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+
+--- validate scenario ---
+=== RECENT_REPORTS ===
+crashsimulator_logs/crashsim_apex_ords_report_20260615_113127.md.html
+crashsimulator_logs/crashsim_apex_ords_report_20260615_113127.md

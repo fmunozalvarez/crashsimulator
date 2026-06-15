@@ -1,0 +1,15 @@
+CrashSimulator FEX control-file multiplex inventory
+Generated UTC: 2026-06-15T08:24:39Z
+Host: crashrac1-mlprn
+Oracle SID: crashdb1
+Oracle home: /u02/app/oracle/product/23.0.0.0/dbhome_1
+Grid srvctl: /u01/app/23.0.0.0/gridhome_1/bin/srvctl
+Database name: CRASHDB
+DB unique name: crashrac
+Current control-file count: 1
+DB create file dest: @gB2Ac2II(DATA_HC_HIGHREDUNDANCY)
+DB recovery file dest: @gB2Ac2II(RECO_HC_HIGHREDUNDANCY)
+Selected new control-file destination: @gB2Ac2II(RECO_HC_HIGHREDUNDANCY)
+
+Current control files:
+@gB2Ac2II/CRASHRAC-5FB9415B042BDF9DBF8F840EF0BDF92F/CRASHRAC/CONTROLFILE/Current.OMF.70545531

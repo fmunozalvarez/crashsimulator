@@ -1,0 +1,66 @@
+Doctor report generated: /tmp/crashsim_full_sanity/crashsim_doctor_20260615_232332.md
+Latest doctor report: /tmp/crashsim_full_sanity/crashsim_doctor_latest.md
+# CrashSimulator Doctor / Public Readiness Preflight
+
+- Generated UTC: `2026-06-15T13:23:32Z`
+- Tool version: `2.0.1-beta`
+- Host: `Franciscos-MacBook-Pro.local`
+- OS user: `franciscomunozalvarez`
+- Log directory: `/tmp/crashsim_full_sanity`
+This preflight is read-only. It checks local tooling, configuration hygiene, public-release safety posture, and optional HA/DR helpers. Use `--health-check`, `--scenario-readiness-report`, and `--prepare-environment --dry-run` for database-specific evidence.
+
+## Evidence Policy
+
+| Evidence state | Meaning |
+| --- | --- |
+| Confirmed | Direct dated evidence from this environment exists. |
+| Observed | Tool output or configuration was observed, but not tested end to end. |
+| Candidate | Component appears installed/configured; service-level claims still need drills. |
+| Inferred | Conclusion follows from topology pattern; verify before relying on it. |
+| Gap | Evidence is absent, stale, or contradictory. |
+
+## Checks
+
+| Status | Area | Check | Evidence | Recommended action |
+| --- | --- | --- | --- | --- |
+| `OK` | Runtime | Bash version | 5.3.9(1)-release | No action needed. |
+| `OK` | Logging | Log directory writable | /tmp/crashsim_full_sanity | No action needed. |
+| `INFO` | Configuration | Startup config | not loaded | Run --write-config-template to create a reusable non-secret config. |
+| `OK` | Safety | Destructive lab acknowledgement | not set | Destructive --execute --yes actions remain blocked until explicitly acknowledged. |
+| `INFO` | Efficiency | Topology cache | ttl=300s | Use --refresh-topology when you need live topology discovery. |
+| `WARN` | Oracle environment | ORACLE_HOME | not set | Set ORACLE_HOME or use SQLPLUS/RMAN overrides before database-host scenarios. |
+| `WARN` | Oracle environment | ORACLE_SID | not set | Set ORACLE_SID for bequeath SYSDBA workflows. |
+| `GAP` | Oracle client | sqlplus available | not found | Install Oracle client/database software or set SQLPLUS. |
+| `GAP` | Oracle client | rman available | not found | Install Oracle client/database software or set RMAN. |
+| `WARN` | Oracle network | lsnrctl available | not found | Install Oracle networking tools for listener checks. |
+| `WARN` | RAC/GI | srvctl available | not found | Required only for RAC/GI service and instance drills. |
+| `WARN` | RAC/GI | crsctl available | not found | Required only for Grid Infrastructure readiness checks. |
+| `WARN` | ASM/GI | asmcmd available | not found | Required only for ASM/FEX/ACFS storage evidence. |
+| `WARN` | Data Guard | dgmgrl available | not found | Required only for Broker/FSFO checks. |
+| `WARN` | APEX/ORDS | ords available | not found | Required only for ORDS/APEX service-path scenarios. |
+| `WARN` | OCI/ADB | oci available | not found | Required only for OCI control-plane and ADB readiness checks. |
+| `OK` | APEX/ORDS | java available | /usr/bin/java | No action needed. |
+| `OK` | HTTP smoke | curl available | /usr/bin/curl | No action needed. |
+| `WARN` | APEX session driver | node available | not found | Required only for the optional Playwright APEX session driver. |
+| `OK` | Release | git available | /usr/bin/git | No action needed. |
+| `OK` | Release | zip available | /usr/bin/zip | No action needed. |
+| `OK` | Release | unzip available | /usr/bin/unzip | No action needed. |
+| `INFO` | Multi-node | Remote node sync list | not set | Set CRASHSIM_REMOTE_NODES for RAC/ORDS multi-node version/config sync checks. |
+
+## Summary
+
+- Errors/Gaps: `2`
+- Warnings: `10`
+- Latest report: `/tmp/crashsim_full_sanity/crashsim_doctor_latest.md`
+
+## Suggested First Public-Readiness Sequence
+
+```bash
+./CrashSimulatorV2.sh --doctor --html
+./CrashSimulatorV2.sh --secret-scan --scan-path .
+./CrashSimulatorV2.sh --scenario-lifecycle-check --html
+./CrashSimulatorV2.sh --prepare-environment --dry-run --html
+./CrashSimulatorV2.sh --scenario-readiness-report --html
+./CrashSimulatorV2.sh --release-check
+```
+HTML artifact generated: /tmp/crashsim_full_sanity/crashsim_doctor_20260615_232332.md.html

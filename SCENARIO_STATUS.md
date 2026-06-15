@@ -1,16 +1,17 @@
 # CrashSimulator Scenario Status
 
-Snapshot date: 2026-06-08
+Snapshot date: 2026-06-15
 
 This status reflects the first OCI Base DB Service validation environment and
 the RAC/GI/ASM validation environments, including the current two-node RAC lab.
 
 Current framework registry snapshot:
 
-- `97` total catalog entries: `82` database-host and application access-path
-  scenarios across Core, PDB, Backup, Config, Corrupt, Logical, ASM, GI,
-  Data Guard, Active Data Guard, RAC, Network, Security, Compliance, and
-  APEX/ORDS groups, plus `ADB01` through `ADB15` Autonomous Database
+- `123` total catalog entries: `103` database-host, application access-path,
+  and platform/readiness scenarios across Core, PDB, Backup, Config, Corrupt,
+  Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network, Security,
+  Compliance, APEX/ORDS, Services, Recovery, Lifecycle, Exadata, OCI DB, and
+  GoldenGate groups, plus `ADB01` through `ADB20` Autonomous Database
   cloud-service scenarios.
 - Newly added high-value resilience drills: `61` FRA pressure, `62` required
   archived-log recovery gap, `63` TEMP exhaustion, `64` RTO validation, and
@@ -29,11 +30,20 @@ Current framework registry snapshot:
   ORDS node unavailable behind a load balancer, `80` APEX session continuity
   evidence, `81` APEX mail configuration validation, and `82` APEX
   upgrade/patch rollback readiness.
+- Newly added service-continuity, transition, lifecycle, and platform drills:
+  `83` AC/TAC replay validation, `84` FAN/ONS notification unavailable, `85`
+  planned Data Guard switchover, `86` Data Guard failback rehearsal, `87`
+  role-based service validation, `88` PDB PITR, `89` guaranteed restore point
+  rollback, `90` database patch rollback readiness, `EXA01` through `EXA04`
+  Exadata readiness drills, `OCI01` through `OCI05` OCI Base Database Service
+  readiness drills, and `GG01` through `GG04` GoldenGate readiness drills.
+  These are intentionally evidence/runbook-first and block execution until the
+  platform-specific lab target, rollback path, and approval boundary are known.
 - Autonomous Database coverage is tracked as a separate cloud-service scenario
-  catalog, `ADB01` through `ADB15`, rather than as host-level destructive
+  catalog, `ADB01` through `ADB20`, rather than as host-level destructive
   scenario IDs. `--list-adb-scenarios`, `--adb-scenario <id>`, and the Guided
   Workflow Autonomous Database scenarios submenu let users browse the catalog,
-  select `ADB01` through `ADB15`, inspect readiness status, configure ADB
+  select `ADB01` through `ADB20`, inspect readiness status, configure ADB
   context, and refresh ADB readiness evidence. The Guided Workflow Reports menu
   also exposes ADB options `12` through `18` for context, readiness report
   generation, report browsing, scenario list/select/detail, and the full ADB
@@ -41,8 +51,9 @@ Current framework registry snapshot:
   validates wallet/client connectivity, SQL evidence, APEX visibility,
   Flashback Archive posture, OCI control-plane gaps, and ADB-specific scenario
   readiness for logical recovery, clone/PITR, wallet rotation, private
-  endpoint, resource pressure, Autonomous Data Guard, IAM, and Object Storage
-  drills.
+  endpoint, resource pressure, Autonomous Data Guard, IAM, Object Storage,
+  Database Actions, APEX workspace access, cross-region clone validation,
+  wallet distribution drift, and OCI IAM token-expiration drills.
 
 Autonomous Database validation environment:
 
@@ -54,10 +65,13 @@ Autonomous Database validation environment:
 - APEX registry is `24.2.17:VALID`, invalid object count is `0`, Flashback
   Archive retention is `60` days, encrypted tablespaces detected: `6`, and
   reported segment size is `165.09 GB`.
-- ADB readiness score from the first implementation layer is `85%`: client
-  wallet, `python-oracledb`, SQL connectivity, APEX visibility, Flashback
-  Archive, and user-facing URLs passed; OCI CLI/ADB OCID metadata is still
-  required for backup/PITR/clone/ADG/IAM/Object Storage proof.
+- The original ADB readiness operational check score was `85%`: client wallet,
+  `python-oracledb`, SQL connectivity, APEX visibility, Flashback Archive, and
+  user-facing URLs passed; OCI CLI/ADB OCID metadata is still required for
+  backup/PITR/clone/ADG/IAM/Object Storage proof. The current report also
+  includes a separate ADB domain scorecard for Backup Readiness, PITR,
+  Autonomous Data Guard, Cross-Region DR, IAM, wallet lifecycle, private
+  endpoint, Resource Manager, logical/object recovery, and application access.
 - Reference artifacts:
   `reports/crashsim_adb_readiness_20260608.md`,
   `reports/crashsim_adb_readiness_20260608.md.html`, and
@@ -136,6 +150,25 @@ Oracle AI Database 26ai RAC/ASM validation environment:
 - Post-validation health check showed CDB/PDB open read write, no
   `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
 - Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
+
+New 26ai RAC/FEX smoke validation on 2026-06-15:
+
+- The updated catalog and ADB catalog were deployed to the 26ai RAC node
+  `/tmp/crashsimulator/CrashSimulatorV2.sh`.
+- `--list-scenarios` shows scenarios `83` through `90`, `EXA01` through
+  `EXA04`, `OCI01` through `OCI05`, and `GG01` through `GG04`.
+- `--list-adb-scenarios` shows `ADB01` through `ADB20`.
+- Readiness validation was run for representative new scenarios `83`, `84`,
+  `85`, `86`, `87`, `88`, `89`, `90`, `EXA01`, `OCI01`, and `GG01`.
+  Results were correct for this no-Data-Guard, non-Exadata, no-GoldenGate lab:
+  service/platform drills returned plan-only external-action blockers; Data
+  Guard switchover/failback returned a clear Data Guard prerequisite; PDB PITR,
+  GRP rollback, and patch rollback readiness generated operator-approved
+  plan/runbook blockers.
+- Full dry-run of scenario `83` generated service-continuity evidence and a
+  report without changing the database.
+- Refreshed lifecycle and topology-versus-scenario readiness reports are stored
+  under `captures/26ai_new_rac_20260615/new_scenarios_20260615/`.
 
 First OCI Base DB Service validation environment:
 

@@ -1,0 +1,4 @@
+[2026-06-15T10:19:14Z] CrashSimulator HA lab configuration started
+[2026-06-15T10:19:14Z] Configuring CrashSimulator AC/TAC/FAN lab services
+[2026-06-15T10:19:15Z] Adding service crashsim_ac
+PRKF-1551 : Cannot create or modify a service that results in values -failovertype TRANSACTION and -failoverrestore AUTO being defined for the service.

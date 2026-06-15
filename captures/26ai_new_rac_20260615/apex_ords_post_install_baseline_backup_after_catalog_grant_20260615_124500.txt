@@ -1,0 +1,18 @@
+CrashSimulator fresh baseline backup
+Mode: EXECUTE
+Tag prefix: CSIM_BASE
+Backup tag: CSIM_BASE_260615120414
+RMAN catalog: configured (RMAN_CATALOG/<redacted>@//10.0.0.216:1521/crashdb_CRASHPDB.paas.oracle.com)
+RMAN command file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_120414.rman
+RMAN log file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_120414.log
+
+
+About to run a fresh RMAN baseline backup.
+Backup tag: CSIM_BASE_260615120414
+This is not destructive, but it can consume I/O, backup storage, and SBT/Object Storage bandwidth.
+Type BASELINE-BACKUP to continue:
+RMAN> 2> 3> 4> 5> 6> 7> 8> 9> 10> 11> 12> 13> 14> 15> 16> 17> Baseline backup completed successfully.
+Backup tag: CSIM_BASE_260615120414
+Log file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_120414.log
+Command file: /tmp/crashsimulator/crashsimulator_logs/crashsim_baseline_backup_20260615_120414.rman
+Resilience scorecard auto-refreshed after baseline_backup: /tmp/crashsimulator/crashsimulator_logs/crashsim_resilience_scorecard_latest.md

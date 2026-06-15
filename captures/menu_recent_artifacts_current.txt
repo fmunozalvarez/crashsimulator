@@ -1,0 +1,147 @@
+Starting CrashSimulator Guided Workflow menu...
+Trying target topology discovery for the menu header. This normally takes a few seconds on database hosts.
+If SQL*Plus is unavailable, the menu still opens for ADB reports, ADB scenarios, review, and configuration.
+
+CrashSimulator V2 2.0.1-beta
+Database: not discovered  Role: unknown  Open: unknown  CDB: unknown
+Instance: unknown  Storage: UNKNOWN  Cluster: UNKNOWN
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsim_full_sanity
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: not loaded
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsim_full_sanity/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+ADB scenario: not set
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+ 20. Autonomous Database scenarios
+ 21. Seed / prepare scenario lab for this topology
+ 22. Public readiness and safety checks
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:
+
+Recent Manifests, Logs, Reports, And Helper Files
+  No.  Generated              Type         Size     File
+  ---  ---------------------- ------------ -------- ----
+    1. 2026-06-15 23:27:22 AEST report       40K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232720.md
+    2. 2026-06-15 23:27:22 AEST html         44K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232720.md.html
+    3. 2026-06-15 23:27:22 AEST report       40K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_latest.md
+    4. 2026-06-15 23:27:22 AEST html         44K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_latest.md.html
+    5. 2026-06-15 23:27:21 AEST report       16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232720.md
+    6. 2026-06-15 23:27:21 AEST html         16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232720.md.html
+    7. 2026-06-15 23:27:21 AEST report       16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_latest.md
+    8. 2026-06-15 23:27:20 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_first_run_20260615_232720.md
+    9. 2026-06-15 23:27:20 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_first_run_20260615_232720.md.html
+   10. 2026-06-15 23:27:20 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_first_run_latest.md
+   11. 2026-06-15 23:27:12 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232712.md
+   12. 2026-06-15 23:27:12 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232712.md.html
+   13. 2026-06-15 23:27:12 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_latest.md
+   14. 2026-06-15 23:24:11 AEST report       40K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232408.md
+   15. 2026-06-15 23:24:11 AEST html         44K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232408.md.html
+   16. 2026-06-15 23:24:10 AEST report       16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232408.md
+   17. 2026-06-15 23:24:10 AEST html         16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232408.md.html
+   18. 2026-06-15 23:23:32 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_doctor_20260615_232332.md
+   19. 2026-06-15 23:23:32 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_doctor_20260615_232332.md.html
+   20. 2026-06-15 23:23:32 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_doctor_latest.md
+   21. 2026-06-15 23:23:32 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_latest.md.html
+   22. 2026-06-15 23:23:32 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_review_index_20260615_232332.md
+   23. 2026-06-15 23:23:32 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_review_index_20260615_232332.md.html
+   24. 2026-06-15 23:23:19 AEST report       40K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232316.md
+   25. 2026-06-15 23:23:19 AEST html         44K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_20260615_232316.md.html
+   26. 2026-06-15 23:23:18 AEST html         16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232316.md.html
+   27. 2026-06-15 23:23:17 AEST report       16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_232316.md
+   28. 2026-06-15 23:23:16 AEST report       4.0K     /tmp/crashsim_full_sanity/crashsim_first_run_20260615_232316.md
+   29. 2026-06-15 23:23:16 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_first_run_20260615_232316.md.html
+   30. 2026-06-15 23:23:16 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232316.md
+   31. 2026-06-15 23:23:16 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232316.md.html
+   32. 2026-06-15 23:21:32 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232132.md
+   33. 2026-06-15 23:21:32 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232132.md.html
+   34. 2026-06-15 23:21:16 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232115.md
+   35. 2026-06-15 23:21:16 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232115.md.html
+   36. 2026-06-15 23:20:32 AEST report       8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232032.md
+   37. 2026-06-15 23:20:32 AEST html         8.0K     /tmp/crashsim_full_sanity/crashsim_public_limitations_20260615_232032.md.html
+   38. 2026-06-15 23:14:11 AEST report       16K      /tmp/crashsim_full_sanity/crashsim_scenario_lifecycle_check_20260615_231409.md
+
+Enter a number to inspect, r to refresh, or b/blank to go back:
+
+CrashSimulator V2 2.0.1-beta
+Database: not discovered  Role: unknown  Open: unknown  CDB: unknown
+Instance: unknown  Storage: UNKNOWN  Cluster: UNKNOWN
+
+Selected scenario: none
+PDB: not set  Schema: not set  FILE#: not set
+Manifest: not set
+Log dir: /tmp/crashsim_full_sanity
+Report deep validation: 0
+Baseline backup tag prefix: CSIM_BASE
+Config file: not loaded
+Audit retain: 0  Retention days: 365  Audit dir: /tmp/crashsim_full_sanity/audit
+Scenario 25 guards: local-only=0  max-targets=not set  piece-handle=not-set
+RMAN catalog: not configured
+Password-file recovery: SYS password=not-set  service=not set
+Scenario 61/63 knobs: FRA target=98%  FRA headroom=64MB  TEMP workload=512MB
+ADB scenario: not set
+
+Guided Workflow
+
+Safe discovery and planning
+  1. Discover or refresh database topology
+  2. Select scenario
+  3. List all scenarios
+  4. Show recovery runbook for selected scenario
+  v. Validate selected scenario readiness
+  5. Dry-run selected scenario
+  6. Dry-run protection for selected scenario
+  9. Dry-run recovery for selected scenario
+ 11. Run health check / validation
+ 12. Configure targets and options
+ 13. Browse recent manifests, logs, reports, and inspect contents
+ 14. Dry-run random/aleatory scenario for this topology
+ 16. Reports
+ 17. Generate scenario readiness report for this topology
+ 18. Audit / retention settings
+ 19. Review collected topology, logs, reports, and history
+ 20. Autonomous Database scenarios
+ 21. Seed / prepare scenario lab for this topology
+ 22. Public readiness and safety checks
+
+Execution actions - typed confirmation required
+  7. Execute protection for selected scenario
+  8. Execute selected scenario
+ 10. Execute recovery for selected scenario
+ 15. Execute random/aleatory scenario for this topology
+  q. Quit
+
+Choice:

@@ -1,0 +1,11 @@
+show all;
+list backup summary;
+list backup of database summary;
+list backup of archivelog all summary;
+list expired backup summary;
+list expired archivelog all;
+report schema;
+report need backup;
+report obsolete;
+restore database preview summary;
+exit;

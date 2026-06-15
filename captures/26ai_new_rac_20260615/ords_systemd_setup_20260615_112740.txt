@@ -1,0 +1,10 @@
+● ords.service - Oracle REST Data Services for CrashSimulator APEX lab
+   Loaded: loaded (/etc/systemd/system/ords.service; enabled; vendor preset: disabled)
+   Active: active (running) since Mon 2026-06-15 11:27:43 UTC; 8s ago
+ Main PID: 301682 (java)
+    Tasks: 39 (limit: 137245)
+   Memory: 697.0M
+   CGroup: /system.slice/ords.service
+           └─301682 /usr/java/jdk-17/bin/java -Doracle.dbtools.cmdline.home=/u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2 -Djava.awt.headless=true -Doracle.dbtools.cmdline.ShellCommand=ords -Duser.timezone=UTC -XX:+IgnoreUnrecognizedVMOptions -jar /u01/app/oracle/product/crashsim_apex_ords/ords_26.1.2/ords.war --config /u01/app/oracle/product/crashsim_apex_ords/ords_config serve
+
+Jun 15 11:27:43 crashrac1-mlprn systemd[1]: Started Oracle REST Data Services for CrashSimulator APEX lab.

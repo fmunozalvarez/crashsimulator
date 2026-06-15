@@ -1,0 +1,75 @@
+CSIM_BKP|db_name|CRASHDB
+CSIM_BKP|db_unique_name|crashrac
+CSIM_BKP|dbid|1275818439
+CSIM_BKP|database_role|PRIMARY
+CSIM_BKP|open_mode|READ WRITE
+CSIM_BKP|cdb|YES
+CSIM_BKP|log_mode|ARCHIVELOG
+CSIM_BKP|force_logging|YES
+CSIM_BKP|flashback_on|YES
+CSIM_BKP|platform_name|Linux x86 64-bit
+CSIM_BKP|control_file_record_keep_time|7
+CSIM_BKP|archive_lag_target|0
+CSIM_BKP|db_recovery_file_dest|@gB2Ac2II(RECO_HC_HIGHREDUNDANCY)
+CSIM_BKP|rman_retention_policy|DEFAULT
+CSIM_BKP|rman_controlfile_autobackup|DEFAULT/OFF
+CSIM_BKP|rman_backup_optimization|DEFAULT/OFF
+CSIM_BKP|rman_encryption|DEFAULT
+CSIM_BKP|rman_compression|DEFAULT
+CSIM_BKP|rman_channel_config_count|0
+CSIM_BKP|datafile_count|17
+CSIM_BKP|tempfile_count|3
+CSIM_BKP|database_size_gb|13.48
+CSIM_BKP|datafile_copy_count|4
+CSIM_BKP|datafiles_without_backup_metadata|0
+CSIM_BKP|oldest_datafile_backup_time|2026-06-15 08:25:31
+CSIM_BKP|last_datafile_backup_time|2026-06-15 08:27:55
+CSIM_BKP|last_datafile_backup_age_hours|0
+CSIM_BKP|last_level0_backup_time|2026-06-15 08:27:55
+CSIM_BKP|last_level0_backup_age_hours|0
+CSIM_BKP|last_level1_backup_time|NONE
+CSIM_BKP|last_level1_backup_age_hours|UNKNOWN
+CSIM_BKP|level0_count_30d|13
+CSIM_BKP|level1_count_30d|0
+CSIM_BKP|level0_avg_gap_hours|.1
+CSIM_BKP|level1_avg_gap_hours|UNKNOWN
+CSIM_BKP|successful_jobs_7d|2
+CSIM_BKP|failed_jobs_7d|0
+CSIM_BKP|successful_jobs_30d|2
+CSIM_BKP|failed_jobs_30d|0
+CSIM_BKP|last_successful_job_time|2026-06-15 08:27:55
+CSIM_BKP|last_successful_job_age_hours|0
+CSIM_BKP|backup_device_types|DISK
+CSIM_BKP|avg_successful_job_elapsed_minutes_30d|2.5
+CSIM_BKP|max_successful_job_elapsed_minutes_30d|2.7
+CSIM_BKP|archivelog_backup_sets_30d|2
+CSIM_BKP|last_archivelog_backup_time|2026-06-15 08:27:44
+CSIM_BKP|last_archivelog_backup_age_hours|0
+CSIM_BKP|archivelog_backup_avg_gap_hours|.8
+CSIM_BKP|archivelogs_known_7d|23
+CSIM_BKP|archivelogs_not_backed_7d|0
+CSIM_BKP|oldest_unbacked_archivelog_time|NONE
+CSIM_BKP|oldest_unbacked_archivelog_age_hours|UNKNOWN
+CSIM_BKP|latest_archivelog_time|2026-06-15 08:27:38
+CSIM_BKP|controlfile_backup_count_30d|7
+CSIM_BKP|last_controlfile_backup_time|2026-06-15 08:27:55
+CSIM_BKP|last_controlfile_backup_age_hours|0
+CSIM_BKP|backup_piece_available_count|17
+CSIM_BKP|backup_piece_expired_count|0
+CSIM_BKP|backup_piece_deleted_count|0
+CSIM_BKP|backup_piece_unavailable_count|0
+CSIM_BKP|latest_backup_piece_time|2026-06-15 08:27:55
+CSIM_BKP|backup_piece_device_types|DISK
+CSIM_BKP|recover_file_count|0
+CSIM_BKP|block_corruption_count|0
+CSIM_BKP|copy_corruption_count|0
+CSIM_BKP|backup_corruption_count|0
+CSIM_BKP|fra_configured|YES
+CSIM_BKP|fra_used_pct|4.34
+CSIM_BKP|fra_reclaimable_pct|.47
+CSIM_BKP|remote_standby_dest_count|0
+CSIM_BKP|valid_remote_standby_dest_count|0
+CSIM_BKP|standby_dest_error_count|0
+CSIM_BKP|archive_gap_count|0
+CSIM_BKP|dataguard_transport_lag|UNKNOWN
+CSIM_BKP|dataguard_apply_lag|UNKNOWN

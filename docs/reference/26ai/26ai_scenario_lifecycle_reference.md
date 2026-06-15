@@ -1,9 +1,9 @@
 # CrashSimulator Scenario Lifecycle Coverage Report
 
-- Generated UTC: `2026-06-08T14:57:55Z`
+- Generated UTC: `2026-06-15T09:23:56Z`
 - Tool version: `2.0.1-beta`
 - Log directory: `/tmp/crashsimulator/crashsimulator_logs`
-- Registered scenarios: `82`
+- Registered scenarios: `103`
 
 This static report shows what lifecycle support the framework provides for each registered scenario. It complements `--scenario-readiness-report`, which checks whether a scenario can run in the current database topology.
 
@@ -22,7 +22,7 @@ This static report shows what lifecycle support the framework provides for each 
 
 | Metric | Count |
 | --- | ---: |
-| Registered scenarios | 82 |
+| Registered scenarios | 103 |
 | Automated `--protect` support | 20 |
 | Automated `--recover` support | 56 |
 | Plan-only external-action scenarios | 9 |
@@ -116,6 +116,27 @@ This static report shows what lifecycle support the framework provides for each 
 | `80` | APEX/ORDS | logical | APEX session continuity test | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, optional browser screenshots/JSON, manifest, audit | No recovery helper required; keep report evidence current. |
 | `81` | APEX/ORDS | logical | APEX mail queue and configuration validation | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
 | `82` | APEX/ORDS | logical | APEX upgrade or patch rollback readiness | Automated readiness validation | Not required: read-only report | Automated read-only report | Not required: read-only report | Automated --runbook artifact / Markdown report, SQL evidence, manifest, audit | No recovery helper required; keep report evidence current. |
+| `83` | Services | logical | Application Continuity replay validation | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `84` | Services | logical | FAN notification unavailable | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `85` | DataGuard | logical | Planned Data Guard switchover | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `86` | DataGuard | logical | Data Guard failback rehearsal | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `87` | Services | logical | Role-based service validation | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `88` | PDB | logical | PDB point-in-time recovery drill | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `89` | Recovery | logical | Guaranteed restore point rollback | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `90` | Lifecycle | logical | Database patch rollback readiness | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `EXA01` | Exadata | logical | Exadata cell failure review | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `EXA02` | Exadata | logical | Exadata storage server outage | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `EXA03` | Exadata | logical | Exadata Smart Scan validation | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `EXA04` | Exadata | logical | Exadata Flash Cache failure | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `OCI01` | OCI DB | logical | OCI Base DB backup policy validation | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `OCI02` | OCI DB | logical | OCI cross-region backup recovery | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `OCI03` | OCI DB | logical | OCI database system failover | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `OCI04` | OCI DB | logical | OCI VCN connectivity loss | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `OCI05` | OCI DB | logical | OCI NSG misconfiguration | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `GG01` | GoldenGate | logical | GoldenGate Extract stopped | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `GG02` | GoldenGate | logical | GoldenGate Replicat stopped | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `GG03` | GoldenGate | logical | GoldenGate lag exceeds SLA | Automated readiness validation | Not required: logical drill | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
+| `GG04` | GoldenGate | destructive | GoldenGate trail corruption | Automated readiness validation | Manual baseline/runbook | Automated dry-run/execute with guardrails | Manual runbook | Automated --runbook artifact / Manifest, audit, runbook; SQL/RMAN/report evidence when used | Add automated recovery helper when safe and repeatable. |
 
 
 ## Recommended Use

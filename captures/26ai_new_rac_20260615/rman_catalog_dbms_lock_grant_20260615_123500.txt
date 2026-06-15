@@ -1,0 +1,3 @@
+bash: -c: line 0: syntax error near unexpected token `table_name,'
+bash: -c: line 0: `sqlplus -s / as sysdba <<SQLwhenever sqlerror exit sql.sqlcodeset pages 100 lines 200alter session set container=CRASHPDB;grant execute on sys.dbms_lock to RMAN_CATALOG;select owner, table_name, privilege, grantee from dba_tab_privs where owner = 'SYS' and table_name = 'DBMS_LOCK' and grantee = 'RMAN_CATALOG';exitSQL'
+bash: warning: here-document at line 0 delimited by end-of-file (wanted `SQLwhenever')

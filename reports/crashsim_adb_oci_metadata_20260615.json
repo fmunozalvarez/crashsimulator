@@ -1,0 +1,336 @@
+{
+  "data": {
+    "actual-used-data-storage-size-in-tbs": 0.005127668380737305,
+    "additional-attributes": {},
+    "allocated-storage-size-in-tbs": 0.0068359375,
+    "apex-details": {
+      "apex-version": "24.2.17",
+      "ords-version": "<ip-redacted>.1916"
+    },
+    "are-primary-whitelisted-ips-used": null,
+    "auto-refresh-frequency-in-seconds": null,
+    "auto-refresh-point-lag-in-seconds": null,
+    "autonomous-container-database-id": null,
+    "autonomous-database-maintenance-window": null,
+    "autonomous-maintenance-schedule-type": "REGULAR",
+    "availability-domain": "Bpxv:AP-TOKYO-1-AD-1",
+    "available-upgrade-versions": [],
+    "backup-config": {
+      "manual-backup-bucket-name": null,
+      "manual-backup-type": "NONE"
+    },
+    "backup-retention-period-in-days": 60,
+    "byol-compute-count-limit": null,
+    "character-set": "AL32UTF8",
+    "clone-table-space-list": null,
+    "clone-type": null,
+    "cluster-placement-group-id": null,
+    "compartment-id": "ocid1.<redacted>",
+    "compute-count": 1.0,
+    "compute-model": "ECPU",
+    "connection-strings": {
+      "all-connection-strings": {
+        "HIGH": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_high.adb.oraclecloud.com",
+        "LOW": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_low.adb.oraclecloud.com",
+        "MEDIUM": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_medium.adb.oraclecloud.com",
+        "TP": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_tp.adb.oraclecloud.com",
+        "TPURGENT": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_tpurgent.adb.oraclecloud.com"
+      },
+      "dedicated": null,
+      "high": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_high.adb.oraclecloud.com",
+      "low": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_low.adb.oraclecloud.com",
+      "medium": "adb.ap-tokyo-1.oraclecloud.com:1522/kemeja2k9zf9hpa_crashautonomous_medium.adb.oraclecloud.com",
+      "profiles": [
+        {
+          "consumer-group": "HIGH",
+          "display-name": "crashautonomous_high",
+          "host-format": "FQDN",
+          "is-regional": null,
+          "protocol": "TCPS",
+          "session-mode": "DIRECT",
+          "syntax-format": "LONG",
+          "tls-authentication": "MUTUAL",
+          "value": "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.ap-tokyo-1.oraclecloud.com))(connect_data=(service_name=kemeja2k9zf9hpa_crashautonomous_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+        },
+        {
+          "consumer-group": "MEDIUM",
+          "display-name": "crashautonomous_medium",
+          "host-format": "FQDN",
+          "is-regional": null,
+          "protocol": "TCPS",
+          "session-mode": "DIRECT",
+          "syntax-format": "LONG",
+          "tls-authentication": "MUTUAL",
+          "value": "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.ap-tokyo-1.oraclecloud.com))(connect_data=(service_name=kemeja2k9zf9hpa_crashautonomous_medium.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+        },
+        {
+          "consumer-group": "LOW",
+          "display-name": "crashautonomous_low",
+          "host-format": "FQDN",
+          "is-regional": null,
+          "protocol": "TCPS",
+          "session-mode": "DIRECT",
+          "syntax-format": "LONG",
+          "tls-authentication": "MUTUAL",
+          "value": "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.ap-tokyo-1.oraclecloud.com))(connect_data=(service_name=kemeja2k9zf9hpa_crashautonomous_low.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+        },
+        {
+          "consumer-group": "TP",
+          "display-name": "crashautonomous_tp",
+          "host-format": "FQDN",
+          "is-regional": null,
+          "protocol": "TCPS",
+          "session-mode": "DIRECT",
+          "syntax-format": "LONG",
+          "tls-authentication": "MUTUAL",
+          "value": "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.ap-tokyo-1.oraclecloud.com))(connect_data=(service_name=kemeja2k9zf9hpa_crashautonomous_tp.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+        },
+        {
+          "consumer-group": "TPURGENT",
+          "display-name": "crashautonomous_tpurgent",
+          "host-format": "FQDN",
+          "is-regional": null,
+          "protocol": "TCPS",
+          "session-mode": "DIRECT",
+          "syntax-format": "LONG",
+          "tls-authentication": "MUTUAL",
+          "value": "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.ap-tokyo-1.oraclecloud.com))(connect_data=(service_name=kemeja2k9zf9hpa_crashautonomous_tpurgent.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+        }
+      ]
+    },
+    "connection-urls": {
+      "apex-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/apex",
+      "database-transforms-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/odi/?sso=true",
+      "graph-studio-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/graphstudio/?sso=true",
+      "machine-learning-notebook-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/oml/?sso=true",
+      "machine-learning-user-management-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/omlusers/",
+      "mongo-db-url": null,
+      "ords-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/",
+      "spatial-studio-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/spatialstudio/",
+      "sql-dev-web-url": "https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/sql-developer"
+    },
+    "cpu-core-count": 0,
+    "customer-contacts": [
+      {
+        "email": "alvarez@clouddb.com.au"
+      }
+    ],
+    "data-safe-status": "NOT_REGISTERED",
+    "data-storage-size-in-gbs": 20,
+    "data-storage-size-in-tbs": null,
+    "database-edition": null,
+    "database-management-status": null,
+    "dataguard-region-type": null,
+    "db-name": "crashautonomous",
+    "db-tools-details": [
+      {
+        "compute-count": null,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": null,
+        "name": "APEX"
+      },
+      {
+        "compute-count": 2.0,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": 30,
+        "name": "DATA_TRANSFORMS"
+      },
+      {
+        "compute-count": null,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": null,
+        "name": "DATABASE_ACTIONS"
+      },
+      {
+        "compute-count": null,
+        "is-enabled": false,
+        "max-idle-time-in-minutes": null,
+        "name": "UNKNOWN_ENUM_VALUE"
+      },
+      {
+        "compute-count": 2.0,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": 60,
+        "name": "GRAPH_STUDIO"
+      },
+      {
+        "compute-count": null,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": null,
+        "name": "MONGODB_API"
+      },
+      {
+        "compute-count": 2.0,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": 60,
+        "name": "OML"
+      },
+      {
+        "compute-count": null,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": null,
+        "name": "ORDS"
+      },
+      {
+        "compute-count": 2.0,
+        "is-enabled": true,
+        "max-idle-time-in-minutes": 60,
+        "name": "SPATIAL_STUDIO"
+      }
+    ],
+    "db-version": "26ai",
+    "db-workload": "OLTP",
+    "defined-tags": {},
+    "disaster-recovery-region-type": null,
+    "display-name": "crashai",
+    "encryption-key": {
+      "provider": "ORACLE_MANAGED"
+    },
+    "encryption-key-history-entry": [
+      {
+        "encryption-key": {
+          "provider": "ORACLE_MANAGED"
+        },
+        "time-activated": "2026-06-08T03:27:36.413000+00:00"
+      }
+    ],
+    "encryption-key-location-details": null,
+    "failed-data-recovery-in-seconds": null,
+    "freeform-tags": {},
+    "id": "ocid1.<redacted>",
+    "in-memory-area-in-gbs": null,
+    "in-memory-percentage": null,
+    "infrastructure-type": null,
+    "is-access-control-enabled": null,
+    "is-auto-scaling-enabled": false,
+    "is-auto-scaling-for-storage-enabled": false,
+    "is-backup-retention-locked": false,
+    "is-data-guard-enabled": false,
+    "is-dedicated": false,
+    "is-dev-tier": null,
+    "is-free-tier": true,
+    "is-local-data-guard-enabled": false,
+    "is-mtls-connection-required": true,
+    "is-preview": false,
+    "is-reconnect-clone-enabled": false,
+    "is-refreshable-clone": null,
+    "is-remote-data-guard-enabled": false,
+    "key-history-entry": [
+      {
+        "id": "ORACLE_MANAGED_KEY",
+        "kms-key-version-id": null,
+        "time-activated": "2026-06-08T03:27:36.413000+00:00",
+        "vault-id": null
+      }
+    ],
+    "key-store-id": null,
+    "key-store-wallet-name": null,
+    "kms-key-id": "ORACLE_MANAGED_KEY",
+    "kms-key-lifecycle-details": null,
+    "kms-key-version-id": null,
+    "license-model": "LICENSE_INCLUDED",
+    "lifecycle-details": null,
+    "lifecycle-state": "AVAILABLE",
+    "local-adg-auto-failover-max-data-loss-limit": null,
+    "local-adg-resource-pool-leader-id": null,
+    "local-disaster-recovery-type": null,
+    "local-standby-db": null,
+    "long-term-backup-schedule": null,
+    "maintenance-target-component": "Database",
+    "memory-per-compute-unit-in-gbs": null,
+    "memory-per-oracle-compute-unit-in-gbs": null,
+    "ncharacter-set": "AL16UTF16",
+    "net-services-architecture": null,
+    "next-long-term-backup-time-stamp": null,
+    "nsg-ids": null,
+    "ocpu-count": null,
+    "open-mode": "READ_WRITE",
+    "operations-insights-status": "NOT_ENABLED",
+    "peer-db-ids": null,
+    "permission-level": "UNRESTRICTED",
+    "private-endpoint": null,
+    "private-endpoint-ip": null,
+    "private-endpoint-label": null,
+    "provisionable-cpus": null,
+    "public-connection-urls": null,
+    "public-endpoint": null,
+    "refreshable-mode": null,
+    "refreshable-status": null,
+    "remote-disaster-recovery-configuration": null,
+    "resource-pool-leader-id": null,
+    "resource-pool-summary": {
+      "available-compute-capacity": null,
+      "available-storage-capacity-in-tbs": null,
+      "is-disabled": true,
+      "pool-size": null,
+      "pool-storage-size-in-tbs": null,
+      "total-compute-capacity": null
+    },
+    "role": null,
+    "scheduled-operations": null,
+    "security-attributes": {},
+    "service-console-url": null,
+    "source-id": null,
+    "standby-db": null,
+    "standby-whitelisted-ips": null,
+    "subnet-id": null,
+    "subscription-id": null,
+    "supported-regions-to-clone-to": [
+      "KIX",
+      "ICN",
+      "SIN",
+      "BOM",
+      "HYD",
+      "IAD",
+      "PHX",
+      "FRA",
+      "CWL",
+      "ORD",
+      "SJC",
+      "MEL",
+      "AMS",
+      "LHR",
+      "YUL",
+      "YYZ",
+      "SYD"
+    ],
+    "system-tags": {
+      "orcl-cloud": {
+        "free-tier-retained": "true"
+      }
+    },
+    "time-created": "2026-06-08T03:25:39.875000+00:00",
+    "time-data-guard-role-changed": null,
+    "time-deletion-of-free-autonomous-database": null,
+    "time-disaster-recovery-role-changed": null,
+    "time-earliest-available-db-version-upgrade": "2026-06-15T06:20:00+00:00",
+    "time-latest-available-db-version-upgrade": "2026-07-15T05:50:00+00:00",
+    "time-local-data-guard-enabled": null,
+    "time-maintenance-begin": "2026-06-20T03:00:00+00:00",
+    "time-maintenance-end": "2026-06-20T05:00:00+00:00",
+    "time-maintenance-pause-until": null,
+    "time-of-auto-refresh-start": null,
+    "time-of-joining-resource-pool": null,
+    "time-of-last-failover": null,
+    "time-of-last-refresh": null,
+    "time-of-last-refresh-point": null,
+    "time-of-last-switchover": null,
+    "time-of-next-refresh": null,
+    "time-reclamation-of-free-autonomous-database": "2026-06-15T15:25:25.102000+00:00",
+    "time-scheduled-db-version-upgrade": null,
+    "time-undeleted": null,
+    "time-until-reconnect-clone-enabled": null,
+    "total-backup-storage-size-in-gbs": 6.0,
+    "used-data-storage-size-in-gbs": null,
+    "used-data-storage-size-in-tbs": null,
+    "vanity-connection-urls": null,
+    "vanity-url-details": {
+      "api-gateway-id": null,
+      "is-disabled": true,
+      "vanity-url-host-name": null
+    },
+    "vault-id": null,
+    "whitelisted-ips": null
+  },
+  "etag": "2e487de0--gzip"
+}

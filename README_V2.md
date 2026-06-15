@@ -1,4 +1,4 @@
-# CrashSimulator V2.0.1 Beta
+# CrashSimulator V2.0.2 Beta
 
 CrashSimulator is an open-source resilience validation platform for Oracle
 Database environments. By orchestrating controlled failures and recovery
@@ -6,7 +6,7 @@ scenarios, it helps organizations continuously verify recoverability, strengthen
 operational readiness, validate HA/DR architectures, and demonstrate compliance
 with recovery objectives and regulatory requirements.
 
-CrashSimulator V2.0.1 beta is a safer, single-script rewrite of the original
+CrashSimulator V2.0.2 beta is a safer, single-script rewrite of the original
 CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
@@ -27,9 +27,9 @@ For end-user guidance, terminology, safety practices, feature descriptions, and
 the full scenario catalog, read:
 
 - `README.md` for the short project entry point.
-- `docs/CRASHSIMULATOR_V2_0_1_BETA_PRODUCT_OVERVIEW.md` for the product
+- `docs/CRASHSIMULATOR_V2_0_2_BETA_PRODUCT_OVERVIEW.md` for the product
   overview, intention, capabilities, limitations, and roadmap.
-- `docs/RELEASE_NOTES_V2_0_1_BETA.md` for release notes and package details.
+- `docs/RELEASE_NOTES_V2_0_2_BETA.md` for release notes and package details.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
 - `docs/AUTONOMOUS_DATABASE_COVERAGE.md` for the ADB coverage model and
   scenario family.
@@ -39,12 +39,12 @@ the full scenario catalog, read:
 ## Install From A ZIP File
 
 If you download CrashSimulator as a GitHub release ZIP file, copy the ZIP to
-the target Oracle database host and unzip it. For `v2.0.1 beta`, the curated
-runtime package is `crashsimulator-v2.0.1-beta-runtime.zip`:
+the target Oracle database host and unzip it. For `v2.0.2 beta`, the curated
+runtime package is `crashsimulator-v2.0.2-beta-runtime.zip`:
 
 ```bash
-unzip crashsimulator-v2.0.1-beta-runtime.zip
-cd crashsimulator-v2.0.1-beta
+unzip crashsimulator-v2.0.2-beta-runtime.zip
+cd crashsimulator-v2.0.2-beta
 chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
@@ -61,7 +61,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.1-beta
+cd /path/to/crashsimulator-v2.0.2-beta
 ```
 
 If you prefer repeatable startup defaults, copy and edit the sample
@@ -113,6 +113,7 @@ Run from the database host as an OS user that can connect locally as SYSDBA:
 ./CrashSimulatorV2.sh --validate-all-scenarios --pdb crashpdb
 ./CrashSimulatorV2.sh --config-report
 ./CrashSimulatorV2.sh --maa-report
+./CrashSimulatorV2.sh --resilience-scorecard --html
 ./CrashSimulatorV2.sh --apex-ords-report --pdb crashpdb --html
 ./CrashSimulatorV2.sh --adb-readiness-report --html
 ./CrashSimulatorV2.sh --list-adb-scenarios
@@ -164,8 +165,10 @@ drive from a single screen:
 - generate target configuration/recoverability reports
 - generate backup strategy and recoverability/RTO/RPO reports
 - generate Oracle MAA readiness and SLA planning reports
+- generate the executive resilience scorecard from backup, HA, DR, security,
+  recoverability, MAA, service, and drill evidence
 - browse the dedicated Autonomous Database scenario catalog, select `ADB01`
-  through `ADB15`, review validation status, and refresh ADB readiness evidence
+  through `ADB20`, review validation status, and refresh ADB readiness evidence
   from the main ADB submenu or the Reports menu ADB options
 - configure audit retention, inspect audit status, and purge old audit records
 - review collected topology, manifests, runbooks, dry-run/execution records,
@@ -296,6 +299,32 @@ runbook/evidence artifacts. It deliberately distinguishes automated helpers
 from manual/runbook and plan-only infrastructure drills so gaps remain visible
 without overstating safety.
 
+Use `--scenario-lifecycle-check` before publishing or after adding scenarios.
+It fails when scenario metadata, handlers, or lifecycle capability text are
+missing:
+
+```bash
+./CrashSimulatorV2.sh --scenario-lifecycle-check --html
+```
+
+## Public Readiness Checks
+
+Before sharing a public build or giving the tool to new users, run the
+read-only public-readiness checks:
+
+```bash
+./CrashSimulatorV2.sh --doctor --html
+./CrashSimulatorV2.sh --first-run --html
+./CrashSimulatorV2.sh --public-limitations --html
+./CrashSimulatorV2.sh --secret-scan --scan-path .
+./CrashSimulatorV2.sh --sanitize-artifacts --sanitize-source reports
+./CrashSimulatorV2.sh --release-check
+```
+
+`--execute --yes` destructive lab runs require
+`CRASHSIM_ACCEPT_DESTRUCTIVE_LAB=YES` or `--accept-destructive-lab`. Keep that
+acknowledgement limited to approved non-production environments.
+
 ## Configuration Report
 
 Use `--config-report` to generate a Markdown report under
@@ -360,6 +389,38 @@ durations. Actual RTO/RPO still need timed restore/recovery/application drills.
 `--deep-validate` adds read-only but I/O-intensive `RESTORE DATABASE VALIDATE`,
 `RESTORE ARCHIVELOG ALL VALIDATE`, and `VALIDATE DATABASE CHECK LOGICAL`.
 
+## Resilience Scorecard
+
+Use `--resilience-scorecard` to generate an executive scorecard that converts
+the current evidence into domain scores and an overall `Resilience Score`:
+
+```bash
+./CrashSimulatorV2.sh --resilience-scorecard
+./CrashSimulatorV2.sh --resilience-scorecard --html
+./CrashSimulatorV2.sh --show-artifact latest:resilience
+```
+
+The scorecard combines topology discovery, MAA posture, backup posture, scenario
+coverage, service/application-continuity signals, recovery manifests, and recent
+drill evidence. It currently scores Backup, RAC/local HA, Security, DR/Data
+Guard, Recoverability, MAA Alignment, Scenario Coverage, and Application
+Continuity. Each domain explains which evidence improved the score and which
+gaps are still limiting it.
+
+Scores improve when teams collect stronger evidence: fresh baseline backups,
+RMAN validation, successful protection/recovery manifests, scenario lifecycle
+coverage, RAC/service failover tests, Data Guard/FSFO evidence, APEX/ORDS or
+application access-path validation, and measured RTO/RPO drills. The scorecard
+is a management and audit aid, not a formal Oracle certification.
+
+By default, CrashSimulator tries to refresh
+`crashsim_resilience_scorecard_latest.md` after scenario, protection, recovery,
+validation, health-check, lifecycle/readiness, and baseline-backup actions. The
+refresh is best effort and non-blocking; it is skipped with a warning if
+SQL*Plus or the target database is not ready at that moment. Use
+`--no-auto-scorecard` or `CRASHSIM_AUTO_SCORECARD=0` when automation should only
+produce the explicitly requested artifact.
+
 ## Fresh Baseline Backup
 
 Use `--baseline-backup` to create a new RMAN baseline backup before or after
@@ -404,26 +465,54 @@ token unless `--yes` is supplied by trusted automation.
 
 ## MAA Readiness Report
 
-Use `--maa-report` to generate an Oracle MAA posture and best-practice report:
+Use `--maa-report` to generate an Oracle MAA posture, decision-tree, and
+best-practice report:
 
 ```bash
 ./CrashSimulatorV2.sh --maa-report
-./CrashSimulatorV2.sh --maa-report --maa-app-name payroll --maa-local-rto "less than 1 minute" --maa-dr-rpo "zero"
+./CrashSimulatorV2.sh --maa-report \
+  --maa-app-name payroll \
+  --maa-criticality mission-critical \
+  --maa-local-ha-target yes \
+  --maa-local-rto "less than 1 minute" \
+  --maa-local-rpo zero \
+  --maa-dr-required yes \
+  --maa-dr-rto "less than 5 minutes" \
+  --maa-dr-rpo zero \
+  --maa-automatic-failover-required yes \
+  --maa-standby-scope remote
 ```
 
-The report detects the current MAA posture as a best-effort mapping to Bronze,
-Silver, Gold, Platinum, or Diamond from observable evidence such as RAC/RAC One
-Node, Data Guard/Active Data Guard, FSFO, RMAN backup coverage, ARCHIVELOG,
-FORCE LOGGING, Flashback Database, redo/control-file redundancy, FRA, TDE, and
-GoldenGate-style dictionary evidence where available. It also includes service
-HA awareness for AC/TAC, ADG DML redirection, and Data Guard role-based
-services. It records SLA/RTO/RPO planning context so a future recommendation
-engine can compare application objectives with the detected HA/DR capabilities.
+The report separates three concepts that should not be mixed:
+
+- `Target MAA level`: what the business requirements imply from RTO/RPO,
+  planned-maintenance tolerance, local HA, DR, automatic failover, active-active
+  need, and platform context.
+- `Candidate MAA level`: what the installed/configured topology appears capable
+  of, based on observable RAC/RAC One Node, local standby, Data Guard/Active Data
+  Guard, FSFO, service, backup, and replication signals.
+- `Current evidenced MAA level`: what CrashSimulator can conservatively support
+  from configuration, service/client integration, measured drill evidence,
+  backup/recovery validation, and operational evidence.
+
+This implements the decision-tree distinction between product presence and
+evidenced readiness. Silver can be a RAC/RAC One Node or explicitly local Data
+Guard standby local-HA pattern, but it is only evidenced when service/client
+failover and measured local-failure validation exist. Gold is treated as a DR
+candidate when Data Guard/Active Data Guard is present, but it requires Broker,
+lag/role-service evidence, measured transition/failover behavior, and
+application validation before the report promotes it to evidenced Gold.
 
 This is a readiness assessment, not an Oracle certification. It uses Oracle MAA
 reference architecture concepts and the RTO/RPO planning model from
 `oraclemaa.com` as report references, then points to CrashSimulator drills that
 can prove or disprove the expected recovery behavior.
+
+The resilience scorecard reuses these MAA findings as one weighted domain while
+also considering backup, recoverability, DR, RAC/local HA, security, scenario
+coverage, and application-continuity evidence. This lets technical drill
+results roll up into a concise score for managers, auditors, and operational
+review meetings.
 
 ## Aleatory Scenario
 
@@ -661,6 +750,42 @@ exercises RAC service placement with `srvctl`. Scenario `72` plans single ASM
 disk failure only when a redundant disk group exists; EXTERN redundancy is
 rejected for this drill.
 
+## Service Continuity, Role Transition, And Platform Drills
+
+Scenarios `83` through `90` add validation/runbook coverage for service
+continuity, role transitions, and lifecycle rollback:
+
+- `83`: Application Continuity / TAC replay validation. Captures service
+  metadata and plans a replay-safe client workload drill.
+- `84`: FAN/ONS notification unavailable. Captures service/ONS evidence and
+  keeps notification interruption external to the approved lab runbook.
+- `85`: planned Data Guard switchover. Requires a configured Data Guard
+  topology and remains operator-approved.
+- `86`: Data Guard failback rehearsal. Captures failback/reinstate readiness
+  and keeps role transition execution external.
+- `87`: role-based service validation. Reviews srvctl/SQL service evidence and
+  plans validation after switchover/failover.
+- `88`: PDB point-in-time recovery drill. Generates PDB/RMAN PITR evidence and
+  a preview template; actual PITR remains operator-approved.
+- `89`: guaranteed restore point rollback. Validates Flashback/GRP posture and
+  emits rollback guidance.
+- `90`: database patch rollback readiness. Reviews backups, restore points,
+  SQL patch inventory, Data Guard evidence, and service posture.
+
+The platform scenario families are plan/readiness-first:
+
+- `EXA01` through `EXA04`: Exadata cell, storage server, Smart Scan, and Flash
+  Cache validation planning.
+- `OCI01` through `OCI05`: OCI Base Database Service backup policy,
+  cross-region recovery, DB system failover, VCN connectivity, and NSG
+  misconfiguration validation planning.
+- `GG01` through `GG04`: GoldenGate Extract, Replicat, lag, and trail recovery
+  drills.
+
+These scenarios are intentionally conservative: CrashSimulator collects
+evidence and runbooks, then blocks execution until the platform-specific lab
+target, rollback path, and approval boundary are known.
+
 ## APEX/ORDS Application Access Drills
 
 Scenarios `73` through `82` cover APEX and ORDS as user-facing recovery
@@ -737,6 +862,12 @@ For automated lab runs only:
   targets, and read-only/index-only PDB tablespaces for safer target selection
   practice. It uses `CRASHPDB` when present; otherwise it selects the first
   read-write user PDB detected in `V$PDBS`.
+- `--prepare-environment` and the Guided Workflow seed/prepare option inspect
+  the detected topology and report which scenario lab preparations are present,
+  missing, not required, or plan-only. The planner covers logical lab objects,
+  redo/control-file multiplexing posture, APEX/ORDS, RMAN catalog, FSFO,
+  AC/TAC/FAN services, redundant ASM/FEX/ACFS lab posture, and fresh baseline
+  backup evidence.
 - `prepare_crashsim_redundancy.sql` and
   `prepare_crashsim_controlfile_multiplex.sql` help RAC/ASM labs add redo
   multiplexing and prepare a `+DATA` control-file alias before manual
@@ -769,11 +900,12 @@ For automated lab runs only:
 
 ## Current Status
 
-The framework currently tracks `97` total scenarios: `82` database-host and
-application access-path scenarios across Core, PDB, Backup, Config, Corrupt,
-Logical, ASM, GI, Data Guard, Active Data Guard, RAC, Network, Security,
-Compliance, and APEX/ORDS groups, plus `ADB01` through `ADB15` for Autonomous
-Database cloud-service readiness and recovery practice.
+The framework currently tracks `123` total scenarios: `103` database-host,
+application access-path, and platform/readiness scenarios across Core, PDB,
+Backup, Config, Corrupt, Logical, ASM, GI, Data Guard, Active Data Guard, RAC,
+Network, Security, Compliance, APEX/ORDS, Services, Recovery, Lifecycle,
+Exadata, OCI DB, and GoldenGate groups, plus `ADB01` through `ADB20` for
+Autonomous Database cloud-service readiness and recovery practice.
 
 The first OCI Base DB Service lab validated representative control-file, redo,
 datafile, tempfile, password-file, SPFILE, backup-piece, PDB, and archived-log

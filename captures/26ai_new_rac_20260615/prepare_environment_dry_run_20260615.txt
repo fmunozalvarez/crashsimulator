@@ -1,0 +1,2 @@
+./CrashSimulatorV2.sh: line 6589: SEED: unbound variable
+ERROR: Unable to write prepare-environment SQL file: /tmp/crashsimulator/crashsimulator_logs/crashsim_prepare_environment_20260615_122026.sql

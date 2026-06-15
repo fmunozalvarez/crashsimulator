@@ -1,0 +1,130 @@
+CrashSimulator V2 2.0.1-beta
+
+Usage:
+  ./CrashSimulatorV2.sh --discover
+  ./CrashSimulatorV2.sh --list
+  ./CrashSimulatorV2.sh --menu
+  ./CrashSimulatorV2.sh --doctor [--html]
+  ./CrashSimulatorV2.sh --first-run [--html]
+  ./CrashSimulatorV2.sh --public-limitations [--html]
+  ./CrashSimulatorV2.sh --health-check
+  ./CrashSimulatorV2.sh --config-report [--deep-validate]
+  ./CrashSimulatorV2.sh --backup-report [--deep-validate]
+  ./CrashSimulatorV2.sh --service-review [--html]
+  ./CrashSimulatorV2.sh --apex-ords-report [--pdb <pdb_name>] [--html]
+  ./CrashSimulatorV2.sh --prepare-environment [--dry-run|--execute] [--html]
+  ./CrashSimulatorV2.sh --adb-readiness-report [--html]
+  ./CrashSimulatorV2.sh --list-adb-scenarios
+  ./CrashSimulatorV2.sh --adb-scenario <ADB01-ADB20>
+  ./CrashSimulatorV2.sh --baseline-backup [--dry-run|--execute]
+  ./CrashSimulatorV2.sh --audit-status
+  ./CrashSimulatorV2.sh --purge-audit-logs [--dry-run|--execute]
+  ./CrashSimulatorV2.sh --show-config [--config <file>]
+  ./CrashSimulatorV2.sh --validate-config [--config <file>]
+  ./CrashSimulatorV2.sh --write-config-template <file>
+  ./CrashSimulatorV2.sh --review
+  ./CrashSimulatorV2.sh --review-topology
+  ./CrashSimulatorV2.sh --show-artifact <path|latest[:kind]> [--html]
+  ./CrashSimulatorV2.sh --render-html <path|latest[:kind]>
+  ./CrashSimulatorV2.sh --maa-report
+  ./CrashSimulatorV2.sh --resilience-scorecard [--html]
+  ./CrashSimulatorV2.sh --validate-scenario <id> [--pdb <pdb_name>] [--schema <owner>]
+  ./CrashSimulatorV2.sh --validate-all-scenarios [--pdb <pdb_name>] [--schema <owner>]
+  ./CrashSimulatorV2.sh --scenario-readiness-report [--pdb <pdb_name>] [--schema <owner>] [--html]
+  ./CrashSimulatorV2.sh --scenario-lifecycle-report [--html]
+  ./CrashSimulatorV2.sh --scenario-lifecycle-check [--html]
+  ./CrashSimulatorV2.sh --secret-scan [--scan-path <path>]
+  ./CrashSimulatorV2.sh --sanitize-artifacts [--sanitize-source <dir>] [--sanitize-output <dir>]
+  ./CrashSimulatorV2.sh --node-sync-check
+  ./CrashSimulatorV2.sh --release-check
+  ./CrashSimulatorV2.sh --runbook <id> [--pdb <pdb_name>] [--schema <owner>]
+  ./CrashSimulatorV2.sh --protect <id> [--pdb <pdb_name>] [--dry-run|--execute]
+  ./CrashSimulatorV2.sh --recover <id> [--manifest <file>] [--pdb <pdb_name>] [--dry-run|--execute]
+  ./CrashSimulatorV2.sh --scenario <id> [--pdb <pdb_name>] [--dry-run]
+  ./CrashSimulatorV2.sh --scenario <id> [--pdb <pdb_name>] --execute [--yes]
+  ./CrashSimulatorV2.sh --random-scenario [--pdb <pdb_name>] [--dry-run|--execute]
+  ./CrashSimulatorV2.sh
+
+Options:
+  --discover              Print detected database topology and exits.
+  --list                  List scenario registry and prerequisite gates.
+  --list-scenarios        Alias for --list.
+  --menu                  Start guided terminal menu. This is the default.
+  --doctor                Run a non-destructive public-readiness preflight.
+  --preflight             Alias for --doctor.
+  --first-run             Generate a first-run checklist and safe starter flow.
+  --public-limitations    Generate a public beta limitations and expectations page.
+  --limitations           Alias for --public-limitations.
+  --health-check          Run a non-destructive SQL health check.
+  --config-report         Generate a full target database/PDB configuration report.
+  --configuration-report  Alias for --config-report.
+  --report                Alias for --config-report.
+  --backup-report         Generate backup strategy, recoverability, RTO/RPO report.
+  --backup-assessment     Alias for --backup-report.
+  --recoverability-report Alias for --backup-report.
+  --service-review        Generate AC/TAC, FSFO, DML redirection, and service
+                          best-practice review.
+  --service-assessment    Alias for --service-review.
+  --services-report       Alias for --service-review.
+  --apex-ords-report      Generate APEX/ORDS readiness and user access-path report.
+  --apex-report           Alias for --apex-ords-report.
+  --ords-report           Alias for --apex-ords-report.
+  --prepare-environment   Detect missing scenario lab seeds/preparations for the
+                          current topology and optionally run eligible helpers.
+  --seed-environment      Alias for --prepare-environment.
+  --prepare-lab           Alias for --prepare-environment.
+  --adb-readiness-report  Generate Autonomous Database readiness and scenario
+                          coverage report.
+  --adb-discover          Alias for --adb-readiness-report.
+  --list-adb-scenarios    List ADB01-ADB20 with current readiness status.
+  --adb-scenario <id>     Show one ADB cloud-service scenario detail.
+  --baseline-backup       Create or dry-run a fresh RMAN baseline backup.
+  --fresh-baseline-backup Alias for --baseline-backup.
+  --audit-retain <yes|no> Enable or disable per-run audit log retention.
+  --audit-retention-days <n>
+                          Days to retain audit run folders before purge.
+  --audit-dir <dir>       Audit archive directory. Default: <log-dir>/audit.
+  --audit-status          Show audit settings, usage, and purge candidates.
+  --purge-audit-logs      Purge audit run folders older than retention policy.
+  --config <file>         Read startup defaults from an allowlisted KEY=value file.
+  --no-config             Do not auto-load startup configuration files.
+  --show-config           Show the active CrashSimulator/Oracle startup settings.
+  --validate-config       Validate loaded configuration syntax and key paths.
+  --write-config-template <file>
+                          Write a sanitized configuration template.
+  --review                Generate and print an index of collected topology,
+                          scenarios, runbooks, dry-runs, protection, health,
+                          backup/config/MAA reports, audit records, and logs.
+  --review-artifacts      Alias for --review.
+  --review-topology       Print the latest collected topology snapshot/report.
+  --show-artifact <path|latest[:kind]>
+                          Print an already collected artifact.
+  --render-html <path|latest[:kind]>
+                          Generate an HTML copy of an artifact.
+  --html                  With reports/show-artifact, also generate HTML output.
+  --maa-report            Generate Oracle MAA posture, best-practice, and tier report.
+  --maa-assessment        Alias for --maa-report.
+  --maa-readiness         Alias for --maa-report.
+  --resilience-scorecard  Generate executive resilience scorecard from current
+                          topology, MAA, backup, scenario, and drill evidence.
+  --resilience-score      Alias for --resilience-scorecard.
+  --auto-scorecard <yes|no>
+                          Refresh latest scorecard after drills when possible.
+  --no-auto-scorecard     Disable post-action scorecard refresh for this run.
+  --deep-validate         With reports, run heavier RMAN restore/database validation.
+  --validate-scenario <id>
+                          Validate whether one scenario can run now and explain blockers.
+  --validate <id>         Alias for --validate-scenario.
+  --validate-all-scenarios
+                          Validate every registered scenario for this topology.
+  --scenario-readiness-report
+                          Generate a topology-aware scenario availability report.
+  --scenario-lifecycle-report
+                          Generate static validation/protection/execution/recovery
+                          coverage for every registered scenario.
+  --scenario-lifecycle-check
+                          Enforce scenario metadata/handler/lifecycle consistency.
+  --secret-scan           Scan repo/artifacts for obvious secrets and wallets.
+  --scan-path <path>      Path used by --secret-scan. Default: current directory.
+  --sanitize-artifacts    Create sanitized public copies of text artifacts.
+  --sanitize-source <dir> Source directory for --sanitize-artifacts.

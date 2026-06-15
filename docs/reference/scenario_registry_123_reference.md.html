@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>scenario_registry_123_reference.md</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
+</style>
+</head>
+<body><main>
+<header><h1>scenario_registry_123_reference.md</h1><div class="meta">Source: docs/reference/scenario_registry_123_reference.md<br>Generated UTC: 2026-06-15T09:33:50Z</div></header>
+<pre>
+# CrashSimulator Scenario Registry Reference
+
+- Generated UTC: `2026-06-15T09:25:00Z`
+- Database-host source command: `./CrashSimulatorV2.sh --list --audit-retain no`
+- Autonomous Database source: `CrashSimulatorV2.sh` ADB scenario registry
+- Registry size: `123` scenarios
+- Database, infrastructure, application, and platform scenarios: `103`
+- Autonomous Database cloud-service scenarios: `20`
+
+This sanitized reference shows the current scenario coverage after adding the
+service-continuity, Data Guard transition, PDB PITR, restore-point, patch
+rollback, Exadata, OCI Base Database Service, GoldenGate, and expanded
+Autonomous Database scenario families.
+
+## Newly Added Scenario Families
+
+| ID range | Group | Coverage intent |
+| --- | --- | --- |
+| `83`-`84` | Services | AC/TAC replay validation and FAN/ONS notification-path validation. |
+| `85`-`86` | DataGuard | Planned switchover and failback/reinstate rehearsal. |
+| `87` | Services | Role-based service validation for RAC/Data Guard/ADG designs. |
+| `88` | PDB | PDB point-in-time recovery planning and RMAN preview template. |
+| `89` | Recovery | Guaranteed restore point rollback readiness. |
+| `90` | Lifecycle | Database patch/upgrade rollback readiness. |
+| `EXA01`-`EXA04` | Exadata | Cell, storage server, Smart Scan, and Flash Cache validation planning. |
+| `OCI01`-`OCI05` | OCI DB | OCI Base DB backup policy, cross-region recovery, DB system failover, VCN, and NSG drills. |
+| `GG01`-`GG04` | GoldenGate | Extract, Replicat, lag, and trail recovery drills. |
+| `ADB16`-`ADB20` | ADB | Database Actions, APEX workspace, cross-region clone, wallet drift, and OCI IAM token-expiration drills. |
+
+## Autonomous Database Scenarios
+
+| ID | Scenario | Area | Validation focus | Recovery focus |
+| --- | --- | --- | --- | --- |
+| ADB01 | Drop critical application table | Logical recovery | Live SQL connection, disposable lab table, flashback eligibility, clone/export fallback. | Flashback Table, PITR clone, Data Pump/object merge, application validation. |
+| ADB02 | Drop application schema | Logical recovery | Live SQL connection, disposable schema, grants/object inventory, export or clone/PITR path. | Clone/export recovery, user/grant restoration, application validation. |
+| ADB03 | Mass DELETE without WHERE clause | Logical recovery | Live SQL connection, disposable lab table, before/after row counts, flashback query window. | Flashback Query/Table, clone comparison, data merge. |
+| ADB04 | Incorrect UPDATE corrupts business data | Logical recovery | Live SQL connection, disposable lab table, before image evidence, validation query. | Flashback Versions Query, object restore, data comparison. |
+| ADB05 | Recover from clone | Clone/PITR | OCI metadata for clone permissions, source database, timestamp, compartment, and restore target. | Create clone, validate objects/application, merge recovered data. |
+| ADB06 | Point-in-time recovery drill | Clone/PITR | OCI PITR or clone-to-time window, backup retention, timestamp selection, and validation target. | Measure RTO/RPO, validate clone, extract/merge recovered data. |
+| ADB07 | Validate backup recoverability | Backup readiness | OCI backup retention, latest backup, PITR window, restore/clone capability, and evidence freshness. | Evidence-only or clone-based restore validation. |
+| ADB08 | Expired or rotated client wallet | Connectivity | Wallet directory, aliases, rotation owner, application distribution points, and reconnect test path. | Download new wallet, update clients, reconnect, smoke-test applications. |
+| ADB09 | Private endpoint connectivity loss | Network | Private endpoint DNS/label, bastion path, routes, NSGs/security lists, and approved fault boundary. | Restore network/DNS/security-list path and validate client reconnect. |
+| ADB10 | Connection pool saturation | Resource limits | Live SQL connection, approved workload limits, service-level target, and application retry/backoff boundaries. | Tune pool limits, retries, service class, and application backoff. |
+| ADB11 | Resource Manager or concurrency pressure | Resource limits | Live SQL connection, approved workload generator, resource plan/service class, and measurable threshold. | Review service class, scaling posture, consumer limits, workload scheduling. |
+| ADB12 | Cross-region DR validation | Autonomous Data Guard | OCI Autonomous Data Guard metadata, peer/standby region, lag, failover eligibility, and app reconnect path. | Failover validation, reconnect, RTO/RPO measurement, fallback plan. |
+| ADB13 | Autonomous Data Guard role transition | Autonomous Data Guard | OCI ADG role, region, lag, switchover/failover eligibility, URL/service validation. | Switchover/failover and fallback runbook. |
+| ADB14 | IAM administrator access misconfiguration | OCI/IAM | Read-only IAM policy/group/compartment evidence, break-glass account, and approved test boundary. | Restore IAM access and validate admin and automation access. |
+| ADB15 | Object Storage export dependency unavailable | Object Storage | Bucket, credential, DBMS_CLOUD object, network path, IAM policy, and export/import procedure evidence. | Restore bucket/policy/credential/network access; validate export/import. |
+| ADB16 | Database Actions unavailable | Application access | Database Actions URL, SQL probe, OCI service state, wallet/connectivity, and administrator access evidence. | Restore Database Actions/ORDS access path, validate SQL/API access, and capture smoke evidence. |
+| ADB17 | APEX workspace unavailable | APEX | APEX URL, workspace/application inventory, SQL probe, runtime users, and browser/login smoke-test path. | Restore workspace/application access, validate runtime users and application login. |
+| ADB18 | Cross-region clone validation | Clone/PITR | OCI metadata for supported clone regions, backup retention, target compartment/region, and validation timestamp. | Create cross-region clone, validate data/application access, measure elapsed time, and clean up clone. |
+| ADB19 | Wallet distribution drift | Connectivity | Wallet age, local bundle path, tnsnames aliases, application distribution inventory, and reconnect smoke path. | Refresh wallet distribution, rotate credentials where required, and validate all client pools. |
+| ADB20 | OCI IAM token expiration | OCI/IAM | OCI CLI auth mode/profile, token/session freshness, break-glass path, and automation credential ownership. | Refresh/rotate OCI auth, validate control-plane access, and update automation secrets. |
+
+## Implementation Posture
+
+The new scenario families are readiness/runbook-first. CrashSimulator collects
+evidence and reports blockers, but it does not execute client replay workloads,
+Data Guard role transitions, Exadata faults, OCI network/security changes, or
+GoldenGate process/trail manipulation until a lab target, rollback path, and
+approval boundary are explicitly supplied.
+
+Use `--validate-scenario &lt;id&gt;`, `--scenario-readiness-report`, `--runbook &lt;id&gt;`,
+or the Guided Workflow menu before running any drill. CrashSimulator blocks
+execution when the current topology cannot safely support the selected scenario.
+</pre>
+</main></body></html>
