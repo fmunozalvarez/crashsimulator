@@ -29,6 +29,7 @@ case "$SCRIPT_SOURCE" in
     [[ -n "$SCRIPT_PATH" ]] || SCRIPT_PATH="./$SCRIPT_SOURCE"
     ;;
 esac
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd)"
 MODE="menu"
 SCENARIO_ID=""
 TARGET_PDB="${CRASHSIM_PDB:-}"
@@ -1116,6 +1117,7 @@ load_startup_config() {
 
   for candidate in \
     "./crashsimulator.conf" \
+    "${SCRIPT_DIR:-}/crashsimulator.conf" \
     "${HOME:-}/.crashsimulator/crashsimulator.conf" \
     "/etc/crashsimulator/crashsimulator.conf"; do
     [[ -n "$candidate" ]] || continue
