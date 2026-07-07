@@ -10987,16 +10987,69 @@ maybe_refresh_resilience_scorecard() {
   fi
 }
 
-run_maa_report() {
-  discover_environment
-  ensure_sqlplus
+write_maa_report_sqlplus_blocked_stub() {
+  local report_file="$1"
+  local generated_at="$2"
+  {
+    printf "# CrashSimulator Oracle MAA Readiness Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Application context: `%s`\n' "${MAA_APP_NAME:-not supplied}"
+    printf -- '- Database evidence: `blocked (SQL*Plus not available)`\n'
+    printf -- '- Target MAA level: `Unknown`\n'
+    printf -- '- Candidate MAA level: `Unknown`\n'
+    printf -- '- Current evidenced MAA level: `Unknown`\n'
+    printf -- '- Readiness status: `BLOCKED`\n'
+    printf "\n"
+    printf "This report is a best-effort posture assessment, not an Oracle certification. SQL*Plus was not found on this host, so no live database, Grid Infrastructure, or Data Guard evidence could be collected. Every database-derived section is therefore reported as a blocker rather than an assessed result.\n\n"
+  } >"$report_file" || die "Unable to write MAA report file: $report_file"
 
+  append_report_section "$report_file" "Database Evidence Blockers"
+  {
+    printf '| Evidence domain | Status | Unblock action |\n'
+    printf '| --- | --- | --- |\n'
+    printf '| Database topology (role, open mode, CDB) | `blocked` | Set ORACLE_HOME or SQLPLUS on a host with a created, open database, then re-run `--maa-report`. |\n'
+    printf '| Backup and recovery (ARCHIVELOG, RMAN) | `blocked` | Provide SQL*Plus access to the target database and re-run the report. |\n'
+    printf '| Local HA (RAC / services) | `blocked` | Provide SQL*Plus and Grid Infrastructure access on the database host and re-run the report. |\n'
+    printf '| Data Guard / ADG / FSFO | `blocked` | Provide SQL*Plus and Data Guard Broker access and re-run the report. |\n'
+    printf '| Application continuity (services, FAN/AC) | `blocked` | Provide SQL*Plus access to the target database and re-run the report. |\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "How To Unblock"
+  {
+    printf -- '- Set `ORACLE_HOME` so that `$ORACLE_HOME/bin/sqlplus` exists, or set `SQLPLUS` to the sqlplus binary.\n'
+    printf -- '- Run this report on a host where the target database has been created and is open.\n'
+    printf -- '- Re-run `./%s --maa-report` once SQL*Plus can reach the database to replace these blockers with assessed evidence.\n' "$PROGRAM"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "References"
+  {
+    printf -- '- Oracle MAA Reference Architectures Overview: https://docs.oracle.com/en/database/oracle/oracle-database/26/haiad/maa_overview.html\n'
+    printf -- '- Oracle HA requirements, RTO/RPO, and MAA architecture mapping: https://docs.oracle.com/en/database/oracle/oracle-database/19/haovw/ha-requirements-architecture.html\n'
+  } >>"$report_file"
+}
+
+run_maa_report() {
   local report_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
   local readiness_status sla_hint baseline_gap=0
   local app_continuity capture_count apply_count
 
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.md"
+
+  if ! find_sqlplus_if_available; then
+    warn "SQL*Plus was not found. The MAA readiness report will still be generated, with all database evidence marked as blockers until ORACLE_HOME or SQLPLUS is set on a host with a created database."
+    write_maa_report_sqlplus_blocked_stub "$report_file" "$generated_at"
+    echo "MAA readiness report generated with blockers: ${report_file}"
+    echo "Target MAA level: Unknown (database evidence blocked: SQL*Plus not available)"
+    maybe_render_html "$report_file"
+    return "$SUCCESS"
+  fi
+
+  discover_environment
+  ensure_sqlplus
+
   sql_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.sql"
   evidence_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.evidence"
   srvctl_service_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_srvctl_services.out"
