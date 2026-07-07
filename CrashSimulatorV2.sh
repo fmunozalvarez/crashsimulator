@@ -10479,8 +10479,11 @@ maa_target_tier_from_context() {
     target="Platinum"
     reason="Business context indicates near-zero interruption on an Exadata or engineered-platform strategy."
   elif [[ "$dr_required" == "yes" || "$auto_failover" == "yes" ]] ||
-       maa_duration_le "$MAA_DR_RTO" 300 ||
+       maa_duration_le "$MAA_DR_RTO" 900 ||
        [[ "$(printf "%s" "$MAA_DR_RPO" | tr '[:upper:]' '[:lower:]')" =~ ^(zero|near-zero|near\ zero)$ ]]; then
+    # Gold DR RTO threshold: low-minute DR (<= 15m) or zero/near-zero DR RPO
+    # maps to Gold. A 15-minute DR RTO is still a Data Guard-class objective;
+    # grading it below Gold understated the required architecture.
     target="Gold"
     reason="Business context indicates low-minute disaster recovery, strong RPO, or automatic failover."
   elif [[ "$local_ha" == "yes" ]] ||
