@@ -64,11 +64,35 @@ begin
 end;
 /
 
+-- Datafile clause: use Oracle-managed files when db_create_file_dest is set,
+-- otherwise derive an explicit path from an existing datafile in this container
+-- so the seed also works on databases where OMF is not configured.
+column crashsim_df_clause new_value crashsim_df_clause
+select case
+         when (select value from v$parameter where name = 'db_create_file_dest') is not null
+           then 'size 16m autoextend on next 16m maxsize 128m'
+         else '''' ||
+              (select substr(f.name, 1, instr(f.name, '/', -1)) from v$datafile f where rownum = 1) ||
+              'crashsim_root_ro_tbs_01.dbf'' size 16m reuse autoextend on next 16m maxsize 128m'
+       end crashsim_df_clause
+  from dual;
 create tablespace crashsim_root_ro_tbs
-  datafile size 16m autoextend on next 16m maxsize 128m;
+  datafile &crashsim_df_clause;
 
+-- Datafile clause: use Oracle-managed files when db_create_file_dest is set,
+-- otherwise derive an explicit path from an existing datafile in this container
+-- so the seed also works on databases where OMF is not configured.
+column crashsim_df_clause new_value crashsim_df_clause
+select case
+         when (select value from v$parameter where name = 'db_create_file_dest') is not null
+           then 'size 16m autoextend on next 16m maxsize 128m'
+         else '''' ||
+              (select substr(f.name, 1, instr(f.name, '/', -1)) from v$datafile f where rownum = 1) ||
+              'crashsim_root_index_tbs_01.dbf'' size 16m reuse autoextend on next 16m maxsize 128m'
+       end crashsim_df_clause
+  from dual;
 create tablespace crashsim_root_index_tbs
-  datafile size 16m autoextend on next 16m maxsize 128m;
+  datafile &crashsim_df_clause;
 
 create user c##crashsim_root_lab identified by "&&crashsim_lab_password" container=all;
 grant create session, create table to c##crashsim_root_lab container=current;
@@ -207,13 +231,37 @@ select level, 'L' || mod(level, 5), 'index-loss-row-' || level
 create index crashsim_index_lab.index_target_lookup_ix
   on crashsim_index_lab.index_target (lookup_value);
 
+-- Datafile clause: use Oracle-managed files when db_create_file_dest is set,
+-- otherwise derive an explicit path from an existing datafile in this container
+-- so the seed also works on databases where OMF is not configured.
+column crashsim_df_clause new_value crashsim_df_clause
+select case
+         when (select value from v$parameter where name = 'db_create_file_dest') is not null
+           then 'size 16m autoextend on next 16m maxsize 128m'
+         else '''' ||
+              (select substr(f.name, 1, instr(f.name, '/', -1)) from v$datafile f where rownum = 1) ||
+              'crashsim_ro_tbs_01.dbf'' size 16m reuse autoextend on next 16m maxsize 128m'
+       end crashsim_df_clause
+  from dual;
 create tablespace crashsim_ro_tbs
-  datafile size 16m autoextend on next 16m maxsize 128m;
+  datafile &crashsim_df_clause;
 
 alter tablespace crashsim_ro_tbs read only;
 
+-- Datafile clause: use Oracle-managed files when db_create_file_dest is set,
+-- otherwise derive an explicit path from an existing datafile in this container
+-- so the seed also works on databases where OMF is not configured.
+column crashsim_df_clause new_value crashsim_df_clause
+select case
+         when (select value from v$parameter where name = 'db_create_file_dest') is not null
+           then 'size 16m autoextend on next 16m maxsize 128m'
+         else '''' ||
+              (select substr(f.name, 1, instr(f.name, '/', -1)) from v$datafile f where rownum = 1) ||
+              'crashsim_index_tbs_01.dbf'' size 16m reuse autoextend on next 16m maxsize 128m'
+       end crashsim_df_clause
+  from dual;
 create tablespace crashsim_index_tbs
-  datafile size 16m autoextend on next 16m maxsize 128m;
+  datafile &crashsim_df_clause;
 
 alter user crashsim_index_lab quota unlimited on crashsim_index_tbs;
 
