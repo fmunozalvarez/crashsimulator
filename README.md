@@ -5,7 +5,7 @@ simulation, recoverability analysis, Oracle MAA assessment, SLA-driven readiness
 operational runbooks, compliance evidence collection, and recovery validation to continuously
 measure and improve database resilience.
 
-CrashSimulator V2.0.2 beta is the current single-script framework. It supports dry-run
+CrashSimulator V2.0.3 RC is the current single-script framework. It supports dry-run
 planning, guided menu execution, recovery runbook hints, protection and recovery
 helpers, topology-aware random scenario selection, scenario readiness reporting,
 scenario lifecycle coverage reporting, configuration reports, Oracle MAA
@@ -34,8 +34,16 @@ later, and the project validation evidence now includes live Oracle Database
 19c and Oracle AI Database 26ai RAC/ASM labs. This is CrashSimulator project
 validation, not an official Oracle product certification.
 
+New in `v2.0.3 RC`: `CrashSimulatorV2.sh` is now a generated single-file
+artifact assembled from reviewable `lib/*.sh` source modules (`build.sh`), the
+MAA readiness report degrades cleanly when SQL*Plus is absent, the disposable
+lab seed no longer carries a hardcoded credential and works with or without
+OMF, and a hermetic CI workflow (build-drift, ShellCheck, secret gate, bats
+unit tests) guards every change. See the release notes below for the full list.
+
 For the full end-user documentation, read:
 
+- [CrashSimulator v2.0.3 RC Release Notes](docs/RELEASE_NOTES_V2_0_3_RC.md)
 - [CrashSimulator v2.0.2 Beta Product Overview](docs/CRASHSIMULATOR_V2_0_2_BETA_PRODUCT_OVERVIEW.md)
 - [CrashSimulator v2.0.2 Beta Release Notes](docs/RELEASE_NOTES_V2_0_2_BETA.md)
 - [CrashSimulator End-User Guide](docs/CRASHSIMULATOR_USER_GUIDE.md)
@@ -65,12 +73,12 @@ For the full end-user documentation, read:
 ## Install From A ZIP File
 
 Download the release runtime ZIP from GitHub, copy it to the Oracle database
-host, and unzip it. For `v2.0.2 beta`, the curated install package is
-`crashsimulator-v2.0.2-beta-runtime.zip`.
+host, and unzip it. For `v2.0.3 RC`, the curated install package is
+`crashsimulator-v2.0.3-rc-runtime.zip`.
 
 ```bash
-unzip crashsimulator-v2.0.2-beta-runtime.zip
-cd crashsimulator-v2.0.2-beta
+unzip crashsimulator-v2.0.3-rc-runtime.zip
+cd crashsimulator-v2.0.3-rc
 chmod +x crashsimulator CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
@@ -87,7 +95,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.2-beta
+cd /path/to/crashsimulator-v2.0.3-rc
 ```
 
 Alternatively, create a local startup configuration file so CrashSimulator can

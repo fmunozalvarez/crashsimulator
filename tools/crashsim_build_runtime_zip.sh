@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-VERSION="${CRASHSIM_RELEASE_VERSION:-2.0.2-beta}"
+VERSION="${CRASHSIM_RELEASE_VERSION:-2.0.3-rc}"
 PACKAGE_NAME="crashsimulator-v${VERSION}"
 ZIP_NAME="${PACKAGE_NAME}-runtime.zip"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"

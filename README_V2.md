@@ -1,4 +1,4 @@
-# CrashSimulator V2.0.2 Beta
+# CrashSimulator V2.0.3 RC
 
 CrashSimulator is an open-source resilience validation platform for Oracle
 Database environments. By orchestrating controlled failures and recovery
@@ -6,7 +6,7 @@ scenarios, it helps organizations continuously verify recoverability, strengthen
 operational readiness, validate HA/DR architectures, and demonstrate compliance
 with recovery objectives and regulatory requirements.
 
-CrashSimulator V2.0.2 beta is a safer, single-script rewrite of the original
+CrashSimulator V2.0.3 RC is a safer, single-script rewrite of the original
 CrashSimulator shell scripts. It keeps destructive database-crash practice
 behind explicit gates and adds environment discovery for CDB/non-CDB, PDB,
 Data Guard, RAC, ASM/filesystem storage, FRA, SPFILE, and password-file paths.
@@ -29,7 +29,8 @@ the full scenario catalog, read:
 - `README.md` for the short project entry point.
 - `docs/CRASHSIMULATOR_V2_0_2_BETA_PRODUCT_OVERVIEW.md` for the product
   overview, intention, capabilities, limitations, and roadmap.
-- `docs/RELEASE_NOTES_V2_0_2_BETA.md` for release notes and package details.
+- `docs/RELEASE_NOTES_V2_0_3_RC.md` for the current release notes; the prior
+  `docs/RELEASE_NOTES_V2_0_2_BETA.md` remains for reference.
 - `docs/CRASHSIMULATOR_USER_GUIDE.md` for the complete user guide.
 - `docs/AUTONOMOUS_DATABASE_COVERAGE.md` for the ADB coverage model and
   scenario family.
@@ -41,12 +42,12 @@ the full scenario catalog, read:
 ## Install From A ZIP File
 
 If you download CrashSimulator as a GitHub release ZIP file, copy the ZIP to
-the target Oracle database host and unzip it. For `v2.0.2 beta`, the curated
-runtime package is `crashsimulator-v2.0.2-beta-runtime.zip`:
+the target Oracle database host and unzip it. For `v2.0.3 RC`, the curated
+runtime package is `crashsimulator-v2.0.3-rc-runtime.zip`:
 
 ```bash
-unzip crashsimulator-v2.0.2-beta-runtime.zip
-cd crashsimulator-v2.0.2-beta
+unzip crashsimulator-v2.0.3-rc-runtime.zip
+cd crashsimulator-v2.0.3-rc
 chmod +x CrashSimulatorV2.sh crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
 
@@ -63,7 +64,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.2-beta
+cd /path/to/crashsimulator-v2.0.3-rc
 ```
 
 If you prefer repeatable startup defaults, copy and edit the sample
