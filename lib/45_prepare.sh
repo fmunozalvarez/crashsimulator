@@ -389,9 +389,9 @@ evaluate_prepare_environment() {
     else
       prepare_add "logical_lab" "Logical/root/PDB lab objects" "MISSING" "Required for scenarios 9-11, 34-36, 43-44 and related logical drills" \
         "root_users=${root_users}, root_tbs=${root_tbs}, pdb_users=${pdb_users}, pdb_tbs=${pdb_tbs}, target_pdb=$(prepare_value target_pdb)" \
-        "Run seed_crashsim_lab.sql. This recreates disposable CRASHSIM lab schemas and tablespaces." \
-        "yes" "${SQLPLUS_BIN:-sqlplus} ${SQLPLUS_LOGON} @${script_root}/seed_crashsim_lab.sql" \
-        "Destructive only to CRASHSIM disposable lab schemas/tablespaces."
+        "Run tools/crashsim_seed_lab.sh (recreates disposable CRASHSIM lab schemas and tablespaces; prompts for a lab password)." \
+        "yes" "${script_root}/tools/crashsim_seed_lab.sh --connect \"${SQLPLUS_LOGON}\"" \
+        "Destructive only to CRASHSIM disposable lab schemas/tablespaces. During --execute preparation the lab password is generated automatically."
     fi
   elif prepare_numeric_ge "$pdb_users" 3 && prepare_numeric_ge "$pdb_tbs" 2; then
     prepare_add "logical_lab" "Logical lab objects" "PRESENT" "Required for logical scenarios" \
@@ -604,6 +604,36 @@ confirm_prepare_environment_execution() {
   require_destructive_lab_ack "environment preparation"
 }
 
+# Generate a strong, SQL*Plus-safe password for the disposable CRASHSIM lab
+# users. These users are never logged into (drills act on their objects via
+# SYSDBA), so the value only needs to satisfy Oracle complexity at creation and
+# is never recorded. Excludes " ' & \\ and whitespace so it is safe inside a
+# SQL*Plus DEFINE and a double-quoted Oracle password.
+generate_lab_password() {
+  local body
+  body="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 24)"
+  [[ ${#body} -ge 16 ]] || body="Fallback$$$(date +%s 2>/dev/null)"
+  printf 'Lb#%sz9' "$body"
+}
+
+# Run seed_crashsim_lab.sql with a generated lab password supplied via a DEFINE
+# on stdin (never argv, never a temp file; seed_crashsim_lab.sql sets
+# 'verify off' so the value is not echoed). Mirrors tools/crashsim_seed_lab.sh
+# for the monolith's automated environment preparation.
+run_seed_lab_prepare() {
+  local id="$1" seed="$2"
+  local pw
+  pw="$(generate_lab_password)"
+  echo
+  echo "Preparing ${id}: ${PREP_TITLE[$id]}"
+  echo "Command: (piped) ${SQLPLUS_BIN} -s ${SQLPLUS_LOGON} @${seed} [lab password generated, not shown]"
+  printf 'define crashsim_lab_password = "%s"\n@%s\n' "$pw" "$seed" \
+    | "$SQLPLUS_BIN" -s ${SQLPLUS_LOGON}
+  local rc=$?
+  unset pw
+  return "$rc"
+}
+
 run_prepare_helper_command() {
   local id="$1"
   shift
@@ -628,7 +658,7 @@ execute_prepare_environment_actions() {
     case "$id" in
       logical_lab)
         [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
-        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"${script_root}/seed_crashsim_lab.sql" \
+        run_seed_lab_prepare "$id" "${script_root}/seed_crashsim_lab.sql" \
           >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
         status=$?
         [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"

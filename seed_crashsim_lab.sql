@@ -1,5 +1,30 @@
 whenever sqlerror exit sql.sqlcode
 set echo on feedback on serveroutput on
+set verify off
+
+-- ---------------------------------------------------------------------------
+-- Lab user passwords are parameterised (roadmap #3) — never hardcoded here.
+-- Provide the password through the substitution variable crashsim_lab_password:
+--   * Recommended: run  tools/crashsim_seed_lab.sh  (prompts hidden, or reads
+--                  CRASHSIM_LAB_PASSWORD, then DEFINEs it for this script).
+--   * Manual:      SQL> define crashsim_lab_password = "YourStrong#Pass1"
+--                  SQL> @seed_crashsim_lab.sql
+--   * If left undefined you are prompted once (input is NOT hidden that way).
+-- 'set verify off' above is REQUIRED: it stops SQL*Plus echoing the substituted
+-- password value in its old/new verification lines.
+-- ---------------------------------------------------------------------------
+
+-- Fail fast if the password is missing or too weak, so we never create lab
+-- users with an empty or trivial password.
+begin
+  if '&&crashsim_lab_password' is null
+     or length('&&crashsim_lab_password') < 8 then
+    raise_application_error(-20001,
+      'crashsim_lab_password is unset or shorter than 8 chars. '
+      || 'Run tools/crashsim_seed_lab.sh, or DEFINE it before running this script.');
+  end if;
+end;
+/
 
 alter session set container = cdb$root;
 
@@ -45,7 +70,7 @@ create tablespace crashsim_root_ro_tbs
 create tablespace crashsim_root_index_tbs
   datafile size 16m autoextend on next 16m maxsize 128m;
 
-create user c##crashsim_root_lab identified by "CrashSimLab##123" container=all;
+create user c##crashsim_root_lab identified by "&&crashsim_lab_password" container=all;
 grant create session, create table to c##crashsim_root_lab container=current;
 alter user c##crashsim_root_lab quota unlimited on users container=current;
 alter user c##crashsim_root_lab quota unlimited on crashsim_root_ro_tbs container=current;
@@ -137,7 +162,7 @@ begin
 end;
 /
 
-create user crashsim_table_lab identified by "CrashSimLab##123" quota unlimited on users;
+create user crashsim_table_lab identified by "&&crashsim_lab_password" quota unlimited on users;
 grant create session, create table, create sequence to crashsim_table_lab;
 
 create table crashsim_table_lab.crash_table_target (
@@ -152,7 +177,7 @@ select 'table-loss-row-' || level
 from dual
 connect by level <= 10;
 
-create user crashsim_schema_lab identified by "CrashSimLab##123" quota unlimited on users;
+create user crashsim_schema_lab identified by "&&crashsim_lab_password" quota unlimited on users;
 grant create session, create table, create sequence to crashsim_schema_lab;
 
 create table crashsim_schema_lab.schema_drop_target (
@@ -165,7 +190,7 @@ select level, 'schema-loss-row-' || level
 from dual
 connect by level <= 10;
 
-create user crashsim_index_lab identified by "CrashSimLab##123" quota unlimited on users;
+create user crashsim_index_lab identified by "&&crashsim_lab_password" quota unlimited on users;
 grant create session, create table, create sequence to crashsim_index_lab;
 
 create table crashsim_index_lab.index_target (
