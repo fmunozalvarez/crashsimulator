@@ -14786,7 +14786,7 @@ duration_to_seconds() {
     ""|not\ supplied) return "$FAIL" ;;
     zero|near\ zero|near-zero) printf "0\n"; return "$SUCCESS" ;;
   esac
-  number="$(printf "%s" "$text" | sed -nE 's/.*([0-9]+([.][0-9]+)?).*/\1/p' | head -n 1)"
+  number="$(printf "%s" "$text" | sed -nE 's/^[^0-9]*([0-9]+([.][0-9]+)?).*/\1/p' | head -n 1)"
   [[ -n "$number" ]] || return "$FAIL"
   if printf "%s" "$text" | grep -Eq 'day|d\b'; then
     unit=86400
