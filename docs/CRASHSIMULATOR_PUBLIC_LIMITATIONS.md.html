@@ -15,12 +15,12 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 </style>
 </head>
 <body><main>
-<header><h1>CRASHSIMULATOR_PUBLIC_LIMITATIONS.md</h1><div class="meta">Source: docs/CRASHSIMULATOR_PUBLIC_LIMITATIONS.md<br>Generated UTC: 2026-06-15T13:23:39Z</div></header>
+<header><h1>CRASHSIMULATOR_PUBLIC_LIMITATIONS.md</h1><div class="meta">Source: docs/CRASHSIMULATOR_PUBLIC_LIMITATIONS.md<br>Generated UTC: 2026-07-17T01:40:49Z</div></header>
 <pre>
 # CrashSimulator Public Beta Limitations And Expectations
 
-- Generated UTC: `2026-06-15T13:23:16Z`
-- Tool version: `2.0.1-beta`
+- Generated UTC: `2026-06-15T13:45:19Z`
+- Tool version: `2.0.2-beta`
 
 CrashSimulator is an open-source resilience validation platform for Oracle Database labs. It helps teams practice, validate, and document recoverability, but it is not a production chaos tool, an Oracle certification program, a licensing verifier, or a substitute for tested backups and change control.
 
@@ -80,5 +80,8 @@ CrashSimulator can detect and report signals for features such as RAC, Active Da
 - Read-only/reporting: `--health-check`, `--config-report`, `--backup-report`, `--service-review`, `--maa-report`, `--resilience-scorecard`, `--apex-ords-report`, `--adb-readiness-report`.
 - Low-risk database drills after readiness passes: `6`/`31` tempfile loss, `11`/`36` disposable index rebuild, `43` disposable table loss, `63` controlled TEMP pressure.
 - RAC/Data Guard/application drills should start with readiness/reporting scenarios before service relocation, apply/transport lag, switchover/failback, or client replay tests.
+
+&gt; **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
+
 </pre>
 </main></body></html>

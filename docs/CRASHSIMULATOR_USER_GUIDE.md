@@ -477,6 +477,8 @@ for example ASM/GI provider-specific targets or broad scenario 25 backup-piece
 selection. Aleatory scenario selection also uses readiness validation, so random
 drills choose only scenarios that are runnable in the current topology.
 
+> **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
+
 ### Scenario Lifecycle Coverage
 
 `--scenario-lifecycle-report` creates a static coverage report for the whole
@@ -513,6 +515,12 @@ Before publishing a build or handing CrashSimulator to new users, run:
 ./CrashSimulatorV2.sh --public-limitations --html
 ./CrashSimulatorV2.sh --secret-scan --scan-path .
 ./CrashSimulatorV2.sh --sanitize-artifacts --sanitize-source reports
+./CrashSimulatorV2.sh --evidence-bundle --evidence-bundle-source reports --evidence-bundle-output /tmp/crashsim_evidence_bundle.zip
+tools/crashsim_release_secret_gate.sh
+tools/crashsim_menu_smoke_test.py
+tools/crashsim_scenario_lifecycle_linter.sh
+tools/crashsim_report_golden_tests.sh
+tools/crashsim_repository_analytics_failure_tests.sh
 ./CrashSimulatorV2.sh --release-check
 ```
 
@@ -522,8 +530,26 @@ creates a page explaining plan-only scenarios, provider-specific operations,
 licensing-sensitive features, ADB differences, and destructive lab
 expectations. `--secret-scan` looks for obvious keys, wallets, and inline
 secrets. `--sanitize-artifacts` creates redacted public copies of text
-evidence. `--release-check` combines syntax, lifecycle, secret, package, and
-wording checks for public release preparation.
+evidence.
+
+The standalone maintainer gates are useful before a release branch or ZIP is
+cut. `tools/crashsim_menu_smoke_test.py` drives the Guided Workflow through a
+pseudo-terminal and verifies repository options, reports, ADB scenarios,
+scenario selection, artifact inspection, and safe exits do not hang.
+`tools/crashsim_scenario_lifecycle_linter.sh` verifies every registered
+scenario has lifecycle coverage and visible guardrail/blocker text where
+applicable. `tools/crashsim_report_golden_tests.sh` compares sanitized
+Markdown/HTML structures for MAA, backup, ADB readiness, repository analytics,
+scenario readiness, and lifecycle coverage reports. `tools/crashsim_release_secret_gate.sh`
+adds a stricter release scan for private keys, wallets, credential-bearing
+connect strings, OCIDs, raw DBSAT reports, audit logs, and real customer
+evidence. `tools/crashsim_repository_analytics_failure_tests.sh` verifies that
+analytics reports handle empty repository, partial data, stale data, and
+sample-only data without failing or overstating readiness. `--evidence-bundle`
+creates a ZIP package for audits or training with a manifest, SHA256 hashes,
+and an optional OpenSSL signature over the hash manifest when
+`--evidence-sign-key` is supplied. `--release-check` runs these gates together
+with syntax, package, and wording checks for public release preparation.
 
 ### Runbook Hints
 
@@ -613,6 +639,7 @@ CrashSimulator already collects. It produces domain scores and an overall
 
 ```bash
 ./CrashSimulatorV2.sh --resilience-scorecard
+./CrashSimulatorV2.sh --resilience-scorecard --scorecard-history --trend-days 90
 ./CrashSimulatorV2.sh --resilience-scorecard --html
 ./CrashSimulatorV2.sh --show-artifact latest:resilience
 ```
@@ -646,6 +673,148 @@ and the database are available. If the database is intentionally down during a
 drill, the refresh is skipped with a warning and the drill result is not marked
 failed because of the skipped scorecard. Disable this behavior with
 `--no-auto-scorecard` or `CRASHSIM_AUTO_SCORECARD=0`.
+
+When the optional CRASHSIM evidence repository is enabled and initialized,
+scorecard runs can persist overall and domain scores into
+`crashsim_score_snapshots`. Use `--scorecard-history` to append recent
+repository-backed score history to the Markdown/HTML scorecard. If the
+repository is off or not installed, CrashSimulator keeps generating the normal
+file-based scorecard and notes that history is unavailable.
+
+### Optional Evidence Repository And Lessons Learned
+
+CrashSimulator normally stores evidence as files: logs, manifests, audit
+records, reports, and HTML copies. The optional CRASHSIM repository adds a
+database-backed index for run summaries, evidence pointers, score snapshots,
+findings, recommendations, and lessons learned.
+
+```bash
+./CrashSimulatorV2.sh --repository-status --repository-mode local
+./CrashSimulatorV2.sh --repository-upgrade --dry-run --repository-mode local
+./CrashSimulatorV2.sh --repository-upgrade --execute --repository-mode local
+./CrashSimulatorV2.sh --repository-doctor --execute --repository-mode local --html
+./CrashSimulatorV2.sh --repository-export
+./CrashSimulatorV2.sh --repository-import --repository-import-file crashsim_repository_export.json --dry-run
+```
+
+The repository is disabled by default. Enabling it must not replace the normal
+file evidence model; it adds a searchable history layer. Repository persistence
+is best-effort and non-blocking: a drill should not fail only because the
+optional repository is unavailable.
+
+For the private Labs development stream and for teams that rebuild target labs
+frequently, Oracle Autonomous Database is the preferred durable central
+repository target. In that model, RAC, Data Guard, ASM, FEX/ACFS, APEX/ORDS,
+Base Database, and other labs remain disposable drill targets, while the ADB
+CRASHSIM schema keeps the long-lived score history, evidence pointers, lessons,
+findings, and recommendations. Configure this with
+`CRASHSIM_REPOSITORY_MODE=central` and an approved ADB wallet alias or other
+secretless connect pattern.
+
+Private Labs v2.0.3 Enterprise E0 freezes repository schema baseline
+`1.2.0-enterprise-e0`. The upgrade path now includes base repository tables,
+ML/AI feature views, and Enterprise E0 tables/views for agents, jobs, approvals,
+scenario metadata, policy-as-code, ORDS clients, evidence bundles, and evidence
+chain-of-custody records. See
+`docs/CRASHSIMULATOR_REPOSITORY_DEPLOYMENT_OPTIONS.md` for local Oracle DB,
+ADB, customer-managed OCI, and disconnected lab repository patterns.
+
+After drills, record operational learning with:
+
+```bash
+./CrashSimulatorV2.sh --lessons-learned --lesson-scenario 30 \
+  --lesson-title "Recovery runbook update" \
+  --lesson-text "Document the manual ASM step and retest before the next drill."
+./CrashSimulatorV2.sh --open-findings
+./CrashSimulatorV2.sh --recommendation-status
+```
+
+When the repository is not enabled, lessons are still written as local Markdown
+files in the CrashSimulator log directory.
+
+For labs that cannot connect directly to the central repository, use
+`--repository-export` on the lab host and `--repository-import --dry-run` first
+on the connected workstation or bastion. Execute the import only after checking
+that the file is a sanitized CrashSimulator summary and that the repository
+target is the intended CRASHSIM owner.
+
+Security assessment evidence can be summarized with the DBSAT import foundation:
+
+```bash
+./CrashSimulatorV2.sh --dbsat-import sanitized_or_raw_dbsat.json --dry-run
+```
+
+DBSAT reports are sensitive. CrashSimulator writes a sanitized summary report
+and does not store raw DBSAT HTML, XLSX, JSON, usernames, hostnames, wallets, or
+credentials in the repository. Keep raw security evidence in an approved
+security evidence store.
+
+Additional read-only intelligence reports are available from the CLI and the
+Guided Workflow Reports menu:
+
+```bash
+./CrashSimulatorV2.sh --patch-inventory
+./CrashSimulatorV2.sh --goldengate-report
+./CrashSimulatorV2.sh --knowledge-pack-report
+./CrashSimulatorV2.sh --ai-strategy-report
+```
+
+`--patch-inventory` records local SQL patch and OPatch evidence but does not
+perform live My Oracle Support advisory checks. `--goldengate-report` is
+read-only and does not stop Extract, Replicat, or mutate trails. GoldenGate
+process drills still require deployment-specific targets, lag thresholds, and a
+resync runbook.
+
+Future repository intelligence can use Oracle Database ML and AI capabilities
+such as Oracle Machine Learning for SQL, AI Vector Search, and Select AI over
+sanitized repository views. These capabilities are intended for advisory use:
+finding similar incidents, predicting drill risk, detecting score or backup
+anomalies, estimating RTO/RPO breach risk, and summarizing evidence for humans.
+They must remain optional and must not execute destructive scenarios.
+
+The optional feature views can be reviewed and installed explicitly:
+
+```bash
+./CrashSimulatorV2.sh --repository-ai-views --dry-run
+./CrashSimulatorV2.sh --repository-ai-views --execute
+```
+
+These views are a foundation for Oracle ML feature engineering and future vector
+or Select AI summaries; they do not create ML models, vector indexes, AI
+profiles, cloud credentials, or external calls.
+
+### Planning, Badges, Calendar, And Release Readiness
+
+Private Labs v2.0.3 adds non-destructive helpers for planning and public
+readiness:
+
+```bash
+./CrashSimulatorV2.sh --scenario-plan --plan-days 90 --html
+./CrashSimulatorV2.sh --evidence-quality-badges --html
+./CrashSimulatorV2.sh --drill-calendar-export --calendar-start-date 2026-07-01
+./CrashSimulatorV2.sh --apex-dashboard-mockups --html
+./CrashSimulatorV2.sh --public-release-doctor --html
+./CrashSimulatorV2.sh --evidence-custody-record --html
+./CrashSimulatorV2.sh --enterprise-release-gate
+```
+
+`--scenario-plan` builds a conservative 30/60/90-day validation plan from the
+scenario catalog, current topology, and MAA/SLA context.
+`--evidence-quality-badges` reports whether evidence is Installed, Configured,
+Tested, Operationalized, and Measured. `--drill-calendar-export` writes CSV and
+iCal files for recurring team validation. `--apex-dashboard-mockups` generates
+static design guidance for an APEX console over an ADB repository.
+`--public-release-doctor` checks docs, examples, screenshots,
+tutorials, runtime ZIP freshness, secret scan output, and the expected scenario
+catalog count before a public release.
+
+`--evidence-custody-record` creates a draft JSON and Markdown/HTML
+chain-of-custody record for allowed text evidence artifacts. It records artifact
+URI, SHA256 hash, source, retention class, legal-hold flag, and draft custody
+status while excluding wallets, keys, videos, screenshots, archives, and common
+binary files. `--enterprise-release-gate` validates the Enterprise E0 SQL,
+mockups, ORDS contract, Scenario Metadata 2.0 schema, policy schema, custody
+schema, and secret-safety posture.
 
 ### Oracle Service HA Review
 
@@ -1026,6 +1195,71 @@ sqlplus / as sysdba @verify_crashsim_lab.sql
 The seed and verify scripts use `CRASHPDB` when it exists; otherwise they use
 the first read-write user PDB detected in `V$PDBS`.
 
+### Seed / Prepare Scenario Lab (Environment Preparation Planner)
+
+The Guided Workflow menu's **Seed / Prepare Scenario Lab** (or
+`--prepare-environment [--execute]`) analyzes the current topology and
+prepares the lab for scenario coverage: logical lab objects, redo/control-file
+multiplexing, AC/TAC services (GI-managed topologies only), APEX/ORDS, and an
+RMAN recovery catalog. The planner is topology-aware — items that do not apply
+to the detected topology are reported `NOT_REQUIRED`, and execution is guarded
+by the `PREPARE-ENVIRONMENT` confirmation plus the `LAB-APPROVED` public
+safety guardrail.
+
+Two preparations are **credential-gated**: they stay skipped (with a `WARN`)
+until you provide the required secrets in the environment. The tool never
+invents passwords and never downloads Oracle media on its own. Set the
+variables in the same shell that launches `CrashSimulatorV2.sh` (menu children
+inherit them), using `read -rs` so secrets stay out of shell history.
+
+**Enable `rman_catalog`** — creates a local lab recovery catalog owner in the
+PDB, registers the target, and resyncs. Choose a new password for the catalog
+owner:
+
+```bash
+read -rs CRASHSIM_RMAN_CATALOG_PASSWORD && export CRASHSIM_RMAN_CATALOG_PASSWORD
+./CrashSimulatorV2.sh    # menu -> Seed / Prepare -> 2
+```
+
+An in-PDB catalog is a lab convenience only; production catalogs belong
+outside the target database's failure domain.
+
+**Enable `apex_ords`** — installs APEX into the PDB and configures ORDS via
+`tools/crashsim_install_apex_ords_lab.sh`. It needs staged media, Java 17+,
+and three passwords (`SYS_PASSWORD` is the existing SYS password; the other
+two are new passwords you choose):
+
+```bash
+# 1. Stage media (download from oracle.com; versions may differ - point
+#    APEX_ZIP / ORDS_ZIP at whatever you downloaded)
+mkdir -p /u01/app/oracle/product/crashsim_apex_ords/media
+#    place apex_*.zip and ords-*.zip there
+
+# 2. Override the helper defaults for YOUR host (the defaults describe the
+#    original lab box)
+export ORACLE_HOME=/u01/app/oracle/product/23.0.0/dbhome_1
+export ORACLE_SID=<your_sid>
+export PDB_NAME=CRASHPDB
+export DB_HOSTNAME=localhost
+export DB_SERVICE=<pdb_service>      # single instance: the PDB default service
+export JAVA_HOME=<jdk17_or_newer>    # ORDS requires Java 17+
+
+# 3. Passwords (silent prompts; nothing lands in history or on argv)
+read -rs SYS_PASSWORD          && export SYS_PASSWORD
+read -rs ORDS_PUBLIC_PASSWORD  && export ORDS_PUBLIC_PASSWORD
+read -rs APEX_ADMIN_PASSWORD   && export APEX_ADMIN_PASSWORD
+
+# 4. Run menu option 2 again, or the helper directly to watch it:
+bash tools/crashsim_install_apex_ords_lab.sh
+```
+
+The helper creates a guaranteed restore point before installing. After a
+successful run, re-check the plan (menu option 1/3): `apex_ords` flips to
+`PRESENT` once APEX is installed, ORDS users exist, the ORDS service is
+active, and its config is present — which unlocks scenarios 73–82
+(scenario 79 additionally needs a load-balancer or peer URL at execution
+time).
+
 ### RAC/ASM Redundancy Lab Helpers
 
 For RAC/ASM labs, these optional SQL helpers can prepare safer targets for redo
@@ -1042,6 +1276,169 @@ updates the spfile `CONTROL_FILES` value to include a `+DATA` control file
 alias. After running the control-file helper, stop the database, copy the
 surviving control file to the new ASM alias, and start the database with
 `srvctl`; validate `V$CONTROLFILE` before running control-file scenarios.
+
+### ASM privilege requirement for datafile-loss/corruption drills
+
+ASM datafile-loss and header-corruption scenarios (5, 7, 8, 30, 32, 33, 34, 35)
+remove/manipulate the datafile through `asmcmd`, which is part of Grid
+Infrastructure and needs **OSASM (SYSASM)** privilege — read-only `asmcmd lsdg`
+is not enough, and `asmcmd rm` of an ASM file fails without it. The runtime runs
+as the database owner (typically `oracle`) and reaches `asmcmd` via
+`run_asmcmd_with_grid_env`. Provide the privilege in **one** of these ways:
+
+1. **Add the run-as user to the OSASM group** (usually `asmadmin`) and set
+   `CRASHSIM_GRID_USER` to that user so `asmcmd` runs directly:
+
+   ```bash
+   sudo usermod -a -G asmadmin oracle      # then re-login; verify: id oracle
+   export CRASHSIM_GRID_USER=oracle
+   ```
+
+2. **Passwordless sudo from the run-as user to the Grid owner** (default
+   `CRASHSIM_GRID_USER=grid`). The runtime reaches ASM as the Grid owner with
+   `sudo -n -u grid /usr/bin/env ORACLE_HOME=… ORACLE_SID=… PATH=… <grid_home>/bin/asmcmd …`
+   (and reaches `crsctl`/`srvctl` the same `env`-wrapped way). **sudo therefore
+   matches the command as `/usr/bin/env`, not `asmcmd`** — a rule that whitelists
+   `<grid_home>/bin/asmcmd` never matches, `sudo -n` is denied, and the ASM write
+   preflight fails closed. Whitelist the `env`-wrapped Grid binaries instead
+   (validate with `visudo -cf` before dropping it in):
+
+   ```text
+   # /etc/sudoers.d/crashsim-asm  (mode 0440, root:root)
+   # replace /u01/app/26.0.0/grid with the actual Grid Infrastructure home
+   Cmnd_Alias CRASHSIM_ASM = \
+     /usr/bin/env ORACLE_HOME=* ORACLE_SID=* PATH=* /u01/app/26.0.0/grid/bin/asmcmd *, \
+     /usr/bin/env ORACLE_HOME=* PATH=* /u01/app/26.0.0/grid/bin/crsctl *, \
+     /usr/bin/env ORACLE_HOME=* PATH=* /u01/app/26.0.0/grid/bin/srvctl *
+   oracle ALL=(grid) NOPASSWD: CRASHSIM_ASM
+   ```
+
+   Verify before running a drill — this must print nothing and succeed (no
+   password prompt, no `sudo: a password is required`):
+
+   ```bash
+   GH=/u01/app/26.0.0/grid
+   sudo -n -u grid env ORACLE_HOME=$GH ORACLE_SID=+ASM1 PATH=$GH/bin:$PATH \
+     $GH/bin/asmcmd lsdg >/dev/null && echo "asmcmd via sudo->grid OK"
+   ```
+
+   If a hardened sudo build rejects the wildcard match, the reliable but broader
+   form is `oracle ALL=(grid) NOPASSWD: /usr/bin/env` — this lets `oracle` run any
+   command as `grid`, so prefer the scoped alias above wherever it works.
+
+3. **Run the runtime as the Grid owner** — only valid if that user can also
+   connect to the target database as `SYSDBA`.
+
+The runtime **preflights** this before offlining or removing anything: if the
+run-as user cannot perform ASM writes it refuses up front (`ASM write preflight
+failed …`) and changes nothing, rather than failing mid-drill. Being in `asmdba`
+(OSDBA-for-ASM) alone is **not** sufficient — that grants reads, not `asmcmd rm`.
+
+### SYSTEM/UNDO (non-offlinable) datafile-loss drills
+
+A **non-system** datafile can be taken offline while the database stays open, so
+those drills (e.g. scenarios 5 and 30) run with no instance bounce. A **SYSTEM** or
+**active UNDO** datafile cannot be offlined — every open instance holds it — so the
+runtime brings the database **down** before it can remove the file. Scenarios that
+target SYSTEM/UNDO datafiles (**7, 8, 32, 33**, and the SYSTEM header-corruption
+variant **42**) therefore plan an up-front `abort_for_shared_datafile` action:
+
+- **On RAC this aborts the WHOLE database** (`srvctl stop database -o abort`), not a
+  single instance — the blast radius is the entire cluster, briefly, plus any other
+  PDBs it hosts (they crash-recover cleanly on restart). The dry-run shows the
+  planned `abort_for_shared_datafile` + `asm_rm` actions before you commit.
+- **Data Guard: check Fast-Start Failover first.** Aborting the primary can trip an
+  **automatic failover** if FSFO is armed with an observer. Run these drills with
+  FSFO in **Observe-Only mode** (the observer logs but does not fail over) or
+  temporarily disable FSFO; otherwise the abort will swap roles mid-drill. The
+  standby is not otherwise disturbed.
+- **Reversibility is RMAN, not asmcmd.** Run `--protect <id>` first to take an RMAN
+  backup of the target datafile. The removal is **refused** unless a usable backup
+  (or image copy) already exists — the backup status is snapshotted *before* the
+  abort, so the guard still holds once the database is down.
+
+**Recovery is automatic and abort-aware.** `--recover <id> --manifest <file>`
+detects that the database is down, then: `startup mount` → RMAN
+`restore`/`recover datafile <N>` → `alter database open` → (RAC) `srvctl start
+database` to open the remaining instances → reopen the PDB. No manual `startup` is
+needed. Confirmation tokens for the full sequence (supplied on stdin for
+unattended runs): `--protect` → `PROTECT-<id>` + `LAB-APPROVED`; `--scenario`
+→ `EXECUTE-<id>` + `LAB-APPROVED`; `--recover` → `RECOVER-<id>` + `LAB-APPROVED`.
+
+## Troubleshooting FAQ
+
+Real issues hit during v2.0.3 RC field testing, with their causes and fixes.
+All four are fixed in builds after 2026-07-16; the workarounds below apply if
+you are still on the original `v2.0.3-rc1` artifact.
+
+### "Invalid ADB password environment variable name" on every command
+
+`CRASHSIM_ADB_PASSWORD_ENV` (and `CRASHSIM_ADB_WALLET_PASSWORD_ENV`) hold the
+**name of an environment variable**, never the password itself. Pasting a
+literal password there fails the identifier validation on every invocation,
+including `--show-config`. Restore the defaults in `crashsimulator.conf`
+(`CRASHSIM_ADB_PASSWORD_ENV=CRASHSIM_ADB_PASSWORD`) and export the actual
+password in that named variable only when using ADB features. On `rc1` the
+error message echoed the pasted value back to the terminal — if that was a
+real password, rotate it; current builds hide the value.
+
+### Guided menu seed/prepare always aborts with "Confirmation did not match"
+
+On `rc1`, audit stream capture wrapped the child's output in a redaction pipe,
+so the `Type PREPARE-ENVIRONMENT to continue:` prompt could reach the terminal
+only after the run had already aborted — you were answering a prompt you could
+not see. Workaround on `rc1`: `export CRASHSIM_AUDIT_STREAM_CAPTURE=0` before
+launching the menu (audit artifacts are still collected), or type the token
+blind when the terminal goes quiet after the `Running:` line. Current builds
+disable stream capture for interactive menu children automatically and mirror
+every confirmation prompt to the controlling terminal.
+
+### Preparation redo_multiplex fails with ORA-00301 / ORA-27038
+
+The `rc1` seed passed the `db_recovery_file_dest` **directory** as the new
+member file name, which only works on ASM (`+RECO`). Current builds create
+`<dest>/crashsim_redo_g<N>_m2.log` per group on filesystem destinations, skip
+members that already exist (idempotent reruns), and use a mode-aware log
+rotation (`SWITCH LOGFILE` on NOARCHIVELOG databases instead of
+`ARCHIVE LOG CURRENT`, which raises ORA-00258 there).
+
+### srvctl noise ("Echo: command not found" / "Start Oracle Clusterware stack")
+
+On plain single-instance hosts without Grid Infrastructure or Oracle Restart,
+`rc1` misclassified the topology as GI-managed (srvctl ships inside every
+database home and its failures print to stdout) and attempted the srvctl-based
+AC/TAC service preparation, which cannot work there. The srvctl error text is
+Oracle's own wrapper noise and is harmless. Current builds detect the grid
+stack correctly (OLR registration or a live `crsctl check has`) and mark
+`services_ac_tac` as `NOT_REQUIRED` on such hosts.
+
+### WARN: Skipping apex_ords / rman_catalog
+
+Not a bug — these preparations are credential-gated by design. See
+**Seed / Prepare Scenario Lab** above for the exact environment variables and
+media staging that enable them.
+
+### Baseline backup fails at "RMAN> 2>" with status 1 (NOARCHIVELOG lab)
+
+An **open-database** RMAN datafile backup is not possible while the database
+runs in **NOARCHIVELOG** mode (`ORA-19602`), and the baseline's
+`alter system archive log current` / archivelog backup steps fail outright —
+so on a NOARCHIVELOG lab the whole run aborts. Builds after 2026-07-16 detect
+the log mode, print the explanation, and refuse `--execute` up front (the
+dry-run still shows the plan). Fix the lab once, as sysdba (short outage):
+
+```sql
+shutdown immediate
+startup mount
+alter database archivelog;
+alter database open;
+```
+
+then re-run the baseline. If the lab must remain NOARCHIVELOG, take a CLOSED
+(mounted) consistent backup manually instead — an "open" NOARCHIVELOG baseline
+would not be restorable, which is exactly why the tool refuses to create one.
+
+> **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
 
 ## Best Practices For Running Drills
 
@@ -1404,6 +1801,8 @@ wait for the helper for that scenario.
 `No targets were found`: The database does not currently have the required shape
 for that scenario, such as multiplexed redo, read-only tablespace, index-only
 tablespace, Data Guard, or RAC.
+
+> **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
 
 ## Final Reminder
 

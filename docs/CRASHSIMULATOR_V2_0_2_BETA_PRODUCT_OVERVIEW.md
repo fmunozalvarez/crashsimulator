@@ -544,6 +544,8 @@ CrashSimulator's safety posture is based on:
 - Plan-only posture for scenarios that need external provider, Grid, IAM, or
   network approval.
 
+> **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
+
 ## Current Roadmap Ideas
 
 Likely roadmap areas include:
@@ -559,7 +561,9 @@ Likely roadmap areas include:
 - More Data Guard and FSFO execution drills, including observer placement,
   failover/failback, and reinstate workflows.
 - Stronger AC/TAC, FAN, ONS, service role, and application-session validation.
-- A browser-based or APEX-based UI while retaining CLI parity.
+- A browser-based or APEX-based UI while retaining CLI parity. (Now delivered in
+  CrashSimulator Enterprise as an APEX console over a central repository; the public
+  single-script framework retains CLI and terminal-menu parity.)
 - A more formal SLA recommendation engine that maps application RTO/RPO needs
   to current topology gaps and recommended scenarios.
 - More reference reports for 12c, 18c, 19c, 21c, 23ai, 26ai, Exadata,

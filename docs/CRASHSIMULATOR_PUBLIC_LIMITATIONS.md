@@ -61,3 +61,6 @@ CrashSimulator can detect and report signals for features such as RAC, Active Da
 - Read-only/reporting: `--health-check`, `--config-report`, `--backup-report`, `--service-review`, `--maa-report`, `--resilience-scorecard`, `--apex-ords-report`, `--adb-readiness-report`.
 - Low-risk database drills after readiness passes: `6`/`31` tempfile loss, `11`/`36` disposable index rebuild, `43` disposable table loss, `63` controlled TEMP pressure.
 - RAC/Data Guard/application drills should start with readiness/reporting scenarios before service relocation, apply/transport lag, switchover/failback, or client replay tests.
+
+> **CrashSimulator Enterprise:** this part of the documentation describes Enterprise-edition capabilities and ships with the Enterprise documentation set.
+
