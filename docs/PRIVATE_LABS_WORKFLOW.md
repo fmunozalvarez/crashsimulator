@@ -261,7 +261,7 @@ Private `crashsimulator-labs`:
 - Roadmap prototypes.
 - Unfinished MAA scoring and SLA advisor work.
 - DBSAT import experiments.
-- Patch intelligence prototypes.
+- CVE/patch-gap analysis prototypes.
 - ADB OCI control-plane helpers.
 - APEX/ORDS experiments.
 - AI/MCP research.

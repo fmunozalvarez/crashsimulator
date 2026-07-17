@@ -2,103 +2,385 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>CrashSimulator Private Labs Workflow</title>
+<title>PRIVATE_LABS_WORKFLOW.md</title>
 <style>
+:root { color-scheme: light dark; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #16181d; }
 main { max-width: 1180px; margin: 0 auto; padding: 28px; }
-h1 { font-size: 28px; margin: 0 0 10px; }
-h2 { margin-top: 30px; border-bottom: 1px solid #d8dde6; padding-bottom: 8px; }
-pre, code { font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; }
-table { border-collapse: collapse; width: 100%; margin: 14px 0; background: #fff; }
-th, td { border: 1px solid #d8dde6; padding: 10px; text-align: left; vertical-align: top; }
-blockquote { border-left: 4px solid #2563eb; margin-left: 0; padding-left: 14px; color: #334155; }
-@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre, table { background: #161a22; } th, td, pre, h2 { border-color: #303846; } blockquote { color: #cbd5e1; } }
+header { margin-bottom: 18px; border-bottom: 1px solid #d8dde6; padding-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+.meta { font-size: 13px; color: #596170; line-height: 1.5; }
+pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 18px; overflow: auto; line-height: 1.45; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #101318; color: #eef1f5; } pre { background: #161a22; border-color: #303846; } header { border-color: #303846; } .meta { color: #a9b2c3; } }
 </style>
 </head>
-<body>
-<main>
-<h1>CrashSimulator Private Labs Workflow</h1>
-<p>This page explains how to work privately on CrashSimulator improvements while keeping the public community repository clean, intentional, and safe.</p>
-<h2>Repository Model</h2>
-<table><tr><th>Repository</th><th>Visibility</th><th>Purpose</th></tr>
-<tr><td><code>fmunozalvarez/crashsimulator</code></td><td>Public</td><td>Stable community code, sanitized documentation, public releases, issues, and pull requests.</td></tr>
-<tr><td><code>fmunozalvarez/crashsimulator-labs</code></td><td>Private</td><td>Experimental community features, prototypes, private validation, roadmap work, and pre-release evidence review.</td></tr>
-<tr><td><code>fmunozalvarez/crashsimulator-enterprise</code></td><td>Private future option</td><td>Enterprise-only controller, dashboards, agents, commercial packaging, connectors, and license-sensitive integrations.</td></tr></table>
-<h2>Laptop Layout</h2>
-<pre>/Users/franciscomunozalvarez/Downloads/Crashsimulator/source
-  origin -> public crashsimulator
+<body><main>
+<header><h1>PRIVATE_LABS_WORKFLOW.md</h1><div class="meta">Source: docs/PRIVATE_LABS_WORKFLOW.md<br>Generated UTC: 2026-07-17T01:40:50Z</div></header>
+<pre>
+# CrashSimulator Private Labs Workflow
+
+This guide explains how to work privately on CrashSimulator improvements while
+keeping the public community repository clean, intentional, and safe.
+
+## Recommended Repository Model
+
+Use separate repositories instead of private branches inside the public
+repository.
+
+| Repository | Visibility | Purpose |
+| --- | --- | --- |
+| `fmunozalvarez/crashsimulator` | Public | Stable community code, sanitized docs, public releases, community issues, and public pull requests. |
+| `fmunozalvarez/crashsimulator-labs` | Private | Experimental community features, prototypes, private validation, roadmap work, and pre-release evidence review. |
+| `fmunozalvarez/crashsimulator-enterprise` | Private future option | Enterprise-only controller, dashboards, agents, commercial packaging, connectors, and license-sensitive integrations. |
+
+Do not create `crashsimulator-labs` as a fork. Create it as a normal private
+repository so private work, branches, Actions output, and future enterprise
+work are clearly separated from the public community repository.
+
+## Laptop Layout
+
+Recommended local folders:
+
+```text
+/Users/franciscomunozalvarez/Downloads/Crashsimulator/source
+/Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
+/Users/franciscomunozalvarez/Downloads/CrashSimulator_Enterprise/source
+```
+
+The current laptop setup uses:
+
+```text
+/Users/franciscomunozalvarez/Downloads/Crashsimulator/source
+  origin -&gt; public crashsimulator
 
 /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
-  origin    -> private crashsimulator-labs
-  community -> public crashsimulator fetch-only, push disabled</pre>
-<h2>Create Or Verify The Labs Repository</h2>
-<p>Create <code>fmunozalvarez/crashsimulator-labs</code> as a normal private repository, not as a fork. Keep it empty before the first push.</p>
-<h2>Local Setup Commands</h2>
-<pre>mkdir -p /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs
+  origin    -&gt; private crashsimulator-labs
+  community -&gt; public crashsimulator fetch-only, push disabled
+```
+
+## Create The Private GitHub Repository
+
+On GitHub:
+
+1. Create a new repository.
+2. Owner: `fmunozalvarez`.
+3. Repository name: `crashsimulator-labs`.
+4. Visibility: `Private`.
+5. Do not initialize with README, `.gitignore`, or license.
+6. Use this description:
+
+```text
+Private R&amp;D repository for CrashSimulator experimental community features, future roadmap, prototypes, and pre-release validation.
+```
+
+## Create The Local Labs Working Copy
+
+Clone public CrashSimulator into a separate Labs folder:
+
+```bash
+mkdir -p /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs
 git clone https://github.com/fmunozalvarez/crashsimulator.git \
   /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
 cd /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
+```
 
+Rename the public remote to `community`:
+
+```bash
 git remote rename origin community
-git remote set-url --push community DISABLED
-git remote add origin https://github.com/fmunozalvarez/crashsimulator-labs.git
-git remote -v
+```
 
-git switch main
-git push -u origin main
-git push origin --tags</pre>
-<h2>Expected Remotes</h2>
-<pre>community  https://github.com/fmunozalvarez/crashsimulator.git (fetch)
+Disable accidental pushes to the public repository from the Labs checkout:
+
+```bash
+git remote set-url --push community DISABLED
+```
+
+Add the private Labs repository as `origin`:
+
+```bash
+git remote add origin https://github.com/fmunozalvarez/crashsimulator-labs.git
+```
+
+Verify:
+
+```bash
+git remote -v
+```
+
+Expected result:
+
+```text
+community  https://github.com/fmunozalvarez/crashsimulator.git (fetch)
 community  DISABLED (push)
 origin     https://github.com/fmunozalvarez/crashsimulator-labs.git (fetch)
-origin     https://github.com/fmunozalvarez/crashsimulator-labs.git (push)</pre>
-<h2>Branch Strategy</h2>
-<table><tr><th>Branch pattern</th><th>Location</th><th>Purpose</th></tr>
-<tr><td><code>main</code></td><td>Private Labs</td><td>Mirror public <code>main</code> unless private baseline changes are intentional.</td></tr>
-<tr><td><code>labs/&lt;feature&gt;</code></td><td>Private Labs</td><td>Experimental work and prototypes.</td></tr>
-<tr><td><code>publish/&lt;feature&gt;</code></td><td>Local only</td><td>Clean staging branch used to prepare selected public contributions.</td></tr>
-<tr><td><code>feature/&lt;feature&gt;</code></td><td>Public repo only</td><td>Public pull-request branch after private work is cleaned.</td></tr></table>
-<h2>Daily Workflow</h2>
-<pre>cd /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
+origin     https://github.com/fmunozalvarez/crashsimulator-labs.git (push)
+```
+
+Seed the private repository:
+
+```bash
+git switch main
+git push -u origin main
+git push origin --tags
+```
+
+## Branch Strategy
+
+Use simple branch names.
+
+| Branch pattern | Location | Purpose |
+| --- | --- | --- |
+| `main` | Private Labs | Mirror public `main` unless private baseline changes are intentional. |
+| `labs/&lt;feature-name&gt;` | Private Labs | Experimental work and prototypes. |
+| `publish/&lt;feature-name&gt;` | Local only | Clean staging branch used to prepare selected public contributions. |
+| `feature/&lt;feature-name&gt;` | Public repo only | Public pull-request branch after private work is cleaned. |
+
+Examples:
+
+```text
+labs/adb-oci-control-plane
+labs/dbsat-import-engine
+labs/maa-sla-advisor
+labs/apex-session-driver-v2
+labs/patch-gap-assessment
+
+publish/maa-report-improvements
+publish/adb-readiness-docs
+publish/service-ha-review
+```
+
+Do not push `labs/*` branches to the public repository.
+
+## Daily Private Development Workflow
+
+Start from current public code:
+
+```bash
+cd /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
 git switch main
 git fetch community
 git merge --ff-only community/main
 git push origin main
+```
 
+Create a private feature branch:
+
+```bash
 git switch -c labs/dbsat-import-engine
+```
+
+Work normally:
+
+```bash
+git status
 git add .
 git commit -m "Prototype DBSAT report import engine"
-git push -u origin labs/dbsat-import-engine</pre>
-<h2>Publish Clean Work To Public</h2>
-<pre>git fetch community
+git push -u origin labs/dbsat-import-engine
+```
+
+## Keep Labs Updated With Public Changes
+
+When public `crashsimulator` changes:
+
+```bash
+cd /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
+git switch main
+git fetch community
+git merge --ff-only community/main
+git push origin main
+```
+
+Then update private branches:
+
+```bash
+git switch labs/dbsat-import-engine
+git rebase main
+git push --force-with-lease
+```
+
+Use `--force-with-lease`, not plain `--force`.
+
+## Publish Selected Private Work To Public
+
+Never push a private Labs branch directly to public. Create a clean public
+candidate branch from public `main`:
+
+```bash
+cd /Users/franciscomunozalvarez/Downloads/CrashSimulator_Labs/source
+git fetch community
 git switch -c publish/dbsat-docs community/main
-git cherry-pick &lt;safe_commit_sha&gt;
+```
+
+Cherry-pick only safe commits:
+
+```bash
+git cherry-pick &lt;commit_sha_1&gt;
+git cherry-pick &lt;commit_sha_2&gt;
+```
+
+Or squash a private branch into a clean public commit:
+
+```bash
+git merge --squash labs/dbsat-import-engine
+git commit -m "Add DBSAT import documentation and sanitized parser foundation"
+```
+
+Review exactly what would go public:
+
+```bash
 git diff --stat community/main..HEAD
 git diff community/main..HEAD
+git log --oneline community/main..HEAD
+```
+
+Run a basic secret check:
+
+```bash
 git grep -nE "password|secret|token|BEGIN PRIVATE KEY|wallet|ocid1|credential" -- .
+```
+
+Push intentionally to the public repository using an explicit URL:
+
+```bash
 git push https://github.com/fmunozalvarez/crashsimulator.git \
-  HEAD:feature/dbsat-import-foundation</pre>
-<h2>Never Commit</h2>
-<ul>
-<li>ADB wallets, TDE wallets, OCI API keys, SSH private keys, or RMAN credentials.</li>
-<li>DBSAT customer reports, customer topology reports, real audit evidence, or logs.</li>
-<li>Private roadmap, customer screenshots, or enterprise-only code into the public repo.</li>
-</ul>
-<h2>Commands To Avoid From Labs</h2>
-<pre>git push --all community
+  HEAD:feature/dbsat-import-foundation
+```
+
+Open a public pull request:
+
+```text
+feature/dbsat-import-foundation -&gt; main
+```
+
+After the pull request is merged, sync Labs:
+
+```bash
+git switch main
+git fetch community
+git merge --ff-only community/main
+git push origin main
+```
+
+## What Goes Where
+
+Public `crashsimulator`:
+
+- Stable community features.
+- Open-source scenario engine.
+- Documentation and sanitized examples.
+- Community issues and releases.
+- Reference screenshots.
+- Safe sample reports.
+- Apache 2.0 code.
+
+Private `crashsimulator-labs`:
+
+- Experimental features.
+- Roadmap prototypes.
+- Unfinished MAA scoring and SLA advisor work.
+- DBSAT import experiments.
+- CVE/patch-gap analysis prototypes.
+- ADB OCI control-plane helpers.
+- APEX/ORDS experiments.
+- AI/MCP research.
+- Private design notes.
+- Unreleased screenshots.
+
+Future private `crashsimulator-enterprise`:
+
+- Central controller.
+- Agents.
+- Web UI.
+- Enterprise dashboards.
+- Multi-target repository.
+- AI advisor.
+- Customer connectors.
+- Commercial packaging.
+- License enforcement.
+- Enterprise-only integrations.
+
+## Files That Must Not Be Committed
+
+Do not commit real:
+
+- ADB wallets.
+- TDE wallets or keystores.
+- DBSAT customer reports.
+- RMAN catalog credentials.
+- OCI API keys.
+- Private SSH keys.
+- Customer topology reports.
+- Real audit evidence.
+- Real CrashSimulator logs, manifests, and recovery transcripts.
+- Customer screenshots or hostnames unless sanitized.
+
+Keep only sanitized examples in the public repository.
+
+## Commands To Avoid From Labs
+
+Never run these from the Labs checkout:
+
+```bash
+git push --all community
 git push --mirror community
 git push community --tags
-git push community labs/*</pre>
-<h2>Operating Rules</h2>
-<ol>
-<li>Labs can be messy; public cannot.</li>
-<li>Labs branches never go directly public.</li>
-<li>Public changes are cherry-picked or squash-merged.</li>
-<li>Real wallets, reports, audit evidence, logs, and customer data never go public.</li>
-<li>Public releases are built only from public <code>main</code> or public release branches.</li>
-</ol>
-<p>Full detailed workflow: <code>docs/PRIVATE_LABS_WORKFLOW.md</code>.</p>
-</main>
-</body>
-</html>
+git push community labs/*
+```
+
+Those commands can expose private branches, internal tags, or experimental
+work. The `community` push URL is intentionally set to `DISABLED` in the Labs
+checkout so accidental public pushes fail.
+
+## Recommended Public Release Process
+
+For community releases:
+
+1. Develop privately in Labs.
+2. Publish selected changes to a public feature branch.
+3. Merge through a public pull request.
+4. Tag from public `main`.
+5. Build the community runtime ZIP from public `main`.
+6. Attach release assets to the public GitHub release.
+
+Example:
+
+```bash
+git switch main
+git fetch community
+git merge --ff-only community/main
+
+git tag -a v2.0.2-beta -m "CrashSimulator v2.0.2 beta"
+git push https://github.com/fmunozalvarez/crashsimulator.git v2.0.2-beta
+```
+
+Build public releases from public repository state, not from Labs, unless the
+release is explicitly private.
+
+## Operating Rules
+
+1. Labs can be messy; public cannot.
+2. Labs branches never go directly public.
+3. Public changes are cherry-picked or squash-merged.
+4. Real wallets, DBSAT reports, audit evidence, logs, and customer data never
+   go public.
+5. Public releases are built only from public `main` or public release
+   branches.
+6. Labs `main` mirrors public `main` unless a private baseline change is
+   intentional.
+7. Enterprise-only code belongs in `crashsimulator-enterprise`, not public
+   `crashsimulator`.
+
+## Codex / AI-Assisted Development
+
+Use Codex against the private Labs checkout for experiments:
+
+```text
+public issue -&gt; private Labs prototype -&gt; clean publish branch -&gt; public PR
+```
+
+This gives the project private experimentation, controlled public release, no
+unfinished roadmap exposure, and lower risk of leaking customer or
+enterprise-only material.
+</pre>
+</main></body></html>
