@@ -13,10 +13,6 @@ The capability set, scenario catalog, and safety model are unchanged.
 This release is intended for controlled lab, development, training, and
 resilience-test environments. Do not use destructive scenarios in production.
 
-> **Artifact refreshed 2026-07-17.** The `v2.0.3-rc2` runtime ZIP was rebuilt
-> to include the 23ai recover-validation fix below (the last bullet under
-> Fixes). If you downloaded an earlier `v2.0.3-rc2` ZIP, re-download it.
-
 ## Fixes
 
 - **Config validation no longer echoes a mistyped secret.**
@@ -56,16 +52,6 @@ resilience-test environments. Do not use destructive scenarios in production.
   helper now detects `v$database.log_mode` up front, prints why plus the
   exact enable-ARCHIVELOG steps, and refuses `--execute` (the dry-run still
   shows the plan).
-- **Scenario recovery no longer fails its validation step on Oracle Database
-  23ai.** Each recover ran a post-recovery RMAN check that ended with
-  `list failure;` (Data Recovery Advisor). `LIST FAILURE` is desupported in
-  23ai, so RMAN raised a parse error (`RMAN-01009`) that — because RMAN parses
-  the whole command file before executing — aborted the entire step. The
-  restore itself had already succeeded (the database was open READ WRITE), but
-  the run reported `Command exited with status 1`. The desupported command was
-  removed from all validation command files; the `validate`/`crosscheck`
-  commands that precede it already set the exit status and report any
-  corruption on 19c, 21c, and 23ai.
 
 ## Documentation
 
