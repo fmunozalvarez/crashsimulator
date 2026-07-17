@@ -5585,7 +5585,9 @@ write_validate_datafile_list_rman_file() {
 
   {
     printf "backup validate datafile %s;\n" "$file_list"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write RMAN datafile-list validation file: $cmd_file"
 }
 
@@ -5594,7 +5596,9 @@ write_controlfile_validate_rman_file() {
 
   {
     printf "validate current controlfile;\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write control-file validation RMAN file: $cmd_file"
 }
 
@@ -5627,7 +5631,9 @@ write_redo_validation_rman_file() {
     printf "  backup validate database;\n"
     printf "  release channel csimv1;\n"
     printf "}\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); backup validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write redo RMAN validation file: $cmd_file"
 }
 
@@ -6274,7 +6280,9 @@ recover_spfile_scenario() {
   rman_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_spfile.log"
   {
     printf "validate spfile;\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); validate spfile sets the exit
+    # status on all supported releases.
   } >"$rman_file" || die "Unable to write SPFILE validation RMAN file: $rman_file"
   manifest_append "recover_spfile_validate_rman" "$rman_file"
   manifest_append "recover_spfile_validate_log" "$rman_log"
@@ -6362,7 +6370,9 @@ recover_archivelog_scenario() {
     printf "crosscheck archivelog sequence %s;\n" "$seq"
     printf "validate archivelog sequence %s;\n" "$seq"
     printf "list archivelog sequence %s;\n" "$seq"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); crosscheck/validate above set the
+    # exit status on all supported releases.
   } >"$restore_file" || die "Unable to write archived-log validation RMAN file: $restore_file"
   manifest_append "recover_archivelog_validate_rman" "$restore_file"
   manifest_append "recover_archivelog_validate_log" "$restore_log"
@@ -6428,7 +6438,9 @@ recover_rman_backup_piece_scenario() {
     printf "crosscheck backupset %s;\n" "$bs_key"
     printf "list backupset %s;\n" "$bs_key"
     printf "validate backupset %s;\n" "$bs_key"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); crosscheck/validate above set the
+    # exit status on all supported releases.
   } >"$validate_file" || die "Unable to write backup-piece validation RMAN file: $validate_file"
   manifest_append "recover_backuppiece_validate_rman" "$validate_file"
   manifest_append "recover_backuppiece_validate_log" "$validate_log"

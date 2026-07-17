@@ -1534,7 +1534,9 @@ write_validate_datafile_list_rman_file() {
 
   {
     printf "backup validate datafile %s;\n" "$file_list"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write RMAN datafile-list validation file: $cmd_file"
 }
 
@@ -1543,7 +1545,9 @@ write_controlfile_validate_rman_file() {
 
   {
     printf "validate current controlfile;\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write control-file validation RMAN file: $cmd_file"
 }
 
@@ -1576,7 +1580,9 @@ write_redo_validation_rman_file() {
     printf "  backup validate database;\n"
     printf "  release channel csimv1;\n"
     printf "}\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); backup validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write redo RMAN validation file: $cmd_file"
 }
 
