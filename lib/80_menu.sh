@@ -920,6 +920,53 @@ menu_choose_recovery_manifest() {
   fi
 }
 
+# A scenario manifest records restore points (rename_N_original/rename_N_backup)
+# only when the scenario actually ran: a dry-run scenario (option 5) prints the
+# plan and renames/backs up nothing. Recovery replays those restore points, so a
+# dry-run scenario manifest can never recover - load_manifest_restore_pairs finds
+# no pair and the helper stops with "Manifest is missing ... restore paths", which
+# the guided menu surfaced only as a bare "Command exited with status 1". Detect
+# it up front and say what to do instead. Scoped to fs_rename plans (the mechanism
+# recovery replays) so scenarios that recover by other means are never blocked.
+menu_recovery_manifest_is_recoverable() {
+  local idx kind planned_rename run_id title
+
+  [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$SUCCESS"
+  [[ "$(manifest_get "mode" || true)" == "scenario" ]] || return "$SUCCESS"
+
+  planned_rename=0
+  idx=1
+  while :; do
+    kind="$(manifest_get "action_${idx}_kind" || true)"
+    [[ -n "$kind" ]] || break
+    if [[ "$kind" == "fs_rename" ]]; then
+      planned_rename=1
+      break
+    fi
+    idx=$((idx + 1))
+  done
+  [[ "$planned_rename" -eq 1 ]] || return "$SUCCESS"
+
+  # Mirror load_manifest_restore_pairs: it starts at rename_1 and reports no
+  # pairs only when both sides are empty.
+  [[ -z "$(manifest_get "rename_1_original" || true)" ]] || return "$SUCCESS"
+  [[ -z "$(manifest_get "rename_1_backup" || true)" ]] || return "$SUCCESS"
+
+  run_id="$(manifest_get "run_id" || true)"
+  title="$(manifest_get "scenario_title" || true)"
+  warn "This manifest is from a dry-run scenario preview - there is nothing to recover."
+  echo "  Manifest: ${MANIFEST_FILE}"
+  echo "  Scenario: ${SCENARIO_ID}${title:+ - ${title}}${run_id:+ (run ${run_id})}"
+  echo
+  echo "  A dry-run scenario prints the plan but renames and backs up no file, so this"
+  echo "  manifest holds no restore point. Recovery replays those restore points, so it"
+  echo "  would stop with \"Manifest is missing ... restore paths\"."
+  echo
+  echo "  Run menu option 8 (Execute selected scenario) first, then retry recovery:"
+  echo "  the executed run writes its own manifest and the menu will offer that one."
+  return "$FAIL"
+}
+
 menu_append_common_child_args() {
   [[ -n "$CONFIG_SOURCE" ]] && MENU_CMD+=("--config" "$CONFIG_SOURCE")
   [[ -n "$TARGET_PDB" ]] && MENU_CMD+=("--pdb" "$TARGET_PDB")
@@ -1069,6 +1116,7 @@ menu_run_child_action() {
       fi
       menu_choose_recovery_manifest
       menu_apply_manifest_context_if_available
+      menu_recovery_manifest_is_recoverable || return "$FAIL"
       ;;
     *)
       warn "Unknown action: $action"
