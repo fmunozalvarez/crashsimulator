@@ -71,7 +71,7 @@ print_issue() {
 line_is_placeholder() {
   local line="$1"
   case "$line" in
-    *'<password>'*|*'<pwd>'*|*'<pass>'*|*'<redacted>'*|*'<secret>'*|*'<token>'*|*'example'*|*'EXAMPLE'*|*'ocid1.'*'...'|*'ocid1.<redacted>'*|*'CRASHSIM_'*'_ENV'*|*'PASSWORD_ENV'*|*'WALLET_PASSWORD_ENV'*)
+    *'<password>'*|*'<pw>'*|*'<pwd>'*|*'<pass>'*|*'<redacted>'*|*'<secret>'*|*'<token>'*|*'example'*|*'EXAMPLE'*|*'ocid1.'*'...'|*'ocid1.<redacted>'*|*'ocid1.'*'-ocid>'*|*'must start with ocid1.'*|*'CRASHSIM_'*'_ENV'*|*'PASSWORD_ENV'*|*'WALLET_PASSWORD_ENV'*)
       return 0
       ;;
     # sudoers syntax in runbook/guide documentation: NOPASSWD is a privilege

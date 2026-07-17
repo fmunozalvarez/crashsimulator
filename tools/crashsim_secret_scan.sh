@@ -41,7 +41,14 @@ scan_sensitive_filename() {
 line_is_placeholder() {
   local line="$1"
   case "$line" in
-    *'<redacted>'*|*'<password>'*|*'<secret>'*|*'<token>'*|*'<value>'*|*'not set'*|*'not-set'*|*'example'*|*'EXAMPLE'*|*'${'*|*'_ENV='*|*'_PASSWORD_ENV='*|*'_TOKEN_ENV='*|*'CRASHSIM_SECRET_SCAN_PATH='*)
+    *'<redacted>'*|*'<password>'*|*'<pw>'*|*'<pwd>'*|*'<pass>'*|*'<secret>'*|*'<token>'*|*'<value>'*|*'not set'*|*'not-set'*|*'example'*|*'EXAMPLE'*|*'${'*|*'_ENV='*|*'_PASSWORD_ENV='*|*'_TOKEN_ENV='*|*'CRASHSIM_SECRET_SCAN_PATH='*)
+      return 0
+      ;;
+    # HTML input hint text and OCID prefix-validation messages / placeholders
+    # are documentation, not credentials: e.g. an SMTP/private-key <textarea>
+    # placeholder, "must start with ocid1.user.", or an ocid1...<group-ocid>
+    # template in a runbook.
+    *'placeholder="-----BEGIN'*|*'must start with ocid1.'*|*'ocid1.fnfunc.'*|*'-ocid>'*)
       return 0
       ;;
     # sudoers 'NOPASSWD:' is sudo's no-password-required tag on a Cmnd rule
@@ -87,7 +94,12 @@ line_is_placeholder() {
 
 scan_text_file() {
   local file="$1" match line_no line upper pattern
-  pattern="-----BEGIN .*PRIVATE KEY-----|[A-Za-z0-9_]*(password|passwd|secret|token|private_key|access_key)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"'<{\$\*]|ocid1\\."
+  # The assignment class excludes '>' so a PL/SQL named-parameter association
+  # (password => l_pw, p_output_password => p_password) is NOT read as an inline
+  # secret - the value after '=>' is always a bind variable/expression, never a
+  # literal. The OCID class requires the 24+ char suffix of a real OCID, so a
+  # prefix reference (ocid1.user.) or placeholder (ocid1..<x>) does not match.
+  pattern="-----BEGIN .*PRIVATE KEY-----|[A-Za-z0-9_]*(password|passwd|secret|token|private_key|access_key)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"'<{\$\*>]|ocid1\\.[A-Za-z0-9_.-]{24,}"
   while IFS= read -r match; do
     [[ -n "$match" ]] || continue
     line_no="${match%%:*}"
@@ -103,12 +115,12 @@ scan_text_file() {
       print_finding "HIGH" "$file" "$line_no" "Private key material detected."
       continue
     fi
-    if [[ "$upper" =~ [A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|ACCESS_KEY)[A-Z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"\'\<\{\$\*] ]]; then
+    if [[ "$upper" =~ [A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|ACCESS_KEY)[A-Z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"\'\<\{\$\*\>] ]]; then
       if ! line_is_placeholder "$line"; then
         print_finding "HIGH" "$file" "$line_no" "Possible inline secret assignment detected."
       fi
     fi
-    if [[ "$line" =~ ocid1\.[A-Za-z0-9_.-]+ ]] && ! line_is_placeholder "$line"; then
+    if [[ "$line" =~ ocid1\.[A-Za-z0-9_.-]{24,} ]] && ! line_is_placeholder "$line"; then
       print_finding "WARN" "$file" "$line_no" "OCI OCID detected; verify whether this public artifact should expose it."
     fi
   done < <(grep -nEi -- "$pattern" "$file" 2>/dev/null || true)
