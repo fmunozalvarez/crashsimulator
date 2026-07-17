@@ -711,13 +711,6 @@ findings, and recommendations. Configure this with
 `CRASHSIM_REPOSITORY_MODE=central` and an approved ADB wallet alias or other
 secretless connect pattern.
 
-Private Labs v2.0.3 Enterprise E0 freezes repository schema baseline
-`1.2.0-enterprise-e0`. The upgrade path now includes base repository tables,
-ML/AI feature views, and Enterprise E0 tables/views for agents, jobs, approvals,
-scenario metadata, policy-as-code, ORDS clients, evidence bundles, and evidence
-chain-of-custody records. See
-`docs/CRASHSIMULATOR_REPOSITORY_DEPLOYMENT_OPTIONS.md` for local Oracle DB,
-ADB, customer-managed OCI, and disconnected lab repository patterns.
 
 After drills, record operational learning with:
 
@@ -794,9 +787,8 @@ readiness:
 ./CrashSimulatorV2.sh --drill-calendar-export --calendar-start-date 2026-07-01
 ./CrashSimulatorV2.sh --apex-dashboard-mockups --html
 ./CrashSimulatorV2.sh --public-release-doctor --html
-./CrashSimulatorV2.sh --evidence-custody-record --html
-./CrashSimulatorV2.sh --enterprise-release-gate
 ```
+
 
 `--scenario-plan` builds a conservative 30/60/90-day validation plan from the
 scenario catalog, current topology, and MAA/SLA context.
@@ -808,13 +800,6 @@ static design guidance for an APEX console over an ADB repository.
 tutorials, runtime ZIP freshness, secret scan output, and the expected scenario
 catalog count before a public release.
 
-`--evidence-custody-record` creates a draft JSON and Markdown/HTML
-chain-of-custody record for allowed text evidence artifacts. It records artifact
-URI, SHA256 hash, source, retention class, legal-hold flag, and draft custody
-status while excluding wallets, keys, videos, screenshots, archives, and common
-binary files. `--enterprise-release-gate` validates the Enterprise E0 SQL,
-mockups, ORDS contract, Scenario Metadata 2.0 schema, policy schema, custody
-schema, and secret-safety posture.
 
 ### Oracle Service HA Review
 
