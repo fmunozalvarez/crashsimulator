@@ -351,6 +351,32 @@ warn() {
   echo "WARN: $*" >&2
 }
 
+# Interactive confirmation I/O. Under audit stream capture stdout is wrapped
+# in a redaction pipe, so prompt lines written there can reach the terminal
+# late (or, on builds without line-buffered redaction, only at exit) while
+# `read` blocks - the operator ends up answering a safety gate they cannot
+# see. Mirror prompt lines to the controlling terminal whenever stdout is not
+# a tty, and prefer /dev/tty for the reply when stdin is not a tty.
+confirm_show() {
+  printf "%s\n" "$@"
+  if [[ ! -t 1 && -e /dev/tty ]]; then
+    # group so a failed /dev/tty open (no controlling terminal) stays silent
+    { printf "%s\n" "$@" >/dev/tty; } 2>/dev/null || true
+  fi
+}
+
+confirm_reply() {
+  local __var="$1" __reply=""
+  if [[ -t 0 ]]; then
+    IFS= read -r __reply
+  elif [[ -e /dev/tty ]] && { IFS= read -r __reply </dev/tty; } 2>/dev/null; then
+    :
+  else
+    IFS= read -r __reply || true
+  fi
+  printf -v "$__var" '%s' "$__reply"
+}
+
 info() {
   echo "$*"
 }

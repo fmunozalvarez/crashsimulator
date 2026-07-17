@@ -815,10 +815,13 @@ normalize_targets() {
     die "Invalid APEX session interval seconds: $APEX_SESSION_INTERVAL"
   APEX_SESSION_HEADLESS="$(normalize_bool "$APEX_SESSION_HEADLESS")" ||
     die "Invalid APEX session headless value: $APEX_SESSION_HEADLESS"
+  # NOTE: never echo these two values back - a common mistake is pasting the
+  # literal password into the *_ENV field, and the "invalid" value would then
+  # leak into terminals and logs.
   [[ "$ADB_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB password environment variable name: $ADB_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_PASSWORD; export the actual password in that variable instead."
   [[ "$ADB_WALLET_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB wallet password environment variable name: $ADB_WALLET_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_WALLET_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_WALLET_PASSWORD; export the actual wallet password in that variable instead."
   case "$(printf "%s" "$ADB_SERVICE_LEVEL" | tr '[:upper:]' '[:lower:]')" in
     low|medium|high|tp|tpurgent) ;;
     *) die "Invalid ADB service level: $ADB_SERVICE_LEVEL" ;;

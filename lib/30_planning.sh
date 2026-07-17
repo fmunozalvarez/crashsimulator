@@ -241,18 +241,21 @@ confirm_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  local -a prompt_lines=(
+    ""
+    "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
   if [[ -n "$TARGET_SCHEMA" ]]; then
-    echo "Schema: ${TARGET_SCHEMA}"
+    prompt_lines+=("Schema: ${TARGET_SCHEMA}")
   fi
-  echo "Type EXECUTE-${id} to continue:"
+  prompt_lines+=("Type EXECUTE-${id} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "EXECUTE-${id}" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "scenario ${id} execution"
 }
@@ -314,15 +317,18 @@ confirm_mode_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  local -a prompt_lines=(
+    ""
+    "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
-  echo "Type ${token} to continue:"
+  prompt_lines+=("Type ${token} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "${mode_name,,} for scenario ${id}"
 }

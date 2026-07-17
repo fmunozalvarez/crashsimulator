@@ -44,10 +44,41 @@ line_is_placeholder() {
     *'<redacted>'*|*'<password>'*|*'<secret>'*|*'<token>'*|*'<value>'*|*'not set'*|*'not-set'*|*'example'*|*'EXAMPLE'*|*'${'*|*'_ENV='*|*'_PASSWORD_ENV='*|*'_TOKEN_ENV='*|*'CRASHSIM_SECRET_SCAN_PATH='*)
       return 0
       ;;
+    # sudoers 'NOPASSWD:' is sudo's no-password-required tag on a Cmnd rule
+    # (the opposite of a secret), never a credential assignment - skip such
+    # lines, e.g. the ASM-privilege sudoers examples in the user guide.
+    *'ALL=('*'NOPASSWD:'*)
+      return 0
+      ;;
     *'ocid1.'*'...'*|*'BEGIN .*PRIVATE KEY'*|*'BEGIN [A-Z ]*PRIVATE KEY'*|*'"$upper" == *"-----BEGIN'*|*'Private key material detected.'*)
       return 0
       ;;
     *'--sys-password='*|*'--rman-catalog='*|*'--apex-session-password='*|*'sys.stdin.readline'*|*'Invalid '*' password environment variable name'*|*'passwordVisible'*|*'passwordSelector'*|*'input[type='*|*'process.env.CRASHSIM_'*)
+      return 0
+      ;;
+    *'confirmation_token_hash'*|*'CONFIRMATION_TOKEN_HASH'*|*'tokenHashPresent'*)
+      return 0
+      ;;
+    *'apex_application.g_f'*|*'apex_authentication.login'*|*'secrets_found'*)
+      # APEX login binds p_password to a runtime form-field accessor
+      # (apex_application.g_fNN); 'secrets_found' is a scan-count metric. Neither
+      # carries a secret literal.
+      return 0
+      ;;
+    *'p_web_password'*|*'p_new_password'*|*'p_change_password_on_first_use'*)
+      # apex_util.create_user/edit_user named parameters (crashsim_user_admin_pkg);
+      # these bind PL/SQL variables, not secret literals.
+      return 0
+      ;;
+    *'password=null'*|*'password = null'*|*'password := null'*|*'password=NULL'*|*'password = NULL'*)
+      # Assigning NULL SCRUBS a transient password column (e.g. the p75 user
+      # provisioning queue clears web_password once processed) - the opposite
+      # of embedding a secret.
+      return 0
+      ;;
+    *'NOPASSWD:'*)
+      # sudoers syntax in runbook/guide documentation (e.g. the ASM privilege
+      # prerequisite): NOPASSWD is a privilege-grant keyword, not a secret.
       return 0
       ;;
   esac

@@ -7,8 +7,11 @@ ORACLE_HOME="${ORACLE_HOME:-/u02/app/oracle/product/23.0.0.0/dbhome_1}"
 GRID_HOME="${GRID_HOME:-/u01/app/23.0.0.0/gridhome_1}"
 PDB_NAME="${PDB_NAME:-CRASHPDB}"
 CATALOG_USER="${CATALOG_USER:-RMAN_CATALOG}"
-CATALOG_SERVICE="${CATALOG_SERVICE:-crashdb_CRASHPDB.paas.oracle.com}"
-CATALOG_CONNECT="${CATALOG_CONNECT:-//localhost:1521/${CATALOG_SERVICE}}"
+# Empty = auto: resolved from the target PDB's registered services at runtime
+# (the old hardcoded crashdb_CRASHPDB.paas.oracle.com default only matched the
+# original lab host).
+CATALOG_SERVICE="${CATALOG_SERVICE:-}"
+CATALOG_CONNECT="${CATALOG_CONNECT:-}"
 AC_SERVICE="${AC_SERVICE:-crashsim_ac}"
 TAC_SERVICE="${TAC_SERVICE:-crashsim_tac}"
 PREFERRED_INSTANCES="${PREFERRED_INSTANCES:-crashdb1,crashdb2}"
@@ -26,9 +29,10 @@ Environment:
   DB_UNIQUE_NAME                    Default: ${DB_UNIQUE_NAME}
   ORACLE_SID / ORACLE_HOME          Defaults: ${ORACLE_SID} / ${ORACLE_HOME}
   GRID_HOME                         Default: ${GRID_HOME}
-  PDB_NAME                          Default: ${PDB_NAME}
+  PDB_NAME                          Default: ${PDB_NAME} (falls back to the first
+                                    READ WRITE user PDB when it does not exist)
   CATALOG_USER                      Default: ${CATALOG_USER}
-  CATALOG_SERVICE                   Default: ${CATALOG_SERVICE}
+  CATALOG_SERVICE                   Default: auto (the resolved PDB's default service)
   CRASHSIM_RMAN_CATALOG_PASSWORD    Required with --catalog
   AC_SERVICE / TAC_SERVICE          Defaults: ${AC_SERVICE} / ${TAC_SERVICE}
   PREFERRED_INSTANCES               Default: ${PREFERRED_INSTANCES}
@@ -54,6 +58,73 @@ sql_sys() {
   sqlplus -s / as sysdba
 }
 
+# The configured PDB may not exist on this host (the defaults describe the
+# original lab box). Mirror the seed scripts: use PDB_NAME when it is open
+# READ WRITE, otherwise fall back to the first READ WRITE user PDB.
+resolve_pdb_name() {
+  local resolved
+  resolved="$(sql_sys <<SQL | awk -F= '/^RESOLVED_PDB=/{print $2; exit}'
+set heading off feedback off pages 0 verify off
+select 'RESOLVED_PDB=' || nvl(
+         (select name from v\$pdbs
+           where name = upper('${PDB_NAME}')
+             and open_mode like 'READ WRITE%' and rownum = 1),
+         (select name from (select name from v\$pdbs
+                             where name <> 'PDB\$SEED'
+                               and open_mode like 'READ WRITE%'
+                             order by con_id)
+           where rownum = 1)) from dual;
+exit
+SQL
+)"
+  if [[ -z "$resolved" ]]; then
+    echo "No open READ WRITE user PDB found (configured PDB_NAME=${PDB_NAME})." >&2
+    exit 1
+  fi
+  if [[ "$resolved" != "$(printf '%s' "$PDB_NAME" | tr '[:lower:]' '[:upper:]')" ]]; then
+    log "Configured PDB ${PDB_NAME} not found or not READ WRITE; using first user PDB: ${resolved}"
+  fi
+  PDB_NAME="$resolved"
+}
+
+# Derive the catalog connect string from the resolved PDB's registered
+# services unless the operator set CATALOG_SERVICE / CATALOG_CONNECT.
+resolve_catalog_connect() {
+  if [[ -z "$CATALOG_SERVICE" ]]; then
+    CATALOG_SERVICE="$(sql_sys <<SQL | awk -F= '/^PDB_SERVICE=/{print $2; exit}'
+set heading off feedback off pages 0 verify off
+select 'PDB_SERVICE=' || nvl(
+         (select s.name from v\$services s join v\$pdbs p on s.con_id = p.con_id
+           where p.name = upper('${PDB_NAME}')
+             and upper(s.name) = upper('${PDB_NAME}') and rownum = 1),
+         (select s.name from v\$services s join v\$pdbs p on s.con_id = p.con_id
+           where p.name = upper('${PDB_NAME}') and rownum = 1)) from dual;
+exit
+SQL
+)"
+    if [[ -z "$CATALOG_SERVICE" ]]; then
+      echo "Unable to resolve a database service for PDB ${PDB_NAME}." >&2
+      exit 1
+    fi
+    log "Resolved catalog service: ${CATALOG_SERVICE}"
+  fi
+  if [[ -z "$CATALOG_CONNECT" ]]; then
+    # Ask the listener for its real TCP endpoint instead of assuming
+    # localhost:1521 - lab listeners are often bound to the hostname and/or a
+    # non-default port (e.g. testone:1522), where a loopback guess fails with
+    # ORA-12541 even though the service is registered.
+    local endpoint=""
+    if command -v lsnrctl >/dev/null 2>&1; then
+      endpoint="$(lsnrctl status 2>/dev/null |
+        sed -n 's/.*(PROTOCOL=[Tt][Cc][Pp])(HOST=\([^)]*\))(PORT=\([0-9]*\)).*/\1:\2/p' |
+        head -n 1)"
+    fi
+    [[ -n "$endpoint" ]] || endpoint="localhost:1521"
+    log "Resolved listener endpoint: ${endpoint}"
+    CATALOG_CONNECT="//${endpoint}/${CATALOG_SERVICE}"
+  fi
+}
+
 service_exists() {
   local service="$1"
   srvctl config service -d "$DB_UNIQUE_NAME" -service "$service" >/dev/null 2>&1
@@ -72,13 +143,18 @@ start_service_if_needed() {
 configure_service_common() {
   local service="$1"
   shift
+  local placement_args=()
+  if [[ "${PREFERRED_INSTANCES}" == *,* ]]; then
+    placement_args=(-preferred "$PREFERRED_INSTANCES")
+  fi
+
   if service_exists "$service"; then
     log "Modifying existing service ${service}"
     srvctl modify service -db "$DB_UNIQUE_NAME" -service "$service" "$@"
   else
     log "Adding service ${service}"
     srvctl add service -db "$DB_UNIQUE_NAME" -service "$service" \
-      -preferred "$PREFERRED_INSTANCES" -pdb "$PDB_NAME" -role PRIMARY \
+      "${placement_args[@]}" -pdb "$PDB_NAME" -role PRIMARY \
       -policy AUTOMATIC "$@"
   fi
   start_service_if_needed "$service"
@@ -91,15 +167,15 @@ configure_services() {
   configure_service_common "$AC_SERVICE" \
     -notification TRUE -clbgoal LONG -rlbgoal SERVICE_TIME \
     -failovertype TRANSACTION -failoverretry 30 -failoverdelay 3 \
-    -failover_restore LEVEL1 -commit_outcome TRUE -commit_outcome_fastpath TRUE \
+    -failover_restore LEVEL1 -commit_outcome TRUE \
     -retention 86400 -replay_init_time 300 -session_state DYNAMIC \
     -drain_timeout 300 -stopoption TRANSACTIONAL
 
   configure_service_common "$TAC_SERVICE" \
     -notification TRUE -clbgoal LONG -rlbgoal SERVICE_TIME \
     -failovertype AUTO -failoverretry 30 -failoverdelay 3 \
-    -failover_restore AUTO -commit_outcome TRUE -commit_outcome_fastpath TRUE \
-    -retention 86400 -replay_init_time 300 -session_state AUTO \
+    -failover_restore LEVEL1 -commit_outcome TRUE \
+    -retention 86400 -replay_init_time 300 \
     -drain_timeout 300 -stopoption TRANSACTIONAL
 
   log "ONS status"
@@ -107,8 +183,10 @@ configure_services() {
   srvctl status ons || true
 }
 
+# credentials go through the heredoc CONNECT (never on argv/ps output)
 catalog_metadata_exists() {
-  sqlplus -s "${CATALOG_USER}/${CRASHSIM_RMAN_CATALOG_PASSWORD}@${CATALOG_CONNECT}" <<'SQL' 2>/dev/null | grep -q '^CATALOG_EXISTS=YES'
+  sqlplus -s /nolog <<SQL 2>/dev/null | grep -q '^CATALOG_EXISTS=YES'
+connect ${CATALOG_USER}/"${CRASHSIM_RMAN_CATALOG_PASSWORD}"@${CATALOG_CONNECT}
 set heading off feedback off pages 0 verify off
 select 'CATALOG_EXISTS=YES' from user_objects where object_name='RC_DATABASE' and rownum=1;
 exit
@@ -122,13 +200,22 @@ whenever sqlerror exit failure
 alter session set container=${PDB_NAME};
 declare
   user_count number;
+  perm_ts    varchar2(128);
+  temp_ts    varchar2(128);
 begin
+  -- use the PDB's own defaults instead of assuming USERS/TEMP exist
+  select property_value into perm_ts from database_properties
+   where property_name = 'DEFAULT_PERMANENT_TABLESPACE';
+  select property_value into temp_ts from database_properties
+   where property_name = 'DEFAULT_TEMP_TABLESPACE';
   select count(*) into user_count from dba_users where username = upper('${CATALOG_USER}');
   if user_count = 0 then
-    execute immediate 'create user ${CATALOG_USER} identified by "${CRASHSIM_RMAN_CATALOG_PASSWORD}" default tablespace USERS temporary tablespace TEMP quota unlimited on USERS';
+    execute immediate 'create user ${CATALOG_USER} identified by "${CRASHSIM_RMAN_CATALOG_PASSWORD}"'
+      || ' default tablespace ' || perm_ts || ' temporary tablespace ' || temp_ts
+      || ' quota unlimited on ' || perm_ts;
   else
     execute immediate 'alter user ${CATALOG_USER} identified by "${CRASHSIM_RMAN_CATALOG_PASSWORD}" account unlock';
-    execute immediate 'alter user ${CATALOG_USER} quota unlimited on USERS';
+    execute immediate 'alter user ${CATALOG_USER} quota unlimited on ' || perm_ts;
   end if;
 end;
 /
@@ -141,13 +228,16 @@ configure_catalog() {
   : "${CRASHSIM_RMAN_CATALOG_PASSWORD:?Set CRASHSIM_RMAN_CATALOG_PASSWORD for --catalog}"
   need_tool sqlplus
   need_tool rman
+  resolve_pdb_name
+  resolve_catalog_connect
   create_catalog_user
 
   if catalog_metadata_exists; then
     log "RMAN catalog metadata already exists for ${CATALOG_USER}; skipping CREATE CATALOG"
   else
     log "Creating RMAN catalog metadata"
-    rman catalog "${CATALOG_USER}/${CRASHSIM_RMAN_CATALOG_PASSWORD}@${CATALOG_CONNECT}" <<'RMAN'
+    rman <<RMAN
+connect catalog ${CATALOG_USER}/"${CRASHSIM_RMAN_CATALOG_PASSWORD}"@${CATALOG_CONNECT}
 create catalog;
 exit;
 RMAN
@@ -155,7 +245,8 @@ RMAN
 
   log "Registering/resyncing target database"
   set +e
-  rman target / catalog "${CATALOG_USER}/${CRASHSIM_RMAN_CATALOG_PASSWORD}@${CATALOG_CONNECT}" <<'RMAN'
+  rman target / <<RMAN
+connect catalog ${CATALOG_USER}/"${CRASHSIM_RMAN_CATALOG_PASSWORD}"@${CATALOG_CONNECT}
 register database;
 resync catalog;
 report schema;
@@ -165,7 +256,8 @@ RMAN
   set -e
   if [[ "$rman_status" -ne 0 ]]; then
     log "REGISTER DATABASE may already be complete; retrying RESYNC/REPORT only"
-    rman target / catalog "${CATALOG_USER}/${CRASHSIM_RMAN_CATALOG_PASSWORD}@${CATALOG_CONNECT}" <<'RMAN'
+    rman target / <<RMAN
+connect catalog ${CATALOG_USER}/"${CRASHSIM_RMAN_CATALOG_PASSWORD}"@${CATALOG_CONNECT}
 resync catalog;
 report schema;
 exit;

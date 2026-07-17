@@ -103,6 +103,34 @@ ensure_runtime() {
   trap cleanup EXIT
 }
 
+LOG_MODE="UNKNOWN"
+
+# An OPEN-database datafile backup is impossible in NOARCHIVELOG (ORA-19602),
+# and the script's 'alter system archive log current' fails outright - so a
+# NOARCHIVELOG lab must be told WHY and HOW to fix it instead of dying at
+# "RMAN> 2>" with status 1. UNKNOWN (no sqlplus / not reachable) keeps the
+# current behavior and lets RMAN report its own error.
+detect_log_mode() {
+  local sqlplus_bin out
+  if [[ -n "${ORACLE_HOME:-}" && -x "${ORACLE_HOME}/bin/sqlplus" ]]; then
+    sqlplus_bin="${ORACLE_HOME}/bin/sqlplus"
+  else
+    sqlplus_bin="$(command -v sqlplus 2>/dev/null || true)"
+  fi
+  [[ -n "$sqlplus_bin" ]] || return "$SUCCESS"
+  out="$("$sqlplus_bin" -s / as sysdba 2>/dev/null <<'SQL'
+set heading off feedback off pagesize 0
+select log_mode from v$database;
+exit
+SQL
+)"
+  out="$(printf "%s" "$out" | tr -d '[:space:]')"
+  case "$out" in
+    ARCHIVELOG|NOARCHIVELOG) LOG_MODE="$out" ;;
+  esac
+  return "$SUCCESS"
+}
+
 ensure_rman() {
   if [[ -n "$RMAN_BIN" && -x "$RMAN_BIN" ]]; then
     return "$SUCCESS"
@@ -247,7 +275,29 @@ run_baseline_backup() {
   echo "RMAN catalog: $([[ -n "$RMAN_CATALOG_CONNECT" ]] && printf "configured (%s)" "$catalog_redacted" || printf "not configured")"
   echo "RMAN command file: ${display_cmd_file}"
   echo "RMAN log file: ${log_file}"
+  detect_log_mode
+  echo "Database log mode: ${LOG_MODE}"
   echo
+
+  if [[ "$LOG_MODE" == "NOARCHIVELOG" ]]; then
+    echo "WARN: this database runs in NOARCHIVELOG mode. An OPEN-database RMAN datafile"
+    echo "backup is not possible in NOARCHIVELOG (ORA-19602), and the baseline's"
+    echo "'alter system archive log current' / archivelog backup steps fail outright,"
+    echo "so the result would not be a restorable baseline. Enable ARCHIVELOG mode"
+    echo "first (short outage; run as sysdba):"
+    echo "  shutdown immediate"
+    echo "  startup mount"
+    echo "  alter database archivelog;"
+    echo "  alter database open;"
+    echo "then re-run this baseline. If the lab must stay NOARCHIVELOG, take a CLOSED"
+    echo "(mounted) consistent backup manually instead."
+    echo
+    if [[ "$EXECUTE" -eq 1 ]]; then
+      die "Refusing an open-database baseline backup in NOARCHIVELOG mode (would not be restorable)."
+    fi
+    echo "DRY-RUN: plan shown for reference; --execute will refuse while NOARCHIVELOG."
+    echo
+  fi
 
   if [[ "$EXECUTE" -eq 0 ]]; then
     echo "DRY-RUN: would run RMAN target / with this command file:"

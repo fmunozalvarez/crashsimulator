@@ -1011,7 +1011,16 @@ menu_print_child_command() {
 }
 
 menu_run_child_command() {
-  local status
+  local status child_stream_capture
+  # Guided-menu children have an operator at the terminal: audit stream capture
+  # would wrap the child's stdout in the redaction pipe and its interactive
+  # confirmation prompts (Type PREPARE-ENVIRONMENT / EXECUTE-<id> / ...) can
+  # arrive late while `read` already blocks - the operator answers a safety
+  # gate blind. Default capture OFF for children (same policy the audit module
+  # applies to the menu itself; generated artifacts are still collected at
+  # finalization). An explicit CRASHSIM_AUDIT_STREAM_CAPTURE=0/1 is respected.
+  child_stream_capture="${AUDIT_STREAM_CAPTURE:-auto}"
+  [[ "$child_stream_capture" == "auto" ]] && child_stream_capture=0
   menu_print_child_command
   echo
   env \
@@ -1020,6 +1029,7 @@ menu_run_child_command() {
     CRASHSIM_AUDIT_RETAIN="$AUDIT_RETAIN" \
     CRASHSIM_AUDIT_RETENTION_DAYS="$AUDIT_RETENTION_DAYS" \
     CRASHSIM_AUDIT_DIR="$AUDIT_DIR" \
+    CRASHSIM_AUDIT_STREAM_CAPTURE="$child_stream_capture" \
     "${MENU_CMD[@]}"
   status=$?
   echo

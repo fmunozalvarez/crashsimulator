@@ -593,13 +593,13 @@ confirm_prepare_environment_execution() {
     require_destructive_lab_ack "environment preparation"
     return "$SUCCESS"
   fi
-  echo
-  echo "About to execute eligible CrashSimulator environment preparation helpers."
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))"
-  echo "Only items marked auto-execute yes/conditional and currently missing will be attempted."
-  echo "Type ${token} to continue:"
+  confirm_show "" \
+    "About to execute eligible CrashSimulator environment preparation helpers." \
+    "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))" \
+    "Only items marked auto-execute yes/conditional and currently missing will be attempted." \
+    "Type ${token} to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "environment preparation"
 }

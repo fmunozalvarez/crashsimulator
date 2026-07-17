@@ -1,0 +1,23 @@
+# CrashSimulator Public Release Check
+
+- Generated UTC: `2026-07-17T02:11:25Z`
+- Repository: `/Users/franciscomunozalvarez/Downloads/crashsimulator-public`
+
+## Checks
+
+| Status | Check | Evidence | Recommended action |
+| --- | --- | --- | --- |
+| `OK` | Bash syntax | passed | No action needed. |
+| `OK` | Git whitespace check | passed | No action needed. |
+| `OK` | Scenario lifecycle consistency | passed | No action needed. |
+| `OK` | Secret scan | Summary: high=0 warnings=0 | No action needed. |
+| `OK` | Runtime ZIP integrity | passed | No action needed. |
+| `OK` | Runtime ZIP required contents | passed | No action needed. |
+| `FAIL` | Runtime ZIP freshness | CrashSimulatorV2.sh is newer than dist/crashsimulator-v2.0.3-rc-runtime.zip | Rebuild the runtime ZIP so dist/ matches the current source tree. |
+| `OK` | Runtime ZIP checksum | dist/crashsimulator-v2.0.3-rc-runtime.zip.sha256 matches | No action needed. |
+| `OK` | Certification wording | no prohibited certification phrase found | No action needed. |
+
+## Summary
+
+- Failures: `1`
+- Warnings: `0`

@@ -1,3 +1,16 @@
+# srvctl ships inside EVERY database home, so a runnable srvctl proves nothing
+# about Grid Infrastructure / Oracle Restart being installed (misreading it
+# classified plain single-instance labs as GI_SINGLE and the seed planner then
+# attempted srvctl service creation that can never work there). Only the OLR
+# registration laid down by root.sh, or a live HAS stack, count as evidence.
+topology_grid_stack_present() {
+  [[ -f /etc/oracle/olr.loc || -f /var/opt/oracle/olr.loc ]] && return "$SUCCESS"
+  if grid_tool_available crsctl; then
+    run_grid_tool crsctl check has 2>/dev/null | grep -qi "online" && return "$SUCCESS"
+  fi
+  return "$FAIL"
+}
+
 collect_datafile_plan() {
   reset_plan_targets
 
@@ -593,8 +606,14 @@ order by name;
   done < <(trim_blank_lines <"$params_file")
 
   if grid_tool_available srvctl; then
-    local srvctl_config srvctl_type
-    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
+    local srvctl_config srvctl_type srvctl_rc=0
+    # srvctl prints failures to STDOUT (e.g. "Start Oracle Clusterware stack
+    # and try again." on hosts with no Oracle Restart at all), so non-empty
+    # output alone is NOT config data - the exit status must be checked too.
+    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null)" || srvctl_rc=$?
+    if [[ "$srvctl_rc" -ne 0 ]]; then
+      srvctl_config=""
+    fi
     if [[ -n "$srvctl_config" ]]; then
       GI_MANAGED=1
       PASSWORD_FILE_PATH="$(printf "%s\n" "$srvctl_config" |
@@ -621,7 +640,7 @@ order by name;
       "")
         if [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
           CLUSTER_TYPE="RAC"
-        elif [[ "$GI_MANAGED" -eq 1 || -x "${ORACLE_HOME:-}/bin/srvctl" ]]; then
+        elif [[ "$GI_MANAGED" -eq 1 ]] || topology_grid_stack_present; then
           CLUSTER_TYPE="GI_SINGLE"
         else
           CLUSTER_TYPE="SINGLE"

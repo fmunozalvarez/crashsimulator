@@ -19,7 +19,10 @@ audit_stream_capture_enabled() {
 }
 
 audit_redact_stream() {
-  sed -E \
+  # -u: line-buffered. Without it GNU sed block-buffers ~4KB when its stdout is
+  # a pipe (to tee), which leaves interactive confirmation prompts stuck in the
+  # buffer while `read` blocks - the operator sees a hang at the safety gate.
+  sed -u -E \
     -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_SYS_PASSWORD=)[^[:space:]]+#\1<redacted>#g' \
@@ -233,12 +236,12 @@ confirm_audit_purge() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days."
-  echo "Audit directory: ${AUDIT_DIR}"
-  echo "Type PURGE-AUDIT-LOGS to continue:"
+  confirm_show "" \
+    "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days." \
+    "Audit directory: ${AUDIT_DIR}" \
+    "Type PURGE-AUDIT-LOGS to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "PURGE-AUDIT-LOGS" ]] || die "Confirmation did not match. Aborting."
 }
 

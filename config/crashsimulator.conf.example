@@ -73,6 +73,9 @@ CRASHSIM_ADB_CONNECT_ALIAS=myadb_low
 CRASHSIM_ADB_CONNECT_DESCRIPTOR=
 CRASHSIM_ADB_SERVICE_LEVEL=low
 CRASHSIM_ADB_USER=ADMIN
+# The two *_ENV settings hold the NAME of an environment variable, never the
+# secret itself (do NOT paste a password here). Example:
+#   export CRASHSIM_ADB_PASSWORD='...'   # in the shell, before running
 CRASHSIM_ADB_PASSWORD_ENV=CRASHSIM_ADB_PASSWORD
 CRASHSIM_ADB_WALLET_PASSWORD_ENV=CRASHSIM_ADB_WALLET_PASSWORD
 CRASHSIM_ADB_PYTHON=python3

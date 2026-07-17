@@ -13,7 +13,7 @@ if [[ -z "${BASH_VERSINFO:-}" || "${BASH_VERSINFO[0]}" -lt 4 ]]; then
   exit 2
 fi
 
-VERSION="2.0.3-rc"
+VERSION="2.0.3-rc2"
 SUCCESS=0
 FAIL=1
 
@@ -578,6 +578,32 @@ die() {
 
 warn() {
   echo "WARN: $*" >&2
+}
+
+# Interactive confirmation I/O. Under audit stream capture stdout is wrapped
+# in a redaction pipe, so prompt lines written there can reach the terminal
+# late (or, on builds without line-buffered redaction, only at exit) while
+# `read` blocks - the operator ends up answering a safety gate they cannot
+# see. Mirror prompt lines to the controlling terminal whenever stdout is not
+# a tty, and prefer /dev/tty for the reply when stdin is not a tty.
+confirm_show() {
+  printf "%s\n" "$@"
+  if [[ ! -t 1 && -e /dev/tty ]]; then
+    # group so a failed /dev/tty open (no controlling terminal) stays silent
+    { printf "%s\n" "$@" >/dev/tty; } 2>/dev/null || true
+  fi
+}
+
+confirm_reply() {
+  local __var="$1" __reply=""
+  if [[ -t 0 ]]; then
+    IFS= read -r __reply
+  elif [[ -e /dev/tty ]] && { IFS= read -r __reply </dev/tty; } 2>/dev/null; then
+    :
+  else
+    IFS= read -r __reply || true
+  fi
+  printf -v "$__var" '%s' "$__reply"
 }
 
 info() {
@@ -1496,10 +1522,13 @@ normalize_targets() {
     die "Invalid APEX session interval seconds: $APEX_SESSION_INTERVAL"
   APEX_SESSION_HEADLESS="$(normalize_bool "$APEX_SESSION_HEADLESS")" ||
     die "Invalid APEX session headless value: $APEX_SESSION_HEADLESS"
+  # NOTE: never echo these two values back - a common mistake is pasting the
+  # literal password into the *_ENV field, and the "invalid" value would then
+  # leak into terminals and logs.
   [[ "$ADB_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB password environment variable name: $ADB_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_PASSWORD; export the actual password in that variable instead."
   [[ "$ADB_WALLET_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB wallet password environment variable name: $ADB_WALLET_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_WALLET_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_WALLET_PASSWORD; export the actual wallet password in that variable instead."
   case "$(printf "%s" "$ADB_SERVICE_LEVEL" | tr '[:upper:]' '[:lower:]')" in
     low|medium|high|tp|tpurgent) ;;
     *) die "Invalid ADB service level: $ADB_SERVICE_LEVEL" ;;
@@ -1534,7 +1563,10 @@ audit_stream_capture_enabled() {
 }
 
 audit_redact_stream() {
-  sed -E \
+  # -u: line-buffered. Without it GNU sed block-buffers ~4KB when its stdout is
+  # a pipe (to tee), which leaves interactive confirmation prompts stuck in the
+  # buffer while `read` blocks - the operator sees a hang at the safety gate.
+  sed -u -E \
     -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_SYS_PASSWORD=)[^[:space:]]+#\1<redacted>#g' \
@@ -1748,12 +1780,12 @@ confirm_audit_purge() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days."
-  echo "Audit directory: ${AUDIT_DIR}"
-  echo "Type PURGE-AUDIT-LOGS to continue:"
+  confirm_show "" \
+    "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days." \
+    "Audit directory: ${AUDIT_DIR}" \
+    "Type PURGE-AUDIT-LOGS to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "PURGE-AUDIT-LOGS" ]] || die "Confirmation did not match. Aborting."
 }
 
@@ -2261,6 +2293,19 @@ record_action_targets() {
 
     action_no=$((action_no + 1))
   done
+}
+
+# srvctl ships inside EVERY database home, so a runnable srvctl proves nothing
+# about Grid Infrastructure / Oracle Restart being installed (misreading it
+# classified plain single-instance labs as GI_SINGLE and the seed planner then
+# attempted srvctl service creation that can never work there). Only the OLR
+# registration laid down by root.sh, or a live HAS stack, count as evidence.
+topology_grid_stack_present() {
+  [[ -f /etc/oracle/olr.loc || -f /var/opt/oracle/olr.loc ]] && return "$SUCCESS"
+  if grid_tool_available crsctl; then
+    run_grid_tool crsctl check has 2>/dev/null | grep -qi "online" && return "$SUCCESS"
+  fi
+  return "$FAIL"
 }
 
 collect_datafile_plan() {
@@ -2858,8 +2903,14 @@ order by name;
   done < <(trim_blank_lines <"$params_file")
 
   if grid_tool_available srvctl; then
-    local srvctl_config srvctl_type
-    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
+    local srvctl_config srvctl_type srvctl_rc=0
+    # srvctl prints failures to STDOUT (e.g. "Start Oracle Clusterware stack
+    # and try again." on hosts with no Oracle Restart at all), so non-empty
+    # output alone is NOT config data - the exit status must be checked too.
+    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null)" || srvctl_rc=$?
+    if [[ "$srvctl_rc" -ne 0 ]]; then
+      srvctl_config=""
+    fi
     if [[ -n "$srvctl_config" ]]; then
       GI_MANAGED=1
       PASSWORD_FILE_PATH="$(printf "%s\n" "$srvctl_config" |
@@ -2886,7 +2937,7 @@ order by name;
       "")
         if [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
           CLUSTER_TYPE="RAC"
-        elif [[ "$GI_MANAGED" -eq 1 || -x "${ORACLE_HOME:-}/bin/srvctl" ]]; then
+        elif [[ "$GI_MANAGED" -eq 1 ]] || topology_grid_stack_present; then
           CLUSTER_TYPE="GI_SINGLE"
         else
           CLUSTER_TYPE="SINGLE"
@@ -4241,18 +4292,21 @@ confirm_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  local -a prompt_lines=(
+    ""
+    "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
   if [[ -n "$TARGET_SCHEMA" ]]; then
-    echo "Schema: ${TARGET_SCHEMA}"
+    prompt_lines+=("Schema: ${TARGET_SCHEMA}")
   fi
-  echo "Type EXECUTE-${id} to continue:"
+  prompt_lines+=("Type EXECUTE-${id} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "EXECUTE-${id}" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "scenario ${id} execution"
 }
@@ -4314,15 +4368,18 @@ confirm_mode_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  local -a prompt_lines=(
+    ""
+    "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
-  echo "Type ${token} to continue:"
+  prompt_lines+=("Type ${token} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "${mode_name,,} for scenario ${id}"
 }
@@ -7584,13 +7641,13 @@ confirm_prepare_environment_execution() {
     require_destructive_lab_ack "environment preparation"
     return "$SUCCESS"
   fi
-  echo
-  echo "About to execute eligible CrashSimulator environment preparation helpers."
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))"
-  echo "Only items marked auto-execute yes/conditional and currently missing will be attempted."
-  echo "Type ${token} to continue:"
+  confirm_show "" \
+    "About to execute eligible CrashSimulator environment preparation helpers." \
+    "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))" \
+    "Only items marked auto-execute yes/conditional and currently missing will be attempted." \
+    "Type ${token} to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "environment preparation"
 }
@@ -18950,7 +19007,16 @@ menu_print_child_command() {
 }
 
 menu_run_child_command() {
-  local status
+  local status child_stream_capture
+  # Guided-menu children have an operator at the terminal: audit stream capture
+  # would wrap the child's stdout in the redaction pipe and its interactive
+  # confirmation prompts (Type PREPARE-ENVIRONMENT / EXECUTE-<id> / ...) can
+  # arrive late while `read` already blocks - the operator answers a safety
+  # gate blind. Default capture OFF for children (same policy the audit module
+  # applies to the menu itself; generated artifacts are still collected at
+  # finalization). An explicit CRASHSIM_AUDIT_STREAM_CAPTURE=0/1 is respected.
+  child_stream_capture="${AUDIT_STREAM_CAPTURE:-auto}"
+  [[ "$child_stream_capture" == "auto" ]] && child_stream_capture=0
   menu_print_child_command
   echo
   env \
@@ -18959,6 +19025,7 @@ menu_run_child_command() {
     CRASHSIM_AUDIT_RETAIN="$AUDIT_RETAIN" \
     CRASHSIM_AUDIT_RETENTION_DAYS="$AUDIT_RETENTION_DAYS" \
     CRASHSIM_AUDIT_DIR="$AUDIT_DIR" \
+    CRASHSIM_AUDIT_STREAM_CAPTURE="$child_stream_capture" \
     "${MENU_CMD[@]}"
   status=$?
   echo
