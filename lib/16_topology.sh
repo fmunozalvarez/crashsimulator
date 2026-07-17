@@ -248,11 +248,17 @@ ${container_sql}
 declare
   l_tempfile_count number := 0;
   l_temp_tbs database_properties.property_value%type;
+  l_omf_dest varchar2(4000);
 begin
   select property_value
     into l_temp_tbs
     from database_properties
    where property_name = 'DEFAULT_TEMP_TABLESPACE';
+
+  select value
+    into l_omf_dest
+    from v\$parameter
+   where name = 'db_create_file_dest';
 
   select count(*)
     into l_tempfile_count
@@ -283,8 +289,17 @@ begin
 
   if l_tempfile_count <= 0 then
     dbms_output.put_line('Adding replacement tempfile to ' || l_temp_tbs);
-    execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
-      ' add tempfile size ${TEMPFILE_SIZE} autoextend on next 10m maxsize unlimited';
+    -- ADD TEMPFILE without a file name is OMF-only (ORA-02236 otherwise):
+    -- reuse the original path, freed by the scenario rename, when
+    -- db_create_file_dest is not configured.
+    if l_omf_dest is not null then
+      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
+        ' add tempfile size ${TEMPFILE_SIZE} autoextend on next 10m maxsize unlimited';
+    else
+      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
+        ' add tempfile ' || chr(39) || ${original_literal} || chr(39) ||
+        ' size ${TEMPFILE_SIZE} reuse autoextend on next 10m maxsize unlimited';
+    end if;
   end if;
 
   select count(*)
@@ -351,11 +366,12 @@ write_tempfile_list_recovery_sql_file() {
   local sql_file="$3"
   shift 3
 
-  local container_sql="" tablespace_literal path path_literal
+  local container_sql="" tablespace_literal path path_literal first_literal
   if [[ -n "$container_name" && "$container_name" != "CDB\$ROOT" && "$container_name" != "ROOT" && "$container_name" != "NONCDB" ]]; then
     container_sql="alter session set container = $(sql_identifier "$container_name");"
   fi
   tablespace_literal="$(sql_quote "$tablespace_name")"
+  first_literal="$(sql_quote "${1:-}")"
 
   {
     cat <<SQL
@@ -365,6 +381,7 @@ ${container_sql}
 declare
   l_tempfile_count number := 0;
   l_temp_tbs varchar2(128) := ${tablespace_literal};
+  l_omf_dest varchar2(4000);
 begin
   if l_temp_tbs is null then
     select property_value
@@ -374,6 +391,11 @@ begin
   end if;
 
   dbms_output.put_line('Temporary tablespace selected for repair: ' || l_temp_tbs);
+
+  select value
+    into l_omf_dest
+    from v\$parameter
+   where name = 'db_create_file_dest';
 SQL
 
     for path in "$@"; do
@@ -409,8 +431,17 @@ SQL
   if l_tempfile_count <= 0 then
     dbms_output.put_line('Adding replacement tempfile to ' || l_temp_tbs);
 SQL
-    printf "    execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
-    printf "      ' add tempfile size %s autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    # ADD TEMPFILE without a file name is OMF-only (ORA-02236 otherwise):
+    # reuse the first original path (freed by the scenario rename) when
+    # db_create_file_dest is not configured.
+    printf "    if l_omf_dest is not null then\n"
+    printf "      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
+    printf "        ' add tempfile size %s autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    printf "    else\n"
+    printf "      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
+    printf "        ' add tempfile ' || chr(39) || %s || chr(39) ||\n" "$first_literal"
+    printf "        ' size %s reuse autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    printf "    end if;\n"
     cat <<'SQL'
   end if;
 
