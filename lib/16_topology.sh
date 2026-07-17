@@ -565,7 +565,11 @@ discover_environment() {
   local params_file="$WORK_DIR/params.env"
   local pdb_file="$WORK_DIR/pdbs.env"
 
-  sql_query "$db_file" "
+  # Fail closed if v$database is unreadable: with the instance down, sqlplus
+  # prints the failing statement + ORA-01034 and this parser used to swallow
+  # that as topology (DB_ROLE became a stray quote from the echoed SQL), so
+  # readiness gates blamed the database ROLE instead of the dead instance.
+  if ! sql_query "$db_file" "
 select name || '|' ||
        db_unique_name || '|' ||
        database_role || '|' ||
@@ -574,9 +578,20 @@ select name || '|' ||
        protection_mode || '|' ||
        switchover_status
 from v\$database;
-"
+"; then
+    local ora_hint
+    ora_hint="$(grep -m 1 -oE 'ORA-[0-9]+.*' "$db_file" 2>/dev/null)"
+    die "Topology discovery cannot read v\$database (${ora_hint:-SQL*Plus connection failed}).
+The Oracle instance is not available. Start it (sqlplus / as sysdba; startup) - or, if a
+destructive scenario was injected earlier and never recovered, run --recover for that
+scenario first - then retry."
+  fi
   local db_line
   db_line="$(trim_blank_lines <"$db_file" | head -n 1)"
+  case "$db_line" in
+    *"|"*"|"*"|"*"|"*"|"*"|"*) ;;
+    *) die "Topology discovery returned unexpected output instead of v\$database data: ${db_line:-<empty>}" ;;
+  esac
   IFS='|' read -r DB_NAME DB_UNIQUE_NAME DB_ROLE DB_OPEN_MODE DB_CDB DB_PROTECTION_MODE DB_SWITCHOVER_STATUS <<<"$db_line"
 
   sql_query "$instance_file" "
