@@ -488,6 +488,53 @@ where name = 'service_names';
   printf "%s\n" "$SERVICE_NAME"
 }
 
+# Pure parser: extract host:port from a local_listener ADDRESS string, e.g.
+# (ADDRESS=(PROTOCOL=TCP)(HOST=testone)(PORT=1522)) -> testone:1522.
+# Fails when the value is empty, an alias (no ADDRESS to parse), or malformed.
+parse_listener_endpoint_from_address() {
+  local value="${1:-}" host="" port=""
+  # Patterns live in variables: a literal ')' inside an inline [[ =~ ]] regex
+  # is a bash syntax error.
+  local host_re='\([Hh][Oo][Ss][Tt][[:space:]]*=[[:space:]]*([^)[:space:]]+)[[:space:]]*\)'
+  local port_re='\([Pp][Oo][Rr][Tt][[:space:]]*=[[:space:]]*([0-9]+)[[:space:]]*\)'
+  [[ -n "$value" ]] || return "$FAIL"
+  if [[ "$value" =~ $host_re ]]; then
+    host="${BASH_REMATCH[1]}"
+  fi
+  if [[ "$value" =~ $port_re ]]; then
+    port="${BASH_REMATCH[1]}"
+  fi
+  [[ -n "$host" && -n "$port" ]] || return "$FAIL"
+  printf "%s:%s\n" "$host" "$port"
+}
+
+# EZConnect endpoint (host:port) for listener-routed validation connects.
+# Priority: CRASHSIM_LISTENER_ENDPOINT override, then the database's own
+# local_listener ADDRESS - authoritative on labs with non-default listeners
+# (field-tested 2026-07-18: a lab listening on port 1522 made the previous
+# hardcoded localhost:1521 remote SYSDBA validation fail ORA-12541 on an
+# otherwise healthy system) - then the localhost:1521 default.
+discover_listener_endpoint() {
+  if [[ -n "${CRASHSIM_LISTENER_ENDPOINT:-}" ]]; then
+    printf "%s\n" "$CRASHSIM_LISTENER_ENDPOINT"
+    return "$SUCCESS"
+  fi
+
+  local file="$WORK_DIR/local_listener.out" value endpoint
+  if sql_query "$file" "
+select value
+from v\$parameter
+where name = 'local_listener';
+"; then
+    value="$(trim_blank_lines <"$file" | head -n 1)"
+    if endpoint="$(parse_listener_endpoint_from_address "$value")"; then
+      printf "%s\n" "$endpoint"
+      return "$SUCCESS"
+    fi
+  fi
+  printf "localhost:1521\n"
+}
+
 sqlplus_password_literal() {
   local value="$1"
   value="${value//\"/\\\"}"
@@ -504,25 +551,31 @@ remote_sysdba_test() {
     service="${SERVICE_NAME:-<service_name>}"
     cat <<DRYRUN
 DRY-RUN: would validate remote SYSDBA using:
-  connect sys/"********"@//localhost:1521/${service} as sysdba
+  connect sys/"********"@//<listener endpoint from local_listener, default localhost:1521>/${service} as sysdba
   require output prefix: REMOTE_SYSDBA_OK|
 DRYRUN
     return "$SUCCESS"
   fi
 
   service="$(discover_service_name)" || die "Could not discover listener service name. Use --service-name or CRASHSIM_SERVICE_NAME."
+  # The endpoint comes from the database's own local_listener (labs often run
+  # non-default listeners, e.g. port 1522), never a hardcoded default.
+  local endpoint
+  endpoint="$(discover_listener_endpoint)"
+  echo "Remote SYSDBA validation endpoint: //${endpoint}/${service}"
   ensure_sqlplus
   "$SQLPLUS_BIN" -L -s /nolog >"$output_file" <<SQL
-connect sys/"${password_escaped}"@//localhost:1521/${service} as sysdba
+connect sys/"${password_escaped}"@//${endpoint}/${service} as sysdba
 set heading off feedback off pages 0 verify off echo off
 select 'REMOTE_SYSDBA_OK|' || name || '|' || open_mode from v\$database;
 exit
 SQL
   status=$?
   cat "$output_file"
-  [[ "$status" -eq 0 ]] || die "Remote SYSDBA SQL*Plus exited with status $status."
+  [[ "$status" -eq 0 ]] ||
+    die "Remote SYSDBA SQL*Plus exited with status $status (endpoint //${endpoint}/${service}; if the listener runs elsewhere, set CRASHSIM_LISTENER_ENDPOINT=host:port)."
   grep -q '^REMOTE_SYSDBA_OK|' "$output_file" ||
-    die "Remote SYSDBA validation did not return REMOTE_SYSDBA_OK."
+    die "Remote SYSDBA validation did not return REMOTE_SYSDBA_OK (endpoint //${endpoint}/${service}; check the listener is up and the service is registered, or set CRASHSIM_LISTENER_ENDPOINT=host:port)."
 }
 
 restore_sysbackup_user_if_present() {

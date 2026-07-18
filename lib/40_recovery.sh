@@ -384,9 +384,13 @@ recover_password_file_scenario() {
   print_recovery_runbook "$id"
   echo
 
-  confirm_mode_execution "RECOVER" "$id"
+  # Checked BEFORE the typed confirmations: execute-mode recovery recreates the
+  # password file with orapwd, which needs the SYS password - discovering that
+  # only after RECOVER-<id> and LAB-APPROVED wastes the operator's gates
+  # (field-tested 2026-07-18).
   [[ -n "$SYS_PASSWORD" || "$EXECUTE" -eq 0 ]] ||
     die "Password-file recovery execution requires --sys-password or CRASHSIM_SYS_PASSWORD."
+  confirm_mode_execution "RECOVER" "$id"
 
   if [[ "$EXECUTE" -eq 0 ]]; then
     echo "DRY-RUN: would run orapwd file=${original} password=${password_display} entries=30 force=y"

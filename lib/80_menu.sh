@@ -982,6 +982,54 @@ menu_recovery_manifest_is_recoverable() {
   return "$FAIL"
 }
 
+# Scenario 16 (Loss of password file) recovers by RECREATING the file with
+# orapwd, which embeds the SYS password - so execute-mode recovery cannot run
+# without it. Mirrors the id -> recover_password_file_scenario mapping in the
+# recovery dispatch.
+menu_scenario_recovery_needs_sys_password() {
+  case "${1:-}" in
+    16) return "$SUCCESS" ;;
+  esac
+  return "$FAIL"
+}
+
+# Surface the SYS-password prerequisite at the right moments (field-tested
+# 2026-07-18: the operator learned about it only AFTER typing RECOVER-16 and
+# LAB-APPROVED):
+#   - action=scenario (menu options 5 and 8): non-blocking heads-up BEFORE
+#     breaking a password file the operator cannot yet recover; the scenario
+#     itself runs fine without the password.
+#   - action=recover in execute mode (menu option 10): fail early with the
+#     fix, instead of letting the child die after the confirmation gates.
+menu_warn_sys_password_for_scenario() {
+  local action="$1" run_mode="$2"
+  [[ -n "$SCENARIO_ID" ]] || return "$SUCCESS"
+  menu_scenario_recovery_needs_sys_password "$SCENARIO_ID" || return "$SUCCESS"
+  [[ -z "$SYS_PASSWORD" ]] || return "$SUCCESS"
+
+  case "$action" in
+    scenario)
+      warn "Recovering scenario ${SCENARIO_ID} later will need the SYS password, which is not set."
+      echo "  Recovery recreates the password file with orapwd, and execute-mode recovery"
+      echo "  (option 10) refuses to run without the SYS password. Set it via option 12"
+      echo "  (Configure targets and options -> Password-file recovery options) now or"
+      echo "  before you recover. Continuing with the scenario itself is safe."
+      echo
+      ;;
+    recover)
+      if [[ "$run_mode" == "execute" ]]; then
+        warn "Execute-mode recovery for scenario ${SCENARIO_ID} requires the SYS password, which is not set."
+        echo "  Recovery recreates the password file with orapwd file=... password=<SYS>, so"
+        echo "  the run would stop with \"Password-file recovery execution requires"
+        echo "  --sys-password or CRASHSIM_SYS_PASSWORD\". Set the SYS password via option 12"
+        echo "  (Configure targets and options -> Password-file recovery options), then retry."
+        return "$FAIL"
+      fi
+      ;;
+  esac
+  return "$SUCCESS"
+}
+
 menu_append_common_child_args() {
   [[ -n "$CONFIG_SOURCE" ]] && MENU_CMD+=("--config" "$CONFIG_SOURCE")
   [[ -n "$TARGET_PDB" ]] && MENU_CMD+=("--pdb" "$TARGET_PDB")
@@ -1115,6 +1163,7 @@ menu_run_child_action() {
 
   case "$action" in
     scenario)
+      menu_warn_sys_password_for_scenario "scenario" "$run_mode"
       ;;
     protect)
       if ! supports_file_recovery_automation "$SCENARIO_ID"; then
@@ -1129,6 +1178,7 @@ menu_run_child_action() {
         warn "Automated recovery is not available for scenario ${SCENARIO_ID}: ${capability}. Use menu option 4 for the recovery runbook and evidence guidance."
         return "$FAIL"
       fi
+      menu_warn_sys_password_for_scenario "recover" "$run_mode" || return "$FAIL"
       menu_choose_recovery_manifest
       menu_apply_manifest_context_if_available
       menu_recovery_manifest_is_recoverable || return "$FAIL"
