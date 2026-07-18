@@ -179,6 +179,21 @@ menu_select_schema() {
       candidate_filter="and exists (select 1 from dba_tables t where t.owner = u.username and t.nested = 'NO' and t.temporary = 'N' and t.secondary = 'N')"
       ;;
   esac
+  # A configured CRASHSIM_PDB from another environment (e.g. the conf example's
+  # CRASHPDB on a database whose PDB is named differently) used to flow straight
+  # into 'alter session set container' here and die with a raw ORA-65011.
+  # Validate it against the discovered PDB list first and fall back sensibly.
+  if [[ -n "$TARGET_PDB" && "$DB_CDB" == "YES" ]] && ! pdb_exists "$TARGET_PDB"; then
+    warn "Configured PDB ${TARGET_PDB} does not exist on this database (available: $(pdb_list_for_message))."
+    warn "Check CRASHSIM_PDB in crashsimulator.conf (or the --pdb value)."
+    if [[ "${#PDB_ROWS[@]}" -eq 1 ]]; then
+      IFS='|' read -r TARGET_PDB _ _ <<<"${PDB_ROWS[0]}"
+      echo "Falling back to the only available PDB: ${TARGET_PDB}"
+    else
+      TARGET_PDB=""
+      return "$FAIL"
+    fi
+  fi
   if [[ -n "$TARGET_PDB" ]]; then
     sql_query "$target_file" "
 alter session set container = ${TARGET_PDB};
