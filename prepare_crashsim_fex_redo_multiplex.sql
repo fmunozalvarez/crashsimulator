@@ -13,8 +13,10 @@ join v$log l on l.group# = lf.group#
 order by l.thread#, l.group#, lf.member;
 
 declare
-  l_dest v$parameter.value%type;
-  l_sql varchar2(4000);
+  l_dest   v$parameter.value%type;
+  l_member varchar2(600);
+  l_sql    varchar2(4000);
+  l_exists number;
 begin
   select value
   into l_dest
@@ -35,16 +37,51 @@ begin
     where members < 2
     order by thread#, group#
   ) loop
-    l_sql := 'alter database add logfile member ''' ||
-             replace(l_dest, '''', '''''') ||
-             ''' to group ' || rec.group#;
-    dbms_output.put_line(l_sql);
-    execute immediate l_sql;
+    if l_dest like '+%' then
+      -- ASM diskgroup: pass the bare diskgroup and let OMF name the member
+      l_member := l_dest;
+      l_sql := 'alter database add logfile member ''' ||
+               replace(l_member, '''', '''''') ||
+               ''' to group ' || rec.group#;
+    else
+      -- Filesystem destination: ADD LOGFILE MEMBER needs a full FILE path -
+      -- passing the directory itself fails with ORA-00301/ORA-27038. Build a
+      -- deterministic, crashsim-namespaced name per group; REUSE lets a rerun
+      -- absorb a leftover from an earlier interrupted attempt.
+      l_member := rtrim(l_dest, '/') || '/crashsim_redo_g' || rec.group# || '_m2.log';
+      l_sql := 'alter database add logfile member ''' ||
+               replace(l_member, '''', '''''') ||
+               ''' reuse to group ' || rec.group#;
+    end if;
+
+    select count(*)
+    into l_exists
+    from v$logfile
+    where member = l_member;
+
+    if l_exists > 0 then
+      dbms_output.put_line('Member already present, skipping: ' || l_member);
+    else
+      dbms_output.put_line(l_sql);
+      execute immediate l_sql;
+    end if;
   end loop;
 end;
 /
 
-alter system archive log current;
+-- Rotate so the new members become active. ARCHIVE LOG CURRENT raises
+-- ORA-00258 in NOARCHIVELOG labs; SWITCH LOGFILE is valid in both modes.
+declare
+  l_log_mode v$database.log_mode%type;
+begin
+  select log_mode into l_log_mode from v$database;
+  if l_log_mode = 'ARCHIVELOG' then
+    execute immediate 'alter system archive log current';
+  else
+    execute immediate 'alter system switch logfile';
+  end if;
+end;
+/
 
 prompt === After redo multiplexing ===
 select group#, thread#, sequence#, bytes/1024/1024 mb, members, archived, status

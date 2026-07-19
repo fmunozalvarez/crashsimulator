@@ -13,7 +13,7 @@ if [[ -z "${BASH_VERSINFO:-}" || "${BASH_VERSINFO[0]}" -lt 4 ]]; then
   exit 2
 fi
 
-VERSION="2.0.2-beta"
+VERSION="2.0.3-rc4"
 SUCCESS=0
 FAIL=1
 
@@ -29,6 +29,7 @@ case "$SCRIPT_SOURCE" in
     [[ -n "$SCRIPT_PATH" ]] || SCRIPT_PATH="./$SCRIPT_SOURCE"
     ;;
 esac
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd)"
 MODE="menu"
 SCENARIO_ID=""
 TARGET_PDB="${CRASHSIM_PDB:-}"
@@ -579,6 +580,32 @@ warn() {
   echo "WARN: $*" >&2
 }
 
+# Interactive confirmation I/O. Under audit stream capture stdout is wrapped
+# in a redaction pipe, so prompt lines written there can reach the terminal
+# late (or, on builds without line-buffered redaction, only at exit) while
+# `read` blocks - the operator ends up answering a safety gate they cannot
+# see. Mirror prompt lines to the controlling terminal whenever stdout is not
+# a tty, and prefer /dev/tty for the reply when stdin is not a tty.
+confirm_show() {
+  printf "%s\n" "$@"
+  if [[ ! -t 1 && -e /dev/tty ]]; then
+    # group so a failed /dev/tty open (no controlling terminal) stays silent
+    { printf "%s\n" "$@" >/dev/tty; } 2>/dev/null || true
+  fi
+}
+
+confirm_reply() {
+  local __var="$1" __reply=""
+  if [[ -t 0 ]]; then
+    IFS= read -r __reply
+  elif [[ -e /dev/tty ]] && { IFS= read -r __reply </dev/tty; } 2>/dev/null; then
+    :
+  else
+    IFS= read -r __reply || true
+  fi
+  printf -v "$__var" '%s' "$__reply"
+}
+
 info() {
   echo "$*"
 }
@@ -1116,6 +1143,7 @@ load_startup_config() {
 
   for candidate in \
     "./crashsimulator.conf" \
+    "${SCRIPT_DIR:-}/crashsimulator.conf" \
     "${HOME:-}/.crashsimulator/crashsimulator.conf" \
     "/etc/crashsimulator/crashsimulator.conf"; do
     [[ -n "$candidate" ]] || continue
@@ -1494,10 +1522,13 @@ normalize_targets() {
     die "Invalid APEX session interval seconds: $APEX_SESSION_INTERVAL"
   APEX_SESSION_HEADLESS="$(normalize_bool "$APEX_SESSION_HEADLESS")" ||
     die "Invalid APEX session headless value: $APEX_SESSION_HEADLESS"
+  # NOTE: never echo these two values back - a common mistake is pasting the
+  # literal password into the *_ENV field, and the "invalid" value would then
+  # leak into terminals and logs.
   [[ "$ADB_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB password environment variable name: $ADB_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_PASSWORD; export the actual password in that variable instead."
   [[ "$ADB_WALLET_PASSWORD_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
-    die "Invalid ADB wallet password environment variable name: $ADB_WALLET_PASSWORD_ENV"
+    die "Invalid CRASHSIM_ADB_WALLET_PASSWORD_ENV (value hidden: it may be a pasted secret). It must be the NAME of an environment variable, e.g. CRASHSIM_ADB_WALLET_PASSWORD; export the actual wallet password in that variable instead."
   case "$(printf "%s" "$ADB_SERVICE_LEVEL" | tr '[:upper:]' '[:lower:]')" in
     low|medium|high|tp|tpurgent) ;;
     *) die "Invalid ADB service level: $ADB_SERVICE_LEVEL" ;;
@@ -1532,7 +1563,10 @@ audit_stream_capture_enabled() {
 }
 
 audit_redact_stream() {
-  sed -E \
+  # -u: line-buffered. Without it GNU sed block-buffers ~4KB when its stdout is
+  # a pipe (to tee), which leaves interactive confirmation prompts stuck in the
+  # buffer while `read` blocks - the operator sees a hang at the safety gate.
+  sed -u -E \
     -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_SYS_PASSWORD=)[^[:space:]]+#\1<redacted>#g' \
@@ -1746,12 +1780,12 @@ confirm_audit_purge() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days."
-  echo "Audit directory: ${AUDIT_DIR}"
-  echo "Type PURGE-AUDIT-LOGS to continue:"
+  confirm_show "" \
+    "About to purge CrashSimulator audit run folders older than ${AUDIT_RETENTION_DAYS} days." \
+    "Audit directory: ${AUDIT_DIR}" \
+    "Type PURGE-AUDIT-LOGS to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "PURGE-AUDIT-LOGS" ]] || die "Confirmation did not match. Aborting."
 }
 
@@ -2261,6 +2295,19 @@ record_action_targets() {
   done
 }
 
+# srvctl ships inside EVERY database home, so a runnable srvctl proves nothing
+# about Grid Infrastructure / Oracle Restart being installed (misreading it
+# classified plain single-instance labs as GI_SINGLE and the seed planner then
+# attempted srvctl service creation that can never work there). Only the OLR
+# registration laid down by root.sh, or a live HAS stack, count as evidence.
+topology_grid_stack_present() {
+  [[ -f /etc/oracle/olr.loc || -f /var/opt/oracle/olr.loc ]] && return "$SUCCESS"
+  if grid_tool_available crsctl; then
+    run_grid_tool crsctl check has 2>/dev/null | grep -qi "online" && return "$SUCCESS"
+  fi
+  return "$FAIL"
+}
+
 collect_datafile_plan() {
   reset_plan_targets
 
@@ -2498,11 +2545,17 @@ ${container_sql}
 declare
   l_tempfile_count number := 0;
   l_temp_tbs database_properties.property_value%type;
+  l_omf_dest varchar2(4000);
 begin
   select property_value
     into l_temp_tbs
     from database_properties
    where property_name = 'DEFAULT_TEMP_TABLESPACE';
+
+  select value
+    into l_omf_dest
+    from v\$parameter
+   where name = 'db_create_file_dest';
 
   select count(*)
     into l_tempfile_count
@@ -2533,8 +2586,17 @@ begin
 
   if l_tempfile_count <= 0 then
     dbms_output.put_line('Adding replacement tempfile to ' || l_temp_tbs);
-    execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
-      ' add tempfile size ${TEMPFILE_SIZE} autoextend on next 10m maxsize unlimited';
+    -- ADD TEMPFILE without a file name is OMF-only (ORA-02236 otherwise):
+    -- reuse the original path, freed by the scenario rename, when
+    -- db_create_file_dest is not configured.
+    if l_omf_dest is not null then
+      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
+        ' add tempfile size ${TEMPFILE_SIZE} autoextend on next 10m maxsize unlimited';
+    else
+      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||
+        ' add tempfile ' || chr(39) || ${original_literal} || chr(39) ||
+        ' size ${TEMPFILE_SIZE} reuse autoextend on next 10m maxsize unlimited';
+    end if;
   end if;
 
   select count(*)
@@ -2601,11 +2663,12 @@ write_tempfile_list_recovery_sql_file() {
   local sql_file="$3"
   shift 3
 
-  local container_sql="" tablespace_literal path path_literal
+  local container_sql="" tablespace_literal path path_literal first_literal
   if [[ -n "$container_name" && "$container_name" != "CDB\$ROOT" && "$container_name" != "ROOT" && "$container_name" != "NONCDB" ]]; then
     container_sql="alter session set container = $(sql_identifier "$container_name");"
   fi
   tablespace_literal="$(sql_quote "$tablespace_name")"
+  first_literal="$(sql_quote "${1:-}")"
 
   {
     cat <<SQL
@@ -2615,6 +2678,7 @@ ${container_sql}
 declare
   l_tempfile_count number := 0;
   l_temp_tbs varchar2(128) := ${tablespace_literal};
+  l_omf_dest varchar2(4000);
 begin
   if l_temp_tbs is null then
     select property_value
@@ -2624,6 +2688,11 @@ begin
   end if;
 
   dbms_output.put_line('Temporary tablespace selected for repair: ' || l_temp_tbs);
+
+  select value
+    into l_omf_dest
+    from v\$parameter
+   where name = 'db_create_file_dest';
 SQL
 
     for path in "$@"; do
@@ -2659,8 +2728,17 @@ SQL
   if l_tempfile_count <= 0 then
     dbms_output.put_line('Adding replacement tempfile to ' || l_temp_tbs);
 SQL
-    printf "    execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
-    printf "      ' add tempfile size %s autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    # ADD TEMPFILE without a file name is OMF-only (ORA-02236 otherwise):
+    # reuse the first original path (freed by the scenario rename) when
+    # db_create_file_dest is not configured.
+    printf "    if l_omf_dest is not null then\n"
+    printf "      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
+    printf "        ' add tempfile size %s autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    printf "    else\n"
+    printf "      execute immediate 'alter tablespace ' || dbms_assert.simple_sql_name(l_temp_tbs) ||\n"
+    printf "        ' add tempfile ' || chr(39) || %s || chr(39) ||\n" "$first_literal"
+    printf "        ' size %s reuse autoextend on next 10m maxsize unlimited';\n" "$TEMPFILE_SIZE"
+    printf "    end if;\n"
     cat <<'SQL'
   end if;
 
@@ -2707,6 +2785,53 @@ where name = 'service_names';
   printf "%s\n" "$SERVICE_NAME"
 }
 
+# Pure parser: extract host:port from a local_listener ADDRESS string, e.g.
+# (ADDRESS=(PROTOCOL=TCP)(HOST=testone)(PORT=1522)) -> testone:1522.
+# Fails when the value is empty, an alias (no ADDRESS to parse), or malformed.
+parse_listener_endpoint_from_address() {
+  local value="${1:-}" host="" port=""
+  # Patterns live in variables: a literal ')' inside an inline [[ =~ ]] regex
+  # is a bash syntax error.
+  local host_re='\([Hh][Oo][Ss][Tt][[:space:]]*=[[:space:]]*([^)[:space:]]+)[[:space:]]*\)'
+  local port_re='\([Pp][Oo][Rr][Tt][[:space:]]*=[[:space:]]*([0-9]+)[[:space:]]*\)'
+  [[ -n "$value" ]] || return "$FAIL"
+  if [[ "$value" =~ $host_re ]]; then
+    host="${BASH_REMATCH[1]}"
+  fi
+  if [[ "$value" =~ $port_re ]]; then
+    port="${BASH_REMATCH[1]}"
+  fi
+  [[ -n "$host" && -n "$port" ]] || return "$FAIL"
+  printf "%s:%s\n" "$host" "$port"
+}
+
+# EZConnect endpoint (host:port) for listener-routed validation connects.
+# Priority: CRASHSIM_LISTENER_ENDPOINT override, then the database's own
+# local_listener ADDRESS - authoritative on labs with non-default listeners
+# (field-tested 2026-07-18: a lab listening on port 1522 made the previous
+# hardcoded localhost:1521 remote SYSDBA validation fail ORA-12541 on an
+# otherwise healthy system) - then the localhost:1521 default.
+discover_listener_endpoint() {
+  if [[ -n "${CRASHSIM_LISTENER_ENDPOINT:-}" ]]; then
+    printf "%s\n" "$CRASHSIM_LISTENER_ENDPOINT"
+    return "$SUCCESS"
+  fi
+
+  local file="$WORK_DIR/local_listener.out" value endpoint
+  if sql_query "$file" "
+select value
+from v\$parameter
+where name = 'local_listener';
+"; then
+    value="$(trim_blank_lines <"$file" | head -n 1)"
+    if endpoint="$(parse_listener_endpoint_from_address "$value")"; then
+      printf "%s\n" "$endpoint"
+      return "$SUCCESS"
+    fi
+  fi
+  printf "localhost:1521\n"
+}
+
 sqlplus_password_literal() {
   local value="$1"
   value="${value//\"/\\\"}"
@@ -2723,25 +2848,31 @@ remote_sysdba_test() {
     service="${SERVICE_NAME:-<service_name>}"
     cat <<DRYRUN
 DRY-RUN: would validate remote SYSDBA using:
-  connect sys/"********"@//localhost:1521/${service} as sysdba
+  connect sys/"********"@//<listener endpoint from local_listener, default localhost:1521>/${service} as sysdba
   require output prefix: REMOTE_SYSDBA_OK|
 DRYRUN
     return "$SUCCESS"
   fi
 
   service="$(discover_service_name)" || die "Could not discover listener service name. Use --service-name or CRASHSIM_SERVICE_NAME."
+  # The endpoint comes from the database's own local_listener (labs often run
+  # non-default listeners, e.g. port 1522), never a hardcoded default.
+  local endpoint
+  endpoint="$(discover_listener_endpoint)"
+  echo "Remote SYSDBA validation endpoint: //${endpoint}/${service}"
   ensure_sqlplus
   "$SQLPLUS_BIN" -L -s /nolog >"$output_file" <<SQL
-connect sys/"${password_escaped}"@//localhost:1521/${service} as sysdba
+connect sys/"${password_escaped}"@//${endpoint}/${service} as sysdba
 set heading off feedback off pages 0 verify off echo off
 select 'REMOTE_SYSDBA_OK|' || name || '|' || open_mode from v\$database;
 exit
 SQL
   status=$?
   cat "$output_file"
-  [[ "$status" -eq 0 ]] || die "Remote SYSDBA SQL*Plus exited with status $status."
+  [[ "$status" -eq 0 ]] ||
+    die "Remote SYSDBA SQL*Plus exited with status $status (endpoint //${endpoint}/${service}; if the listener runs elsewhere, set CRASHSIM_LISTENER_ENDPOINT=host:port)."
   grep -q '^REMOTE_SYSDBA_OK|' "$output_file" ||
-    die "Remote SYSDBA validation did not return REMOTE_SYSDBA_OK."
+    die "Remote SYSDBA validation did not return REMOTE_SYSDBA_OK (endpoint //${endpoint}/${service}; check the listener is up and the service is registered, or set CRASHSIM_LISTENER_ENDPOINT=host:port)."
 }
 
 restore_sysbackup_user_if_present() {
@@ -2815,7 +2946,11 @@ discover_environment() {
   local params_file="$WORK_DIR/params.env"
   local pdb_file="$WORK_DIR/pdbs.env"
 
-  sql_query "$db_file" "
+  # Fail closed if v$database is unreadable: with the instance down, sqlplus
+  # prints the failing statement + ORA-01034 and this parser used to swallow
+  # that as topology (DB_ROLE became a stray quote from the echoed SQL), so
+  # readiness gates blamed the database ROLE instead of the dead instance.
+  if ! sql_query "$db_file" "
 select name || '|' ||
        db_unique_name || '|' ||
        database_role || '|' ||
@@ -2824,9 +2959,20 @@ select name || '|' ||
        protection_mode || '|' ||
        switchover_status
 from v\$database;
-"
+"; then
+    local ora_hint
+    ora_hint="$(grep -m 1 -oE 'ORA-[0-9]+.*' "$db_file" 2>/dev/null)"
+    die "Topology discovery cannot read v\$database (${ora_hint:-SQL*Plus connection failed}).
+The Oracle instance is not available. Start it (sqlplus / as sysdba; startup) - or, if a
+destructive scenario was injected earlier and never recovered, run --recover for that
+scenario first - then retry."
+  fi
   local db_line
   db_line="$(trim_blank_lines <"$db_file" | head -n 1)"
+  case "$db_line" in
+    *"|"*"|"*"|"*"|"*"|"*"|"*) ;;
+    *) die "Topology discovery returned unexpected output instead of v\$database data: ${db_line:-<empty>}" ;;
+  esac
   IFS='|' read -r DB_NAME DB_UNIQUE_NAME DB_ROLE DB_OPEN_MODE DB_CDB DB_PROTECTION_MODE DB_SWITCHOVER_STATUS <<<"$db_line"
 
   sql_query "$instance_file" "
@@ -2856,8 +3002,14 @@ order by name;
   done < <(trim_blank_lines <"$params_file")
 
   if grid_tool_available srvctl; then
-    local srvctl_config srvctl_type
-    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null || true)"
+    local srvctl_config srvctl_type srvctl_rc=0
+    # srvctl prints failures to STDOUT (e.g. "Start Oracle Clusterware stack
+    # and try again." on hosts with no Oracle Restart at all), so non-empty
+    # output alone is NOT config data - the exit status must be checked too.
+    srvctl_config="$(run_grid_tool srvctl config database -d "$DB_UNIQUE_NAME" 2>/dev/null)" || srvctl_rc=$?
+    if [[ "$srvctl_rc" -ne 0 ]]; then
+      srvctl_config=""
+    fi
     if [[ -n "$srvctl_config" ]]; then
       GI_MANAGED=1
       PASSWORD_FILE_PATH="$(printf "%s\n" "$srvctl_config" |
@@ -2884,7 +3036,7 @@ order by name;
       "")
         if [[ "$INSTANCE_PARALLEL" == "YES" ]]; then
           CLUSTER_TYPE="RAC"
-        elif [[ "$GI_MANAGED" -eq 1 || -x "${ORACLE_HOME:-}/bin/srvctl" ]]; then
+        elif [[ "$GI_MANAGED" -eq 1 ]] || topology_grid_stack_present; then
           CLUSTER_TYPE="GI_SINGLE"
         else
           CLUSTER_TYPE="SINGLE"
@@ -4239,18 +4391,21 @@ confirm_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  local -a prompt_lines=(
+    ""
+    "About to execute scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME} (${DB_ROLE}, ${DB_OPEN_MODE})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
   if [[ -n "$TARGET_SCHEMA" ]]; then
-    echo "Schema: ${TARGET_SCHEMA}"
+    prompt_lines+=("Schema: ${TARGET_SCHEMA}")
   fi
-  echo "Type EXECUTE-${id} to continue:"
+  prompt_lines+=("Type EXECUTE-${id} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "EXECUTE-${id}" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "scenario ${id} execution"
 }
@@ -4312,15 +4467,18 @@ confirm_mode_execution() {
     return "$SUCCESS"
   fi
 
-  echo
-  echo "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  local -a prompt_lines=(
+    ""
+    "About to execute ${mode_name,,} for scenario ${id}: ${SCENARIO_TITLE[$id]}"
+    "Database: ${DB_UNIQUE_NAME:-unknown} (${DB_ROLE:-unknown}, ${DB_OPEN_MODE:-unknown})"
+  )
   if [[ -n "$TARGET_PDB" ]]; then
-    echo "PDB: ${TARGET_PDB}"
+    prompt_lines+=("PDB: ${TARGET_PDB}")
   fi
-  echo "Type ${token} to continue:"
+  prompt_lines+=("Type ${token} to continue:")
+  confirm_show "${prompt_lines[@]}"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "${mode_name,,} for scenario ${id}"
 }
@@ -5526,7 +5684,9 @@ write_validate_datafile_list_rman_file() {
 
   {
     printf "backup validate datafile %s;\n" "$file_list"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write RMAN datafile-list validation file: $cmd_file"
 }
 
@@ -5535,7 +5695,9 @@ write_controlfile_validate_rman_file() {
 
   {
     printf "validate current controlfile;\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); the validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write control-file validation RMAN file: $cmd_file"
 }
 
@@ -5568,7 +5730,9 @@ write_redo_validation_rman_file() {
     printf "  backup validate database;\n"
     printf "  release channel csimv1;\n"
     printf "}\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); backup validate above sets the exit
+    # status and reports any corruption on all supported releases.
   } >"$cmd_file" || die "Unable to write redo RMAN validation file: $cmd_file"
 }
 
@@ -6105,9 +6269,13 @@ recover_password_file_scenario() {
   print_recovery_runbook "$id"
   echo
 
-  confirm_mode_execution "RECOVER" "$id"
+  # Checked BEFORE the typed confirmations: execute-mode recovery recreates the
+  # password file with orapwd, which needs the SYS password - discovering that
+  # only after RECOVER-<id> and LAB-APPROVED wastes the operator's gates
+  # (field-tested 2026-07-18).
   [[ -n "$SYS_PASSWORD" || "$EXECUTE" -eq 0 ]] ||
     die "Password-file recovery execution requires --sys-password or CRASHSIM_SYS_PASSWORD."
+  confirm_mode_execution "RECOVER" "$id"
 
   if [[ "$EXECUTE" -eq 0 ]]; then
     echo "DRY-RUN: would run orapwd file=${original} password=${password_display} entries=30 force=y"
@@ -6215,7 +6383,9 @@ recover_spfile_scenario() {
   rman_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_spfile.log"
   {
     printf "validate spfile;\n"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); validate spfile sets the exit
+    # status on all supported releases.
   } >"$rman_file" || die "Unable to write SPFILE validation RMAN file: $rman_file"
   manifest_append "recover_spfile_validate_rman" "$rman_file"
   manifest_append "recover_spfile_validate_log" "$rman_log"
@@ -6303,7 +6473,9 @@ recover_archivelog_scenario() {
     printf "crosscheck archivelog sequence %s;\n" "$seq"
     printf "validate archivelog sequence %s;\n" "$seq"
     printf "list archivelog sequence %s;\n" "$seq"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); crosscheck/validate above set the
+    # exit status on all supported releases.
   } >"$restore_file" || die "Unable to write archived-log validation RMAN file: $restore_file"
   manifest_append "recover_archivelog_validate_rman" "$restore_file"
   manifest_append "recover_archivelog_validate_log" "$restore_log"
@@ -6369,7 +6541,9 @@ recover_rman_backup_piece_scenario() {
     printf "crosscheck backupset %s;\n" "$bs_key"
     printf "list backupset %s;\n" "$bs_key"
     printf "validate backupset %s;\n" "$bs_key"
-    printf "list failure;\n"
+    # Data Recovery Advisor 'list failure' is desupported in 23ai (RMAN-01009
+    # parse error aborts the whole cmdfile); crosscheck/validate above set the
+    # exit status on all supported releases.
   } >"$validate_file" || die "Unable to write backup-piece validation RMAN file: $validate_file"
   manifest_append "recover_backuppiece_validate_rman" "$validate_file"
   manifest_append "recover_backuppiece_validate_log" "$validate_log"
@@ -7378,9 +7552,9 @@ evaluate_prepare_environment() {
     else
       prepare_add "logical_lab" "Logical/root/PDB lab objects" "MISSING" "Required for scenarios 9-11, 34-36, 43-44 and related logical drills" \
         "root_users=${root_users}, root_tbs=${root_tbs}, pdb_users=${pdb_users}, pdb_tbs=${pdb_tbs}, target_pdb=$(prepare_value target_pdb)" \
-        "Run seed_crashsim_lab.sql. This recreates disposable CRASHSIM lab schemas and tablespaces." \
-        "yes" "${SQLPLUS_BIN:-sqlplus} ${SQLPLUS_LOGON} @${script_root}/seed_crashsim_lab.sql" \
-        "Destructive only to CRASHSIM disposable lab schemas/tablespaces."
+        "Run tools/crashsim_seed_lab.sh (recreates disposable CRASHSIM lab schemas and tablespaces; prompts for a lab password)." \
+        "yes" "${script_root}/tools/crashsim_seed_lab.sh --connect \"${SQLPLUS_LOGON}\"" \
+        "Destructive only to CRASHSIM disposable lab schemas/tablespaces. During --execute preparation the lab password is generated automatically."
     fi
   elif prepare_numeric_ge "$pdb_users" 3 && prepare_numeric_ge "$pdb_tbs" 2; then
     prepare_add "logical_lab" "Logical lab objects" "PRESENT" "Required for logical scenarios" \
@@ -7582,15 +7756,45 @@ confirm_prepare_environment_execution() {
     require_destructive_lab_ack "environment preparation"
     return "$SUCCESS"
   fi
-  echo
-  echo "About to execute eligible CrashSimulator environment preparation helpers."
-  echo "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))"
-  echo "Only items marked auto-execute yes/conditional and currently missing will be attempted."
-  echo "Type ${token} to continue:"
+  confirm_show "" \
+    "About to execute eligible CrashSimulator environment preparation helpers." \
+    "Database: ${DB_UNIQUE_NAME:-unknown} ($(prepare_value database_role "$DB_ROLE"), $(prepare_value open_mode "$DB_OPEN_MODE"))" \
+    "Only items marked auto-execute yes/conditional and currently missing will be attempted." \
+    "Type ${token} to continue:"
   local answer
-  read -r answer
+  confirm_reply answer
   [[ "$answer" == "$token" ]] || die "Confirmation did not match. Aborting."
   require_destructive_lab_ack "environment preparation"
+}
+
+# Generate a strong, SQL*Plus-safe password for the disposable CRASHSIM lab
+# users. These users are never logged into (drills act on their objects via
+# SYSDBA), so the value only needs to satisfy Oracle complexity at creation and
+# is never recorded. Excludes " ' & \\ and whitespace so it is safe inside a
+# SQL*Plus DEFINE and a double-quoted Oracle password.
+generate_lab_password() {
+  local body
+  body="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 24)"
+  [[ ${#body} -ge 16 ]] || body="Fallback$$$(date +%s 2>/dev/null)"
+  printf 'Lb#%sz9' "$body"
+}
+
+# Run seed_crashsim_lab.sql with a generated lab password supplied via a DEFINE
+# on stdin (never argv, never a temp file; seed_crashsim_lab.sql sets
+# 'verify off' so the value is not echoed). Mirrors tools/crashsim_seed_lab.sh
+# for the monolith's automated environment preparation.
+run_seed_lab_prepare() {
+  local id="$1" seed="$2"
+  local pw
+  pw="$(generate_lab_password)"
+  echo
+  echo "Preparing ${id}: ${PREP_TITLE[$id]}"
+  echo "Command: (piped) ${SQLPLUS_BIN} -s ${SQLPLUS_LOGON} @${seed} [lab password generated, not shown]"
+  printf 'define crashsim_lab_password = "%s"\n@%s\n' "$pw" "$seed" \
+    | "$SQLPLUS_BIN" -s ${SQLPLUS_LOGON}
+  local rc=$?
+  unset pw
+  return "$rc"
 }
 
 run_prepare_helper_command() {
@@ -7617,7 +7821,7 @@ execute_prepare_environment_actions() {
     case "$id" in
       logical_lab)
         [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
-        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"${script_root}/seed_crashsim_lab.sql" \
+        run_seed_lab_prepare "$id" "${script_root}/seed_crashsim_lab.sql" \
           >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
         status=$?
         [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
@@ -10477,8 +10681,11 @@ maa_target_tier_from_context() {
     target="Platinum"
     reason="Business context indicates near-zero interruption on an Exadata or engineered-platform strategy."
   elif [[ "$dr_required" == "yes" || "$auto_failover" == "yes" ]] ||
-       maa_duration_le "$MAA_DR_RTO" 300 ||
+       maa_duration_le "$MAA_DR_RTO" 900 ||
        [[ "$(printf "%s" "$MAA_DR_RPO" | tr '[:upper:]' '[:lower:]')" =~ ^(zero|near-zero|near\ zero)$ ]]; then
+    # Gold DR RTO threshold: low-minute DR (<= 15m) or zero/near-zero DR RPO
+    # maps to Gold. A 15-minute DR RTO is still a Data Guard-class objective;
+    # grading it below Gold understated the required architecture.
     target="Gold"
     reason="Business context indicates low-minute disaster recovery, strong RPO, or automatic failover."
   elif [[ "$local_ha" == "yes" ]] ||
@@ -10982,16 +11189,69 @@ maybe_refresh_resilience_scorecard() {
   fi
 }
 
-run_maa_report() {
-  discover_environment
-  ensure_sqlplus
+write_maa_report_sqlplus_blocked_stub() {
+  local report_file="$1"
+  local generated_at="$2"
+  {
+    printf "# CrashSimulator Oracle MAA Readiness Report\n\n"
+    printf -- '- Generated UTC: `%s`\n' "$generated_at"
+    printf -- '- Host: `%s`\n' "$(hostname 2>/dev/null || printf unknown)"
+    printf -- '- OS user: `%s`\n' "$(id -un 2>/dev/null || printf unknown)"
+    printf -- '- Application context: `%s`\n' "${MAA_APP_NAME:-not supplied}"
+    printf -- '- Database evidence: `blocked (SQL*Plus not available)`\n'
+    printf -- '- Target MAA level: `Unknown`\n'
+    printf -- '- Candidate MAA level: `Unknown`\n'
+    printf -- '- Current evidenced MAA level: `Unknown`\n'
+    printf -- '- Readiness status: `BLOCKED`\n'
+    printf "\n"
+    printf "This report is a best-effort posture assessment, not an Oracle certification. SQL*Plus was not found on this host, so no live database, Grid Infrastructure, or Data Guard evidence could be collected. Every database-derived section is therefore reported as a blocker rather than an assessed result.\n\n"
+  } >"$report_file" || die "Unable to write MAA report file: $report_file"
 
+  append_report_section "$report_file" "Database Evidence Blockers"
+  {
+    printf '| Evidence domain | Status | Unblock action |\n'
+    printf '| --- | --- | --- |\n'
+    printf '| Database topology (role, open mode, CDB) | `blocked` | Set ORACLE_HOME or SQLPLUS on a host with a created, open database, then re-run `--maa-report`. |\n'
+    printf '| Backup and recovery (ARCHIVELOG, RMAN) | `blocked` | Provide SQL*Plus access to the target database and re-run the report. |\n'
+    printf '| Local HA (RAC / services) | `blocked` | Provide SQL*Plus and Grid Infrastructure access on the database host and re-run the report. |\n'
+    printf '| Data Guard / ADG / FSFO | `blocked` | Provide SQL*Plus and Data Guard Broker access and re-run the report. |\n'
+    printf '| Application continuity (services, FAN/AC) | `blocked` | Provide SQL*Plus access to the target database and re-run the report. |\n'
+  } >>"$report_file"
+
+  append_report_section "$report_file" "How To Unblock"
+  {
+    printf -- '- Set `ORACLE_HOME` so that `$ORACLE_HOME/bin/sqlplus` exists, or set `SQLPLUS` to the sqlplus binary.\n'
+    printf -- '- Run this report on a host where the target database has been created and is open.\n'
+    printf -- '- Re-run `./%s --maa-report` once SQL*Plus can reach the database to replace these blockers with assessed evidence.\n' "$PROGRAM"
+  } >>"$report_file"
+
+  append_report_section "$report_file" "References"
+  {
+    printf -- '- Oracle MAA Reference Architectures Overview: https://docs.oracle.com/en/database/oracle/oracle-database/26/haiad/maa_overview.html\n'
+    printf -- '- Oracle HA requirements, RTO/RPO, and MAA architecture mapping: https://docs.oracle.com/en/database/oracle/oracle-database/19/haovw/ha-requirements-architecture.html\n'
+  } >>"$report_file"
+}
+
+run_maa_report() {
   local report_file sql_file evidence_file srvctl_service_file dgmgrl_fsfo_file generated_at
   local readiness_status sla_hint baseline_gap=0
   local app_continuity capture_count apply_count
 
   generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   report_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.md"
+
+  if ! find_sqlplus_if_available; then
+    warn "SQL*Plus was not found. The MAA readiness report will still be generated, with all database evidence marked as blockers until ORACLE_HOME or SQLPLUS is set on a host with a created database."
+    write_maa_report_sqlplus_blocked_stub "$report_file" "$generated_at"
+    echo "MAA readiness report generated with blockers: ${report_file}"
+    echo "Target MAA level: Unknown (database evidence blocked: SQL*Plus not available)"
+    maybe_render_html "$report_file"
+    return "$SUCCESS"
+  fi
+
+  discover_environment
+  ensure_sqlplus
+
   sql_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.sql"
   evidence_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}.evidence"
   srvctl_service_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_srvctl_services.out"
@@ -14698,7 +14958,7 @@ duration_to_seconds() {
     ""|not\ supplied) return "$FAIL" ;;
     zero|near\ zero|near-zero) printf "0\n"; return "$SUCCESS" ;;
   esac
-  number="$(printf "%s" "$text" | sed -nE 's/.*([0-9]+([.][0-9]+)?).*/\1/p' | head -n 1)"
+  number="$(printf "%s" "$text" | sed -nE 's/^[^0-9]*([0-9]+([.][0-9]+)?).*/\1/p' | head -n 1)"
   [[ -n "$number" ]] || return "$FAIL"
   if printf "%s" "$text" | grep -Eq 'day|d\b'; then
     unit=86400
@@ -18030,6 +18290,21 @@ menu_select_schema() {
       candidate_filter="and exists (select 1 from dba_tables t where t.owner = u.username and t.nested = 'NO' and t.temporary = 'N' and t.secondary = 'N')"
       ;;
   esac
+  # A configured CRASHSIM_PDB from another environment (e.g. the conf example's
+  # CRASHPDB on a database whose PDB is named differently) used to flow straight
+  # into 'alter session set container' here and die with a raw ORA-65011.
+  # Validate it against the discovered PDB list first and fall back sensibly.
+  if [[ -n "$TARGET_PDB" && "$DB_CDB" == "YES" ]] && ! pdb_exists "$TARGET_PDB"; then
+    warn "Configured PDB ${TARGET_PDB} does not exist on this database (available: $(pdb_list_for_message))."
+    warn "Check CRASHSIM_PDB in crashsimulator.conf (or the --pdb value)."
+    if [[ "${#PDB_ROWS[@]}" -eq 1 ]]; then
+      IFS='|' read -r TARGET_PDB _ _ <<<"${PDB_ROWS[0]}"
+      echo "Falling back to the only available PDB: ${TARGET_PDB}"
+    else
+      TARGET_PDB=""
+      return "$FAIL"
+    fi
+  fi
   if [[ -n "$TARGET_PDB" ]]; then
     sql_query "$target_file" "
 alter session set container = ${TARGET_PDB};
@@ -18771,6 +19046,101 @@ menu_choose_recovery_manifest() {
   fi
 }
 
+# A scenario manifest records restore points (rename_N_original/rename_N_backup)
+# only when the scenario actually ran: a dry-run scenario (option 5) prints the
+# plan and renames/backs up nothing. Recovery replays those restore points, so a
+# dry-run scenario manifest can never recover - load_manifest_restore_pairs finds
+# no pair and the helper stops with "Manifest is missing ... restore paths", which
+# the guided menu surfaced only as a bare "Command exited with status 1". Detect
+# it up front and say what to do instead. Scoped to fs_rename plans (the mechanism
+# recovery replays) so scenarios that recover by other means are never blocked.
+menu_recovery_manifest_is_recoverable() {
+  local idx kind planned_rename run_id title
+
+  [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$SUCCESS"
+  [[ "$(manifest_get "mode" || true)" == "scenario" ]] || return "$SUCCESS"
+
+  planned_rename=0
+  idx=1
+  while :; do
+    kind="$(manifest_get "action_${idx}_kind" || true)"
+    [[ -n "$kind" ]] || break
+    if [[ "$kind" == "fs_rename" ]]; then
+      planned_rename=1
+      break
+    fi
+    idx=$((idx + 1))
+  done
+  [[ "$planned_rename" -eq 1 ]] || return "$SUCCESS"
+
+  # Mirror load_manifest_restore_pairs: it starts at rename_1 and reports no
+  # pairs only when both sides are empty.
+  [[ -z "$(manifest_get "rename_1_original" || true)" ]] || return "$SUCCESS"
+  [[ -z "$(manifest_get "rename_1_backup" || true)" ]] || return "$SUCCESS"
+
+  run_id="$(manifest_get "run_id" || true)"
+  title="$(manifest_get "scenario_title" || true)"
+  warn "This manifest is from a dry-run scenario preview - there is nothing to recover."
+  echo "  Manifest: ${MANIFEST_FILE}"
+  echo "  Scenario: ${SCENARIO_ID}${title:+ - ${title}}${run_id:+ (run ${run_id})}"
+  echo
+  echo "  A dry-run scenario prints the plan but renames and backs up no file, so this"
+  echo "  manifest holds no restore point. Recovery replays those restore points, so it"
+  echo "  would stop with \"Manifest is missing ... restore paths\"."
+  echo
+  echo "  Run menu option 8 (Execute selected scenario) first, then retry recovery:"
+  echo "  the executed run writes its own manifest and the menu will offer that one."
+  return "$FAIL"
+}
+
+# Scenario 16 (Loss of password file) recovers by RECREATING the file with
+# orapwd, which embeds the SYS password - so execute-mode recovery cannot run
+# without it. Mirrors the id -> recover_password_file_scenario mapping in the
+# recovery dispatch.
+menu_scenario_recovery_needs_sys_password() {
+  case "${1:-}" in
+    16) return "$SUCCESS" ;;
+  esac
+  return "$FAIL"
+}
+
+# Surface the SYS-password prerequisite at the right moments (field-tested
+# 2026-07-18: the operator learned about it only AFTER typing RECOVER-16 and
+# LAB-APPROVED):
+#   - action=scenario (menu options 5 and 8): non-blocking heads-up BEFORE
+#     breaking a password file the operator cannot yet recover; the scenario
+#     itself runs fine without the password.
+#   - action=recover in execute mode (menu option 10): fail early with the
+#     fix, instead of letting the child die after the confirmation gates.
+menu_warn_sys_password_for_scenario() {
+  local action="$1" run_mode="$2"
+  [[ -n "$SCENARIO_ID" ]] || return "$SUCCESS"
+  menu_scenario_recovery_needs_sys_password "$SCENARIO_ID" || return "$SUCCESS"
+  [[ -z "$SYS_PASSWORD" ]] || return "$SUCCESS"
+
+  case "$action" in
+    scenario)
+      warn "Recovering scenario ${SCENARIO_ID} later will need the SYS password, which is not set."
+      echo "  Recovery recreates the password file with orapwd, and execute-mode recovery"
+      echo "  (option 10) refuses to run without the SYS password. Set it via option 12"
+      echo "  (Configure targets and options -> Password-file recovery options) now or"
+      echo "  before you recover. Continuing with the scenario itself is safe."
+      echo
+      ;;
+    recover)
+      if [[ "$run_mode" == "execute" ]]; then
+        warn "Execute-mode recovery for scenario ${SCENARIO_ID} requires the SYS password, which is not set."
+        echo "  Recovery recreates the password file with orapwd file=... password=<SYS>, so"
+        echo "  the run would stop with \"Password-file recovery execution requires"
+        echo "  --sys-password or CRASHSIM_SYS_PASSWORD\". Set the SYS password via option 12"
+        echo "  (Configure targets and options -> Password-file recovery options), then retry."
+        return "$FAIL"
+      fi
+      ;;
+  esac
+  return "$SUCCESS"
+}
+
 menu_append_common_child_args() {
   [[ -n "$CONFIG_SOURCE" ]] && MENU_CMD+=("--config" "$CONFIG_SOURCE")
   [[ -n "$TARGET_PDB" ]] && MENU_CMD+=("--pdb" "$TARGET_PDB")
@@ -18862,7 +19232,16 @@ menu_print_child_command() {
 }
 
 menu_run_child_command() {
-  local status
+  local status child_stream_capture
+  # Guided-menu children have an operator at the terminal: audit stream capture
+  # would wrap the child's stdout in the redaction pipe and its interactive
+  # confirmation prompts (Type PREPARE-ENVIRONMENT / EXECUTE-<id> / ...) can
+  # arrive late while `read` already blocks - the operator answers a safety
+  # gate blind. Default capture OFF for children (same policy the audit module
+  # applies to the menu itself; generated artifacts are still collected at
+  # finalization). An explicit CRASHSIM_AUDIT_STREAM_CAPTURE=0/1 is respected.
+  child_stream_capture="${AUDIT_STREAM_CAPTURE:-auto}"
+  [[ "$child_stream_capture" == "auto" ]] && child_stream_capture=0
   menu_print_child_command
   echo
   env \
@@ -18871,6 +19250,7 @@ menu_run_child_command() {
     CRASHSIM_AUDIT_RETAIN="$AUDIT_RETAIN" \
     CRASHSIM_AUDIT_RETENTION_DAYS="$AUDIT_RETENTION_DAYS" \
     CRASHSIM_AUDIT_DIR="$AUDIT_DIR" \
+    CRASHSIM_AUDIT_STREAM_CAPTURE="$child_stream_capture" \
     "${MENU_CMD[@]}"
   status=$?
   echo
@@ -18894,6 +19274,7 @@ menu_run_child_action() {
 
   case "$action" in
     scenario)
+      menu_warn_sys_password_for_scenario "scenario" "$run_mode"
       ;;
     protect)
       if ! supports_file_recovery_automation "$SCENARIO_ID"; then
@@ -18908,8 +19289,10 @@ menu_run_child_action() {
         warn "Automated recovery is not available for scenario ${SCENARIO_ID}: ${capability}. Use menu option 4 for the recovery runbook and evidence guidance."
         return "$FAIL"
       fi
+      menu_warn_sys_password_for_scenario "recover" "$run_mode" || return "$FAIL"
       menu_choose_recovery_manifest
       menu_apply_manifest_context_if_available
+      menu_recovery_manifest_is_recoverable || return "$FAIL"
       ;;
     *)
       warn "Unknown action: $action"

@@ -41,7 +41,20 @@ scan_sensitive_filename() {
 line_is_placeholder() {
   local line="$1"
   case "$line" in
-    *'<redacted>'*|*'<password>'*|*'<secret>'*|*'<token>'*|*'<value>'*|*'not set'*|*'not-set'*|*'example'*|*'EXAMPLE'*|*'${'*|*'_ENV='*|*'_PASSWORD_ENV='*|*'_TOKEN_ENV='*|*'CRASHSIM_SECRET_SCAN_PATH='*)
+    *'<redacted>'*|*'<password>'*|*'<pw>'*|*'<pwd>'*|*'<pass>'*|*'<secret>'*|*'<token>'*|*'<value>'*|*'not set'*|*'not-set'*|*'example'*|*'EXAMPLE'*|*'${'*|*'_ENV='*|*'_PASSWORD_ENV='*|*'_TOKEN_ENV='*|*'CRASHSIM_SECRET_SCAN_PATH='*)
+      return 0
+      ;;
+    # HTML input hint text and OCID prefix-validation messages / placeholders
+    # are documentation, not credentials: e.g. an SMTP/private-key <textarea>
+    # placeholder, "must start with ocid1.user.", or an ocid1...<group-ocid>
+    # template in a runbook.
+    *'placeholder="-----BEGIN'*|*'must start with ocid1.'*|*'ocid1.fnfunc.'*|*'-ocid>'*)
+      return 0
+      ;;
+    # sudoers 'NOPASSWD:' is sudo's no-password-required tag on a Cmnd rule
+    # (the opposite of a secret), never a credential assignment - skip such
+    # lines, e.g. the ASM-privilege sudoers examples in the user guide.
+    *'ALL=('*'NOPASSWD:'*)
       return 0
       ;;
     *'ocid1.'*'...'*|*'BEGIN .*PRIVATE KEY'*|*'BEGIN [A-Z ]*PRIVATE KEY'*|*'"$upper" == *"-----BEGIN'*|*'Private key material detected.'*)
@@ -50,13 +63,43 @@ line_is_placeholder() {
     *'--sys-password='*|*'--rman-catalog='*|*'--apex-session-password='*|*'sys.stdin.readline'*|*'Invalid '*' password environment variable name'*|*'passwordVisible'*|*'passwordSelector'*|*'input[type='*|*'process.env.CRASHSIM_'*)
       return 0
       ;;
+    *'confirmation_token_hash'*|*'CONFIRMATION_TOKEN_HASH'*|*'tokenHashPresent'*)
+      return 0
+      ;;
+    *'apex_application.g_f'*|*'apex_authentication.login'*|*'secrets_found'*)
+      # APEX login binds p_password to a runtime form-field accessor
+      # (apex_application.g_fNN); 'secrets_found' is a scan-count metric. Neither
+      # carries a secret literal.
+      return 0
+      ;;
+    *'p_web_password'*|*'p_new_password'*|*'p_change_password_on_first_use'*)
+      # apex_util.create_user/edit_user named parameters (crashsim_user_admin_pkg);
+      # these bind PL/SQL variables, not secret literals.
+      return 0
+      ;;
+    *'password=null'*|*'password = null'*|*'password := null'*|*'password=NULL'*|*'password = NULL'*)
+      # Assigning NULL SCRUBS a transient password column (e.g. the p75 user
+      # provisioning queue clears web_password once processed) - the opposite
+      # of embedding a secret.
+      return 0
+      ;;
+    *'NOPASSWD:'*)
+      # sudoers syntax in runbook/guide documentation (e.g. the ASM privilege
+      # prerequisite): NOPASSWD is a privilege-grant keyword, not a secret.
+      return 0
+      ;;
   esac
   return 1
 }
 
 scan_text_file() {
   local file="$1" match line_no line upper pattern
-  pattern="-----BEGIN .*PRIVATE KEY-----|[A-Za-z0-9_]*(password|passwd|secret|token|private_key|access_key)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"'<{\$\*]|ocid1\\."
+  # The assignment class excludes '>' so a PL/SQL named-parameter association
+  # (password => l_pw, p_output_password => p_password) is NOT read as an inline
+  # secret - the value after '=>' is always a bind variable/expression, never a
+  # literal. The OCID class requires the 24+ char suffix of a real OCID, so a
+  # prefix reference (ocid1.user.) or placeholder (ocid1..<x>) does not match.
+  pattern="-----BEGIN .*PRIVATE KEY-----|[A-Za-z0-9_]*(password|passwd|secret|token|private_key|access_key)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"'<{\$\*>]|ocid1\\.[A-Za-z0-9_.-]{24,}"
   while IFS= read -r match; do
     [[ -n "$match" ]] || continue
     line_no="${match%%:*}"
@@ -72,12 +115,12 @@ scan_text_file() {
       print_finding "HIGH" "$file" "$line_no" "Private key material detected."
       continue
     fi
-    if [[ "$upper" =~ [A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|ACCESS_KEY)[A-Z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"\'\<\{\$\*] ]]; then
+    if [[ "$upper" =~ [A-Z0-9_]*(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|ACCESS_KEY)[A-Z0-9_]*[[:space:]]*[:=][[:space:]]*[^[:space:]\"\'\<\{\$\*\>] ]]; then
       if ! line_is_placeholder "$line"; then
         print_finding "HIGH" "$file" "$line_no" "Possible inline secret assignment detected."
       fi
     fi
-    if [[ "$line" =~ ocid1\.[A-Za-z0-9_.-]+ ]] && ! line_is_placeholder "$line"; then
+    if [[ "$line" =~ ocid1\.[A-Za-z0-9_.-]{24,} ]] && ! line_is_placeholder "$line"; then
       print_finding "WARN" "$file" "$line_no" "OCI OCID detected; verify whether this public artifact should expose it."
     fi
   done < <(grep -nEi -- "$pattern" "$file" 2>/dev/null || true)
