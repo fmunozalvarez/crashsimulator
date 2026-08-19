@@ -1,11 +1,13 @@
-# CrashSimulator v2.0.3 Release Notes
+# CrashSimulator v3.0.0 Release Notes
 
-Release: `v2.0.3` (General Availability)
+Release: `v3.0.0` (General Availability)
 
 ## Summary
 
-CrashSimulator `v2.0.3` is the first **General Availability** release of the
-open-source edition. It supersedes `v2.0.3-rc1` through `v2.0.3-rc4`.
+CrashSimulator `v3.0.0` is the first **General Availability** release of the
+open-source edition. It supersedes the entire `v2.0.3-rc1` .. `v2.0.3-rc4`
+release-candidate line, and the version moves to 3.0.0 to mark GA rather than
+another point release on the 2.x beta series.
 
 The scenario catalog is unchanged at 104 scenarios. What changed is what
 happens *around* a drill: the engine now refuses to start drills it cannot
@@ -89,7 +91,7 @@ are now ASM-aware end to end:
 
 ## Upgrading
 
-Replace `CrashSimulatorV2.sh` with the `v2.0.3` artifact. No configuration
+Replace `CrashSimulatorV2.sh` with the `v3.0.0` artifact. No configuration
 file changes are required, and no state is carried between versions.
 
 Manifests written by earlier builds remain readable. If an older run left a

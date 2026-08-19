@@ -191,13 +191,13 @@ The tool still uses dry-run, runbook hints, and confirmation gates.
 Download the release runtime ZIP from GitHub, copy it to the database server,
 and unzip it as the Oracle software owner or another OS user allowed to become
 the Oracle owner. For `v2.0.2 beta`, the curated install package is
-`crashsimulator-v2.0.3-runtime.zip`.
+`crashsimulator-v3.0.0-runtime.zip`.
 
 Example:
 
 ```bash
-unzip crashsimulator-v2.0.3-runtime.zip
-cd crashsimulator-v2.0.3
+unzip crashsimulator-v3.0.0-runtime.zip
+cd crashsimulator-v3.0.0
 chmod +x crashsimulator CrashSimulatorV2.sh
 chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
@@ -227,7 +227,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.3
+cd /path/to/crashsimulator-v3.0.0
 ./CrashSimulatorV2.sh --help
 ./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
