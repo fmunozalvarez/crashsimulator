@@ -1,7 +1,7 @@
 # CrashSimulator Public Beta Limitations And Expectations
 
 - Generated UTC: `2026-06-15T13:45:19Z`
-- Tool version: `2.0.2-beta`
+- Tool version: `2.0.3`
 
 CrashSimulator is an open-source resilience validation platform for Oracle Database labs. It helps teams practice, validate, and document recoverability, but it is not a production chaos tool, an Oracle certification program, a licensing verifier, or a substitute for tested backups and change control.
 

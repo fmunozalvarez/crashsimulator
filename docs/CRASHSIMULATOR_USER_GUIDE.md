@@ -191,13 +191,13 @@ The tool still uses dry-run, runbook hints, and confirmation gates.
 Download the release runtime ZIP from GitHub, copy it to the database server,
 and unzip it as the Oracle software owner or another OS user allowed to become
 the Oracle owner. For `v2.0.2 beta`, the curated install package is
-`crashsimulator-v2.0.2-beta-runtime.zip`.
+`crashsimulator-v2.0.3-runtime.zip`.
 
 Example:
 
 ```bash
-unzip crashsimulator-v2.0.2-beta-runtime.zip
-cd crashsimulator-v2.0.2-beta
+unzip crashsimulator-v2.0.3-runtime.zip
+cd crashsimulator-v2.0.3
 chmod +x crashsimulator CrashSimulatorV2.sh
 chmod +x crashsim_run_baseline_backup.sh crashsim_prepare_redundant_gi_lab.sh crashsim_ords_priv_helper.sh tools/crashsim_apex_session_driver.cjs
 ```
@@ -227,7 +227,7 @@ sudo su - oracle
 export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
 export ORACLE_SID=orcl
 export PATH=$ORACLE_HOME/bin:$PATH
-cd /path/to/crashsimulator-v2.0.2-beta
+cd /path/to/crashsimulator-v2.0.3
 ./CrashSimulatorV2.sh --help
 ./crashsimulator --help
 ./CrashSimulatorV2.sh --discover
@@ -515,7 +515,6 @@ Before publishing a build or handing CrashSimulator to new users, run:
 ./CrashSimulatorV2.sh --public-limitations --html
 ./CrashSimulatorV2.sh --secret-scan --scan-path .
 ./CrashSimulatorV2.sh --sanitize-artifacts --sanitize-source reports
-./CrashSimulatorV2.sh --evidence-bundle --evidence-bundle-source reports --evidence-bundle-output /tmp/crashsim_evidence_bundle.zip
 tools/crashsim_release_secret_gate.sh
 tools/crashsim_menu_smoke_test.py
 tools/crashsim_scenario_lifecycle_linter.sh
@@ -545,10 +544,8 @@ adds a stricter release scan for private keys, wallets, credential-bearing
 connect strings, OCIDs, raw DBSAT reports, audit logs, and real customer
 evidence. `tools/crashsim_repository_analytics_failure_tests.sh` verifies that
 analytics reports handle empty repository, partial data, stale data, and
-sample-only data without failing or overstating readiness. `--evidence-bundle`
-creates a ZIP package for audits or training with a manifest, SHA256 hashes,
-and an optional OpenSSL signature over the hash manifest when
-`--evidence-sign-key` is supplied. `--release-check` runs these gates together
+sample-only data without failing or overstating readiness. `--release-check`
+runs these gates together
 with syntax, package, and wording checks for public release preparation.
 
 ### Runbook Hints
@@ -639,7 +636,6 @@ CrashSimulator already collects. It produces domain scores and an overall
 
 ```bash
 ./CrashSimulatorV2.sh --resilience-scorecard
-./CrashSimulatorV2.sh --resilience-scorecard --scorecard-history --trend-days 90
 ./CrashSimulatorV2.sh --resilience-scorecard --html
 ./CrashSimulatorV2.sh --show-artifact latest:resilience
 ```
@@ -674,132 +670,30 @@ drill, the refresh is skipped with a warning and the drill result is not marked
 failed because of the skipped scorecard. Disable this behavior with
 `--no-auto-scorecard` or `CRASHSIM_AUTO_SCORECARD=0`.
 
-When the optional CRASHSIM evidence repository is enabled and initialized,
-scorecard runs can persist overall and domain scores into
-`crashsim_score_snapshots`. Use `--scorecard-history` to append recent
-repository-backed score history to the Markdown/HTML scorecard. If the
-repository is off or not installed, CrashSimulator keeps generating the normal
-file-based scorecard and notes that history is unavailable.
+The scorecard is written to `reports/` as Markdown and HTML each time it runs,
+so score history is simply the set of scorecards you have kept. Persisting
+scores to a database and trending them across a fleet is a CrashSimulator
+Enterprise capability.
 
-### Optional Evidence Repository And Lessons Learned
+### Evidence Repository, Lessons Learned, And Fleet Reporting
 
-CrashSimulator normally stores evidence as files: logs, manifests, audit
-records, reports, and HTML copies. The optional CRASHSIM repository adds a
-database-backed index for run summaries, evidence pointers, score snapshots,
-findings, recommendations, and lessons learned.
+These capabilities are part of **CrashSimulator Enterprise**, not this
+open-source edition: a central evidence repository, lessons-learned capture,
+findings/recommendation tracking, fleet dashboards, DBSAT import, patch
+inventory, and the AI-grounded reports built on them.
 
-```bash
-./CrashSimulatorV2.sh --repository-status --repository-mode local
-./CrashSimulatorV2.sh --repository-upgrade --dry-run --repository-mode local
-./CrashSimulatorV2.sh --repository-upgrade --execute --repository-mode local
-./CrashSimulatorV2.sh --repository-doctor --execute --repository-mode local --html
-./CrashSimulatorV2.sh --repository-export
-./CrashSimulatorV2.sh --repository-import --repository-import-file crashsim_repository_export.json --dry-run
-```
-
-The repository is disabled by default. Enabling it must not replace the normal
-file evidence model; it adds a searchable history layer. Repository persistence
-is best-effort and non-blocking: a drill should not fail only because the
-optional repository is unavailable.
-
-For the private Labs development stream and for teams that rebuild target labs
-frequently, Oracle Autonomous Database is the preferred durable central
-repository target. In that model, RAC, Data Guard, ASM, FEX/ACFS, APEX/ORDS,
-Base Database, and other labs remain disposable drill targets, while the ADB
-CRASHSIM schema keeps the long-lived score history, evidence pointers, lessons,
-findings, and recommendations. Configure this with
-`CRASHSIM_REPOSITORY_MODE=central` and an approved ADB wallet alias or other
-secretless connect pattern.
-
-
-After drills, record operational learning with:
-
-```bash
-./CrashSimulatorV2.sh --lessons-learned --lesson-scenario 30 \
-  --lesson-title "Recovery runbook update" \
-  --lesson-text "Document the manual ASM step and retest before the next drill."
-./CrashSimulatorV2.sh --open-findings
-./CrashSimulatorV2.sh --recommendation-status
-```
-
-When the repository is not enabled, lessons are still written as local Markdown
-files in the CrashSimulator log directory.
-
-For labs that cannot connect directly to the central repository, use
-`--repository-export` on the lab host and `--repository-import --dry-run` first
-on the connected workstation or bastion. Execute the import only after checking
-that the file is a sanitized CrashSimulator summary and that the repository
-target is the intended CRASHSIM owner.
-
-Security assessment evidence can be summarized with the DBSAT import foundation:
-
-```bash
-./CrashSimulatorV2.sh --dbsat-import sanitized_or_raw_dbsat.json --dry-run
-```
-
-DBSAT reports are sensitive. CrashSimulator writes a sanitized summary report
-and does not store raw DBSAT HTML, XLSX, JSON, usernames, hostnames, wallets, or
-credentials in the repository. Keep raw security evidence in an approved
-security evidence store.
-
-Additional read-only intelligence reports are available from the CLI and the
-Guided Workflow Reports menu:
-
-```bash
-./CrashSimulatorV2.sh --patch-inventory
-./CrashSimulatorV2.sh --goldengate-report
-./CrashSimulatorV2.sh --knowledge-pack-report
-./CrashSimulatorV2.sh --ai-strategy-report
-```
-
-`--patch-inventory` records local SQL patch and OPatch evidence but does not
-perform live My Oracle Support advisory checks. `--goldengate-report` is
-read-only and does not stop Extract, Replicat, or mutate trails. GoldenGate
-process drills still require deployment-specific targets, lag thresholds, and a
-resync runbook.
-
-Future repository intelligence can use Oracle Database ML and AI capabilities
-such as Oracle Machine Learning for SQL, AI Vector Search, and Select AI over
-sanitized repository views. These capabilities are intended for advisory use:
-finding similar incidents, predicting drill risk, detecting score or backup
-anomalies, estimating RTO/RPO breach risk, and summarizing evidence for humans.
-They must remain optional and must not execute destructive scenarios.
-
-The optional feature views can be reviewed and installed explicitly:
-
-```bash
-./CrashSimulatorV2.sh --repository-ai-views --dry-run
-./CrashSimulatorV2.sh --repository-ai-views --execute
-```
-
-These views are a foundation for Oracle ML feature engineering and future vector
-or Select AI summaries; they do not create ML models, vector indexes, AI
-profiles, cloud credentials, or external calls.
+The open-source edition keeps every piece of evidence it produces as files you
+own - logs, manifests, audit records, Markdown/HTML reports - under
+`crashsimulator_logs/` and `reports/`. Nothing is sent anywhere.
 
 ### Planning, Badges, Calendar, And Release Readiness
 
-Private Labs v2.0.3 adds non-destructive helpers for planning and public
-readiness:
+Drill planning across a fleet, evidence-quality badges, calendar export, and
+release-readiness gating are **CrashSimulator Enterprise** capabilities.
 
-```bash
-./CrashSimulatorV2.sh --scenario-plan --plan-days 90 --html
-./CrashSimulatorV2.sh --evidence-quality-badges --html
-./CrashSimulatorV2.sh --drill-calendar-export --calendar-start-date 2026-07-01
-./CrashSimulatorV2.sh --apex-dashboard-mockups --html
-./CrashSimulatorV2.sh --public-release-doctor --html
-```
-
-
-`--scenario-plan` builds a conservative 30/60/90-day validation plan from the
-scenario catalog, current topology, and MAA/SLA context.
-`--evidence-quality-badges` reports whether evidence is Installed, Configured,
-Tested, Operationalized, and Measured. `--drill-calendar-export` writes CSV and
-iCal files for recurring team validation. `--apex-dashboard-mockups` generates
-static design guidance for an APEX console over an ADB repository.
-`--public-release-doctor` checks docs, examples, screenshots,
-tutorials, runtime ZIP freshness, secret scan output, and the expected scenario
-catalog count before a public release.
-
+For a single database from the command line, `--scenario-readiness` and
+`--validate-scenario <id>` tell you what can run here and why, and
+`--runbook <id>` prints the recovery practice hints for a scenario.
 
 ### Oracle Service HA Review
 
