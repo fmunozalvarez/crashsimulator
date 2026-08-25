@@ -141,7 +141,7 @@ by OCI metadata collection for clone/PITR/Autonomous Data Guard scenarios.
 
 The project includes a live Autonomous Database discovery reference:
 
-- `reports/crashsim_adb_readonly_discovery_20260608.md`
+- the read-only discovery report the runtime writes to `reports/` on your target
 
 Use `--adb-readiness-report --html` to generate a fresh Markdown and HTML
 readiness report for any configured Autonomous target.

@@ -431,7 +431,7 @@ Oracle home: /u02/app/oracle/product/23.0.0.0/dbhome_1
 Oracle user: oracle
 Spfile: @rJOnB8bM/CREASHRAC-A4FEA717C5C96F3BFFC46A6348A21A9F/CRASHRDB/PARAMETERFILE/spfile.OMF.37A52C57
 Password file: @rJOnB8bM/CREASHRAC-A4FEA717C5C96F3BFFC46A6348A21A9F/CRASHRDB/PASSWORD/pwdCRASHRDB.4B81E94C
-Domain: clientsubnet.dns.oraclevcn.com
+Domain: examplesubnet.dns.oraclevcn.com
 Start options: open
 Stop options: immediate
 Database role: PRIMARY

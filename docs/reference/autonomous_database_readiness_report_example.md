@@ -17,8 +17,8 @@ Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, 
 | Wallet directory | `/home/opc/crashsim_adb/wallet` |
 | Wallet state | `present` |
 | tnsnames.ora | `present` |
-| Wallet aliases | `crashautonomous_high, crashautonomous_low, crashautonomous_medium, crashautonomous_tp, crashautonomous_tpurgent` |
-| Connect alias / descriptor | `crashautonomous_low` |
+| Wallet aliases | `exampleadb_high, exampleadb_low, exampleadb_medium, exampleadb_tp, exampleadb_tpurgent` |
+| Connect alias / descriptor | `exampleadb_low` |
 | Service-level hint | `low` |
 | Password env var | `CRASHSIM_ADB_PASSWORD` |
 | Wallet password env var | `CRASHSIM_ADB_WALLET_PASSWORD` |
@@ -27,8 +27,8 @@ Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, 
 | SQL connection | `OK` |
 | OCI CLI | `not found` |
 | OCI control-plane posture | `not configured` |
-| APEX URL | `https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/apex` |
-| Database Actions URL | `https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/sql-developer` |
+| APEX URL | `https://EXAMPLEADBID1234-EXAMPLEADB.adb.us-example-1.oraclecloudapps.com/ords/apex` |
+| Database Actions URL | `https://EXAMPLEADBID1234-EXAMPLEADB.adb.us-example-1.oraclecloudapps.com/ords/sql-developer` |
 | Private endpoint expectation | `not configured` |
 
 ## Live SQL Evidence Summary
@@ -38,7 +38,7 @@ Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, 
 | DB identity | `FCEYFTL6\|READ WRITE\|PRIMARY\|YES\|ARCHIVELOG\|YES\|` |
 | Version | `Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0` |
 | Version number | `23.26.2.2.0` |
-| Services | `KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous` |
+| Services | `EXAMPLEADBID1234_EXAMPLEADB_high.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_low.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_medium.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_tp.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_tpurgent.adb.oraclecloud.com, exampleadbid1234_exampleadb` |
 | APEX registry | `24.2.17:VALID` |
 | Tablespaces | `7` |
 | Encrypted tablespaces | `6` |
@@ -55,13 +55,13 @@ Autonomous Database hides OS, storage, ASM, Grid Infrastructure, control files, 
 
 | Status | Area | Check | Evidence | Recommendation |
 | --- | --- | --- | --- | --- |
-| `OK` | Client connectivity | mTLS wallet available | wallet=/home/opc/crashsim_adb/wallet, aliases=crashautonomous_high, crashautonomous_low, crashautonomous_medium, crashautonomous_tp, crashautonomous_tpurgent | Keep wallet rotation, expiry review, and application redeploy steps in the runbook. |
+| `OK` | Client connectivity | mTLS wallet available | wallet=/home/opc/crashsim_adb/wallet, aliases=exampleadb_high, exampleadb_low, exampleadb_medium, exampleadb_tp, exampleadb_tpurgent | Keep wallet rotation, expiry review, and application redeploy steps in the runbook. |
 | `OK` | Client connectivity | python-oracledb available | python=/home/opc/crashsim_adb/venv/bin/python, version=4.0.1 | Pin driver/runtime versions in automation hosts used for readiness reporting. |
 | `OK` | Database access | Live SQL probe connects | user=ADMIN, db=FCEYFTL6, open=READ WRITE, role=PRIMARY | Use this same client path for logical recovery drills and application smoke tests. |
 | `OK` | Application access | APEX component visible | APEX=24.2.17:VALID | Add APEX smoke/session checks for user-facing ADB applications. |
 | `OK` | Logical recovery | Flashback Archive evidence | archives=1, retention_days=60 | Use flashback query/table and clone/PITR drills for logical user-error recovery validation. |
 | `WARN` | OCI control plane | ADB OCID and OCI CLI configured | state=not configured | Configure CRASHSIM_ADB_OCID plus OCI CLI/profile when backup/PITR/ADG/IAM readiness must be proven. |
-| `OK` | Application access | User-facing URLs recorded | apex=https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/apex, database_actions=https://KEMEJA2K9ZF9HPA-CRASHAUTONOMOUS.adb.ap-tokyo-1.oraclecloudapps.com/ords/sql-developer | Use URL smoke checks and application-specific login validation after clone/PITR or wallet rotation. |
+| `OK` | Application access | User-facing URLs recorded | apex=https://EXAMPLEADBID1234-EXAMPLEADB.adb.us-example-1.oraclecloudapps.com/ords/apex, database_actions=https://EXAMPLEADBID1234-EXAMPLEADB.adb.us-example-1.oraclecloudapps.com/ords/sql-developer | Use URL smoke checks and application-specific login validation after clone/PITR or wallet rotation. |
 | `INFO` | Network | Private endpoint expectation documented | not configured | Set CRASHSIM_ADB_PRIVATE_ENDPOINT when ADB uses private endpoints. |
 
 ## Readiness Summary
@@ -120,7 +120,7 @@ CSIM_ADB|host|crashbastian
 CSIM_ADB|os_user|opc
 CSIM_ADB|python_executable|/home/opc/crashsim_adb/venv/bin/python
 CSIM_ADB|dsn_source|alias
-CSIM_ADB|dsn_label|crashautonomous_low
+CSIM_ADB|dsn_label|exampleadb_low
 CSIM_ADB|python_status|OK
 CSIM_ADB|python_oracledb_version|4.0.1
 CSIM_ADB|connect_status|OK
@@ -136,7 +136,7 @@ CSIM_ADB|protection_mode|UNKNOWN
 CSIM_ADB|version|Oracle AI Database 26ai Enterprise Edition Release 23.26.2.2.0 - Production Version 23.26.2.2.0
 CSIM_ADB|version_number|23.26.2.2.0
 CSIM_ADB|service_count|6
-CSIM_ADB|services|KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_high.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_low.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_medium.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tp.adb.oraclecloud.com, KEMEJA2K9ZF9HPA_CRASHAUTONOMOUS_tpurgent.adb.oraclecloud.com, kemeja2k9zf9hpa_crashautonomous
+CSIM_ADB|services|EXAMPLEADBID1234_EXAMPLEADB_high.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_low.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_medium.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_tp.adb.oraclecloud.com, EXAMPLEADBID1234_EXAMPLEADB_tpurgent.adb.oraclecloud.com, exampleadbid1234_exampleadb
 CSIM_ADB|apex_registry_count|1
 CSIM_ADB|apex_version_status|24.2.17:VALID
 CSIM_ADB|invalid_object_count|0

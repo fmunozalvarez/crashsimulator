@@ -73,9 +73,9 @@ Autonomous Database validation environment:
   Autonomous Data Guard, Cross-Region DR, IAM, wallet lifecycle, private
   endpoint, Resource Manager, logical/object recovery, and application access.
 - Reference artifacts:
-  `reports/crashsim_adb_readiness_20260608.md`,
-  `reports/crashsim_adb_readiness_20260608.md.html`, and
-  `reports/crashsim_adb_readiness_20260608.evidence`.
+  the ADB readiness report the runtime generates locally (Markdown, HTML and
+  evidence forms). Those artifacts are produced on your own target; they are
+  no longer shipped pre-populated in the distribution.
 
 Oracle AI Database 26ai RAC/ASM validation environment:
 
@@ -149,7 +149,7 @@ Oracle AI Database 26ai RAC/ASM validation environment:
   success selector are supplied.
 - Post-validation health check showed CDB/PDB open read write, no
   `V$RECOVER_FILE` rows, and no `V$DATABASE_BLOCK_CORRUPTION` rows.
-- Evidence files are stored under `captures/26ai/` and `docs/reference/26ai/`.
+- Evidence files are written locally by the runtime; the sanitized examples live under `docs/reference/26ai/`.
 
 New 26ai RAC/FEX smoke validation on 2026-06-15:
 

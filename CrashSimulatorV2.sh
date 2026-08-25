@@ -13,7 +13,7 @@ if [[ -z "${BASH_VERSINFO:-}" || "${BASH_VERSINFO[0]}" -lt 4 ]]; then
   exit 2
 fi
 
-VERSION="3.0.1"
+VERSION="3.0.2"
 SUCCESS=0
 FAIL=1
 

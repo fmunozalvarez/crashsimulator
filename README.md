@@ -70,7 +70,6 @@ For the full end-user documentation, read:
 - [Scenario 80 APEX browser-session driver design](docs/APEX_SESSION_DRIVER_DESIGN.md)
 - [Autonomous Database coverage guide](docs/AUTONOMOUS_DATABASE_COVERAGE.md)
 - [Scenario validation status](SCENARIO_STATUS.md)
-- [26ai RAC/ASM validation summary](reports/crashsim_26ai_validation_20260607.md)
 - [Detailed V2 notes](README_V2.md)
 - [Reference report examples](docs/reference/README.md)
 

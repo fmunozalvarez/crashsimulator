@@ -103,20 +103,20 @@ Oracle AI Database 26ai lab (`23.26.2.0.0`) using ASM diskgroups `DATA` and
 - `26ai/26ai_apex_session_continuity_s80_reference.md`
   - Shows fresh scenario 80 ORDS/APEX continuity evidence with local and peer
     ORDS URLs in the 26ai RAC lab.
-- `../../captures/26ai/26ai_apex_ords_s76_s77_execution.txt`
+- `(capture retained internally; sanitized extracts in this reference set)`
   - Shows compact execution and recovery evidence for APEX/ORDS scenarios `76`
     and `77`, including the PDB-aware recovery helper validation.
-- `../../captures/26ai/26ai_apex_ords_blockers_fixed_s73_s75_s79_s80.txt`
+- `(capture retained internally; sanitized extracts in this reference set)`
   - Shows compact evidence for the fixed APEX/ORDS blockers: restricted ORDS
     helper validation, scenarios `73`, `74`, `75`, and `79` execution/recovery,
     scenario `80` read-only evidence, and post-drill stabilization.
 - `../APEX_SESSION_DRIVER_DESIGN.md`
   - Documents the optional seeded APEX browser-session driver for scenario `80`,
     including the seeded app contract, example command, and evidence artifacts.
-- `../../captures/26ai/26ai_apex_session_driver_s80_design_validation.txt`
+- `(capture retained internally; sanitized extracts in this reference set)`
   - Shows scenario `80` default readiness in the 26ai lab, driver self-check
     guardrail behavior, and local Playwright smoke-test evidence.
-- `../../captures/26ai_retirement_final_20260608/extracted/`
+- `(capture retained internally; sanitized extracts in this reference set)`
   - Final pre-termination evidence synchronized from the 26ai RAC primary,
     standby, and bastion hosts before retiring the OCI test environment.
   - Includes final MAA/FSFO observer evidence, scenario readiness/lifecycle

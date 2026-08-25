@@ -92,8 +92,42 @@ line_is_placeholder() {
   return 1
 }
 
+# ESTATE / INFRASTRUCTURE IDENTIFIERS - a SECOND axis, added 2026-08-25.
+# The secret classes below hunt CREDENTIALS and found nothing wrong for months
+# while the published packages carried the owner's live repository ADB endpoint
+# (instance id, database name, region, reachable ORDS URL) and internal VCN
+# hostnames. No credential was ever exposed - the sanitizer worked - but an
+# endpoint identifier is a TARGET ADDRESS, and no pattern here was looking for
+# one. A gate reports truthfully about the class it encodes and is silent about
+# every other class; this is that silence, closed.
+scan_estate_identifiers() {
+  local file="$1" match line_no line pattern
+  # ADB connect/ORDS hostnames carrying a real instance id, and private VCN
+  # hostnames. Deliberately NOT matching the generic vendor domains alone
+  # (adb.oraclecloud.com, oraclecloudapps.com) - documentation legitimately
+  # names those; what must never ship is an identifier that points at ONE
+  # tenancy. Placeholder-shaped values are skipped by the same rule the
+  # credential classes use.
+  # Dotted labels included: a hostname's placeholder prefix can sit BEHIND a
+  # dot (examplesubnet.dns.oraclevcn.com), and a -o match stopping at the dot
+  # hid it from the allowlist below - the gate's own first version flagged a
+  # correctly-sanitized line for that reason.
+  pattern='[A-Z0-9]{12,20}[_-][A-Za-z0-9]+\.adb\.[a-z0-9-]+\.oraclecloud|[A-Za-z0-9.-]+\.oraclevcn\.com'
+  while IFS= read -r match; do
+    [[ -n "$match" ]] || continue
+    line_no="${match%%:*}"
+    line="${match#*:}"
+    if line_is_placeholder "$line"; then continue; fi
+    case "$line" in
+      *EXAMPLE*|*example*|*\<*\>*|*REDACTED*|*redacted*) continue ;;
+    esac
+    print_finding "HIGH" "$file" "$line_no" "Infrastructure identifier (tenancy/VCN) - estate disclosure."
+  done < <(grep -nE "$pattern" "$file" 2>/dev/null | head -20)
+}
+
 scan_text_file() {
   local file="$1" match line_no line upper pattern
+  scan_estate_identifiers "$file"
   # The assignment class excludes '>' so a PL/SQL named-parameter association
   # (password => l_pw, p_output_password => p_password) is NOT read as an inline
   # secret - the value after '=>' is always a bind variable/expression, never a
@@ -150,7 +184,7 @@ scan_tree() {
     scan_file "$file"
   done < <(
     find "$root" \
-      \( -path '*/.git/*' -o -path '*/node_modules/*' -o -path '*/__pycache__/*' -o -path '*/crashsimulator_logs/*' -o -path '*/public_artifacts_sanitized_*/*' -o -path '*/assets/tutorial/*' -o -path '*/captures/*' -o -path '*/dist/*' \) -prune \
+      \( -path '*/.git/*' -o -path '*/node_modules/*' -o -path '*/__pycache__/*' -o -path '*/crashsimulator_logs/*' -o -path '*/public_artifacts_sanitized_*/*' -o -path '*/assets/tutorial/*' -o -path '*/dist/*' \) -prune \
       -o -type f -print 2>/dev/null | sort
   )
 }
@@ -165,7 +199,7 @@ if [[ "$TARGET_PATH" == "." ]]; then
     prepare_crashsim_fex_controlfile_multiplex.sh \
     prepare_crashsim_fex_redo_multiplex.sql \
     README.md README_V2.md SCENARIO_STATUS.md \
-    config docs reports tools; do
+    config docs reports captures tools; do
     scan_tree "$root"
   done
 else

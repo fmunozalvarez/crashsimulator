@@ -109,7 +109,12 @@ for path in \
   copy_if_exists "$path" "$path"
 done
 
-for dir in config docs reports assets captures tools; do
+# reports/ and captures/ are NOT copied: they carried the owner's own
+# estate evidence - including the live repository ADB endpoint - into every
+# published artifact (found 2026-08-25, public since v3.0.0). The runtime
+# still CREATES reports/ on the target at run time; what must never ship is
+# a pre-populated one from the build tree.
+for dir in config docs assets tools; do
   copy_directory_filtered "$dir"
 done
 
