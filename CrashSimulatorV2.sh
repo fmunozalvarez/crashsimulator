@@ -13,7 +13,7 @@ if [[ -z "${BASH_VERSINFO:-}" || "${BASH_VERSINFO[0]}" -lt 4 ]]; then
   exit 2
 fi
 
-VERSION="3.0.0"
+VERSION="3.0.1"
 SUCCESS=0
 FAIL=1
 
@@ -227,54 +227,6 @@ SCENARIO_VALIDATION_STATUS=""
 SCENARIO_VALIDATION_REASON=""
 SCENARIO_VALIDATION_OUTPUT=""
 
-# ---- globals required by the synced OSS surface ----
-AWK_BIN="awk"
-MAA_GLOBALLY_DISTRIBUTED="${CRASHSIM_MAA_GLOBALLY_DISTRIBUTED:-}"
-MAA_FSFO_EVIDENCED=0
-MAA_CLASS="Replicated"
-MAA_DISTRIBUTED_SCOPE=""
-MAA_DISTRIBUTED_SCOPE_INPUT="${CRASHSIM_MAA_DISTRIBUTED_SCOPE:-}"
-ONLINE_DATAFILE_DRILL=0
-SQLPLUS_LOGON_PW_WARNED=0
-LAST_REPORT_FILE=""
-declare -A ASM_BACKUP_STATUS_CACHE=()
-DISCOVERY_NON_FATAL=0
-declare -a CONTROLFILE_PRE_ABORT_LIST=()
-declare -a REDO_PRE_ABORT_MEMBERS=()
-DATABASE_ABORTED_BY_PLAN=0
-INJECTION_LANDED=0
-declare -a REDO_TOTAL_LOSS_RECORDED=()
-declare -a REDO_THREAD_WARNED=()
-CRASHSIM_ACCEPT_ARCHIVE_CHAIN_BREAK="${CRASHSIM_ACCEPT_ARCHIVE_CHAIN_BREAK:-}"
-REDO_RESETLOGS_RECOVERY=0
-CRASHSIM_ACCEPT_DATA_LOSS="${CRASHSIM_ACCEPT_DATA_LOSS:-}"
-declare -a RESILIENCE_DOMAIN_NAMES=()
-declare -a RESILIENCE_DOMAIN_SCORES=()
-declare -a RESILIENCE_DOMAIN_WEIGHTS=()
-declare -a RESILIENCE_DOMAIN_EVIDENCE=()
-SCENARIO_PLAN_DAYS="${CRASHSIM_SCENARIO_PLAN_DAYS:-90}"
-PUBLIC_RELEASE_EXPECTED_SCENARIOS="${CRASHSIM_PUBLIC_RELEASE_EXPECTED_SCENARIOS:-123}"
-EE_ONLY_SCENARIO_IDS="91"
-PLAN_ONLY_SCENARIO_IDS="46 47 48 49 52 54 66 70 72 85 86 88 89 90 EXA01 EXA02 EXA03 EXA04 OCI01 OCI02 OCI03 OCI04 OCI05 GG01 GG02 GG03 GG04"
-READ_ONLY_SCENARIO_IDS="53 64 65 69 78 80 81 82 87"
-EXTERNAL_EVIDENCE_SCENARIO_IDS="83 84"
-declare -A SCENARIO_CAPABILITY_STATUS=()
-declare -A SCENARIO_CAPABILITY_REASON=()
-declare -A SCENARIO_CAPABILITY_PROVENANCE=()
-declare -A SCENARIO_CAPABILITY_DRY_RUN=()
-declare -A SCENARIO_CAPABILITY_EXECUTE=()
-declare -A SCENARIO_CAPABILITY_GUARDRAIL=()
-declare -A SCENARIO_CAPABILITY_NEXT_ACTION=()
-SCENARIO_CAPABILITY_CURRENT_STATUS=""
-SCENARIO_CAPABILITY_CURRENT_REASON=""
-SCENARIO_CAPABILITY_CURRENT_PROVENANCE=""
-SCENARIO_CAPABILITY_CURRENT_DRY_RUN=""
-SCENARIO_CAPABILITY_CURRENT_EXECUTE=""
-SCENARIO_CAPABILITY_CURRENT_GUARDRAIL=""
-SCENARIO_CAPABILITY_CURRENT_NEXT_ACTION=""
-PREP_FILTER=""
-declare -gA REDO_MEMBER_GROUP=()
-
 usage() {
   cat <<USAGE
 CrashSimulator V2 ${VERSION}
@@ -413,18 +365,6 @@ Options:
   --release-check         Run public release checks: syntax, lifecycle, secrets,
                           package integrity, and common documentation checks.
   --runbook <id>          Print recovery practice hints for a scenario.
-  --reconcile-drills      Close out drill manifests that the live database shows
-                          are already recovered (or were never injected).
-  --prep-list             List the preparation checklist for this target.
-  --prep <items|all>      Prepare the listed checklist items.
-  --prep-remove <items>   Remove the listed prepared items.
-  --online-datafile-drill Take the datafile offline first (safer datafile drills).
-  --redo-resetlogs-recovery
-                          Permit RESETLOGS recovery for total redo loss.
-  --maa-distributed-scope <scope>
-                          multi-node|multi-az|multi-region|multi-country.
-  --maa-globally-distributed <yes|no>
-                          Globally Distributed database with Raft replication.
   --protect <id>          Generate or run pre-drill RMAN protection for a scenario.
   --recover <id>          Generate or run RMAN recovery for supported scenarios.
   --scenario <id>         Run or dry-run a scenario by id.
@@ -648,11 +588,7 @@ warn() {
 # a tty, and prefer /dev/tty for the reply when stdin is not a tty.
 confirm_show() {
   printf "%s\n" "$@"
-  # The /dev/tty fallback exists for a redirected run (`... > out.log`), where the
-  # operator would otherwise never see the prompt. Do NOT use it when audit stream
-  # capture is what made stdout a non-terminal: that pipeline's tee still ends at
-  # the operator's terminal, so writing again here prints every prompt twice.
-  if [[ ! -t 1 && -e /dev/tty && "${AUDIT_STDOUT_WAS_TTY:-0}" -ne 1 ]]; then
+  if [[ ! -t 1 && -e /dev/tty ]]; then
     # group so a failed /dev/tty open (no controlling terminal) stays silent
     { printf "%s\n" "$@" >/dev/tty; } 2>/dev/null || true
   fi
@@ -660,15 +596,12 @@ confirm_show() {
 
 confirm_reply() {
   local __var="$1" __reply=""
-  # stdin first: keeps both interactive terminals and the documented scripted
-  # pattern (printf 'TOKEN\n' | CrashSimulatorV2.sh ... --execute) working.
-  if IFS= read -r __reply; then
+  if [[ -t 0 ]]; then
+    IFS= read -r __reply
+  elif [[ -e /dev/tty ]] && { IFS= read -r __reply </dev/tty; } 2>/dev/null; then
     :
-  elif [[ ! -t 0 && -e /dev/tty ]]; then
-    # stdin exhausted/closed by a wrapper - fall back to the terminal
-    { IFS= read -r __reply </dev/tty; } 2>/dev/null || __reply=""
   else
-    __reply=""
+    IFS= read -r __reply || true
   fi
   printf -v "$__var" '%s' "$__reply"
 }
@@ -688,10 +621,7 @@ trim_blank_lines() {
 }
 
 trim_value() {
-  local value="$1"
-  value="${value#"${value%%[![:space:]]*}"}"
-  value="${value%"${value##*[![:space:]]}"}"
-  printf "%s" "$value"
+  printf "%s" "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
 }
 
 sql_quote() {
@@ -1001,21 +931,6 @@ apply_config_entry() {
     CRASHSIM_SANITIZE_OUTPUT_DIR|SANITIZE_OUTPUT_DIR)
       config_set_value_if_env_unset "$key" "CRASHSIM_SANITIZE_OUTPUT_DIR" SANITIZE_OUTPUT_DIR "$value"
       ;;
-    CRASHSIM_EVIDENCE_BUNDLE_SOURCE|EVIDENCE_BUNDLE_SOURCE)
-      [[ -n "$value" ]] || { config_record_skipped "${key}: not set"; return "$SUCCESS"; }
-      config_validate_path_value "$key" "$value" || return "$SUCCESS"
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_BUNDLE_SOURCE" EVIDENCE_BUNDLE_SOURCE "$value"
-      ;;
-    CRASHSIM_EVIDENCE_BUNDLE_OUTPUT|EVIDENCE_BUNDLE_OUTPUT)
-      [[ -n "$value" ]] || { config_record_skipped "${key}: not set"; return "$SUCCESS"; }
-      config_validate_path_value "$key" "$value" || return "$SUCCESS"
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_BUNDLE_OUTPUT" EVIDENCE_BUNDLE_OUTPUT "$value"
-      ;;
-    CRASHSIM_EVIDENCE_SIGN_KEY|EVIDENCE_SIGN_KEY)
-      [[ -n "$value" ]] || { config_record_skipped "${key}: not set"; return "$SUCCESS"; }
-      config_validate_path_value "$key" "$value" || return "$SUCCESS"
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_SIGN_KEY" EVIDENCE_SIGN_KEY "$value"
-      ;;
     CRASHSIM_HTML_TARGET|HTML_TARGET)
       config_set_value_if_env_unset "$key" "CRASHSIM_HTML_TARGET" HTML_TARGET "$value"
       ;;
@@ -1122,239 +1037,6 @@ apply_config_entry() {
       ;;
     CRASHSIM_ADB_SCENARIO|ADB_SCENARIO_ID)
       config_set_value_if_env_unset "$key" "CRASHSIM_ADB_SCENARIO" ADB_SCENARIO_ID "$(printf "%s" "$value" | tr '[:lower:]' '[:upper:]')"
-      ;;
-    CRASHSIM_REPOSITORY_MODE|REPOSITORY_MODE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_MODE" REPOSITORY_MODE "$value"
-      ;;
-    CRASHSIM_REPOSITORY_CONNECT|REPOSITORY_CONNECT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_CONNECT" REPOSITORY_CONNECT "$value"
-      ;;
-    CRASHSIM_REPOSITORY_SCHEMA|REPOSITORY_SCHEMA)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_SCHEMA" REPOSITORY_SCHEMA "$(normalize_name "$value")"
-      ;;
-    CRASHSIM_REPOSITORY_EVIDENCE_POLICY|REPOSITORY_EVIDENCE_POLICY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_EVIDENCE_POLICY" REPOSITORY_EVIDENCE_POLICY "$value"
-      ;;
-    CRASHSIM_REPOSITORY_RETENTION_DAYS|REPOSITORY_RETENTION_DAYS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_RETENTION_DAYS" REPOSITORY_RETENTION_DAYS "$value"
-      ;;
-    CRASHSIM_REPOSITORY_SEARCH_QUERY|REPOSITORY_SEARCH_QUERY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_SEARCH_QUERY" REPOSITORY_SEARCH_QUERY "$value"
-      ;;
-    CRASHSIM_REPOSITORY_EXPORT_FILE|REPOSITORY_EXPORT_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_EXPORT_FILE" REPOSITORY_EXPORT_FILE "$value"
-      ;;
-    CRASHSIM_REPOSITORY_IMPORT_FILE|REPOSITORY_IMPORT_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_REPOSITORY_IMPORT_FILE" REPOSITORY_IMPORT_FILE "$value"
-      ;;
-    CRASHSIM_SCENARIO_PLAN_DAYS|SCENARIO_PLAN_DAYS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SCENARIO_PLAN_DAYS" SCENARIO_PLAN_DAYS "$value"
-      ;;
-    CRASHSIM_DRILL_CALENDAR_OUTPUT_DIR|DRILL_CALENDAR_OUTPUT_DIR)
-      config_validate_path_value "$key" "$value" || return "$SUCCESS"
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_CALENDAR_OUTPUT_DIR" DRILL_CALENDAR_OUTPUT_DIR "$value"
-      ;;
-    CRASHSIM_DRILL_CALENDAR_START_DATE|DRILL_CALENDAR_START_DATE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_CALENDAR_START_DATE" DRILL_CALENDAR_START_DATE "$value"
-      ;;
-    CRASHSIM_PUBLIC_RELEASE_EXPECTED_SCENARIOS|PUBLIC_RELEASE_EXPECTED_SCENARIOS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PUBLIC_RELEASE_EXPECTED_SCENARIOS" PUBLIC_RELEASE_EXPECTED_SCENARIOS "$value"
-      ;;
-    CRASHSIM_DBSAT_IMPORT_FILE|DBSAT_IMPORT_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DBSAT_IMPORT_FILE" DBSAT_IMPORT_FILE "$value"
-      ;;
-    CRASHSIM_PATCH_POLICY_FILE|PATCH_POLICY_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PATCH_POLICY_FILE" PATCH_POLICY_FILE "$value"
-      ;;
-    CRASHSIM_EVIDENCE_BUNDLE_SOURCE|EVIDENCE_BUNDLE_SOURCE)
-      config_validate_path_value "$key" "$value" || return "$SUCCESS"
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_BUNDLE_SOURCE" EVIDENCE_BUNDLE_SOURCE "$value"
-      ;;
-    CRASHSIM_EVIDENCE_BUNDLE_OUTPUT|EVIDENCE_BUNDLE_OUTPUT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_BUNDLE_OUTPUT" EVIDENCE_BUNDLE_OUTPUT "$value"
-      ;;
-    CRASHSIM_EVIDENCE_CUSTODY_OUTPUT|EVIDENCE_CUSTODY_OUTPUT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_EVIDENCE_CUSTODY_OUTPUT" EVIDENCE_CUSTODY_OUTPUT "$value"
-      ;;
-    CRASHSIM_TARGET_UUID|ENTERPRISE_TARGET_UUID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_UUID" ENTERPRISE_TARGET_UUID "$value"
-      ;;
-    CRASHSIM_TARGET_NAME|ENTERPRISE_TARGET_NAME)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_NAME" ENTERPRISE_TARGET_NAME "$value"
-      ;;
-    CRASHSIM_TARGET_GROUP|ENTERPRISE_TARGET_GROUP)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_GROUP" ENTERPRISE_TARGET_GROUP "$value"
-      ;;
-    CRASHSIM_TARGET_OWNER|ENTERPRISE_TARGET_OWNER)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_OWNER" ENTERPRISE_TARGET_OWNER "$value"
-      ;;
-    CRASHSIM_TARGET_ENVIRONMENT|ENTERPRISE_TARGET_ENVIRONMENT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_ENVIRONMENT" ENTERPRISE_TARGET_ENVIRONMENT "$value"
-      ;;
-    CRASHSIM_TARGET_CRITICALITY|ENTERPRISE_TARGET_CRITICALITY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_CRITICALITY" ENTERPRISE_TARGET_CRITICALITY "$value"
-      ;;
-    CRASHSIM_TARGET_DB_VERSION|ENTERPRISE_TARGET_DB_VERSION)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_DB_VERSION" ENTERPRISE_TARGET_DB_VERSION "$value"
-      ;;
-    CRASHSIM_TARGET_VERSION_FAMILY|ENTERPRISE_TARGET_VERSION_FAMILY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_TARGET_VERSION_FAMILY" ENTERPRISE_TARGET_VERSION_FAMILY "$value"
-      ;;
-    CRASHSIM_APPLICATION_CONTEXT|ENTERPRISE_APP_CONTEXT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_APPLICATION_CONTEXT" ENTERPRISE_APP_CONTEXT "$value"
-      ;;
-    CRASHSIM_AGENT_UUID|ENTERPRISE_AGENT_UUID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_UUID" ENTERPRISE_AGENT_UUID "$value"
-      ;;
-    CRASHSIM_AGENT_NAME|ENTERPRISE_AGENT_NAME)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_NAME" ENTERPRISE_AGENT_NAME "$value"
-      ;;
-    CRASHSIM_AGENT_CAPABILITIES|ENTERPRISE_AGENT_CAPABILITIES)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_CAPABILITIES" ENTERPRISE_AGENT_CAPABILITIES "$value"
-      ;;
-    CRASHSIM_AGENT_CERT_STATUS|ENTERPRISE_AGENT_CERT_STATUS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_CERT_STATUS" ENTERPRISE_AGENT_CERT_STATUS "$value"
-      ;;
-    CRASHSIM_AGENT_CERT_FINGERPRINT|ENTERPRISE_AGENT_CERT_FINGERPRINT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_CERT_FINGERPRINT" ENTERPRISE_AGENT_CERT_FINGERPRINT "$value"
-      ;;
-    CRASHSIM_AGENT_CERT_FILE|ENTERPRISE_AGENT_CERT_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_CERT_FILE" ENTERPRISE_AGENT_CERT_FILE "$value"
-      ;;
-    CRASHSIM_AGENT_KEY_FILE|ENTERPRISE_AGENT_KEY_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_KEY_FILE" ENTERPRISE_AGENT_KEY_FILE "$value"
-      ;;
-    CRASHSIM_AGENT_CA_FILE|ENTERPRISE_AGENT_CA_FILE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_CA_FILE" ENTERPRISE_AGENT_CA_FILE "$value"
-      ;;
-    CRASHSIM_AGENT_MTLS_URL|ENTERPRISE_AGENT_MTLS_URL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_MTLS_URL" ENTERPRISE_AGENT_MTLS_URL "$value"
-      ;;
-    CRASHSIM_AGENT_MTLS_EXPECT_HTTP_STATUS|ENTERPRISE_AGENT_MTLS_EXPECT_HTTP_STATUS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_MTLS_EXPECT_HTTP_STATUS" ENTERPRISE_AGENT_MTLS_EXPECT_HTTP_STATUS "$value"
-      ;;
-    CRASHSIM_AGENT_TRUST_REQUIRED|ENTERPRISE_AGENT_TRUST_REQUIRED)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_TRUST_REQUIRED" ENTERPRISE_AGENT_TRUST_REQUIRED "$value"
-      ;;
-    CRASHSIM_AGENT_ALLOWED_WORKFLOWS|ENTERPRISE_AGENT_ALLOWED_WORKFLOWS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_AGENT_ALLOWED_WORKFLOWS" ENTERPRISE_AGENT_ALLOWED_WORKFLOWS "$value"
-      ;;
-    CRASHSIM_WORKFLOW_KEY|ENTERPRISE_WORKFLOW_KEY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_WORKFLOW_KEY" ENTERPRISE_WORKFLOW_KEY "$value"
-      ;;
-    CRASHSIM_DRILL_UUID|ENTERPRISE_DRILL_UUID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_UUID" ENTERPRISE_DRILL_UUID "$value"
-      ;;
-    CRASHSIM_DRILL_ACTION|ENTERPRISE_DRILL_ACTION)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_ACTION" ENTERPRISE_DRILL_ACTION "$value"
-      ;;
-    CRASHSIM_DRILL_SCENARIO_ID|ENTERPRISE_DRILL_SCENARIO_ID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_SCENARIO_ID" ENTERPRISE_DRILL_SCENARIO_ID "$value"
-      ;;
-    CRASHSIM_DRILL_WORKFLOW_KEY|ENTERPRISE_DRILL_WORKFLOW_KEY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_WORKFLOW_KEY" ENTERPRISE_DRILL_WORKFLOW_KEY "$value"
-      ;;
-    CRASHSIM_DRILL_RISK_LEVEL|ENTERPRISE_DRILL_RISK_LEVEL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_RISK_LEVEL" ENTERPRISE_DRILL_RISK_LEVEL "$value"
-      ;;
-    CRASHSIM_DRILL_DESTRUCTIVE|ENTERPRISE_DRILL_DESTRUCTIVE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_DESTRUCTIVE" ENTERPRISE_DRILL_DESTRUCTIVE "$value"
-      ;;
-    CRASHSIM_DRILL_REQUESTED_BY|ENTERPRISE_DRILL_REQUESTED_BY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_REQUESTED_BY" ENTERPRISE_DRILL_REQUESTED_BY "$value"
-      ;;
-    CRASHSIM_DRILL_APPROVER|ENTERPRISE_DRILL_APPROVER)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_APPROVER" ENTERPRISE_DRILL_APPROVER "$value"
-      ;;
-    CRASHSIM_DRILL_SECOND_APPROVER|ENTERPRISE_DRILL_SECOND_APPROVER)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_SECOND_APPROVER" ENTERPRISE_DRILL_SECOND_APPROVER "$value"
-      ;;
-    CRASHSIM_DRILL_REVIEW_COMMENT|ENTERPRISE_DRILL_REVIEW_COMMENT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_REVIEW_COMMENT" ENTERPRISE_DRILL_REVIEW_COMMENT "$value"
-      ;;
-    CRASHSIM_DRILL_SCHEDULE_AT|ENTERPRISE_DRILL_SCHEDULE_AT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_SCHEDULE_AT" ENTERPRISE_DRILL_SCHEDULE_AT "$value"
-      ;;
-    CRASHSIM_DRILL_VALIDATION_STATUS|ENTERPRISE_DRILL_VALIDATION_STATUS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_VALIDATION_STATUS" ENTERPRISE_DRILL_VALIDATION_STATUS "$value"
-      ;;
-    CRASHSIM_DRILL_VALIDATION_SUMMARY|ENTERPRISE_DRILL_VALIDATION_SUMMARY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_VALIDATION_SUMMARY" ENTERPRISE_DRILL_VALIDATION_SUMMARY "$value"
-      ;;
-    CRASHSIM_DRILL_MEASURED_RTO_SEC|ENTERPRISE_DRILL_MEASURED_RTO_SEC)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_MEASURED_RTO_SEC" ENTERPRISE_DRILL_MEASURED_RTO_SEC "$value"
-      ;;
-    CRASHSIM_DRILL_MEASURED_RPO_SEC|ENTERPRISE_DRILL_MEASURED_RPO_SEC)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_MEASURED_RPO_SEC" ENTERPRISE_DRILL_MEASURED_RPO_SEC "$value"
-      ;;
-    CRASHSIM_DRILL_OWNER|ENTERPRISE_DRILL_OWNER)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_OWNER" ENTERPRISE_DRILL_OWNER "$value"
-      ;;
-    CRASHSIM_DRILL_REMEDIATION_TITLE|ENTERPRISE_DRILL_REMEDIATION_TITLE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_DRILL_REMEDIATION_TITLE" ENTERPRISE_DRILL_REMEDIATION_TITLE "$value"
-      ;;
-    CRASHSIM_SAFETY_CONTROL|ENTERPRISE_SAFETY_CONTROL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SAFETY_CONTROL" ENTERPRISE_SAFETY_CONTROL "$value"
-      ;;
-    CRASHSIM_SAFETY_VALUE|ENTERPRISE_SAFETY_VALUE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SAFETY_VALUE" ENTERPRISE_SAFETY_VALUE "$value"
-      ;;
-    CRASHSIM_SAFETY_REASON|ENTERPRISE_SAFETY_REASON)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SAFETY_REASON" ENTERPRISE_SAFETY_REASON "$value"
-      ;;
-    CRASHSIM_SAFETY_UNTIL|ENTERPRISE_SAFETY_UNTIL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SAFETY_UNTIL" ENTERPRISE_SAFETY_UNTIL "$value"
-      ;;
-    CRASHSIM_ENTERPRISE_ALLOW_DESTRUCTIVE_AGENT|ENTERPRISE_ALLOW_DESTRUCTIVE_AGENT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_ENTERPRISE_ALLOW_DESTRUCTIVE_AGENT" ENTERPRISE_ALLOW_DESTRUCTIVE_AGENT "$value"
-      ;;
-    CRASHSIM_SUPPORT_BUNDLE_OUTPUT|ENTERPRISE_SUPPORT_BUNDLE_OUTPUT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SUPPORT_BUNDLE_OUTPUT" ENTERPRISE_SUPPORT_BUNDLE_OUTPUT "$value"
-      ;;
-    CRASHSIM_PROBE_EXPECT_HTTP_STATUS|ENTERPRISE_PROBE_EXPECT_HTTP_STATUS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PROBE_EXPECT_HTTP_STATUS" ENTERPRISE_PROBE_EXPECT_HTTP_STATUS "$value"
-      ;;
-    CRASHSIM_ARTIFACT_PATH|ENTERPRISE_ARTIFACT_PATH)
-      config_set_value_if_env_unset "$key" "CRASHSIM_ARTIFACT_PATH" ENTERPRISE_ARTIFACT_PATH "$value"
-      ;;
-    CRASHSIM_ARTIFACT_TYPE|ENTERPRISE_ARTIFACT_TYPE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_ARTIFACT_TYPE" ENTERPRISE_ARTIFACT_TYPE "$value"
-      ;;
-    CRASHSIM_ARTIFACT_URI|ENTERPRISE_ARTIFACT_URI)
-      config_set_value_if_env_unset "$key" "CRASHSIM_ARTIFACT_URI" ENTERPRISE_ARTIFACT_URI "$value"
-      ;;
-    CRASHSIM_PROBE_TYPE|ENTERPRISE_PROBE_TYPE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PROBE_TYPE" ENTERPRISE_PROBE_TYPE "$value"
-      ;;
-    CRASHSIM_PROBE_URL|ENTERPRISE_PROBE_URL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PROBE_URL" ENTERPRISE_PROBE_URL "$value"
-      ;;
-    CRASHSIM_PROBE_SQL|ENTERPRISE_PROBE_SQL)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PROBE_SQL" ENTERPRISE_PROBE_SQL "$value"
-      ;;
-    CRASHSIM_PROBE_KEY|ENTERPRISE_PROBE_KEY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_PROBE_KEY" ENTERPRISE_PROBE_KEY "$value"
-      ;;
-    CRASHSIM_SCORECARD_HISTORY|SCORECARD_HISTORY)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SCORECARD_HISTORY" SCORECARD_HISTORY "$value"
-      ;;
-    CRASHSIM_SCORECARD_TREND_DAYS|SCORECARD_TREND_DAYS)
-      config_set_value_if_env_unset "$key" "CRASHSIM_SCORECARD_TREND_DAYS" SCORECARD_TREND_DAYS "$value"
-      ;;
-    CRASHSIM_LESSON_SCENARIO|LESSON_SCENARIO_ID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_LESSON_SCENARIO" LESSON_SCENARIO_ID "$value"
-      ;;
-    CRASHSIM_LESSON_RUN_ID|LESSON_RUN_ID)
-      config_set_value_if_env_unset "$key" "CRASHSIM_LESSON_RUN_ID" LESSON_RUN_ID "$value"
-      ;;
-    CRASHSIM_LESSON_TYPE|LESSON_TYPE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_LESSON_TYPE" LESSON_TYPE "$value"
-      ;;
-    CRASHSIM_LESSON_TITLE|LESSON_TITLE)
-      config_set_value_if_env_unset "$key" "CRASHSIM_LESSON_TITLE" LESSON_TITLE "$value"
-      ;;
-    CRASHSIM_LESSON_TEXT|LESSON_TEXT)
-      config_set_value_if_env_unset "$key" "CRASHSIM_LESSON_TEXT" LESSON_TEXT "$value"
       ;;
     CRASHSIM_MANIFEST|MANIFEST_FILE)
       config_set_value_if_env_unset "$key" "CRASHSIM_MANIFEST" MANIFEST_FILE "$value"
@@ -1881,10 +1563,9 @@ audit_stream_capture_enabled() {
 }
 
 audit_redact_stream() {
-  # -u: line-buffered. Without it GNU sed block-buffers ~4KB when its stdout is a
-  # pipe (to tee), which would leave the interactive destructive-drill confirmation
-  # prompt (and the identity of the database about to be modified) stuck in the
-  # buffer while `read` blocks - the operator sees a hang at the exact safety gate.
+  # -u: line-buffered. Without it GNU sed block-buffers ~4KB when its stdout is
+  # a pipe (to tee), which leaves interactive confirmation prompts stuck in the
+  # buffer while `read` blocks - the operator sees a hang at the safety gate.
   sed -u -E \
     -e 's#(connect catalog[[:space:]]+[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
     -e 's#(CRASHSIM_RMAN_CATALOG=[^/[:space:]]+/)[^@[:space:]]+@#\1<redacted>@#g' \
@@ -1898,10 +1579,7 @@ audit_print_redacted_command() {
   local arg redact_next=0
 
   printf "%q" "$0"
-  # Guard the empty-array expansion: on bash 4.0-4.3 (Oracle Linux 6/7) an empty
-  # named array under `set -u` raises "unbound variable" and the default no-arg
-  # menu launch would crash inside audit_start.
-  for arg in ${ORIGINAL_ARGS[@]+"${ORIGINAL_ARGS[@]}"}; do
+  for arg in "${ORIGINAL_ARGS[@]}"; do
     if [[ "$redact_next" -eq 1 ]]; then
       printf " %q" "<redacted>"
       redact_next=0
@@ -1952,10 +1630,6 @@ audit_start() {
   day_dir="${AUDIT_DIR}/$(date -u +%Y-%m-%d)"
   AUDIT_RUN_DIR="${day_dir}/crashsim_audit_${RUN_ID}_$$"
   mkdir -p "$AUDIT_RUN_DIR" || die "Unable to create audit run directory: $AUDIT_RUN_DIR"
-  # Audit artifacts hold the (redacted) command line and environment; keep them
-  # owner-only. 0700 on the run dir blocks traversal by other users on a shared
-  # host regardless of the individual file modes; the files are 0600 as well.
-  chmod 700 "$AUDIT_RUN_DIR" 2>/dev/null || true
 
   AUDIT_MARKER_FILE="${AUDIT_RUN_DIR}/start.marker"
   AUDIT_STDOUT_FILE="${AUDIT_RUN_DIR}/stdout.log"
@@ -1966,7 +1640,6 @@ audit_start() {
 
   touch "$AUDIT_MARKER_FILE" "$AUDIT_STDOUT_FILE" "$AUDIT_STDERR_FILE" ||
     die "Unable to initialize audit files under: $AUDIT_RUN_DIR"
-  chmod 600 "$AUDIT_MARKER_FILE" "$AUDIT_STDOUT_FILE" "$AUDIT_STDERR_FILE" 2>/dev/null || true
 
   {
     printf "version=%q\n" "$VERSION"
@@ -1988,7 +1661,6 @@ audit_start() {
   audit_print_redacted_command >"$command_file" ||
     die "Unable to write redacted audit command: $command_file"
   audit_write_redacted_environment "$env_file"
-  chmod 600 "$metadata_file" "$command_file" "$env_file" 2>/dev/null || true
 
   AUDIT_STARTED=1
   if ! audit_stream_capture_enabled; then
@@ -2001,15 +1673,6 @@ audit_start() {
     echo "Audit stream capture: disabled for interactive guided menu; generated artifacts will still be retained."
     return "$SUCCESS"
   fi
-
-  # Remember whether the OPERATOR'S terminal is already on the far end of the
-  # capture pipeline. After the exec below, stdout is a process substitution, so
-  # `-t 1` is false even in a fully interactive run - and prompt helpers that
-  # fall back to /dev/tty when stdout "is not a terminal" would then print every
-  # prompt twice: once down this tee (which still ends at the terminal) and once
-  # direct. See confirm_show.
-  AUDIT_STDOUT_WAS_TTY=0
-  [[ -t 1 ]] && AUDIT_STDOUT_WAS_TTY=1
 
   exec > >(audit_redact_stream | tee -a "$AUDIT_STDOUT_FILE") \
     2> >(audit_redact_stream | tee -a "$AUDIT_STDERR_FILE" >&2)
@@ -2210,10 +1873,6 @@ find_sqlplus_if_available() {
 }
 
 ensure_sqlplus() {
-  if [[ "$SQLPLUS_LOGON_PW_WARNED" -eq 0 ]] && sqlplus_logon_has_password "$SQLPLUS_LOGON"; then
-    SQLPLUS_LOGON_PW_WARNED=1
-    warn "The configured SQL*Plus logon embeds a password, which is visible in 'ps' to every user on this host while sqlplus runs. Prefer OS authentication ('/ as sysdba') or a wallet logon ('/@tns_alias')."
-  fi
   if find_sqlplus_if_available; then
     return "$SUCCESS"
   fi
@@ -2266,40 +1925,13 @@ sql_query() {
   local sql_text="$*"
   ensure_sqlplus
   debug "SQL output: $output_file"
-  # -L: a single logon attempt (never sit in the sqlplus re-prompt loop on a
-  # stalled listener). timeout: hard-bound the whole call so a hung connection
-  # (e.g. an emulated/contended node) fails fast instead of hanging the verb -
-  # a pipeline preflight must never block a drill indefinitely.
-  # CRASHSIM_SQL_TIMEOUT (seconds) overrides; where `timeout` is unavailable we
-  # still pass -L.
-  local sql_to="${CRASHSIM_SQL_TIMEOUT:-120}"
-  if command -v timeout >/dev/null 2>&1 && [[ "$sql_to" =~ ^[0-9]+$ ]] && [[ "$sql_to" -gt 0 ]]; then
-    timeout "$sql_to" "$SQLPLUS_BIN" -s -L /nolog >"$output_file" <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" >"$output_file" <<SQL
 whenever sqlerror exit sql.sqlcode
 set heading off feedback off pagesize 0 verify off echo off termout off
 set linesize 32767 trimspool on trimout on tab off
 ${sql_text}
 exit
 SQL
-  else
-    "$SQLPLUS_BIN" -s -L /nolog >"$output_file" <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-whenever sqlerror exit sql.sqlcode
-set heading off feedback off pagesize 0 verify off echo off termout off
-set linesize 32767 trimspool on trimout on tab off
-${sql_text}
-exit
-SQL
-  fi
 }
 
 load_rows() {
@@ -2331,37 +1963,7 @@ run_sql_action() {
     return "$SUCCESS"
   fi
 
-  # Terminate the statement if the caller did not. SQL*Plus BUFFERS an
-  # unterminated statement and then runs the `exit` that sql_query appends, so
-  # the statement never executes AND sqlplus returns 0 - a silent no-op that
-  # looks like success. That is exactly what broke scenario 5: the datafile
-  # offline was written without a trailing ';', never ran, and the drill went on
-  # to remove a file the instance still had open. A missing terminator must not
-  # be able to do that again, whatever the caller passes.
-  local last_line
-  last_line="$(printf '%s' "$sql_text" | trim_blank_lines | tail -n 1 | sed 's/[[:space:]]*$//')"
-  case "$last_line" in
-    *\;|*/) : ;;
-    "")     : ;;
-    *)      sql_text="${sql_text};" ;;
-  esac
-
-  # A planned SQL action that FAILS must stop the drill. This used to return the
-  # status into a dispatcher that ignored it, so a step that never happened was
-  # indistinguishable from one that did - and the run carried on to the next
-  # action, which then failed for a reason that made no sense. Observed on
-  # scenario 5: the datafile offline did not take, and the drill went on to
-  # asmcmd rm and died on ORA-15028 "currently being accessed", pointing at ASM
-  # instead of at the step that actually failed.
-  #
-  # The output also has to survive: WORK_DIR is an mktemp directory that is
-  # cleaned up at exit, so the Oracle error was gone before anyone could read it.
-  if ! sql_query "$output_file" "$sql_text"; then
-    local detail_text=""
-    [[ -s "$output_file" ]] && detail_text="$(trim_blank_lines <"$output_file" | head -n 5)"
-    [[ -n "$detail_text" ]] && { echo "SQL action failed - database said:"; printf '%s\n' "$detail_text"; }
-    die "Planned SQL action did not succeed: ${title}. The drill stops here rather than continuing past a step that did not happen."
-  fi
+  sql_query "$output_file" "$sql_text"
 }
 
 manifest_append() {
@@ -2385,40 +1987,7 @@ manifest_get() {
 
 require_manifest() {
   [[ -n "$MANIFEST_FILE" ]] || die "Recovery requires --manifest <file> for this scenario."
-
-  # A BARE FILENAME is the natural thing to type or paste: it is what every
-  # report, menu listing and log line shows. But the path was used as given, so
-  # it resolved against the CWD and died "Manifest file not found" while the file
-  # sat in LOG_DIR. Resolve a name with no directory component against LOG_DIR
-  # (only when that actually exists - an explicit path is still honoured as-is).
-  if [[ "$MANIFEST_FILE" != */* && ! -f "$MANIFEST_FILE" && -f "${LOG_DIR}/${MANIFEST_FILE}" ]]; then
-    MANIFEST_FILE="${LOG_DIR}/${MANIFEST_FILE}"
-  fi
-
-  [[ -f "$MANIFEST_FILE" ]] ||
-    die "Manifest file not found: ${MANIFEST_FILE}. Pass a full path, or a bare filename that exists in ${LOG_DIR}."
-
-  # Recovering scenario N with scenario M's manifest replays the WRONG restore
-  # points - different files, different tablespaces, sometimes a different
-  # recovery handler entirely. Nothing used to compare the two: an operator with
-  # scenario 13 still selected picked a scenario 9 manifest and the run was
-  # accepted. Fail closed, naming both ids and how to fix it. Callers that do not
-  # know their id (none today) simply omit the argument and skip the check.
-  local expect_id="${1:-}" manifest_id
-  if [[ -n "$expect_id" ]]; then
-    manifest_id="$(manifest_first_value "scenario_id" || true)"
-    if [[ -n "$manifest_id" && "$manifest_id" != "$expect_id" ]]; then
-      die "Manifest/scenario mismatch: recovering scenario ${expect_id} but $(basename "$MANIFEST_FILE") records scenario ${manifest_id}. Select scenario ${manifest_id} (menu option 2), or choose a scenario ${expect_id} manifest."
-    fi
-  fi
-
-  # A dry run plans the same actions and writes the same completion marker, so a
-  # dry-run manifest looks executed. Every recovery used to get past this point
-  # and fail on a downstream symptom ("missing restore paths"), which reads like
-  # a damaged manifest. State the actual cause once, here, for all of them.
-  if [[ "$(manifest_first_value "dry_run" || true)" == "yes" ]]; then
-    die "This manifest is from a DRY RUN (dry_run=yes): the scenario planned its actions but changed nothing, so there is nothing to recover. Execute the scenario first (guided menu option 8, or --execute), then recover with the manifest that run writes."
-  fi
+  [[ -f "$MANIFEST_FILE" ]] || die "Manifest file not found: $MANIFEST_FILE"
 }
 
 manifest_get_required() {
@@ -2443,8 +2012,7 @@ manifest_first_value() {
 
 manifest_rename_paths() {
   local original backup
-  original="$(manifest_first_value "rename_1_original" || true)"
-  [[ -n "$original" ]] || original="$(manifest_first_action_value target || true)"
+  original="$(manifest_first_value "rename_1_original" "action_1_target" || true)"
   backup="$(manifest_get "rename_1_backup" || true)"
   [[ -n "$original" ]] || return "$FAIL"
   [[ -n "$backup" ]] || return "$FAIL"
@@ -2467,12 +2035,6 @@ load_manifest_restore_pairs() {
     fi
     [[ -n "$original" && -n "$backup" ]] ||
       die "Manifest has an incomplete restore pair for rename_${idx}."
-    manifest_restore_path_ok "$original" ||
-      die "Manifest restore path failed validation (rename_${idx}_original): $original"
-    manifest_restore_path_ok "$backup" ||
-      die "Manifest restore path failed validation (rename_${idx}_backup): $backup"
-    [[ "$(storage_path_class "$original")" == "$(storage_path_class "$backup")" ]] ||
-      die "Manifest restore pair mixes storage classes (rename_${idx}): $original vs $backup"
     RESTORE_ORIGINALS+=("$original")
     RESTORE_BACKUPS+=("$backup")
     RESTORE_METHODS+=("${method:-rename}")
@@ -2483,17 +2045,13 @@ load_manifest_restore_pairs() {
 }
 
 copy_restore_pairs_to_originals() {
-  local idx original backup method
+  local idx original backup
   for idx in "${!RESTORE_ORIGINALS[@]}"; do
     original="${RESTORE_ORIGINALS[$idx]}"
     backup="${RESTORE_BACKUPS[$idx]}"
-    method="${RESTORE_METHODS[$idx]:-rename}"
     if [[ "$EXECUTE" -eq 0 ]]; then
       echo "DRY-RUN: would copy $backup back to $original"
     else
-      # Filesystem restore only. ASM datafile loss recovers via RMAN (restore
-      # datafile N; recover datafile N) - never a copy back to an ASM path,
-      # which ASM rejects for an OMF system name (see perform_asm_rm).
       [[ -f "$backup" ]] || die "Scenario backup not found: $backup"
       echo "cp -p -- $backup $original"
       cp -p -- "$backup" "$original" || die "Unable to restore $original from $backup"
@@ -2510,8 +2068,6 @@ move_restore_pairs_to_originals() {
     if [[ "$EXECUTE" -eq 0 ]]; then
       echo "DRY-RUN: would move $backup back to $original"
     else
-      # Filesystem / ORDS-config restore only; ASM datafile loss recovers via
-      # RMAN by FILE# (see perform_asm_rm), not by moving a file into an ASM path.
       [[ -e "$backup" ]] || die "Scenario backup not found: $backup"
       if [[ -e "$original" ]]; then
         warn "Original path already exists while restoring ${original}; leaving backup in place: ${backup}"
@@ -2540,12 +2096,7 @@ init_manifest() {
   local id="$2"
 
   if [[ -z "$MANIFEST_FILE" || "$MANIFEST_FROM_ARG" -eq 0 ]]; then
-    # Include the pid: RUN_ID is 1-second resolution, and the manifest is the
-    # ONLY on-disk record of the renamed-datafile -> .bak restore pairs. Two
-    # destructive runs starting in the same second (e.g. a dispatched agent job
-    # plus a hand run, or two jobs on a multi-PDB host) would otherwise share the
-    # path and the second ': >' would truncate the first's recovery record.
-    MANIFEST_FILE="${LOG_DIR}/crashsim_${mode_name}_s${id}_${RUN_ID}_$$.manifest"
+    MANIFEST_FILE="${LOG_DIR}/crashsim_${mode_name}_s${id}_${RUN_ID}.manifest"
   fi
 
   : >"$MANIFEST_FILE" || die "Unable to write manifest: $MANIFEST_FILE"
@@ -2554,12 +2105,6 @@ init_manifest() {
   manifest_append "mode" "$mode_name"
   manifest_append "scenario_id" "$id"
   manifest_append "scenario_title" "${SCENARIO_TITLE[$id]:-unknown}"
-  # Record whether this run actually DID anything. A dry run plans the same
-  # actions and writes the same scenario_completed_at_utc, so without this the
-  # manifest cannot be told apart from an executed one - and recovery could only
-  # report the symptom ("missing restore paths") rather than the cause.
-  manifest_append "execute_mode" "$([[ "$EXECUTE" -eq 1 ]] && printf yes || printf no)"
-  manifest_append "dry_run" "$([[ "$EXECUTE" -eq 1 ]] && printf no || printf yes)"
   manifest_append "started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   manifest_append "db_name" "${DB_NAME:-unknown}"
   manifest_append "db_unique_name" "${DB_UNIQUE_NAME:-unknown}"
@@ -2705,14 +2250,7 @@ record_action_targets() {
     manifest_append "action_${action_no}_target" "$target"
     manifest_append "action_${action_no}_detail" "$detail"
 
-    # The abort kinds carry the SAME target as the removal they precede, so they
-    # must carry the same metadata. Without this, inserting an abort as action 1
-    # shifts every action_N_* key by one and silently breaks every recovery that
-    # reads action_1_redo_group / action_1_file_no / action_1_pdb_name - the
-    # manifest still looks complete, and the failure only appears at recovery
-    # time, after the fault has been injected. Verified on a scenario-3 manifest.
-    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* || "$kind" == asm_* || "$kind" == "external" ||
-          "$kind" == abort_for_* || "$kind" == shutdown_clean_for_* ]]; then
+    if [[ "$kind" == "fs_rename" || "$kind" == fs_corrupt_* || "$kind" == asm_* || "$kind" == "external" ]]; then
       metadata="$(datafile_metadata_for_path "$target" || true)"
       if [[ -n "$metadata" ]]; then
         IFS='|' read -r pdb_name con_id file_no tablespace path <<<"$metadata"
@@ -2832,14 +2370,7 @@ run_sql_script_file() {
   fi
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -L -s /nolog >"$log_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${script_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$script_file" >"$log_file" </dev/null ||
     die "SQL*Plus script failed: $script_file (log: $log_file)"
 }
 
@@ -2865,9 +2396,6 @@ safe_remove_after_validation() {
     echo "DRY-RUN: would remove validated scenario backup $path"
     return "$SUCCESS"
   fi
-  # Scenario backups are filesystem paths (FS rename .bak / password-file .bak).
-  # ASM datafile loss keeps no asmcmd backup - it recovers by RMAN FILE#
-  # (see perform_asm_rm) - so there is never an ASM backup alias to clean up here.
   [[ -e "$path" ]] || return "$SUCCESS"
   echo "rm -f -- $path"
   rm -f -- "$path" || die "Unable to remove validated scenario backup: $path"
@@ -2921,12 +2449,7 @@ run_sql_text() {
 query_instance_status() {
   local output_file="$1"
   ensure_sqlplus
-  "$SQLPLUS_BIN" -L -s /nolog >"$output_file" <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" >"$output_file" <<SQL
 whenever sqlerror exit sql.sqlcode
 set heading off feedback off pagesize 0 verify off echo off termout off
 set linesize 32767 trimspool on trimout on tab off
@@ -3316,7 +2839,7 @@ sqlplus_password_literal() {
 }
 
 remote_sysdba_test() {
-  local service endpoint output_file status password_escaped
+  local service output_file status password_escaped
   [[ -n "$SYS_PASSWORD" ]] || die "Password-file recovery requires --sys-password or CRASHSIM_SYS_PASSWORD for remote SYSDBA validation."
   password_escaped="$(sqlplus_password_literal "$SYS_PASSWORD")"
   output_file="$WORK_DIR/remote_sysdba_test.out"
@@ -3333,7 +2856,8 @@ DRYRUN
 
   service="$(discover_service_name)" || die "Could not discover listener service name. Use --service-name or CRASHSIM_SERVICE_NAME."
   # The endpoint comes from the database's own local_listener (labs often run
-  # non-default listeners, e.g. testone:1522), never a hardcoded default.
+  # non-default listeners, e.g. port 1522), never a hardcoded default.
+  local endpoint
   endpoint="$(discover_listener_endpoint)"
   echo "Remote SYSDBA validation endpoint: //${endpoint}/${service}"
   ensure_sqlplus
@@ -3438,11 +2962,6 @@ from v\$database;
 "; then
     local ora_hint
     ora_hint="$(grep -m 1 -oE 'ORA-[0-9]+.*' "$db_file" 2>/dev/null)"
-    if [[ "${DISCOVERY_NON_FATAL:-0}" -eq 1 ]]; then
-      warn "Topology discovery cannot read v\$database (${ora_hint:-SQL*Plus connection failed}); the database appears to be down."
-      warn "Menu context stays available: use the recovery options for a scenario that was injected and not yet recovered, or start the instance and refresh with option 1."
-      return "$FAIL"
-    fi
     die "Topology discovery cannot read v\$database (${ora_hint:-SQL*Plus connection failed}).
 The Oracle instance is not available. Start it (sqlplus / as sysdba; startup) - or, if a
 destructive scenario was injected earlier and never recovered, run --recover for that
@@ -3452,13 +2971,7 @@ scenario first - then retry."
   db_line="$(trim_blank_lines <"$db_file" | head -n 1)"
   case "$db_line" in
     *"|"*"|"*"|"*"|"*"|"*"|"*) ;;
-    *)
-      if [[ "${DISCOVERY_NON_FATAL:-0}" -eq 1 ]]; then
-        warn "Topology discovery returned unexpected output instead of v\$database data: ${db_line:-<empty>}; keeping the menu open."
-        return "$FAIL"
-      fi
-      die "Topology discovery returned unexpected output instead of v\$database data: ${db_line:-<empty>}"
-      ;;
+    *) die "Topology discovery returned unexpected output instead of v\$database data: ${db_line:-<empty>}" ;;
   esac
   IFS='|' read -r DB_NAME DB_UNIQUE_NAME DB_ROLE DB_OPEN_MODE DB_CDB DB_PROTECTION_MODE DB_SWITCHOVER_STATUS <<<"$db_line"
 
@@ -3805,20 +3318,12 @@ DISCOVERY
 
 print_discovery() {
   local topology_file latest_file
-  # discover_environment calls ensure_sqlplus, which die()s when SQL*Plus is
-  # absent. Guard it so the topology snapshot degrades to undiscovered values
-  # (consistent with --maa-report) instead of aborting the CLI or the menu.
-  if find_sqlplus_if_available; then
-    discover_environment || true
-  else
-    warn "Database topology discovery skipped: sqlplus was not found. Set ORACLE_HOME or SQLPLUS for database-host discovery. A topology snapshot with undiscovered values will still be written."
-  fi
+  discover_environment
 
   topology_file="${LOG_DIR}/crashsim_topology_${RUN_ID}.txt"
   latest_file="${LOG_DIR}/crashsim_topology_latest.txt"
   write_discovery_text "$topology_file"
   cp -p -- "$topology_file" "$latest_file" 2>/dev/null || true
-  LAST_REPORT_FILE="$topology_file"
   cat "$topology_file"
   echo
   echo "Topology snapshot: ${topology_file}"
@@ -3828,14 +3333,7 @@ print_discovery() {
 
 file_mtime_epoch() {
   local file="$1"
-  local epoch
-
-  epoch="$(stat -c %Y "$file" 2>/dev/null || true)"
-  if [[ -z "$epoch" ]]; then
-    epoch="$(stat -f %m "$file" 2>/dev/null || true)"
-  fi
-  [[ "$epoch" =~ ^[0-9]+$ ]] || epoch=0
-  printf "%s" "$epoch"
+  stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null || return "$FAIL"
 }
 
 topology_cache_value() {
@@ -3931,24 +3429,6 @@ doctor_check_command() {
   local tool="$1" area="$2" required="$3" reason="$4"
   local path
   path="$(doctor_tool_path "$tool")"
-  # Grid Infrastructure tools are NOT on the database owner's PATH - they live
-  # in the Grid home, which is why every other caller in this codebase uses
-  # grid_tool_available (lib/55_scenarios.sh even carries the comment "not a
-  # bare command -v: crsctl lives in the Grid home"). The doctor was the one
-  # place that did not, so on a healthy RAC node it reported
-  #   WARN | RAC/GI | crsctl available | not found
-  # while `crsctl query crs activeversion` returned 23.0.0.0.0 two directories
-  # away. A readiness tool that tells an operator their working cluster is
-  # missing its clusterware sends them to fix nothing.
-  if [[ -z "$path" ]]; then
-    case "$tool" in
-      crsctl|srvctl|asmcmd|olsnodes|oclumon)
-        if grid_tool_available "$tool" 2>/dev/null; then
-          path="$(discover_grid_home_for_tool "$tool" 2>/dev/null)/bin/${tool}"
-        fi
-        ;;
-    esac
-  fi
   if [[ -n "$path" ]]; then
     doctor_add_check "OK" "$area" "${tool} available" "$path" "No action needed."
   elif [[ "$required" == "required" ]]; then
@@ -4555,7 +4035,7 @@ adb_scenario_readiness() {
       fi
       ;;
     ADB17)
-      if [[ -n "$ADB_APEX_URL" ]] && adb_sql_probe_ok; then
+      if [[ -n "$ADB_APEX_URL" && adb_sql_probe_ok ]]; then
         readiness_status="PLAN/RUNBOOK"
         readiness_reason="APEX URL and live SQL probe are available; add workspace/application browser-smoke evidence before execution."
       elif [[ -n "$ADB_APEX_URL" ]]; then
@@ -4831,7 +4311,7 @@ scenario_is_topology_compatible() {
 
 scenario_can_plan_randomly() {
   local id="$1"
-  scenario_capability_evaluate "$id" >/dev/null 2>&1
+  validate_scenario_can_run "$id" >/dev/null 2>&1
 }
 
 select_random_scenario() {
@@ -4839,15 +4319,10 @@ select_random_scenario() {
 
   local candidates=()
   local all_candidates=()
-  local id candidate_count index selected="" runnable_count=0 plan_only_count=0 blocked_count=0
+  local id candidate_count index selected=""
   for id in "${SCENARIO_IDS[@]}"; do
-    if scenario_capability_evaluate "$id" >/dev/null 2>&1; then
+    if scenario_is_topology_compatible "$id"; then
       candidates+=("$id")
-      runnable_count=$((runnable_count + 1))
-    elif [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "PLAN_ONLY" ]]; then
-      plan_only_count=$((plan_only_count + 1))
-    else
-      blocked_count=$((blocked_count + 1))
     fi
   done
   all_candidates=("${candidates[@]}")
@@ -4871,10 +4346,9 @@ select_random_scenario() {
 
   SCENARIO_ID="$selected"
 
-  echo "Aleatory scenario selected from ${candidate_count} runnable scenarios after central capability checks:"
+  echo "Aleatory scenario selected from ${candidate_count} topology-compatible scenarios after target planning checks:"
   echo "  ${SCENARIO_ID}: ${SCENARIO_TITLE[$SCENARIO_ID]}"
   echo "Topology: role=${DB_ROLE:-unknown}, cdb=${DB_CDB:-unknown}, storage=${STORAGE_TYPE:-unknown}, cluster=${CLUSTER_TYPE:-unknown}"
-  echo "Capability summary: runnable=${runnable_count}, plan_only=${plan_only_count}, blocked=${blocked_count}"
   if [[ -n "$TARGET_PDB" ]]; then
     echo "PDB target context: ${TARGET_PDB}"
   elif [[ "${SCENARIO_REQUIRES[$SCENARIO_ID]}" == *pdb* && "${#PDB_ROWS[@]}" -eq 1 ]]; then
@@ -4912,7 +4386,6 @@ confirm_execution() {
   if [[ "$EXECUTE" -eq 0 ]]; then
     return "$SUCCESS"
   fi
-  preflight_unrecovered_drills "$id"
   if [[ "$ASSUME_YES" -eq 1 ]]; then
     require_destructive_lab_ack "scenario ${id} execution"
     return "$SUCCESS"
@@ -5055,14 +4528,10 @@ scenario_protection_capability() {
     return "$SUCCESS"
   fi
 
-  # single-source classification (task #78); this list previously omitted 80
-  # and 87, which fell through to the logical-drill wording - same meaning,
-  # already-drifted copy
-  if scenario_is_read_only "$id"; then
-    printf "Not required: read-only report"
-    return "$SUCCESS"
-  fi
   case "$id" in
+    53|64|65|69|78|81|82)
+      printf "Not required: read-only report"
+      ;;
     *)
       if [[ "${SCENARIO_IMPACT[$id]}" == "logical" ]]; then
         printf "Not required: logical drill"
@@ -5080,19 +4549,23 @@ scenario_execution_capability() {
     return "$SUCCESS"
   fi
 
-  # single-source classification (task #78); 28 keeps its bespoke wording
   case "$id" in
-    28) printf "guarded manual-only external restore plan"; return "$SUCCESS" ;;
+    28)
+      printf "guarded manual-only external restore plan"
+      ;;
+    46|47|48|49|52|54|66|70|72|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
+      printf "guarded plan-only evidence; external approved action"
+      ;;
+    53|64|65|69|78|80|81|82|87)
+      printf "Automated read-only report"
+      ;;
+    83|84)
+      printf "Automated evidence collection; approved client/provider action external"
+      ;;
+    *)
+      printf "Automated dry-run/execute with guardrails"
+      ;;
   esac
-  if scenario_is_plan_only "$id"; then
-    printf "guarded plan-only evidence; external approved action"
-  elif scenario_is_read_only "$id"; then
-    printf "Automated read-only report"
-  elif scenario_is_external_evidence "$id"; then
-    printf "Automated evidence collection; approved client/provider action external"
-  else
-    printf "Automated dry-run/execute with guardrails"
-  fi
 }
 
 scenario_recovery_capability() {
@@ -5102,58 +4575,35 @@ scenario_recovery_capability() {
     return "$SUCCESS"
   fi
 
-  # single-source classification (task #78). The manual/external branch is the
-  # shared plan-only + external-evidence classes PLUS a probe-local additive
-  # list (28/29/45/60/63) of scenarios whose recovery is external for reasons
-  # of their own - that residue is genuinely recovery-specific, so it stays
-  # local rather than becoming a fifth global class.
-  if scenario_is_read_only "$id"; then
-    printf "Not required: read-only report"
-    return "$SUCCESS"
-  fi
   case "$id" in
+    53|64|65|69|78|80|81|82|87)
+      printf "Not required: read-only report"
+      ;;
     11|36|43|44)
       printf "Manual logical restore/reseed runbook"
-      return "$SUCCESS"
       ;;
-    28|29|45|60|63)
+    28|29|45|46|47|48|49|52|54|60|63|66|70|72|83|84|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
       printf "Manual/external runbook"
-      return "$SUCCESS"
+      ;;
+    *)
+      printf "Manual runbook"
       ;;
   esac
-  if scenario_is_plan_only "$id" || scenario_is_external_evidence "$id"; then
-    printf "Manual/external runbook"
-  else
-    printf "Manual runbook"
-  fi
 }
 
 scenario_runbook_capability() {
-  local id="$1"
-  if scenario_has_specific_runbook "$id"; then
-    printf "Scenario-specific --runbook artifact"
-  else
-    printf "Generic --runbook artifact only (no scenario-specific recovery steps)"
-  fi
+  printf "Automated --runbook artifact"
 }
 
 scenario_evidence_capability() {
   local id="$1"
-  # single-source classification (task #78); 80's richer artifact list stays a
-  # local special case ahead of the class default
   case "$id" in
     80)
       printf "Markdown report, SQL evidence, optional browser screenshots/JSON, manifest, audit"
-      return "$SUCCESS"
       ;;
-  esac
-  if scenario_is_read_only "$id"; then
-    # 87 was missing from the inline copy this replaces - the only read-only
-    # scenario rendered with the generic evidence line
-    printf "Markdown report, SQL evidence, manifest, audit"
-    return "$SUCCESS"
-  fi
-  case "$id" in
+    53|64|65|69|78|80|81|82)
+      printf "Markdown report, SQL evidence, manifest, audit"
+      ;;
     52|54)
       printf "Manifest, audit, SQL/DGMGRL readiness evidence, runbook"
       ;;
@@ -5170,18 +4620,13 @@ scenario_lifecycle_next_step() {
     return "$SUCCESS"
   fi
   if ! supports_recovery_automation "$id"; then
-    # single-source classification (task #78). The inline plan-only copy this
-    # replaces was missing 46-49 (they fell through to the generic next step)
-    # and carried 87 in a dead second branch.
-    if scenario_is_read_only "$id"; then
-      printf "No recovery helper required; keep report evidence current."
-      return "$SUCCESS"
-    fi
-    if scenario_is_plan_only "$id" || scenario_is_external_evidence "$id"; then
-      printf "Plan-only by design; keep external-action runbook and evidence current."
-      return "$SUCCESS"
-    fi
     case "$id" in
+      53|64|65|69|78|80|81|82|87)
+        printf "No recovery helper required; keep report evidence current."
+        ;;
+      52|54|66|70|72|83|84|85|86|87|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
+        printf "Plan-only by design; keep external-action runbook and evidence current."
+        ;;
       11|36|43|44)
         printf "Keep logical seed/reseed and restore guidance current."
         ;;
@@ -5207,14 +4652,14 @@ generate_scenario_lifecycle_report() {
     supports_file_recovery_automation "$id" && auto_protect_count=$((auto_protect_count + 1))
     supports_recovery_automation "$id" && auto_recover_count=$((auto_recover_count + 1))
     [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder_count=$((placeholder_count + 1))
-    # single-source classification (task #78). This counter historically folded
-    # the external-evidence pair (83/84) into "plan-only external-action"; that
-    # reading is preserved by counting both classes here.
-    if scenario_is_plan_only "$id" || scenario_is_external_evidence "$id"; then
-      plan_only_count=$((plan_only_count + 1))
-    elif scenario_is_read_only "$id"; then
-      read_only_count=$((read_only_count + 1))
-    fi
+    case "$id" in
+      46|47|48|49|52|54|66|70|72|83|84|85|86|88|89|90|EXA01|EXA02|EXA03|EXA04|OCI01|OCI02|OCI03|OCI04|OCI05|GG01|GG02|GG03|GG04)
+        plan_only_count=$((plan_only_count + 1))
+        ;;
+      53|64|65|69|78|80|81|82|87)
+        read_only_count=$((read_only_count + 1))
+        ;;
+    esac
   done
 
   report_file="${LOG_DIR}/crashsim_scenario_lifecycle_${RUN_ID}.md"
@@ -5238,7 +4683,6 @@ generate_scenario_lifecycle_report() {
     printf '%s\n' "| Execution | Scenarios use automated dry-run and guarded execution where safe. External infrastructure drills remain plan-only until a matching lab and approval path exist. |"
     printf '%s\n' '| Recovery | Automated `--recover` is available where repeatable. Other scenarios provide manual recovery guidance and evidence targets. |'
     printf '%s\n' "| Runbook/evidence | Every scenario can generate a runbook artifact; scenario/protection/recovery actions write manifests and audit records, with SQL/RMAN/Markdown evidence where applicable. |"
-    printf '%s\n' "| Guardrail/blocker | Every scenario has release-visible guardrail text describing why execution is safe, blocked, read-only, or plan-only. |"
 
     printf '%s\n\n' ""
     printf '%s\n\n' "## Summary"
@@ -5253,14 +4697,14 @@ generate_scenario_lifecycle_report() {
 
     printf '%s\n\n' ""
     printf '%s\n\n' "## Scenario Lifecycle Matrix"
-    printf '%s\n' "| ID | Group | Impact | Scenario | Validation | Protection | Execution | Recovery | Runbook / Evidence | Guardrail / blocker | Next step |"
-    printf '%s\n' "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    printf '%s\n' "| ID | Group | Impact | Scenario | Validation | Protection | Execution | Recovery | Runbook / Evidence | Next step |"
+    printf '%s\n' "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     for id in "${SCENARIO_IDS[@]}"; do
       protection="$(scenario_protection_capability "$id")"
       execution="$(scenario_execution_capability "$id")"
       recovery="$(scenario_recovery_capability "$id")"
       next_step="$(scenario_lifecycle_next_step "$id")"
-      printf '| `%s` | %s | %s | %s | %s | %s | %s | %s | %s / %s | %s | %s |\n' \
+      printf '| `%s` | %s | %s | %s | %s | %s | %s | %s | %s / %s | %s |\n' \
         "$id" \
         "$(md_escape "${SCENARIO_GROUP[$id]}")" \
         "$(md_escape "${SCENARIO_IMPACT[$id]}")" \
@@ -5271,7 +4715,6 @@ generate_scenario_lifecycle_report() {
         "$(md_escape "$recovery")" \
         "$(md_escape "$(scenario_runbook_capability "$id")")" \
         "$(md_escape "$(scenario_evidence_capability "$id")")" \
-        "$(md_escape "$(scenario_guardrail_capability "$id")")" \
         "$(md_escape "$next_step")"
     done
 
@@ -5282,11 +4725,6 @@ generate_scenario_lifecycle_report() {
     printf -- '- Use `--runbook <id> --html` before drills to produce scenario-specific recovery guidance and evidence expectations.\n'
     printf -- '- Treat manual/external entries as backlog candidates only after the required lab topology and safe recovery procedure exist.\n'
   } >"$report_file" || die "Unable to write scenario lifecycle report: $report_file"
-
-  append_evidence_provenance_section "$report_file" \
-    "Lifecycle coverage|scenario registry and framework inference|This static report does not connect to a database; use scenario readiness/capability reports for live topology evidence." \
-    "Protection and recovery support|registered helper functions|Automation posture comes from framework helper registration and scenario lifecycle policy." \
-    "Guardrail/blocker text|scenario registry and release-safety policy|Plan-only/read-only/destructive blockers are release-visible by design."
 
   cp "$report_file" "$latest_file" || die "Unable to update latest scenario lifecycle report: $latest_file"
   echo "Scenario lifecycle coverage report generated: ${report_file}"
@@ -5300,8 +4738,8 @@ generate_scenario_lifecycle_report() {
 }
 
 scenario_lifecycle_check() {
-  local id report_file latest_file status failures=0 warnings=0 handler had_warn=0
-  local title group scope impact requires notes validation protection execution recovery runbook evidence guardrail
+  local id report_file latest_file status failures=0 warnings=0 handler
+  local title group scope impact requires notes validation protection execution recovery runbook evidence
 
   report_file="${LOG_DIR}/crashsim_scenario_lifecycle_check_${RUN_ID}.md"
   latest_file="${LOG_DIR}/crashsim_scenario_lifecycle_check_latest.md"
@@ -5312,7 +4750,7 @@ scenario_lifecycle_check() {
     printf -- '- Tool version: `%s`\n' "$VERSION"
     printf -- '- Registered database scenarios: `%s`\n' "${#SCENARIO_IDS[@]}"
     printf -- '- Registered ADB scenarios: `%s`\n' "${#ADB_SCENARIO_IDS[@]}"
-    printf "\nThis check is release-oriented. It validates that each registered scenario has metadata, a callable handler, and lifecycle text for validation, protection, execution, recovery, runbook, evidence, and guardrail/blocker posture. It does not connect to a database.\n\n"
+    printf "\nThis check is release-oriented. It validates that each registered scenario has metadata, a callable handler, and lifecycle text for validation, protection, execution, recovery, runbook, and evidence posture. It does not connect to a database.\n\n"
     printf "## Scenario Checks\n\n"
     printf "| Status | ID | Scenario | Finding |\n"
     printf "| --- | --- | --- | --- |\n"
@@ -5320,7 +4758,6 @@ scenario_lifecycle_check() {
 
   for id in "${SCENARIO_IDS[@]}"; do
     status="OK"
-    had_warn=0
     title="${SCENARIO_TITLE[$id]:-}"
     group="${SCENARIO_GROUP[$id]:-}"
     scope="${SCENARIO_SCOPE[$id]:-}"
@@ -5334,7 +4771,6 @@ scenario_lifecycle_check() {
     recovery="$(scenario_recovery_capability "$id")"
     runbook="$(scenario_runbook_capability "$id")"
     evidence="$(scenario_evidence_capability "$id")"
-    guardrail="$(scenario_guardrail_capability "$id")"
 
     if [[ -z "$title" || -z "$group" || -z "$scope" || -z "$impact" || -z "$requires" || -z "$handler" || -z "$notes" ]]; then
       printf '| `FAIL` | `%s` | %s | Missing required scenario metadata. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
@@ -5346,27 +4782,16 @@ scenario_lifecycle_check() {
       failures=$((failures + 1))
       status="FAIL"
     fi
-    if [[ -z "$validation" || -z "$protection" || -z "$execution" || -z "$recovery" || -z "$runbook" || -z "$evidence" || -z "$guardrail" ]]; then
+    if [[ -z "$validation" || -z "$protection" || -z "$execution" || -z "$recovery" || -z "$runbook" || -z "$evidence" ]]; then
       printf '| `FAIL` | `%s` | %s | One or more lifecycle capability strings are empty. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
-      failures=$((failures + 1))
-      status="FAIL"
-    fi
-    if [[ "$guardrail" != *"guardrail"* && "$guardrail" != *"blocker"* && "$guardrail" != *"acknowledgement"* && "$guardrail" != *"Readiness validation"* ]]; then
-      printf '| `FAIL` | `%s` | %s | Guardrail/blocker text does not clearly identify a guardrail, blocker, acknowledgement, or readiness gate. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
       failures=$((failures + 1))
       status="FAIL"
     fi
     if [[ "$impact" == "destructive" && "$execution" != *"guard"* && "$execution" != *"plan-only"* ]]; then
       printf '| `WARN` | `%s` | %s | Destructive scenario execution text should mention guardrails or plan-only posture. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
       warnings=$((warnings + 1))
-      had_warn=1
     fi
-    if ! scenario_has_specific_runbook "$id"; then
-      printf '| `WARN` | `%s` | %s | Only the generic recovery runbook applies; add a scenario-specific `print_recovery_runbook` arm. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
-      warnings=$((warnings + 1))
-      had_warn=1
-    fi
-    if [[ "$status" == "OK" && "$had_warn" -eq 0 ]]; then
+    if [[ "$status" == "OK" ]]; then
       printf '| `OK` | `%s` | %s | Metadata, handler, and lifecycle text are present. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
     fi
   done
@@ -5379,15 +4804,11 @@ scenario_lifecycle_check() {
 
   for id in "${ADB_SCENARIO_IDS[@]}"; do
     title="${ADB_SCENARIO_TITLE[$id]:-}"
-    guardrail="$(adb_scenario_guardrail_capability "$id")"
-    if [[ -z "$title" || -z "${ADB_SCENARIO_AREA[$id]:-}" || -z "${ADB_SCENARIO_VALIDATION[$id]:-}" || -z "${ADB_SCENARIO_RECOVERY[$id]:-}" || -z "${ADB_SCENARIO_HELPER[$id]:-}" || -z "$guardrail" ]]; then
+    if [[ -z "$title" || -z "${ADB_SCENARIO_AREA[$id]:-}" || -z "${ADB_SCENARIO_VALIDATION[$id]:-}" || -z "${ADB_SCENARIO_RECOVERY[$id]:-}" || -z "${ADB_SCENARIO_HELPER[$id]:-}" ]]; then
       printf '| `FAIL` | `%s` | %s | Missing ADB scenario metadata. |\n' "$id" "$(md_escape "${title:-unknown}")" >>"$report_file"
       failures=$((failures + 1))
-    elif [[ "$guardrail" != *"guardrail"* && "$guardrail" != *"helper posture"* ]]; then
-      printf '| `FAIL` | `%s` | %s | ADB guardrail/helper posture text is missing. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
-      failures=$((failures + 1))
     else
-      printf '| `OK` | `%s` | %s | ADB scenario metadata and guardrail/helper posture are present. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
+      printf '| `OK` | `%s` | %s | ADB scenario metadata is present. |\n' "$id" "$(md_escape "$title")" >>"$report_file"
     fi
   done
 
@@ -5423,28 +4844,11 @@ plan_scenario_actions() {
 validation_reason_from_output() {
   local output="$1"
   local reason
-
-  # The instance-not-available message spans several lines; taking the last
-  # line alone yielded the meaningless fragment "scenario first - then retry."
-  # (observed on scenario 27's dry-run with the database down). When the output
-  # says the instance is unavailable, return one coherent, actionable sentence
-  # regardless of how the underlying message was wrapped.
-  if printf "%s\n" "$output" | grep -qiE 'ORA-01034|instance is not available|Oracle instance is not available'; then
-    printf "The Oracle instance is not available. Start it (srvctl start database, or sqlplus / as sysdba; startup) - or, if a destructive scenario was injected and not yet recovered, run recovery for it first - then retry."
-    return
-  fi
-
-  # Otherwise prefer a real ORA-/RMAN- error line (the actionable core) over the
-  # last line, which may be a wrapped continuation. Fall back to the last
-  # non-blank line only when no diagnostic code is present.
-  reason="$(printf "%s\n" "$output" | grep -m 1 -oE '(ORA|RMAN|SP2|TNS|CRS|PRKH|PRCR)-[0-9]+.*' | head -n 1)"
-  if [[ -z "$reason" ]]; then
-    reason="$(printf "%s\n" "$output" | awk '
-      /^[[:space:]]*$/ {next}
-      {last=$0}
-      END {print last}
-    ')"
-  fi
+  reason="$(printf "%s\n" "$output" | awk '
+    /^[[:space:]]*$/ {next}
+    {last=$0}
+    END {print last}
+  ')"
   reason="${reason#ERROR: }"
   reason="${reason#WARN: }"
   [[ -n "$reason" ]] || reason="Scenario target validation did not produce a runnable target."
@@ -5567,7 +4971,7 @@ validation_no_target_reason() {
       ;;
     9)
       [[ "$no_target" -eq 1 ]] || return "$FAIL"
-      printf "No USABLE root/non-CDB READ ONLY permanent tablespace was found. Either none exists - create a controlled read-only lab tablespace, preferably CRASHSIM_ROOT_RO_TBS, and set it READ ONLY - or the read-only tablespaces present were EXCLUDED because their datafile header predates the database's last RESETLOGS. A read-only datafile freezes its header, so such a file cannot be brought online after restore (ORA-01190) and the drill would be unrecoverable; re-stamp its header - alter the tablespace READ WRITE then READ ONLY again (preserves contents; the transition checkpoints the file into the current incarnation), take a fresh backup, then rerun validation. Dropping and re-creating the lab tablespace also works but destroys its contents."
+      printf "No root/non-CDB READ ONLY permanent tablespace was found. Create a controlled read-only lab tablespace, preferably CRASHSIM_ROOT_RO_TBS, set it READ ONLY, then rerun validation."
       ;;
     10)
       [[ "$no_target" -eq 1 ]] || return "$FAIL"
@@ -5575,19 +4979,7 @@ validation_no_target_reason() {
       ;;
     11)
       if printf "%s\n" "$output" | grep -q "No non-unique user index candidate"; then
-        # Name the container that was ACTUALLY searched, read from the probe's
-        # own message - not re-derived from DB_CDB/TARGET_PDB. In CLI mode this
-        # formatter runs in the main shell BEFORE any discovery (discovery only
-        # happens inside the validation subshells), so DB_CDB is empty here and
-        # the re-derivation printed "pass --pdb" to an operator who had passed
-        # --pdb. The handler already stamped the real context into its die text.
-        local searched_ctx
-        searched_ctx="$(printf "%s\n" "$output" | sed -n 's/.*No non-unique user index candidate was found in \(PDB [^.]*\)\..*/\1/p' | head -n 1)"
-        if [[ -n "$searched_ctx" ]]; then
-          printf "No non-unique user index candidate was found in %s. Re-run seed_crashsim_lab.sql in that PDB or provide --schema for a disposable lab schema with non-unique indexes." "$searched_ctx"
-        else
-          printf "No root/non-CDB non-unique user index candidate was found. Re-run seed_crashsim_lab.sql, provide --schema for a disposable lab schema with non-unique indexes, or pass --pdb to target a lab schema inside a PDB."
-        fi
+        printf "No root/non-CDB non-unique user index candidate was found. Re-run seed_crashsim_lab.sql or provide --schema for a disposable lab schema with non-unique indexes."
       else
         return "$FAIL"
       fi
@@ -5920,14 +5312,6 @@ validate_scenario_can_run() {
   plan_status=$?
   SCENARIO_VALIDATION_OUTPUT="$plan_output"
   if [[ "$plan_status" -ne 0 ]]; then
-    # Ask FIRST whether the probe itself failed. A no-target reason derived from
-    # the output of a probe that never reached the database is a guess dressed
-    # up as a finding.
-    if reason="$(validation_unverifiable_reason "$plan_output")"; then
-      SCENARIO_VALIDATION_STATUS="UNVERIFIED"
-      SCENARIO_VALIDATION_REASON="$reason"
-      return "$FAIL"
-    fi
     if reason="$(validation_no_target_reason "$id" "$plan_output")"; then
       SCENARIO_VALIDATION_REASON="$reason"
     else
@@ -5969,34 +5353,9 @@ print_scenario_validation() {
   echo "Requires: ${SCENARIO_REQUIRES[$id]}"
   echo
 
-  if scenario_capability_evaluate "$id"; then
+  if validate_scenario_can_run "$id"; then
     echo "Result: RUNNABLE"
-    echo "Reason: ${SCENARIO_CAPABILITY_CURRENT_REASON}"
-    echo "Dry-run allowed: ${SCENARIO_CAPABILITY_CURRENT_DRY_RUN}"
-    echo "Execute allowed: ${SCENARIO_CAPABILITY_CURRENT_EXECUTE}"
-    echo "Evidence provenance: ${SCENARIO_CAPABILITY_CURRENT_PROVENANCE}"
-    echo "Guardrail: ${SCENARIO_CAPABILITY_CURRENT_GUARDRAIL}"
-    echo "Next action: ${SCENARIO_CAPABILITY_CURRENT_NEXT_ACTION}"
-    # Say it BEFORE the fault, not after. Nine scenarios inject a real fault and
-    # have no automated undo (11, 28, 29, 36, 43, 44, 45, 60, 63). Today the only
-    # notice is --recover answering "not yet implemented" once the damage is
-    # already done: the drill stays outstanding, the un-recovered-drill gate then
-    # refuses every later scenario, and an unattended suite stops there. That
-    # happened four times in one sweep before the pattern was recognised.
-    # Validation already knows - so it should be the thing that tells you.
-    if ! supports_recovery_automation "$id" \
-       && ! scenario_is_read_only "$id" \
-       && ! scenario_is_plan_only "$id" \
-       && ! scenario_is_external_evidence "$id"; then
-      echo
-      warn "NO AUTOMATED RECOVERY for scenario ${id}: it injects a real fault that --recover cannot undo."
-      echo "  Consequence if you run it unattended: the drill stays OUTSTANDING, and the"
-      echo "  un-recovered-drill gate refuses every later scenario on this target until it is"
-      echo "  cleared - so a scheduled suite stops here, at the first such scenario."
-      echo "  Plan for it, either way:"
-      echo "    - recover by hand with --runbook ${id}, then close it with --reconcile-drills, or"
-      echo "    - exclude ${id} from unattended runs."
-    fi
+    echo "Reason: ${SCENARIO_VALIDATION_REASON}"
     if [[ "$VERBOSE" -eq 1 && -n "$SCENARIO_VALIDATION_OUTPUT" ]]; then
       echo
       echo "Validation planning output:"
@@ -6005,18 +5364,13 @@ print_scenario_validation() {
     return "$SUCCESS"
   fi
 
-  if [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "PLAN_ONLY" ]]; then
+  if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
     echo "Result: NOT RUNNABLE (dry-run planning only)"
   else
     echo "Result: NOT RUNNABLE"
   fi
   echo "Scenario ${id} is not possible to run at this moment."
-  echo "Reason: ${SCENARIO_CAPABILITY_CURRENT_REASON}"
-  echo "Dry-run allowed: ${SCENARIO_CAPABILITY_CURRENT_DRY_RUN}"
-  echo "Execute allowed: ${SCENARIO_CAPABILITY_CURRENT_EXECUTE}"
-  echo "Evidence provenance: ${SCENARIO_CAPABILITY_CURRENT_PROVENANCE}"
-  echo "Guardrail: ${SCENARIO_CAPABILITY_CURRENT_GUARDRAIL}"
-  echo "Next action: ${SCENARIO_CAPABILITY_CURRENT_NEXT_ACTION}"
+  echo "Reason: ${SCENARIO_VALIDATION_REASON}"
   if [[ "$VERBOSE" -eq 1 && -n "$SCENARIO_VALIDATION_OUTPUT" ]]; then
     echo
     echo "Validation planning output:"
@@ -6037,17 +5391,17 @@ validate_all_scenarios() {
   printf "%-4s %-12s %s\n" "ID" "Status" "Reason"
   printf "%-4s %-12s %s\n" "--" "------" "------"
   for id in "${SCENARIO_IDS[@]}"; do
-    if scenario_capability_evaluate "$id"; then
+    if validate_scenario_can_run "$id"; then
       status="RUNNABLE"
-      reason="$SCENARIO_CAPABILITY_CURRENT_REASON"
+      reason="$SCENARIO_VALIDATION_REASON"
       runnable_count=$((runnable_count + 1))
     else
-      if [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "PLAN_ONLY" ]]; then
+      if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
         status="PLAN-ONLY"
       else
         status="NOT-RUNNABLE"
       fi
-      reason="$SCENARIO_CAPABILITY_CURRENT_REASON"
+      reason="$SCENARIO_VALIDATION_REASON"
       blocked_count=$((blocked_count + 1))
     fi
     reason="$(printf "%s" "$reason" | validation_single_line)"
@@ -6069,8 +5423,8 @@ scenario_readiness_append_rows() {
     return "$SUCCESS"
   fi
 
-  printf "| ID | Group | Scope | Impact | Scenario | Dry-run | Execute | Reason | Provenance |\n" >>"$report_file"
-  printf "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n" >>"$report_file"
+  printf "| ID | Group | Scope | Impact | Scenario | Reason |\n" >>"$report_file"
+  printf "| --- | --- | --- | --- | --- | --- |\n" >>"$report_file"
   for row in "$@"; do
     printf "%s\n" "$row" >>"$report_file"
   done
@@ -6078,7 +5432,7 @@ scenario_readiness_append_rows() {
 
 generate_scenario_readiness_report() {
   local id status reason row name con_id open_mode discovery_note
-  local runnable_count=0 plan_only_count=0 not_runnable_count=0 unverified_count=0 total_count=0
+  local runnable_count=0 plan_only_count=0 not_runnable_count=0 total_count=0
   local report_file latest_file
   local -a runnable_rows=()
   local -a plan_only_rows=()
@@ -6094,30 +5448,23 @@ generate_scenario_readiness_report() {
 
   for id in "${SCENARIO_IDS[@]}"; do
     total_count=$((total_count + 1))
-    if scenario_capability_evaluate "$id"; then
+    if validate_scenario_can_run "$id"; then
       status="RUNNABLE"
-      reason="$SCENARIO_CAPABILITY_CURRENT_REASON"
+      reason="$SCENARIO_VALIDATION_REASON"
       runnable_count=$((runnable_count + 1))
     else
-      if [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "PLAN_ONLY" ]]; then
+      if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
         status="PLAN-ONLY"
         plan_only_count=$((plan_only_count + 1))
-      elif [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "UNVERIFIED" ]]; then
-        # The whole point of UNVERIFIED is that "I could not check" must never be
-        # reported as "cannot run". Folding it into NOT-RUNNABLE here would have
-        # reproduced the exact misreporting the state exists to prevent - in the
-        # report operators actually read, and precisely when the probe failed.
-        status="UNVERIFIED"
-        unverified_count=$((unverified_count + 1))
       else
         status="NOT-RUNNABLE"
         not_runnable_count=$((not_runnable_count + 1))
       fi
-      reason="$SCENARIO_CAPABILITY_CURRENT_REASON"
+      reason="$SCENARIO_VALIDATION_REASON"
     fi
 
     reason="$(printf "%s" "$reason" | validation_single_line)"
-    row="| \`${id}\` | $(md_escape "${SCENARIO_GROUP[$id]}") | $(md_escape "${SCENARIO_SCOPE[$id]}") | $(md_escape "${SCENARIO_IMPACT[$id]}") | $(md_escape "${SCENARIO_TITLE[$id]}") | $(md_escape "${SCENARIO_CAPABILITY_CURRENT_DRY_RUN:-NO}") | $(md_escape "${SCENARIO_CAPABILITY_CURRENT_EXECUTE:-NO}") | $(md_escape "$reason") | $(md_escape "${SCENARIO_CAPABILITY_CURRENT_PROVENANCE:-inference}") |"
+    row="| \`${id}\` | $(md_escape "${SCENARIO_GROUP[$id]}") | $(md_escape "${SCENARIO_SCOPE[$id]}") | $(md_escape "${SCENARIO_IMPACT[$id]}") | $(md_escape "${SCENARIO_TITLE[$id]}") | $(md_escape "$reason") |"
     case "$status" in
       RUNNABLE) runnable_rows+=("$row") ;;
       PLAN-ONLY) plan_only_rows+=("$row") ;;
@@ -6136,7 +5483,7 @@ generate_scenario_readiness_report() {
     printf -- '- Target PDB context: `%s`\n' "${TARGET_PDB:-not set}"
     printf -- '- Target schema context: `%s`\n' "${TARGET_SCHEMA:-not set}"
     printf -- '- Target FILE# context: `%s`\n' "${TARGET_FILE_NO:-not set}"
-    printf "\nThis report validates the discovered target environment against the CrashSimulator scenario registry using the central scenario capability model. The same requirement checks, topology gates, target selection, evidence provenance, and execution guardrails are used by CLI execution, Guided Workflow display, random scenario selection, reports, and recommendation hints.\n"
+    printf "\nThis report validates the discovered target environment against the CrashSimulator scenario registry. The same requirement checks, topology gates, target selection, and execution guardrails are used by scenario execution, so unavailable scenarios are blocked before destructive code runs.\n"
 
     printf "\n## Current Topology\n\n"
     printf "| Signal | Value |\n"
@@ -6183,16 +5530,8 @@ generate_scenario_readiness_report() {
     printf "| RUNNABLE | %s | Scenario can be selected for dry-run and, when requested, execution. |\n" "$runnable_count"
     printf "| PLAN-ONLY | %s | Scenario can produce useful dry-run/runbook evidence, but execution is blocked by a guardrail or provider-specific limitation. |\n" "$plan_only_count"
     printf "| NOT-RUNNABLE | %s | Scenario is not available in the current topology or target context. |\n" "$not_runnable_count"
-    if [[ "$unverified_count" -gt 0 ]]; then
-      printf "| UNVERIFIED | %s | Readiness could NOT be determined - the probe could not reach the database. This is not a statement that the scenario cannot run; re-check when the instance is available. |\n" "$unverified_count"
-    fi
     printf "| TOTAL | %s | Registered scenarios evaluated. |\n" "$total_count"
   } >"$report_file" || die "Unable to write scenario readiness report: $report_file"
-
-  append_evidence_provenance_section "$report_file" \
-    "Scenario capability status|live SQL / srvctl/crsctl / repository-independent inference|Generated by central capability model from current topology and scenario target planning." \
-    "Target selection|live SQL / RMAN metadata / filesystem or GI tooling where applicable|Only collected when the selected scenario requires that target context." \
-    "Guardrail decisions|inference from scenario registry and helper posture|Plan-only, read-only, destructive acknowledgement, and provider-specific blockers are release-visible."
 
   append_report_section "$report_file" "Runnable Scenarios"
   scenario_readiness_append_rows "$report_file" "No scenarios are runnable in the current target context." "${runnable_rows[@]}"
@@ -6294,9 +5633,6 @@ protect_scenario() {
   echo
 
   confirm_mode_execution "PROTECT" "$id"
-  # After the confirmation (it changes state), before the backup (which must
-  # capture the re-stamped header, or it is a backup of an unrestorable file).
-  protect_restamp_pre_resetlogs_read_only
   run_rman_cmdfile "$cmd_file" "$log_file"
   manifest_append "protect_rman_log" "$log_file"
 }
@@ -6325,9 +5661,6 @@ write_recover_datafile_list_rman_file() {
     printf "restore datafile %s;\n" "$file_list"
     printf "recover datafile %s;\n" "$file_list"
     printf "sql \"alter database open\";\n"
-    # Bringing the datafile back ONLINE is deliberately NOT here: it is a separate
-    # guarded SQL step (write_datafile_online_sql_file), shared with
-    # recover_datafile_scenario, so it is idempotent and container-aware.
   } >"$cmd_file" || die "Unable to write RMAN datafile-list recovery file: $cmd_file"
 
   manifest_append "recover_rman_cmdfile" "$cmd_file"
@@ -6340,9 +5673,6 @@ write_recover_pdb_datafile_rman_file() {
   {
     printf "restore datafile %s;\n" "$file_list"
     printf "recover datafile %s;\n" "$file_list"
-    # Onlining is a separate guarded SQL step (write_datafile_online_sql_file),
-    # which already switches into the PDB container - RMAN's target session sits
-    # in CDB$ROOT, so it could not do it correctly from here anyway.
   } >"$cmd_file" || die "Unable to write RMAN PDB datafile recovery file: $cmd_file"
 
   manifest_append "recover_rman_cmdfile" "$cmd_file"
@@ -6432,46 +5762,24 @@ write_asm_redo_recovery_sql_file() {
   cat >"$sql_file" <<SQL || die "Unable to write ASM redo recovery SQL file: $sql_file"
 whenever sqlerror exit sql.sqlcode
 set serveroutput on feedback on pages 100 lines 220
+alter system switch logfile;
+alter system switch logfile;
+alter system checkpoint;
 declare
   l_member varchar2(512) := ${missing_literal};
-  l_group  number := ${group_no};
-  l_status v\$log.status%type;
-  l_count  number;
+  l_count number;
 begin
   select count(*)
     into l_count
     from v\$logfile
    where member = l_member;
 
-  if l_count = 0 then
+  if l_count > 0 then
+    execute immediate 'alter database drop logfile member ''' ||
+      replace(l_member, '''', '''''') || '''';
+  else
     dbms_output.put_line('Redo member is already absent from control-file metadata: ' || l_member);
-    return;
   end if;
-
-  -- A FIXED number of log switches can never make the target group droppable:
-  -- with two groups per thread an even count cycles the thread straight back
-  -- onto the group being repaired (observed live as ORA-01609 after exactly
-  -- two switches). Drive by the group's STATUS instead: switch while it is
-  -- CURRENT, checkpoint while it is ACTIVE, stop the moment it is INACTIVE.
-  for i in 1 .. 10 loop
-    select status into l_status from v\$log where group# = l_group;
-    exit when l_status in ('INACTIVE', 'UNUSED');
-    if l_status = 'CURRENT' then
-      execute immediate 'alter system switch logfile';
-    else
-      execute immediate 'alter system checkpoint';
-    end if;
-  end loop;
-
-  select status into l_status from v\$log where group# = l_group;
-  if l_status not in ('INACTIVE', 'UNUSED') then
-    raise_application_error(-20161,
-      'Redo group ' || l_group || ' is still ' || l_status ||
-      ' after 10 switch/checkpoint attempts; not dropping members from a live group.');
-  end if;
-
-  execute immediate 'alter database drop logfile member ''' ||
-    replace(l_member, '''', '''''') || '''';
 end;
 /
 alter database add logfile member ${diskgroup_literal} to group ${group_no};
@@ -6549,8 +5857,7 @@ load_manifest_datafile_numbers() {
   done
 
   if [[ "${#RECOVER_FILE_NOS[@]}" -eq 0 ]]; then
-    file_no="$(manifest_first_value "recover_file_no" "target_1_file_no" || true)"
-    [[ -n "$file_no" ]] || file_no="$(manifest_first_action_value file_no || true)"
+    file_no="$(manifest_first_value "recover_file_no" "target_1_file_no" "action_1_file_no" || true)"
     if [[ -n "$file_no" ]]; then
       [[ "$file_no" =~ ^[0-9]+$ ]] || die "Manifest has invalid FILE#: $file_no"
       seen=0
@@ -6596,13 +5903,13 @@ recover_datafile_scenario() {
   if [[ -z "$file_no" && "$existing_manifest" -eq 1 ]]; then
     file_no="$(manifest_get "target_1_file_no" || true)"
     if [[ -z "$file_no" ]]; then
-      file_no="$(manifest_first_action_value file_no || true)"
+      file_no="$(manifest_get "action_1_file_no" || true)"
     fi
   fi
   if [[ "$id" == "30" && -z "$pdb_name" && "$existing_manifest" -eq 1 ]]; then
     pdb_name="$(manifest_get "target_1_pdb_name" || true)"
     if [[ -z "$pdb_name" ]]; then
-      pdb_name="$(manifest_first_action_value pdb_name || true)"
+      pdb_name="$(manifest_get "action_1_pdb_name" || true)"
     fi
   fi
 
@@ -6636,37 +5943,10 @@ recover_datafile_scenario() {
     manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   fi
 
-  local cmd_file log_file sql_file sql_log online_mode drill_mode
+  local cmd_file log_file sql_file sql_log
   cmd_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}.rman"
   log_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}.log"
-  # Online datafile drill (via --online-datafile-drill now, or recorded as
-  # drill_mode=online_datafile in the manifest at scenario time): the instance is
-  # still open and the datafile is only offline, so recover it IN PLACE - no
-  # startup force mount, and no PDB re-open (the PDB was never closed).
-  online_mode=0
-  drill_mode=""
-  [[ "$existing_manifest" -eq 1 ]] && drill_mode="$(manifest_get "drill_mode" || true)"
-  if online_datafile_drill_enabled || [[ "$drill_mode" == "online_datafile" ]]; then
-    online_mode=1
-  fi
-  # NOTE: recover_datafile_scenario handles only scenarios 5 and 30 (single
-  # NON-system datafile), which recover with the database OPEN - they are never
-  # abort-mode. The abort-mode (SYSTEM/UNDO, DB-down) recovery lives in
-  # recover_datafile_list_scenario, the path those scenarios dispatch to.
-  # The datafile is brought back ONLINE after EVERY mode, not just the
-  # online-drill one: the injection offlines an offlinable datafile in both, and
-  # leaving it offline means the tablespace is unusable while the run reports
-  # success. The SQL is guarded on the current status, so it is a no-op when the
-  # file is already online.
-  local online_sql_file online_sql_log
-  online_sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_online_df.sql"
-  online_sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_online_df.log"
-  write_datafile_online_sql_file "$file_no" "${pdb_name:-}" "$online_sql_file"
-  manifest_append "recover_online_df_log" "$online_sql_log"
-
-  if [[ "$online_mode" -eq 1 ]]; then
-    write_recover_online_datafile_rman_file "$file_no" "$cmd_file"
-  elif scenario_uses_pdb_recovery "$id"; then
+  if scenario_uses_pdb_recovery "$id"; then
     write_recover_pdb_datafile_rman_file "$file_no" "$cmd_file"
   else
     write_recover_rman_file "$id" "$file_no" "$cmd_file"
@@ -6674,7 +5954,7 @@ recover_datafile_scenario() {
   manifest_append "recover_file_no" "$file_no"
   manifest_append "recover_rman_log" "$log_file"
 
-  if [[ "$id" == "30" && "$online_mode" -eq 0 ]]; then
+  if [[ "$id" == "30" ]]; then
     sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_open_pdb.sql"
     sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_open_pdb.log"
     write_pdb_open_sql_file "$pdb_name" "$sql_file"
@@ -6696,8 +5976,7 @@ recover_datafile_scenario() {
 
   confirm_mode_execution "RECOVER" "$id"
   run_rman_cmdfile "$cmd_file" "$log_file"
-  run_sql_script_file "$online_sql_file" "$online_sql_log"
-  if [[ "$online_mode" -ne 1 && "$id" == "30" ]]; then
+  if [[ "$id" == "30" ]]; then
     run_sql_script_file "$sql_file" "$sql_log"
   fi
 }
@@ -6705,7 +5984,7 @@ recover_datafile_scenario() {
 recover_datafile_list_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local file_list pdb_name cmd_file log_file validate_file validate_log sql_file sql_log has_restore_pairs
   load_manifest_datafile_numbers ||
@@ -6715,8 +5994,7 @@ recover_datafile_list_scenario() {
   pdb_name="$TARGET_PDB"
   if scenario_uses_pdb_recovery "$id"; then
     if [[ -z "$pdb_name" ]]; then
-      pdb_name="$(manifest_first_value "target_pdb" || true)"
-      [[ -n "$pdb_name" ]] || pdb_name="$(manifest_first_action_value pdb_name || true)"
+      pdb_name="$(manifest_first_value "target_pdb" "action_1_pdb_name" || true)"
     fi
     [[ -n "$pdb_name" ]] || die "Scenario ${id} recovery requires --pdb or a manifest target PDB."
     pdb_name="$(normalize_name "$pdb_name")"
@@ -6727,35 +6005,13 @@ recover_datafile_list_scenario() {
   manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   manifest_append "recover_file_list" "$file_list"
 
-  # Abort-mode: a non-offlinable (SYSTEM/UNDO) scenario aborted the whole database
-  # before removing the datafile, so it is DOWN now. RMAN restore would fail
-  # ORA-01034; start the instance MOUNTED first and open the cluster/PDB after.
-  local abort_mode=0
-  recovery_target_down && abort_mode=1
-
   cmd_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_datafiles.rman"
   log_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_datafiles.log"
-  if [[ "$abort_mode" -eq 1 ]]; then
-    write_recover_abort_datafile_rman_file "$file_list" "$cmd_file"
-  elif scenario_uses_pdb_recovery "$id"; then
+  if scenario_uses_pdb_recovery "$id"; then
     write_recover_pdb_datafile_rman_file "$file_list" "$cmd_file"
   else
     write_recover_datafile_list_rman_file "$file_list" "$cmd_file"
   fi
-
-  # Bring the datafiles back ONLINE, exactly as recover_datafile_scenario does.
-  # This path had NO online step at all: a scenario that offlined its datafiles -
-  # which the ASM path always must (ORA-15028) - left that flag set through
-  # restore+recover+open ("alter database open" does not clear it), so the run
-  # reported success with the file still OFFLINE and the tablespace unusable.
-  # Seen live on rac26db: scenario 9 FILE# 48. The helper is guarded on the
-  # current status (idempotent, a no-op when already online) and switches into
-  # the PDB container when there is one, so it is safe for every mode here.
-  local online_sql_file online_sql_log
-  online_sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_online_df.sql"
-  online_sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_online_df.log"
-  write_datafile_online_sql_file "$file_list" "${pdb_name:-}" "$online_sql_file"
-  manifest_append "recover_online_df_log" "$online_sql_log"
   manifest_append "recover_rman_log" "$log_file"
 
   validate_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_validate_datafiles.rman"
@@ -6792,16 +6048,7 @@ recover_datafile_list_scenario() {
 
   confirm_mode_execution "RECOVER" "$id"
   run_rman_cmdfile "$cmd_file" "$log_file"
-  # after restore/recover, before the validate below - same order as
-  # recover_datafile_scenario
-  run_sql_script_file "$online_sql_file" "$online_sql_log"
-  if [[ "$abort_mode" -eq 1 ]]; then
-    # inst1 was opened by the RMAN cmd file; start the rest of the cluster and
-    # re-open the PDB across all instances before the post-recovery validate.
-    open_cluster_and_pdb_after_recovery "${pdb_name:-$TARGET_PDB}"
-  else
-    run_sql_script_file "$sql_file" "$sql_log"
-  fi
+  run_sql_script_file "$sql_file" "$sql_log"
   run_rman_cmdfile "$validate_file" "$validate_log"
 
   if [[ "$has_restore_pairs" -eq 1 ]]; then
@@ -6813,40 +6060,11 @@ recover_datafile_list_scenario() {
 recover_controlfile_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local rman_file rman_log
-  # Name WHY the paths are absent. The common case is not a damaged manifest but
-  # a scenario that was blocked before it injected anything (PLAN-ONLY, recorded
-  # as an "external" action - e.g. an ASM control file on a host without OSASM).
-  # Reporting only "missing restore paths" reads like manifest corruption and
-  # sends people looking in the wrong place.
-  local asm_ctl_mode=0 asm_ctl_removed asm_ctl_diskgroup asm_ctl_survivors
-  if ! load_manifest_restore_pairs; then
-    # ASM control-file loss keeps no rename pair - there is no filesystem path to
-    # move aside. Recovery instead re-creates the missing copy from a surviving
-    # multiplexed control file, which perform_asm_controlfile_rm recorded before
-    # it removed anything (v$controlfile is unqueryable once the instance is down).
-    asm_ctl_removed="$(manifest_first_value "controlfile_asm_removed" || true)"
-    asm_ctl_diskgroup="$(manifest_first_value "controlfile_asm_diskgroup" || true)"
-    asm_ctl_survivors="$(manifest_first_value "controlfile_asm_survivors" || true)"
-    if [[ "$asm_ctl_removed" == +* && -n "$asm_ctl_survivors" ]]; then
-      asm_ctl_mode=1
-    else
-      local blocked_kind blocked_detail
-      blocked_kind="$(awk -F= '/^action_[0-9]+_kind=/ {print $2; exit}' "$MANIFEST_FILE" 2>/dev/null)"
-      blocked_detail="$(awk -F= '/^action_[0-9]+_detail=/ {sub(/^action_[0-9]+_detail=/,""); print; exit}' "$MANIFEST_FILE" 2>/dev/null)"
-      if [[ "$blocked_kind" == "external" ]]; then
-        die "This manifest is from a PLAN-ONLY run: the scenario was blocked before it changed anything (action recorded as 'external'${blocked_detail:+ - ${blocked_detail}}), so there is nothing to restore. Resolve that guardrail, execute the scenario, then recover using the manifest that run writes."
-      fi
-      die "Manifest is missing control-file restore paths. Use a manifest from an executed scenario run."
-    fi
-  fi
-
-  if [[ "$asm_ctl_mode" -eq 1 ]]; then
-    recover_asm_controlfile "$id" "$asm_ctl_removed" "$asm_ctl_diskgroup" "$asm_ctl_survivors"
-    return "$SUCCESS"
-  fi
+  load_manifest_restore_pairs ||
+    die "Manifest is missing control-file restore paths. Use a manifest from an executed scenario run."
 
   manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -6876,25 +6094,17 @@ recover_controlfile_scenario() {
 recover_redo_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local sql_file sql_log rman_file rman_log restore_pair_mode asm_redo_mode
   local redo_group redo_member redo_diskgroup
   restore_pair_mode=0
   asm_redo_mode=0
-  # Total group loss is its own shape: no surviving member to drop-and-re-add,
-  # and CLEAR rebuilds the files. Check before the single-member paths.
-  if [[ -n "$(manifest_all_values "redo_total_loss_group" 2>/dev/null || true)" ]]; then
-    recover_asm_redo_group_total "$id"
-    return "$SUCCESS"
-  fi
   if load_manifest_restore_pairs; then
     restore_pair_mode=1
   else
-    redo_group="$(manifest_first_action_value redo_group || true)"
-    [[ -n "$redo_group" ]] || redo_group="$(manifest_first_action_value redo_group_no || true)"
-    redo_member="$(manifest_first_action_value redo_member || true)"
-    [[ -n "$redo_member" ]] || redo_member="$(manifest_first_action_value target || true)"
+    redo_group="$(manifest_first_value "action_1_redo_group" "action_1_redo_group_no" || true)"
+    redo_member="$(manifest_first_value "action_1_redo_member" "action_1_target" || true)"
     if [[ -n "$redo_group" && "$redo_group" =~ ^[0-9]+$ && "$redo_member" == +* ]]; then
       redo_diskgroup="$(redo_replacement_diskgroup "$redo_member" || true)"
       [[ -n "$redo_diskgroup" ]] || die "Unable to derive ASM disk group from redo member: $redo_member"
@@ -6952,21 +6162,13 @@ recover_redo_scenario() {
   if [[ "$restore_pair_mode" -eq 1 ]]; then
     safe_remove_restore_backups
   fi
-  # The ASM injection aborted the WHOLE database (ASM will not drop an online
-  # redo member any instance holds open) and force_database_open only started
-  # the local one. The filesystem path never took the cluster down, so this is
-  # scoped to the ASM mode.
-  if [[ "$asm_redo_mode" -eq 1 ]]; then
-    open_cluster_and_pdb_after_recovery "${TARGET_PDB:-}"
-  fi
-  claim_zero_rpo_if_complete "$sql_file" "$rman_file"
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
 recover_tempfile_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local paths original backup pdb_name container_name sql_file sql_log has_restore_pairs target_tablespace
   load_manifest_tempfile_targets ||
@@ -6985,8 +6187,7 @@ recover_tempfile_scenario() {
   pdb_name="$TARGET_PDB"
   if [[ "$id" == "31" || "$id" == "38" ]]; then
     if [[ -z "$pdb_name" ]]; then
-      pdb_name="$(manifest_first_value "target_pdb" || true)"
-      [[ -n "$pdb_name" ]] || pdb_name="$(manifest_first_action_value pdb_name || true)"
+      pdb_name="$(manifest_first_value "target_pdb" "action_1_pdb_name" || true)"
       [[ -n "$pdb_name" ]] || pdb_name="$RECOVER_TEMPFILE_PDB"
     fi
   fi
@@ -7047,21 +6248,9 @@ recover_tempfile_scenario() {
 recover_password_file_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local paths original backup password_display orapwd_bin
-  local asm_pw_path asm_pw_dg asm_pw_dbun
-
-  # ASM password-file loss keeps no rename pair; recovery recreates the file with
-  # orapwd directly into the disk group.
-  asm_pw_path="$(manifest_first_value "pwfile_asm_removed" || true)"
-  asm_pw_dg="$(manifest_first_value "pwfile_asm_diskgroup" || true)"
-  asm_pw_dbun="$(manifest_first_value "pwfile_asm_dbuniquename" || true)"
-  if [[ "$asm_pw_path" == +* ]]; then
-    recover_asm_password_file "$id" "$asm_pw_path" "${asm_pw_dg:-${asm_pw_path%%/*}}" "${asm_pw_dbun:-${DB_UNIQUE_NAME:-}}"
-    return "$SUCCESS"
-  fi
-
   paths="$(manifest_rename_paths)" || die "Manifest is missing scenario rename paths. Use a manifest from an executed scenario run."
   IFS='|' read -r original backup <<<"$paths"
   password_display="********"
@@ -7094,19 +6283,12 @@ recover_password_file_scenario() {
     ensure_database_open
     echo "orapwd file=${original} password=${password_display} entries=30 force=y"
     orapwd_bin="$(ensure_orapwd)"
-    # RESIDUAL (accepted): orapwd takes the SYS password only as a command-line
-    # argv token, briefly visible in `ps` while it runs. There is no portable
-    # non-argv path: with no password argument orapwd prompts on /dev/tty (not
-    # stdin, so a pipe is ignored when a terminal is present) and 11g/12.1 have
-    # no prompt at all. The exposure is a single short-lived, EXECUTE-only,
-    # explicitly-supplied credential on a recovery host; rotate SYS afterward.
     "$orapwd_bin" file="$original" password="$SYS_PASSWORD" entries=30 force=y ||
       die "orapwd failed for $original"
   fi
 
   restore_sysbackup_user_if_present
   remote_sysdba_test
-  warn_password_file_standby_propagation "$original"
   safe_remove_after_validation "$backup"
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -7140,21 +6322,9 @@ SQL
 recover_spfile_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local paths original backup status_file status sql_file sql_log rman_file rman_log recovery_mode
-  local asm_spf_path asm_spf_dg asm_spf_pfile
-
-  # ASM SPFILE loss keeps no rename pair. perform_asm_spfile_rm captured a pfile
-  # before removing the file; recovery rebuilds the SPFILE from it.
-  asm_spf_path="$(manifest_first_value "spfile_asm_removed" || true)"
-  asm_spf_dg="$(manifest_first_value "spfile_asm_diskgroup" || true)"
-  asm_spf_pfile="$(manifest_first_value "spfile_asm_pfile_capture" || true)"
-  if [[ "$asm_spf_path" == +* && -n "$asm_spf_pfile" ]]; then
-    recover_asm_spfile "$id" "$asm_spf_path" "${asm_spf_dg:-${asm_spf_path%%/*}}" "$asm_spf_pfile"
-    return "$SUCCESS"
-  fi
-
   paths="$(manifest_rename_paths)" || die "Manifest is missing scenario rename paths. Use a manifest from an executed scenario run."
   IFS='|' read -r original backup <<<"$paths"
 
@@ -7228,7 +6398,7 @@ recover_spfile_scenario() {
 recover_fs_rename_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   load_manifest_restore_pairs ||
     die "Manifest is missing restore paths. Use a manifest from an executed scenario run."
@@ -7253,22 +6423,9 @@ recover_fs_rename_scenario() {
 recover_archivelog_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local paths original backup seq rman_file rman_log restore_file restore_log
-  local asm_arc_path asm_arc_thread asm_arc_seq
-
-  # ASM archived-log loss keeps no rename pair - there is nothing to copy back.
-  # perform_asm_archivelog_rm recorded thread/sequence (and refused unless a
-  # usable RMAN backup existed), so recovery RESTORES the log instead.
-  asm_arc_path="$(manifest_first_value "archivelog_asm_removed" || true)"
-  asm_arc_thread="$(manifest_first_value "archivelog_asm_thread" || true)"
-  asm_arc_seq="$(manifest_first_value "archivelog_asm_sequence" || true)"
-  if [[ "$asm_arc_path" == +* && "$asm_arc_thread" =~ ^[0-9]+$ && "$asm_arc_seq" =~ ^[0-9]+$ ]]; then
-    recover_asm_archivelog "$id" "$asm_arc_path" "$asm_arc_thread" "$asm_arc_seq"
-    return "$SUCCESS"
-  fi
-
   paths="$(manifest_rename_paths)" || die "Manifest is missing scenario rename paths. Use a manifest from an executed scenario run."
   IFS='|' read -r original backup <<<"$paths"
 
@@ -7326,17 +6483,12 @@ recover_archivelog_scenario() {
 
   safe_remove_after_validation "$backup"
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  # The removed log is restored from RMAN, so the gap the drill created is
-  # repaired. Stating that positively is more useful than silence, which the
-  # console has to render as "not determined".
-  record_archive_chain_state NO "archived log restored from RMAN backup; the gap this drill created was repaired"
-
 }
 
 recover_rman_backup_piece_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local paths original backup bs_key missing_file missing_log validate_file validate_log
   paths="$(manifest_rename_paths)" || die "Manifest is missing scenario rename paths. Use a manifest from an executed scenario run."
@@ -7399,17 +6551,12 @@ recover_rman_backup_piece_scenario() {
 
   safe_remove_after_validation "$backup"
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  # The removed piece was copied back and re-crosschecked, so restore
-  # capability is verified rather than merely assumed. This drill does not
-  # touch the redo stream, so the archive chain is not this fact.
-  record_backup_coverage_state INTACT "backup piece restored and crosschecked"
-
 }
 
 recover_fra_full_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local original_size sql_file sql_log
   original_size="$(manifest_get "fra_original_size_bytes" || true)"
@@ -7563,8 +6710,7 @@ recover_rac_service_scenario() {
   local service status_file service_status
   service="$SERVICE_NAME"
   if [[ -z "$service" && -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
-    service="$(manifest_first_value "scenario_56_service" || true)"
-    [[ -n "$service" ]] || service="$(manifest_first_action_value target || true)"
+    service="$(manifest_first_value "scenario_56_service" "action_1_target" || true)"
   fi
   if [[ -z "$service" ]]; then
     local services_file
@@ -7629,6 +6775,8 @@ recover_standby_apply_scenario() {
 
   local apply_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_restart_apply.log"
   local validate_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_apply_status.log"
+  manifest_append "recover_standby_apply_log" "$apply_log"
+  manifest_append "recover_standby_apply_status_log" "$validate_log"
 
   echo "Recover scenario ${id}: ${SCENARIO_TITLE[$id]}"
   echo "Mode: $([[ "$EXECUTE" -eq 1 ]] && echo EXECUTE || echo DRY-RUN)"
@@ -7648,13 +6796,16 @@ recover_standby_apply_scenario() {
   run_sql_text "restart managed standby recovery" "
 alter database recover managed standby database disconnect from session;
 " "$apply_log"
-  # Declared only now that it exists. Naming a log in the manifest before the
-  # step that writes it means an aborted run leaves a manifest citing evidence
-  # nobody ever produced - which is exactly how the 2026-08-18 rac19sb run read
-  # as a recovery that had happened.
-  manifest_append "recover_standby_apply_log" "$apply_log"
-
-  standby_apply_assert_restarted "$id" "$validate_log"
+  run_sql_text "validate standby apply status" "
+select process || '|' || status
+from v\$managed_standby
+where process like 'MRP%'
+order by process;
+select name || '=' || nvl(value, 'UNKNOWN') || ' ' || nvl(unit, '')
+from v\$dataguard_stats
+where name in ('transport lag','apply lag','apply finish time')
+order by name;
+" "$validate_log"
   manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
@@ -7743,8 +6894,7 @@ recover_ords_service_scenario() {
   service="$ORDS_SERVICE_NAME"
   effective_lb_url="$ORDS_LB_URL"
   if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
-    service_from_manifest="$(manifest_first_value "ords_service_name" || true)"
-    [[ -n "$service_from_manifest" ]] || service_from_manifest="$(manifest_first_action_value target || true)"
+    service_from_manifest="$(manifest_first_value "ords_service_name" "action_1_target" || true)"
     [[ -n "$service_from_manifest" ]] && service="$service_from_manifest"
     lb_from_manifest="$(manifest_first_value "ords_lb_url" || true)"
     [[ -z "$effective_lb_url" && -n "$lb_from_manifest" ]] && effective_lb_url="$lb_from_manifest"
@@ -7803,8 +6953,7 @@ recover_apex_runtime_account_scenario() {
   runtime_user=""
   runtime_container=""
   if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
-    runtime_user="$(manifest_first_value "apex_runtime_user" || true)"
-    [[ -n "$runtime_user" ]] || runtime_user="$(manifest_first_action_value target || true)"
+    runtime_user="$(manifest_first_value "apex_runtime_user" "action_1_target" || true)"
     runtime_user="${runtime_user##*alter user }"
     runtime_user="${runtime_user%% account*}"
     runtime_container="$(manifest_first_value "apex_runtime_target_container" || true)"
@@ -7869,7 +7018,7 @@ recover_apex_runtime_account_scenario() {
 recover_ords_pool_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-  require_manifest "$id"
+  require_manifest
 
   local original_service bad_service smoke_file
   original_service="$(manifest_get "ords_pool_original_servicename" || true)"
@@ -7914,26 +7063,8 @@ recover_ords_pool_scenario() {
 recover_scenario() {
   local id="$1"
   scenario_exists "$id" || die "Unknown scenario id: $id"
-
-  # A read-only / plan-only / external-evidence scenario INJECTS NO FAULT, so
-  # there is nothing to recover and no capability is missing. Saying "automated
-  # recovery is not yet implemented" invents a gap: on rac19db that message came
-  # back for 78, 80, 81 and 82 - all four already in READ_ONLY_SCENARIO_IDS -
-  # and read as four broken recoveries in the batch results. It is also how
-  # 3.3 came to describe 53 and 69 as unimplemented when both are read-only.
-  # Exit SUCCESS: refusing work that does not exist is not a failure.
-  if scenario_is_read_only "$id" || scenario_is_plan_only "$id" \
-     || scenario_is_external_evidence "$id"; then
-    echo "Scenario ${id} is a validation-only drill: it injects no fault, so there is"
-    echo "nothing to recover. Its evidence is the drill output itself."
-    echo "  Runbook (what an operator would check): --runbook ${id}"
-    return "$SUCCESS"
-  fi
-
   supports_recovery_automation "$id" ||
     die "Automated recovery is not yet implemented for scenario $id. Use --runbook $id for manual guidance."
-
-  recovery_establish_context "$id"
 
   case "$id" in
     1|2|23)
@@ -8127,14 +7258,7 @@ run_health_check() {
   echo
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -L -s /nolog >"$log_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$log_file" </dev/null ||
     die "Health check failed: $sql_file (log: $log_file)"
 
   sed 's/^/  /' "$log_file"
@@ -8320,19 +7444,6 @@ begin
     end if;
     emit('catalog_owner_count', scalar_count(q'[select count(*) from cdb_role_privs where granted_role = 'RECOVERY_CATALOG_OWNER']'));
     emit('catalog_metadata_count', scalar_count(q'[select count(*) from cdb_objects where object_name = 'RC_DATABASE' and owner not in ('SYS','SYSTEM')]'));
-    -- task #99: disposable test PDB (scenario 45 requires a CRASHSIM_-prefixed
-    -- PDB precisely so drop-PDB drills can never aim at a customer PDB)
-    emit('crashsim_test_pdb_count', scalar_count(q'[select count(*) from v\$pdbs where name like 'CRASHSIM%']'));
-    emit('crashsim_test_pdb_names', scalar_value(q'[select nvl(listagg(name, ','), 'none') from v\$pdbs where name like 'CRASHSIM%']', 'none'));
-    -- services are container-local: a service created for a PDB (srvctl -pdb)
-    -- registers in THAT container's dba_services and is invisible to the
-    -- root's. Proven live on rac19db 2026-08-16: crashsim_ac/crashsim_tac in
-    -- con_id 3, root dba_services count 0, checklist wrongly MISSING. Count
-    -- across open containers. (cdb_* views cannot see closed PDBs - but a
-    -- closed PDB's services are not drillable, so that blindness is honest.)
-    emit('service_crashsim_count', scalar_count(q'[select count(distinct lower(name)) from cdb_services where lower(name) in ('crashsim_ac','crashsim_tac')]'));
-    emit('service_crashsim_ha_count', scalar_count(q'[select count(distinct lower(name)) from cdb_services where lower(name) in ('crashsim_ac','crashsim_tac') and (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO'))]'));
-    emit('service_other_ha_count', scalar_count(q'[select count(distinct lower(name)) from cdb_services where (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO')) and lower(name) not in ('crashsim_ac','crashsim_tac')]'));
   else
     emit('target_pdb', '');
     emit('target_con_id', '');
@@ -8344,19 +7455,10 @@ begin
     emit('target_ords_user_count', scalar_count(q'[select count(*) from dba_users where username in ('ORDS_PUBLIC_USER','ORDS_METADATA','APEX_PUBLIC_USER')]'));
     emit('catalog_owner_count', scalar_count(q'[select count(*) from dba_role_privs where granted_role = 'RECOVERY_CATALOG_OWNER']'));
     emit('catalog_metadata_count', scalar_count(q'[select count(*) from dba_objects where object_name = 'RC_DATABASE' and owner not in ('SYS','SYSTEM')]'));
-    emit('crashsim_test_pdb_count', '0');
-    emit('crashsim_test_pdb_names', 'none');
-    emit('service_crashsim_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac')]'));
-    emit('service_crashsim_ha_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac') and (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO'))]'));
-    emit('service_other_ha_count', scalar_count(q'[select count(*) from dba_services where (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO')) and lower(name) not in ('crashsim_ac','crashsim_tac')]'));
   end if;
 
-  -- Baseline-backup evidence from the DATABASE's own backup history, not from
-  -- tool log artifacts: the agent collects with its own --log-dir, so counting
-  -- crashsim_baseline_backup_* files reported MISSING on a target with two
-  -- completed DB FULL backups (rac19db 2026-08-16). Any RMAN full/incremental
-  -- database backup counts, whoever ran it.
-  emit('recent_db_backup_count', scalar_count(q'[select count(*) from v\$rman_backup_job_details where status like 'COMPLETED%' and input_type in ('DB FULL','DB INCR') and start_time >= sysdate - 14]'));
+  emit('service_crashsim_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac')]'));
+  emit('service_crashsim_ha_count', scalar_count(q'[select count(*) from dba_services where lower(name) in ('crashsim_ac','crashsim_tac') and (aq_ha_notifications = 'YES' or failover_type in ('TRANSACTION','AUTO'))]'));
 end;
 /
 
@@ -8367,14 +7469,7 @@ SQL
 collect_prepare_environment_evidence() {
   local sql_file="$1" evidence_file="$2"
   write_prepare_environment_sql_file "$sql_file"
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "Prepare-environment SQL failed: $sql_file (evidence: $evidence_file)"
   parse_prepare_evidence_file "$evidence_file"
 
@@ -8419,7 +7514,6 @@ evaluate_prepare_environment() {
   local script_root
   local cdb redo_under control_count service_count service_ha_count apex_count ords_count
   local root_users root_tbs pdb_users pdb_tbs catalog_owners catalog_metadata baseline_count
-  local recent_db_backups other_ha_count
   local dg_dest fsfo_status fsfo_observer cluster storage gi ords_bin ords_service ords_config apex_images
 
   prepare_reset
@@ -8438,8 +7532,6 @@ evaluate_prepare_environment() {
   catalog_owners="$(prepare_value catalog_owner_count 0)"
   catalog_metadata="$(prepare_value catalog_metadata_count 0)"
   baseline_count="$(prepare_value baseline_artifact_count 0)"
-  recent_db_backups="$(prepare_value recent_db_backup_count 0)"
-  other_ha_count="$(prepare_value service_other_ha_count 0)"
   dg_dest="$(prepare_value standby_dest_count 0)"
   fsfo_status="$(prepare_value fs_failover_status UNKNOWN)"
   fsfo_observer="$(prepare_value fs_failover_observer_present UNKNOWN)"
@@ -8481,7 +7573,7 @@ evaluate_prepare_environment() {
     prepare_add "redo_multiplex" "Multiplex online redo logs" "MISSING" "Required for redo-loss scenarios 3 and 18" \
       "redo_groups_under2=${redo_under}, storage=${storage}, fra=$(prepare_value fra_dest)" \
       "Add missing redo members using the topology-aware redo preparation SQL." \
-      "yes" "${SQLPLUS_BIN:-sqlplus} -s -L /nolog  # then: connect <your logon>; @${script_root}/prepare_crashsim_fex_redo_multiplex.sql" \
+      "yes" "${SQLPLUS_BIN:-sqlplus} ${SQLPLUS_LOGON} @${script_root}/prepare_crashsim_fex_redo_multiplex.sql" \
       "Uses the configured recovery destination for this FEX/OCI posture."
   else
     prepare_add "redo_multiplex" "Multiplex online redo logs" "NOT_REQUIRED" "Primary database required" \
@@ -8505,10 +7597,10 @@ evaluate_prepare_environment() {
   if [[ "$cluster" == RAC* || "$cluster" == "GI_SINGLE" || "$gi" == "1" ]]; then
     if prepare_numeric_ge "$service_count" 2 && prepare_numeric_ge "$service_ha_count" 2; then
       prepare_add "services_ac_tac" "AC/TAC/FAN lab services" "PRESENT" "Required for service continuity scenarios 56, 83, 84, and 87" \
-        "services=${service_count}, ha_services=${service_ha_count}, other_ha_services=${other_ha_count}" "No action needed." "no" "" "CrashSimulator AC/TAC services are present."
+        "services=${service_count}, ha_services=${service_ha_count}" "No action needed." "no" "" "CrashSimulator AC/TAC services are present."
     else
       prepare_add "services_ac_tac" "AC/TAC/FAN lab services" "MISSING" "Required for service continuity scenarios 56, 83, 84, and 87" \
-        "cluster=${cluster}, services=${service_count}, ha_services=${service_ha_count}, other_ha_services=${other_ha_count}" \
+        "cluster=${cluster}, services=${service_count}, ha_services=${service_ha_count}" \
         "Create or repair crashsim_ac and crashsim_tac services with FAN/AC/TAC attributes." \
         "yes" "${script_root}/tools/crashsim_configure_ha_lab.sh --services" \
         "Requires srvctl/GI privileges and current DB_UNIQUE_NAME/PDB defaults."
@@ -8551,28 +7643,6 @@ evaluate_prepare_environment() {
       "Skipped by default because it requires credentials and topology decisions."
   fi
 
-  # task #99: disposable test PDB. PRESENT when any CRASHSIM%-named PDB exists;
-  # on a CDB the apply automation creates CRASHSIM_TESTPDB from PDB$SEED; on a
-  # non-CDB the item is PLAN_ONLY because there is nothing to create it in.
-  local test_pdb_count test_pdb_names
-  test_pdb_count="$(prepare_value crashsim_test_pdb_count 0)"
-  test_pdb_names="$(prepare_value crashsim_test_pdb_names none)"
-  if [[ "$(prepare_value cdb NO)" == "YES" ]]; then
-    if prepare_numeric_ge "$test_pdb_count" 1; then
-      prepare_add "test_pdb" "Disposable test PDB (CRASHSIM_ prefix)" "PRESENT" "Required for drop-PDB drills (scenario 45) and PDB-scoped practice" \
-        "test_pdbs=${test_pdb_names}" "No action needed." "no" "" \
-        "Scenario 45 only accepts CRASHSIM_-prefixed PDBs, so drills can never aim at a customer PDB."
-    else
-      prepare_add "test_pdb" "Disposable test PDB (CRASHSIM_ prefix)" "MISSING" "Required for drop-PDB drills (scenario 45) and PDB-scoped practice" \
-        "test_pdbs=none" "Create CRASHSIM_TESTPDB from PDB\$SEED (open, save state)." "yes" "" \
-        "Created disposable by name: the CRASHSIM_ prefix is what scenario 45's guardrail accepts."
-    fi
-  else
-    prepare_add "test_pdb" "Disposable test PDB (CRASHSIM_ prefix)" "PLAN_ONLY" "Not applicable on a non-CDB" \
-      "cdb=NO" "Not applicable: a non-CDB has no container to create a PDB in." "no" "" \
-      "PDB drills are CDB-only by nature."
-  fi
-
   if prepare_numeric_ge "$dg_dest" 1 || [[ "$(prepare_value database_role)" == *"STANDBY"* ]]; then
     if [[ "$fsfo_status" == *"SYNCHRONIZED"* || "$fsfo_status" == *"TARGET"* || "$fsfo_status" == *"ENABLED"* || "$fsfo_observer" == "YES" ]]; then
       prepare_add "fsfo" "Data Guard FSFO observer posture" "PRESENT" "Required for FSFO observer scenario 66 and FSFO MAA evidence" \
@@ -8600,18 +7670,13 @@ evaluate_prepare_environment() {
       "storage=${storage}, gi=${gi}" "Filesystem-only topology does not require ASM/GI storage lab seeds." "no" "" ""
   fi
 
-  # Two independent evidence sources, either proves it: the database's own
-  # backup history (v\$rman_backup_job_details, 14-day window - counts a backup
-  # whoever ran it, from wherever) or this session's baseline log artifacts.
-  # Artifact-count alone reported MISSING through the agent (its --log-dir is
-  # not the interactive one) on a target with two completed DB FULLs.
-  if prepare_numeric_ge "$baseline_count" 1 || prepare_numeric_ge "$recent_db_backups" 1; then
+  if prepare_numeric_ge "$baseline_count" 1; then
     prepare_add "baseline_backup" "Fresh RMAN baseline backup evidence" "PRESENT" "Recommended after environment preparation changes" \
-      "recent_db_backups_14d=${recent_db_backups}, baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
+      "baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
       "Run again after executing any preparation changes." "no" "" "Use Reports -> Run fresh RMAN baseline backup after changes."
   else
     prepare_add "baseline_backup" "Fresh RMAN baseline backup evidence" "MISSING" "Recommended before destructive scenario batches" \
-      "recent_db_backups_14d=${recent_db_backups}, baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
+      "baseline_logs=${baseline_count}, catalog_configured=$([[ -n "$RMAN_CATALOG_CONNECT" ]] && echo yes || echo no)" \
       "Run a dry-run or confirmed baseline backup from the Reports menu." \
       "no" "${SCRIPT_PATH} --baseline-backup --dry-run" \
       "Not auto-executed because it can consume backup storage and I/O."
@@ -8724,15 +7789,9 @@ run_seed_lab_prepare() {
   pw="$(generate_lab_password)"
   echo
   echo "Preparing ${id}: ${PREP_TITLE[$id]}"
-  echo "Command: (piped) ${SQLPLUS_BIN} -s /nolog @${seed} [connect on stdin; lab password generated, not shown]"
-  # Always DEFINE the lab PDB, even when the operator gave no --pdb: the seed
-  # script otherwise prompts for the undefined variable and an unattended menu
-  # run would block on stdin. Empty means "use the CRASHPDB default", which the
-  # script resolves. Naming it is what lets a lab whose PDB is not CRASHPDB
-  # (e.g. RACPDB) be seeded at all - the script still refuses to guess.
-  printf 'set define off\nwhenever sqlerror exit failure\nconnect %s\nwhenever sqlerror continue\nset define on\ndefine crashsim_lab_pdb = "%s"\ndefine crashsim_lab_password = "%s"\n@%s\n' \
-      "$SQLPLUS_LOGON" "${TARGET_PDB:-}" "$pw" "$seed" \
-    | "$SQLPLUS_BIN" -s -L /nolog
+  echo "Command: (piped) ${SQLPLUS_BIN} -s ${SQLPLUS_LOGON} @${seed} [lab password generated, not shown]"
+  printf 'define crashsim_lab_password = "%s"\n@%s\n' "$pw" "$seed" \
+    | "$SQLPLUS_BIN" -s ${SQLPLUS_LOGON}
   local rc=$?
   unset pw
   return "$rc"
@@ -8757,18 +7816,8 @@ execute_prepare_environment_actions() {
   [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
   confirm_prepare_environment_execution
 
-  prep_validate_filter "$PREP_FILTER"
   for id in "${PREP_IDS[@]}"; do
-    # selection first, and LOUD for selected-but-not-missing: an operator who
-    # checked an item deserves to know why nothing happened
-    if ! prep_selected "$id"; then
-      continue
-    fi
-    if [[ "${PREP_STATUS[$id]}" != "MISSING" ]]; then
-      [[ -n "$PREP_FILTER" && "$PREP_FILTER" != "all" ]] &&
-        echo "Preparation ${id}: already ${PREP_STATUS[$id]} - nothing to apply."
-      continue
-    fi
+    [[ "${PREP_STATUS[$id]}" == "MISSING" ]] || continue
     case "$id" in
       logical_lab)
         [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
@@ -8782,15 +7831,8 @@ execute_prepare_environment_actions() {
         [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
         helper="${script_root}/prepare_crashsim_fex_redo_multiplex.sql"
         [[ -f "$helper" ]] || die "Redo preparation SQL not found: $helper"
-        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s -L /nolog \
-          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1 <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${helper}
-SQL
+        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$helper" \
+          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
         status=$?
         [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
         echo "Preparation ${id} completed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
@@ -8799,76 +7841,26 @@ SQL
         [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
         helper="${script_root}/tools/crashsim_configure_ha_lab.sh"
         [[ -f "$helper" ]] || die "HA lab helper not found: $helper"
-        # Pass the DISCOVERED topology. The helper's own defaults name a different
-        # lab (crashrac / crashdb1 / CRASHPDB), so without this it runs srvctl
-        # against a database that does not exist here and fails PRCD-1120.
-        run_prepare_helper_command "$id" env \
-          DB_UNIQUE_NAME="${DB_UNIQUE_NAME:-}" \
-          ORACLE_SID="${ORACLE_SID:-${INSTANCE_NAME:-}}" \
-          ORACLE_HOME="${ORACLE_HOME:-}" \
-          PDB_NAME="${TARGET_PDB:-}" \
-          PREFERRED_INSTANCES="${CRASHSIM_PREFERRED_INSTANCES:-}" \
-          bash "$helper" --services \
-          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
-        status=$?
-        [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-        echo "Preparation ${id} completed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-        ;;
-      test_pdb)
-        [[ "${PREP_AUTO[$id]}" == "yes" ]] || continue
-        # Disposable by NAME: CRASHSIM_TESTPDB is what scenario 45's guardrail
-        # accepts, and the remove inverse only ever drops CRASHSIM%-named PDBs.
-        local tp_pw
-        tp_pw="$(generate_lab_password)"
-        run_prepare_helper_command "$id" "$SQLPLUS_BIN" -s -L /nolog \
-          >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1 <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-create pluggable database CRASHSIM_TESTPDB admin user crashsim_padmin identified by "${tp_pw}";
-alter pluggable database CRASHSIM_TESTPDB open instances=all;
-alter pluggable database CRASHSIM_TESTPDB save state instances=all;
-SQL
-        status=$?
-        [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-        echo "Preparation ${id} completed: CRASHSIM_TESTPDB created from PDB\$SEED, opened, state saved. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-        ;;
-      rman_catalog)
-        [[ "${PREP_AUTO[$id]}" == "conditional" ]] || continue
-        # The apply IS tools/crashsim_configure_ha_lab.sh --catalog: it creates
-        # the catalog owner and metadata when absent and registers/resyncs the
-        # target - idempotently (RMAN register-after-registered falls back to
-        # resync inside the helper). Conditional on the catalog password, and
-        # the skip is ANNOUNCED with the exact variable to set.
-        if [[ -n "${CRASHSIM_RMAN_CATALOG_PASSWORD:-}" ]]; then
-          helper="${script_root}/tools/crashsim_configure_ha_lab.sh"
-          [[ -f "$helper" ]] || die "HA lab helper not found: $helper"
-          run_prepare_helper_command "$id" env \
-            DB_UNIQUE_NAME="${DB_UNIQUE_NAME:-}" \
-            ORACLE_SID="${ORACLE_SID:-${INSTANCE_NAME:-}}" \
-            ORACLE_HOME="${ORACLE_HOME:-}" \
-            PDB_NAME="${TARGET_PDB:-}" \
-            bash "$helper" --catalog \
-            >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
-          status=$?
-          [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-          echo "Preparation ${id} completed: catalog created/verified and target registered+resynced. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-        else
-          echo "Preparation ${id} skipped: set CRASHSIM_RMAN_CATALOG_PASSWORD to let --prep create/register the lab recovery catalog (production catalogs stay a deliberate manual act)."
-        fi
+        run_prepare_helper_command "$id" bash "$helper" --services
         ;;
       apex_ords)
         [[ "${PREP_AUTO[$id]}" == "conditional" ]] || continue
         if [[ -n "${SYS_PASSWORD:-}" && -n "${ORDS_PUBLIC_PASSWORD:-}" && -n "${APEX_ADMIN_PASSWORD:-}" ]]; then
           helper="${script_root}/tools/crashsim_install_apex_ords_lab.sh"
           [[ -f "$helper" ]] || die "APEX/ORDS lab helper not found: $helper"
-          run_prepare_helper_command "$id" bash "$helper" \
-            >"${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log" 2>&1
-          status=$?
-          [[ "$status" -eq 0 ]] || die "Preparation ${id} failed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
-          echo "Preparation ${id} completed. Log: ${LOG_DIR}/crashsim_prepare_${id}_${RUN_ID}.log"
+          run_prepare_helper_command "$id" bash "$helper"
         else
           warn "Skipping ${id}: SYS_PASSWORD, ORDS_PUBLIC_PASSWORD, and APEX_ADMIN_PASSWORD must be set in the environment."
+        fi
+        ;;
+      rman_catalog)
+        [[ "${PREP_AUTO[$id]}" == "conditional" ]] || continue
+        if [[ -n "${CRASHSIM_RMAN_CATALOG_PASSWORD:-}" ]]; then
+          helper="${script_root}/tools/crashsim_configure_ha_lab.sh"
+          [[ -f "$helper" ]] || die "HA lab helper not found: $helper"
+          run_prepare_helper_command "$id" bash "$helper" --catalog
+        else
+          warn "Skipping ${id}: CRASHSIM_RMAN_CATALOG_PASSWORD is required."
         fi
         ;;
       *)
@@ -9196,7 +8188,6 @@ generate_review_index() {
   review_append_file_list "$report_file" "Runbooks" 20 -name 'crashsim_runbook_s*.txt'
   review_append_file_list "$report_file" "Health Checks" 20 -name 'crashsim_health_check_*.log'
   review_append_file_list "$report_file" "Doctor / Public Readiness Reports" 20 -name 'crashsim_doctor_*.md'
-  review_append_file_list "$report_file" "Public Release Doctor Reports" 20 -name 'crashsim_public_release_doctor_*.md'
   review_append_file_list "$report_file" "First-Run Guides" 20 -name 'crashsim_first_run_*.md'
   review_append_file_list "$report_file" "Public Limitations Pages" 20 -name 'crashsim_public_limitations_*.md'
   review_append_file_list "$report_file" "Configuration Reports" 20 -name 'crashsim_config_report_*.md'
@@ -9205,15 +8196,11 @@ generate_review_index() {
   review_append_file_list "$report_file" "APEX / ORDS Readiness Reports" 20 -name 'crashsim_apex_ords_report_*.md'
   review_append_file_list "$report_file" "Seed / Prepare Environment Reports" 20 -name 'crashsim_prepare_environment_*.md'
   review_append_file_list "$report_file" "Scenario Readiness Reports" 20 -name 'crashsim_scenario_readiness_*.md'
-  review_append_file_list "$report_file" "Scenario Validation Plans" 20 -name 'crashsim_scenario_plan_*.md'
   review_append_file_list "$report_file" "Scenario Lifecycle Coverage Reports" 20 -name 'crashsim_scenario_lifecycle_*.md'
   review_append_file_list "$report_file" "Scenario Lifecycle Consistency Checks" 20 -name 'crashsim_scenario_lifecycle_check_*.md'
-  review_append_file_list "$report_file" "Evidence Quality Badges" 20 -name 'crashsim_evidence_quality_badges_*.md'
-  review_append_file_list "$report_file" "Drill Calendar Exports" 20 \( -name 'crashsim_drill_calendar_*.md' -o -name 'crashsim_drill_calendar_*.csv' -o -name 'crashsim_drill_calendar_*.ics' \)
   review_append_file_list "$report_file" "MAA Readiness Reports" 20 -name 'crashsim_maa_report_*.md'
   review_append_file_list "$report_file" "Resilience Scorecards" 20 -name 'crashsim_resilience_scorecard_*.md'
   review_append_file_list "$report_file" "Autonomous Database Readiness Reports" 20 -name 'crashsim_adb_readiness_*.md'
-  review_append_file_list "$report_file" "APEX Dashboard Mockups" 20 \( -name 'crashsim_apex_adb_dashboard_mockups_*.md' -o -name 'crashsim_apex_adb_dashboard_mockups_*.html' \)
   review_append_file_list "$report_file" "Baseline Backup Plans And Logs" 20 \( -name 'crashsim_baseline_backup_*.rman' -o -name 'crashsim_baseline_backup_*.log' \)
   review_append_file_list "$report_file" "RMAN And SQL Helper Files" 30 \( -name '*.rman' -o -name '*.sql' \)
 
@@ -10192,13 +9179,8 @@ begin
   emit('target_pdb_requested', '${target_pdb:-not set}');
   emit('cdb_registry_apex_count', scalar_count(q'[select count(*) from cdb_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%']'));
   emit('cdb_registry_ords_count', scalar_count(q'[select count(*) from cdb_registry where comp_id = 'ORDS' or upper(comp_name) like '%ORDS%']'));
-  -- Aggregate by DISTINCT version/status with a container count rather than one
-  -- entry per con_id. On a high-density CDB (hundreds of PDBs) the per-container
-  -- listagg overflows the 4000-byte VARCHAR2 limit (ORA-01489) and the fact
-  -- silently collapses to 'NONE'; a distinct-value roll-up is bounded, portable
-  -- to all releases (no 12.2+ ON OVERFLOW clause needed), and more readable.
-  emit('cdb_apex_versions', scalar_value(q'[select listagg(version || ':' || status || ' (x' || cnt || ')', ',') within group (order by version, status) from (select version, status, count(*) cnt from cdb_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%' group by version, status)]', 'NONE'));
-  emit('cdb_ords_versions', scalar_value(q'[select listagg(version || ':' || status || ' (x' || cnt || ')', ',') within group (order by version, status) from (select version, status, count(*) cnt from cdb_registry where comp_id = 'ORDS' or upper(comp_name) like '%ORDS%' group by version, status)]', 'NONE'));
+  emit('cdb_apex_versions', scalar_value(q'[select listagg(con_id || ':' || version || ':' || status, ',') within group (order by con_id, version) from cdb_registry where comp_id = 'APEX' or upper(comp_name) like '%APEX%']', 'NONE'));
+  emit('cdb_ords_versions', scalar_value(q'[select listagg(con_id || ':' || version || ':' || status, ',') within group (order by con_id, version) from cdb_registry where comp_id = 'ORDS' or upper(comp_name) like '%ORDS%']', 'NONE'));
   emit('apex_public_user_count', scalar_count(q'[select count(*) from cdb_users where username = 'APEX_PUBLIC_USER']'));
   emit('ords_public_user_count', scalar_count(q'[select count(*) from cdb_users where username = 'ORDS_PUBLIC_USER']'));
   emit('ords_metadata_user_count', scalar_count(q'[select count(*) from cdb_users where username = 'ORDS_METADATA']'));
@@ -10439,14 +9421,7 @@ run_apex_ords_report() {
   evidence_file="${LOG_DIR}/crashsim_apex_ords_report_${RUN_ID}.evidence"
 
   write_apex_ords_report_sql_file "$sql_file" "$target_pdb"
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "APEX/ORDS report SQL failed: $sql_file (evidence: $evidence_file)"
   parse_apex_ords_evidence_file "$evidence_file"
 
@@ -10744,20 +9719,13 @@ select 'CSIM_MAA|backup_device_types|' ||
          )
        ), 'NONE')
 from dual;
--- A datafile is "protected" if it appears in a backup SET (v$backup_datafile)
--- OR as an available image COPY (v$datafile_copy, status 'A' = available). Sites
--- that use BACKUP AS COPY / incrementally-updated image copies have no
--- v$backup_datafile row, so counting only backup sets falsely reports every
--- datafile as unprotected and holds the target below Bronze.
 select 'CSIM_MAA|datafiles_without_backup_metadata|' || count(*)
 from (
   select df.file#
   from v$datafile df
   left join v$backup_datafile bdf on bdf.file# = df.file#
-  left join v$datafile_copy dfc on dfc.file# = df.file# and dfc.status = 'A'
   group by df.file#
   having max(bdf.completion_time) is null
-     and max(dfc.completion_time) is null
 );
 
 select 'CSIM_MAA|remote_standby_dest_count|' || count(*)
@@ -11400,7 +10368,6 @@ collect_maa_dgmgrl_fsfo_evidence() {
     printf "\n[dgmgrl exited with status %s]\n" "$status" >>"$output_file" || true
   fi
 
-  annotate_dgmgrl_os_auth_artifacts "$output_file"
   parse_maa_dgmgrl_fsfo_evidence "$output_file"
   return "$SUCCESS"
 }
@@ -11637,7 +10604,7 @@ maa_normalized_yes_no() {
   raw="$(printf "%s" "$raw" | tr '[:upper:]' '[:lower:]')"
   case "$raw" in
     y|yes|true|1|required|enabled|enable) printf "yes" ;;
-    n|no|false|0|'not required'|'not-required'|notrequired|disabled|disable|none) printf "no" ;;
+    n|no|false|0|not|required|disabled|disable|none) printf "no" ;;
     *) printf "unknown" ;;
   esac
 }
@@ -11716,10 +10683,9 @@ maa_target_tier_from_context() {
   elif [[ "$dr_required" == "yes" || "$auto_failover" == "yes" ]] ||
        maa_duration_le "$MAA_DR_RTO" 900 ||
        [[ "$(printf "%s" "$MAA_DR_RPO" | tr '[:upper:]' '[:lower:]')" =~ ^(zero|near-zero|near\ zero)$ ]]; then
-    # Gold DR RTO threshold harmonized with the repository decision-tree logic
-    # (crashsim_maa_pkg.required_tier / APEX page 15): low-minute DR (<= 15m) or
-    # zero/near-zero DR RPO maps to Gold so the CLI report and the Enterprise
-    # Console agree on the required tier for the same target.
+    # Gold DR RTO threshold: low-minute DR (<= 15m) or zero/near-zero DR RPO
+    # maps to Gold. A 15-minute DR RTO is still a Data Guard-class objective;
+    # grading it below Gold understated the required architecture.
     target="Gold"
     reason="Business context indicates low-minute disaster recovery, strong RPO, or automatic failover."
   elif [[ "$local_ha" == "yes" ]] ||
@@ -11744,7 +10710,7 @@ maa_compute_decision_model() {
   local local_manifest dr_manifest app_manifest
   local candidate="Bronze" candidate_reason="Backup/restart posture only; no local HA, DR, or active-replication topology was confirmed."
   local evidenced_rank=0 evidenced_reason=""
-  local dg_detected=0 local_ha_candidate=0 remote_dg_candidate=0 rac_present=0
+  local dg_detected=0 local_ha_candidate=0 remote_dg_candidate=0
 
   maa_target_tier_from_context
 
@@ -11769,14 +10735,10 @@ maa_compute_decision_model() {
   if [[ "$db_role" != "PRIMARY" && "$db_role" != "UNKNOWN" ]] || maa_positive remote_standby_dest_count; then
     dg_detected=1
   fi
-  # rac_present tracks RAC SPECIFICALLY - the local-DG branch below also makes a
-  # Silver local-HA candidate, but Gold requires the RAC variant of Silver.
-  rac_present=0
   if [[ "$CLUSTER_TYPE" =~ ^(RAC|RACONE|RACONENODE|RAC_ONE_NODE)$ ||
         "$(maa_value cluster_database FALSE)" == "TRUE" ||
         "$(maa_value instance_parallel NO)" == "YES" ]]; then
     local_ha_candidate=1
-    rac_present=1
   fi
   if [[ "$dg_detected" -eq 1 && "$standby_scope" == "local" ]]; then
     local_ha_candidate=1
@@ -11789,31 +10751,15 @@ maa_compute_decision_model() {
     candidate="Silver"
     candidate_reason="RAC/RAC One Node or explicitly local Data Guard standby evidence indicates a Silver local-HA candidate."
   fi
-  # Gold is "Silver WITH RAC + (Active) Data Guard with automatic failover"
-  # (Oracle Next-Gen MAA reference architectures). Silver accepts RAC OR a
-  # local standby; Gold specifically requires the RAC variant, so remote Data
-  # Guard on a single instance is NOT Gold - Enterprise and DRRA both require
-  # RAC and OSE did not.
-  if [[ "$remote_dg_candidate" -eq 1 && "$rac_present" -eq 1 ]]; then
+  if [[ "$remote_dg_candidate" -eq 1 ]]; then
     candidate="Gold"
     candidate_reason="Data Guard/Active Data Guard or remote standby transport evidence indicates a Gold DR candidate."
   fi
-  # Platinum = "GOLD with Exadata and either option" (Oracle Next-Gen MAA
-  # reference architectures):
-  #   Option 1: GoldenGate with Oracle Database 19c
-  #   Option 2: (Active) Data Guard with Oracle AI Database 26ai
-  # EXADATA IS THE COMMON BASE for both options. A 2026-07-06 change dropped it
-  # from Option 2 as a "corrected reading"; the official reference architecture
-  # requires it for both, so a 26ai Gold topology on non-Exadata is GOLD.
-  if [[ "$candidate" == "Gold" && "$platform" =~ exadata ]]; then
-    if [[ "$version_major" =~ ^[0-9]+$ && "$version_major" -ge 26 ]]; then
-      candidate="Platinum"
-      candidate_reason="Gold topology on Exadata with Oracle AI Database (26ai+) and Active Data Guard indicates a Platinum candidate (Option 2); application-continuity supportability still needs manual confirmation."
-    elif [[ "$capture_count" =~ ^[0-9]+$ && "$apply_count" =~ ^[0-9]+$ &&
-            ( "$capture_count" -gt 0 || "$apply_count" -gt 0 ) ]]; then
-      candidate="Platinum"
-      candidate_reason="Gold topology on Exadata with GoldenGate replication evidence indicates a Platinum candidate (Option 1); replication supportability still needs manual confirmation."
-    fi
+  if [[ "$candidate" == "Gold" &&
+        "$capture_count" =~ ^[0-9]+$ && "$apply_count" =~ ^[0-9]+$ &&
+        ( "$capture_count" -gt 0 || "$apply_count" -gt 0 ) ]]; then
+    candidate="Platinum"
+    candidate_reason="Data Guard plus replication dictionary evidence indicates a Platinum candidate; GoldenGate/active-replication supportability still needs manual confirmation."
   fi
   if [[ "$candidate" == "Platinum" &&
         "$version_major" =~ ^[0-9]+$ && "$version_major" -ge 26 &&
@@ -11821,14 +10767,6 @@ maa_compute_decision_model() {
         "$platform" =~ exadata ]]; then
     candidate="Diamond"
     candidate_reason="26ai, Exadata/platform hint, and active-active requirement indicate a Diamond candidate; architecture and measured evidence require manual confirmation."
-  fi
-
-  # Distributed is a CLASS, not a rank: the tier above stands, and the class is
-  # reported beside it. Resolved from stated context (a single-host run cannot
-  # see a shard fleet).
-  maa_resolve_class
-  if [[ "$MAA_CLASS" == "Distributed" ]]; then
-    candidate_reason="${candidate_reason} MAA class: DISTRIBUTED (Globally Distributed Database with Raft, scope ${MAA_DISTRIBUTED_SCOPE}) - stated context, not probed; shard/catalog architecture requires manual confirmation."
   fi
 
   MAA_CANDIDATE_LEVEL="$candidate"
@@ -11867,7 +10805,7 @@ maa_compute_decision_model() {
 
   MAA_SCORE_DR=0
   [[ "$dg_detected" -eq 1 ]] && MAA_SCORE_DR=1
-  [[ "$dg_detected" -eq 1 && ( "$(maa_value valid_remote_standby_dest_count 0)" =~ ^[1-9][0-9]*$ || "$db_role" == *"STANDBY"* ) ]] && MAA_SCORE_DR=2
+  [[ "$dg_detected" -eq 1 && ( "$(maa_value valid_remote_standby_dest_count 0)" =~ ^[0-9]+$ || "$db_role" == *"STANDBY"* ) ]] && MAA_SCORE_DR=2
   if [[ "$dg_detected" -eq 1 ]] &&
      { [[ "$dgmgrl_status" == "OK" ]] ||
        [[ "$(maa_value dataguard_stats_count 0)" =~ ^[1-9][0-9]*$ ]] ||
@@ -11876,14 +10814,9 @@ maa_compute_decision_model() {
   fi
   dr_manifest="$(maa_latest_manifest_for_ids "50,51,52,54,66,67,68,69" 2>/dev/null || true)"
   [[ -n "$dr_manifest" && "$MAA_SCORE_DR" -ge 3 ]] && MAA_SCORE_DR=4
-  # ONE definition of "FSFO is actually enabled", shared by the DR score and the
-  # evidenced-Gold gate below, so the two can never drift apart.
-  MAA_FSFO_EVIDENCED=0
-  if [[ ( "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED || "$fsfo_observer" == "YES" ) &&
+  if [[ "$MAA_SCORE_DR" -ge 3 &&
+        ( "$fsfo_status" =~ SYNCHRONIZED|TARGET|PRIMARY|READY|ENABLED || "$fsfo_observer" == "YES" ) &&
         "$observer_count" =~ ^[0-9]+$ && "$observer_count" -gt 0 ]]; then
-    MAA_FSFO_EVIDENCED=1
-  fi
-  if [[ "$MAA_SCORE_DR" -ge 3 && "$MAA_FSFO_EVIDENCED" -eq 1 ]]; then
     MAA_SCORE_DR=4
   fi
 
@@ -11913,20 +10846,9 @@ maa_compute_decision_model() {
     evidenced_rank=2
     evidenced_reason="Silver evidenced: Bronze plus local HA, application-service integration, and measured local-failure evidence were found."
   fi
-  # Gold EVIDENCED requires FSFO evidence. Gold is "RAC + Active Data Guard with
-  # AUTOMATIC failover", so evidencing it without any FSFO proof would claim a
-  # capability that was never demonstrated - the Enterprise posture heuristic
-  # requires FSFO for Gold and DRRA gates evidenced Gold on it too (conditioned
-  # on the business stating automatic failover, which a single-host run cannot
-  # know). Deliberately EVIDENCED-only: the CANDIDATE tier stays topology-based,
-  # because a RAC+ADG target is genuinely Gold-CAPABLE and saying otherwise
-  # would understate it. Operator decision, 2026-08-08 parity review.
-  if [[ "$evidenced_rank" -ge 2 && "$MAA_SCORE_DR" -ge 4 && "$MAA_SCORE_APP" -ge 3 &&
-        "$MAA_FSFO_EVIDENCED" -eq 1 ]]; then
+  if [[ "$evidenced_rank" -ge 2 && "$MAA_SCORE_DR" -ge 4 && "$MAA_SCORE_APP" -ge 3 ]]; then
     evidenced_rank=3
-    evidenced_reason="Gold evidenced: Silver plus Data Guard/ADG DR evidence, role/service integration, FSFO automatic-failover evidence, and measured DR/lag/failover evidence were found."
-  elif [[ "$evidenced_rank" -ge 2 && "$MAA_SCORE_DR" -ge 4 && "$MAA_SCORE_APP" -ge 3 ]]; then
-    evidenced_reason="Silver evidenced; Gold NOT evidenced: Data Guard/DR evidence is present but FSFO (automatic failover) was not detected - Gold requires automatic failover. Enable FSFO with an observer, or record a manual-failover design decision, then re-run."
+    evidenced_reason="Gold evidenced: Silver plus Data Guard/ADG DR evidence, role/service integration, and measured DR/lag/failover evidence were found."
   fi
   if [[ "$evidenced_rank" -ge 3 && "$MAA_CANDIDATE_LEVEL" =~ Platinum|Diamond &&
         "$MAA_SCORE_APP" -ge 4 && "$MAA_SCORE_OPERATIONS" -ge 4 ]]; then
@@ -11937,9 +10859,6 @@ maa_compute_decision_model() {
         "$MAA_SCORE_OPERATIONS" -ge 4 ]]; then
     evidenced_rank=5
     evidenced_reason="Diamond evidenced: extreme-availability candidate plus operational evidence was found; verify supportability manually."
-  fi
-  if [[ "$MAA_CLASS" == "Distributed" && "$evidenced_rank" -ge 4 ]]; then
-    evidenced_reason="${evidenced_reason} Class DISTRIBUTED is stated, not evidenced here: per-shard evidence and Raft replication state require confirmation beyond this single database."
   fi
 
   MAA_EVIDENCED_LEVEL="$(maa_rank_tier "$evidenced_rank")"
@@ -12019,10 +10938,6 @@ resilience_domain_append() {
   weighted=$((score * weight))
   RESILIENCE_TOTAL_WEIGHT=$((RESILIENCE_TOTAL_WEIGHT + weight))
   RESILIENCE_WEIGHTED_SUM=$((RESILIENCE_WEIGHTED_SUM + weighted))
-  RESILIENCE_DOMAIN_NAMES+=("$domain")
-  RESILIENCE_DOMAIN_SCORES+=("$score")
-  RESILIENCE_DOMAIN_WEIGHTS+=("$weight")
-  RESILIENCE_DOMAIN_EVIDENCE+=("$evidence")
   printf '| %s | `%s` | `%s%%` | %s | %s |\n' \
     "$(md_escape "$domain")" \
     "$(md_escape "$(score_badge "$score")")" \
@@ -12038,15 +10953,10 @@ resilience_scenario_coverage_score() {
     if supports_recovery_automation "$id" || supports_file_recovery_automation "$id"; then
       automated=$((automated + 1))
     fi
-    # single-source classification (task #78). The inline lists this replaces
-    # had rotted: read-only was missing 87 and plan-only was missing every
-    # scenario added after it was written (85/86/88-90, EXA/OCI/GG) - all of
-    # which therefore scored 0 in this formula instead of 55/35. The coverage
-    # score RISES on consolidation because it stops under-counting, not
-    # because anything improved.
-    if scenario_is_read_only "$id"; then read_only=$((read_only + 1))
-    elif scenario_is_plan_only "$id" || scenario_is_external_evidence "$id"; then plan_only=$((plan_only + 1))
-    fi
+    case "$id" in
+      53|64|65|69|78|80|81|82) read_only=$((read_only + 1)) ;;
+      46|47|48|49|52|54|66|70|72) plan_only=$((plan_only + 1)) ;;
+    esac
     [[ "${SCENARIO_HANDLER[$id]}" == "scenario_planned" ]] && placeholder=$((placeholder + 1))
   done
   if [[ "$total" -eq 0 ]]; then
@@ -12259,14 +11169,7 @@ maybe_refresh_resilience_scorecard() {
     printf "exit\n"
   } >"$probe_sql" || return "$SUCCESS"
 
-  if ! "$SQLPLUS_BIN" -L -s /nolog >"$probe_out" 2>&1 <<SQL; then
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${probe_sql}
-SQL
+  if ! "$SQLPLUS_BIN" -L -s "$SQLPLUS_LOGON" @"$probe_sql" >"$probe_out" 2>&1 </dev/null; then
     warn "Resilience scorecard auto-refresh skipped after ${trigger}: target database is not ready for SQL evidence collection."
     return "$SUCCESS"
   fi
@@ -12355,14 +11258,7 @@ run_maa_report() {
   dgmgrl_fsfo_file="${LOG_DIR}/crashsim_maa_report_${RUN_ID}_dgmgrl_fsfo.out"
   write_maa_assessment_sql_file "$sql_file"
 
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "MAA assessment SQL failed: $sql_file (evidence: $evidence_file)"
   parse_maa_evidence_file "$evidence_file"
   collect_srvctl_service_evidence "$srvctl_service_file"
@@ -12399,8 +11295,6 @@ SQL
     printf -- '- Target MAA level: `%s`\n' "${MAA_TARGET_LEVEL:-Unknown}"
     printf -- '- Candidate MAA level: `%s`\n' "${MAA_CANDIDATE_LEVEL:-Unknown}"
     printf -- '- Current evidenced MAA level: `%s`\n' "${MAA_EVIDENCED_LEVEL:-Unknown}"
-    printf -- '- MAA class: `%s`%s\n' "${MAA_CLASS:-Replicated}" \
-      "$([[ "${MAA_CLASS:-}" == "Distributed" ]] && printf ' (scope: %s; stated context, not probed)' "${MAA_DISTRIBUTED_SCOPE:-not stated}")"
     printf -- '- Readiness status: `%s`\n' "$readiness_status"
     printf -- '- Raw SQL evidence file: `%s`\n' "$evidence_file"
     printf -- '- Data Guard Broker FSFO evidence file: `%s`\n' "$dgmgrl_fsfo_file"
@@ -12418,10 +11312,6 @@ SQL
     printf '| Candidate MAA level | `%s` |\n' "$(md_escape "${MAA_CANDIDATE_LEVEL:-Unknown}")"
     printf '| Candidate basis | %s |\n' "$(md_escape "${MAA_CANDIDATE_REASON:-Unknown}")"
     printf '| Current evidenced MAA level | `%s` |\n' "$(md_escape "${MAA_EVIDENCED_LEVEL:-Unknown}")"
-    printf '| MAA class | `%s` |\n' "$(md_escape "${MAA_CLASS:-Replicated}")"
-    if [[ "${MAA_CLASS:-}" == "Distributed" ]]; then
-      printf '| Distributed scope | `%s` (stated context, not probed) |\n' "$(md_escape "${MAA_DISTRIBUTED_SCOPE:-not stated}")"
-    fi
     printf '| Evidenced basis | %s |\n' "$(md_escape "${MAA_EVIDENCED_REASON:-Unknown}")"
     printf '| Fit-gap summary | %s |\n' "$(md_escape "${MAA_FIT_GAP_SUMMARY:-Unknown}")"
     printf '| Baseline readiness | `%s` |\n' "$(md_escape "$readiness_status")"
@@ -12447,10 +11337,8 @@ SQL
     printf '| Bronze | Single-instance or Oracle Restart style database with ARCHIVELOG, RMAN backup/recovery evidence, corruption checks, and basic restart/restore readiness. |\n'
     printf '| Silver | Bronze plus strong local HA using RAC/RAC One Node or explicitly local Data Guard standby, with service/client failover and application-aware continuity evidence. |\n'
     printf '| Gold | Silver plus Data Guard/Active Data Guard DR evidence, Broker/lag/role-services/FSFO where applicable, and measured role-transition/application behavior. |\n'
-    printf '| Platinum | Gold plus Exadata/optimized platform and/or supported active replication patterns (Active Data Guard on 26ai, or GoldenGate on 19c/Exadata) with seconds-class measured service behavior. |\n'
-    printf '| Diamond | Extreme availability: Platinum plus GoldenGate 26ai active-active replicas, each RAC on Exadata with (Active) Data Guard; supportability and measured evidence require manual confirmation. |\n'
-    printf '\n'
-    printf 'MAA also defines two **classes**. The tiers above are the **Replicated** class. The **Distributed** class (Oracle Globally Distributed Database with Raft replication) is a parallel architecture measured by scope - Multi-Node, Multi-AZ, Multi-Region, Multi-Country - not by a tier above Diamond.\n'
+    printf '| Platinum | Gold plus Exadata/optimized platform and/or supported active replication patterns with seconds-class measured service behavior. |\n'
+    printf '| Diamond | Extreme-availability active/global architecture such as 26ai/Exadata/GoldenGate or distributed patterns; supportability and measured evidence require manual confirmation. |\n'
   } >>"$report_file"
 
   append_report_section "$report_file" "Evidence Summary"
@@ -12598,7 +11486,7 @@ SQL
     printf '| Bronze backup/restart readiness | Health check, config report, scenarios `5`, `6`, `25`, `26`, `59`, and timed restore-preview/validate runs. |\n'
     printf '| Silver local HA readiness | Service/instance relocation or restart drills such as `55` and `56`, plus client FAN/ONS/Application Continuity validation. |\n'
     printf '| Gold DR readiness | Data Guard transport/apply, switchover/failover, FSFO, archive gap, and standby recovery drills such as `50`, `51`, `52`, `59`. |\n'
-    printf '| Platinum/Diamond application continuity (and the Distributed class) | GoldenGate active/active-active (Diamond) or, for the Distributed class, Globally Distributed Database with Raft failover, conflict handling, zero-downtime planned maintenance, and application transaction replay tests. |\n'
+    printf '| Platinum/Diamond application continuity | GoldenGate/active-active or sharding failover, conflict handling, zero-downtime planned maintenance, and application transaction replay tests. |\n'
   } >>"$report_file"
 
   append_report_section "$report_file" "References"
@@ -12643,14 +11531,7 @@ run_service_review() {
   dgmgrl_fsfo_file="${LOG_DIR}/crashsim_service_review_${RUN_ID}_dgmgrl_fsfo.out"
 
   write_maa_assessment_sql_file "$sql_file"
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "Service review SQL failed: $sql_file (evidence: $evidence_file)"
   parse_maa_evidence_file "$evidence_file"
   collect_srvctl_service_evidence "$srvctl_service_file"
@@ -12871,45 +11752,28 @@ select 'CSIM_BKP|database_size_gb|' || round(sum(bytes)/1024/1024/1024, 2)
 from v$datafile;
 select 'CSIM_BKP|datafile_copy_count|' || count(*) from v$datafile_copy;
 
--- Protection = a backup SET row OR an available image COPY (see the CSIM_MAA
--- collector above). BACKUP AS COPY / image-copy strategies would otherwise
--- report every datafile as unprotected.
 select 'CSIM_BKP|datafiles_without_backup_metadata|' || count(*)
 from (
   select df.file#
   from v$datafile df
   left join v$backup_datafile bdf on bdf.file# = df.file#
-  left join v$datafile_copy dfc on dfc.file# = df.file# and dfc.status = 'A'
   group by df.file#
   having max(bdf.completion_time) is null
-     and max(dfc.completion_time) is null
 );
 select 'CSIM_BKP|oldest_datafile_backup_time|' ||
        nvl(to_char(min(last_backup_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
 from (
-  select df.file#, max(t.completion_time) last_backup_time
+  select df.file#, max(bdf.completion_time) last_backup_time
   from v$datafile df
-  left join (
-    select file#, completion_time from v$backup_datafile
-    union all
-    select file#, completion_time from v$datafile_copy where status = 'A'
-  ) t on t.file# = df.file#
+  left join v$backup_datafile bdf on bdf.file# = df.file#
   group by df.file#
 );
 select 'CSIM_BKP|last_datafile_backup_time|' ||
        nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
-from (
-  select completion_time from v$backup_datafile
-  union all
-  select completion_time from v$datafile_copy where status = 'A'
-);
+from v$backup_datafile;
 select 'CSIM_BKP|last_datafile_backup_age_hours|' ||
        nvl(to_char(round((sysdate - max(completion_time)) * 24, 1)), 'UNKNOWN')
-from (
-  select completion_time from v$backup_datafile
-  union all
-  select completion_time from v$datafile_copy where status = 'A'
-);
+from v$backup_datafile;
 select 'CSIM_BKP|last_level0_backup_time|' ||
        nvl(to_char(max(completion_time), 'YYYY-MM-DD HH24:MI:SS'), 'NONE')
 from v$backup_datafile
@@ -13209,23 +12073,14 @@ group by nvl(input_type, 'UNKNOWN'),
 order by input_type, job_count desc, start_day, start_hour;
 
 prompt ## Datafile Backup Coverage
--- last_backup_time is the most recent of a backup SET (v$backup_datafile) or an
--- available image COPY (v$datafile_copy); incremental level applies to sets only.
 select df.file#, df.name file_name,
-       to_char(nullif(greatest(nvl(max(bdf.completion_time), date '0001-01-01'),
-                               nvl(max(dfc.completion_time), date '0001-01-01')),
-                      date '0001-01-01'),
-               'YYYY-MM-DD HH24:MI:SS') last_backup_time,
+       to_char(max(bdf.completion_time), 'YYYY-MM-DD HH24:MI:SS') last_backup_time,
        min(bdf.incremental_level) keep (dense_rank last order by bdf.completion_time nulls first) last_incremental_level,
-       case when max(bdf.completion_time) is null and max(dfc.completion_time) is null
-              then 'NO BACKUP OR IMAGE COPY IN CONTROL FILE METADATA'
-            when max(bdf.completion_time) is null
-              then 'IMAGE COPY ONLY'
+       case when max(bdf.completion_time) is null then 'NO BACKUP IN CONTROL FILE METADATA'
             else 'BACKUP METADATA FOUND'
        end backup_status
 from v$datafile df
 left join v$backup_datafile bdf on bdf.file# = df.file#
-left join v$datafile_copy dfc on dfc.file# = df.file# and dfc.status = 'A'
 group by df.file#, df.name
 order by df.file#;
 
@@ -13581,14 +12436,7 @@ run_backup_report() {
   write_backup_report_evidence_sql_file "$evidence_sql"
   write_backup_report_detail_sql_file "$detail_sql"
 
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${evidence_sql}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$evidence_sql" >"$evidence_file" </dev/null ||
     die "Backup evidence SQL failed: $evidence_sql (evidence: $evidence_file)"
   parse_backup_evidence_file "$evidence_file"
 
@@ -13721,14 +12569,7 @@ SQL
   } >>"$report_file"
 
   append_report_section "$report_file" "SQL Backup Repository Details"
-  append_report_command "$report_file" "Control-File SQL Backup Evidence" "$SQLPLUS_BIN" -s -L /nolog <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${detail_sql}
-SQL
+  append_report_command "$report_file" "Control-File SQL Backup Evidence" "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$detail_sql"
 
   write_backup_report_rman_repository_file "$rman_repo_file"
   append_report_rman_cmdfile "$report_file" "RMAN Repository, Restore Preview, Need-Backup, And Obsolete Report" "$rman_repo_file" "$rman_repo_log" || repo_status=$?
@@ -14153,14 +12994,7 @@ run_configuration_report() {
   } >"$report_file" || die "Unable to write report file: $report_file"
 
   append_report_command "$report_file" "SQL Database, PDB, Storage, Backup, TDE, Data Guard, And Corruption Evidence" \
-    "$SQLPLUS_BIN" -s -L /nolog <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+    "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file"
 
   append_report_section "$report_file" "RMAN Catalog And Restore Preview"
   {
@@ -14249,14 +13083,7 @@ SQL
 
   dgmgrl_bin="$(find_dgmgrl_bin)"
   if [[ -n "$dgmgrl_bin" && -x "$dgmgrl_bin" ]]; then
-    # collected to a file first so the DGM-17623 OS-auth artifact can be
-    # annotated (task #80) before the block is embedded in the report
-    local dg_block="${WORK_DIR:-$LOG_DIR}/crashsim_dg_block_${RUN_ID}_$$.out"
-    printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | "$dgmgrl_bin" -silent / >"$dg_block" 2>&1 || true
-    annotate_dgmgrl_os_auth_artifacts "$dg_block"
-    append_report_section "$report_file" "Data Guard Broker Configuration"
-    append_report_text "$report_file" "$(cat "$dg_block")"
-    rm -f "$dg_block" 2>/dev/null
+    append_report_command "$report_file" "Data Guard Broker Configuration" bash -lc "printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' | \"${dgmgrl_bin}\" -silent /"
   else
     append_report_section "$report_file" "Data Guard Broker Configuration"
     append_report_text "$report_file" "dgmgrl was not found in ORACLE_HOME/bin or PATH. SQL Data Guard/FSFO evidence is still included above."
@@ -14651,40 +13478,6 @@ RUNBOOK
     4. Document cutover, rollback decision points, and evidence required by change control.
 RUNBOOK
       ;;
-    EXA01|EXA02|EXA03|EXA04)
-      cat <<'RUNBOOK'
-  - Exadata storage-tier failure/validation (cell, storage server, Smart Scan, Flash Cache):
-    1. Confirm scope with cellcli: list cell detail, list griddisk attributes name,asmmodestatus,status, list physicaldisk, and alerthistory; take an EXAchk/ORAchk + ExaWatcher snapshot.
-    2. Data protection is ASM redundancy: verify V$ASM_DISK / V$ASM_DISKGROUP show NORMAL/HIGH redundancy with no unexpected offline disks - a single cell or storage-server loss should stay online via the mirror.
-    3. Cell/storage-server outage (EXA01/EXA02): let ASM keep the disk groups mounted on the surviving cells; after hardware repair bring the griddisks online and confirm the ASM rebalance completes (V$ASM_OPERATION) before declaring the tier recovered.
-    4. Smart Scan (EXA03): confirm offload is active - CELL_OFFLOAD_PROCESSING=TRUE, review the cell-offload columns in V$SQL/V$SQLSTATS and the eligible-bytes ratio; a fall back to non-offloaded reads is a performance regression, not data loss.
-    5. Flash Cache (EXA04): cellcli list flashcache detail / list flashcachecontent; a flash failure degrades read latency and (WriteBack) is protected by flash redundancy - validate the mode, replace the device, and recreate flashcache.
-    6. Record RTO/RPO, EXAchk before/after, and confirm no V$DATABASE_BLOCK_CORRUPTION entries.
-RUNBOOK
-      ;;
-    GG01|GG02|GG03|GG04)
-      cat <<'RUNBOOK'
-  - GoldenGate replication recovery (Extract, Replicat, lag, trail):
-    1. Assess with ggsci/adminclient: INFO ALL, INFO EXTRACT/REPLICAT <name>, LAG EXTRACT/REPLICAT, STATS, and the process report and discard files - do not guess the cause from status alone.
-    2. Extract stopped/abended (GG01): read the report file for the cause (long-running transaction, archived-log gap, permissions), fix it, then START EXTRACT <name>; if the position is lost, reposition with ALTER EXTRACT <name>, BEGIN <scn|time> and confirm the write checkpoint advances.
-    3. Replicat stopped/abended (GG02): check the discard file for the failing operation (missing row, constraint); after a resync run with HANDLECOLLISIONS, correct the row, START REPLICAT <name>, confirm apply lag drains, then turn HANDLECOLLISIONS off.
-    4. Lag exceeds SLA (GG03): isolate whether capture, network/trail transport, or apply is the bottleneck; for apply use integrated/parallel Replicat and raise parallelism; validate LAG returns under the SLA and STATS show throughput recovering.
-    5. Trail corruption/loss (GG04): identify the bad trail sequence, roll to a fresh trail (ALTER EXTRACT <name>, ETROLLOVER), and reposition the downstream Replicat to a known-good position; if a gap is unrecoverable, re-instantiate the affected tables (Data Pump) with HANDLECOLLISIONS. Never reuse a corrupted trail file.
-    6. Validate row counts / a checksum on source vs target for the affected tables and capture RTO/RPO.
-RUNBOOK
-      ;;
-    OCI01|OCI02|OCI03|OCI04|OCI05)
-      cat <<'RUNBOOK'
-  - OCI Base Database recovery (backups, cross-region, failover, networking):
-    1. Confirm scope in the OCI Console and with the OCI CLI / dbcli: DB System state, backup config, Data Guard association, VCN/subnet, and NSG/security-list rules.
-    2. Backup policy (OCI01): verify automatic backups are enabled with the intended retention (Console DB System > Backups, or oci db backup list); confirm a recent successful backup and that a restore has actually been exercised.
-    3. Cross-region backup recovery (OCI02): copy the backup to the target region's Object Storage, then create/restore a DB System from it in that region; validate open mode, services, and application connectivity.
-    4. DB System failover (OCI03): with a Data Guard association use the Console / oci db data-guard-association switchover (planned) or failover (unplanned); confirm the new primary role, re-point clients/services, and reinstate the old primary.
-    5. VCN connectivity loss (OCI04): check route tables, security lists, service/NAT/internet gateways, and DNS; validate the DB subnet reaches clients and Object Storage (for backups) via the correct gateway.
-    6. NSG misconfiguration (OCI05): review NSG ingress/egress for the DB listener (1521 / 2484 TCPS as applicable), restore least-privilege rules, and validate application and Data Guard traffic; keep the corrected rule set as evidence.
-    7. Record RTO/RPO and keep the cloud runbook and network/IAM change approvals current.
-RUNBOOK
-      ;;
     *)
       cat <<'RUNBOOK'
   - Generic recovery:
@@ -14758,99 +13551,10 @@ execute_actions() {
       return "$SUCCESS"
     fi
     info "DRY-RUN complete. Re-run with --execute to perform these actions."
-    # Say this while the operator can still act on it. The execution guard also
-    # refuses without a backup, but only after they have committed to the run.
-    advise_protection_next_step "${CURRENT_SCENARIO_ID:-}"
     return "$SUCCESS"
   fi
-  if [[ "$has_external" -eq 1 ]]; then
+  [[ "$has_external" -eq 0 ]] ||
     die "One or more planned targets require a provider-specific handler and cannot be executed safely yet."
-  fi
-
-  # ASM write preflight. If any planned action removes/corrupts an ASM file,
-  # confirm THIS OS user can actually perform ASM write operations BEFORE we
-  # offline or alter anything. Without it, the datafile is offlined first and the
-  # asmcmd rm only then fails on privilege (OSASM/sudo) - a half-executed drill.
-  # Probing up front turns that into a clean refusal that changed nothing.
-  local _pf_idx _pf_dg=""
-  for _pf_idx in "${!ACTION_KINDS[@]}"; do
-    case "${ACTION_KINDS[$_pf_idx]}" in
-      asm_rm|asm_tempfile_rm|asm_corrupt_header|asm_controlfile_rm|asm_redo_rm|asm_archivelog_rm|asm_spfile_rm|asm_pwfile_rm)
-        _pf_dg="${ACTION_TARGETS[$_pf_idx]%%/*}"
-        break ;;
-    esac
-  done
-
-  # Backup coverage over the WHOLE plan, before the first removal and before the
-  # operator is asked to acknowledge anything. See the function's comment: the
-  # per-file guard alone let scenario 17 delete five root datafiles and then
-  # refuse. Placed ahead of require_archive_chain_break_ack so a plan that is
-  # going to be refused never asks for an acknowledgement first.
-  assert_plan_backup_coverage_or_refuse "${CURRENT_SCENARIO_ID:-}"
-  # Capture where the database is BEFORE any action runs - this is the last
-  # moment it is guaranteed readable.
-  snapshot_pre_fault_position
-
-  # Ask BEFORE the ASM preflight touches anything, so a refusal costs nothing.
-  require_archive_chain_break_ack
-
-  if [[ -n "$_pf_dg" ]] && ! asm_preflight_write_ok "$_pf_dg"; then
-    die "$(asm_write_refusal_message "$_pf_dg" "An ASM file-loss drill must remove an ASM file")"
-  fi
-
-  # Snapshot each ASM datafile's RMAN-backup status NOW, while the database is
-  # still up. A non-offlinable (SYSTEM/UNDO) target aborts the whole database as an
-  # earlier action; after that, perform_asm_rm can no longer query backup status
-  # live - it would see UNKNOWN and refuse a datafile we actually backed up. Cache
-  # it here so the reversibility guard uses the pre-abort truth. Non-abort
-  # (offline) scenarios leave the DB up, so the cached value matches a live query.
-  # Same reasoning for control files: the ASM drill aborts the database before
-  # the removal, and v$controlfile dies with the instance. Snapshot the list NOW
-  # so the "never remove the last control file" guard still has ground truth.
-  local _cf_idx _cf_out
-  for _cf_idx in "${!ACTION_KINDS[@]}"; do
-    if [[ "${ACTION_KINDS[$_cf_idx]}" == "asm_controlfile_rm" ]]; then
-      _cf_out="${WORK_DIR:-$LOG_DIR}/crashsim_ctl_preabort_${RUN_ID}_$$.out"
-      if sql_query "$_cf_out" "select name from v\$controlfile order by name;" 2>/dev/null; then
-        while IFS= read -r _cf_line; do
-          [[ -n "$_cf_line" ]] && CONTROLFILE_PRE_ABORT_LIST+=("$_cf_line")
-        done < <(trim_blank_lines <"$_cf_out")
-      fi
-      rm -f "$_cf_out" 2>/dev/null
-      break
-    fi
-  done
-
-  # Same pre-abort rule for REDO members. The survivor guard needs the group's
-  # member list, and v$logfile dies with the instance - so a plan that aborts
-  # first (every ASM redo drill does) left the guard querying a dead database
-  # and returning "unknown" forever, which fails closed on a perfectly healthy
-  # group. Snapshot every online member NOW; the physical asmcmd check still
-  # works after the abort because ASM is a separate instance.
-  local _rd_idx _rd_out _rd_line
-  for _rd_idx in "${!ACTION_KINDS[@]}"; do
-    if [[ "${ACTION_KINDS[$_rd_idx]}" == "asm_redo_rm" ]]; then
-      _rd_out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_preabort_${RUN_ID}_$$.out"
-      if sql_query "$_rd_out" "select group# || '|' || member from v\$logfile order by group#, member;" 2>/dev/null; then
-        while IFS= read -r _rd_line; do
-          [[ -n "$_rd_line" ]] && REDO_PRE_ABORT_MEMBERS+=("$_rd_line")
-        done < <(trim_blank_lines <"$_rd_out")
-      fi
-      rm -f "$_rd_out" 2>/dev/null
-      break
-    fi
-  done
-
-  local _bk_idx _bk_target
-  for _bk_idx in "${!ACTION_KINDS[@]}"; do
-    case "${ACTION_KINDS[$_bk_idx]}" in
-      asm_rm|asm_tempfile_rm|asm_corrupt_header)
-        _bk_target="${ACTION_TARGETS[$_bk_idx]}"
-        [[ -n "${ASM_BACKUP_STATUS_CACHE[$_bk_target]:-}" ]] ||
-          ASM_BACKUP_STATUS_CACHE["$_bk_target"]="$(asm_path_backup_status "$_bk_target")"
-        ;;
-    esac
-  done
 
   local kind target detail idx
   for idx in "${!ACTION_KINDS[@]}"; do
@@ -14873,27 +13577,6 @@ execute_actions() {
       asm_corrupt_header)
         perform_asm_rm "$target"
         ;;
-      asm_pwfile_rm)
-        perform_asm_pwfile_rm "$target"
-        ;;
-      asm_spfile_rm)
-        perform_asm_spfile_rm "$target"
-        ;;
-      asm_archivelog_rm)
-        perform_asm_archivelog_rm "$target"
-        ;;
-      asm_redo_rm)
-        # Not perform_asm_rm: that guard requires an RMAN backup because datafile
-        # recovery restores by FILE#. A redo member is recreated, not restored.
-        perform_asm_redo_rm "$target"
-        ;;
-      asm_controlfile_rm)
-        # Deliberately NOT perform_asm_rm: that guard is datafile-shaped (it
-        # demands an RMAN backup because recovery restores by FILE#). A control
-        # file has no FILE#; its reversibility is a surviving multiplexed copy,
-        # which perform_asm_controlfile_rm checks instead.
-        perform_asm_controlfile_rm "$target"
-        ;;
       sql)
         run_sql_action "$detail" "$target"
         ;;
@@ -14902,22 +13585,6 @@ execute_actions() {
         ;;
       report)
         echo "Report action: ${target} ${detail}"
-        ;;
-      shutdown_clean_for_asm_redo_group)
-        shutdown_target_cleanly_for_redo "removing every member of a redo group"
-        ;;
-      abort_for_asm_open_file)
-        # ASM refuses to drop a file that any instance still holds open
-        # (ORA-15028). A control file or redo member cannot be offlined the way a
-        # datafile can, so the only route is to take the database down first. On
-        # RAC that means the whole database - every instance holds these open.
-        abort_target_for_shared_datafile "an ASM file the instance holds open: ${target}"
-        ;;
-      abort_for_shared_datafile)
-        # Up-front abort so a non-offlinable (SYSTEM/UNDO) ASM datafile can then be
-        # removed - asmcmd refuses to remove a datafile any open instance holds. On
-        # RAC this brings the whole database down (every instance holds it open).
-        abort_target_for_shared_datafile
         ;;
       srvctl_abort_instance)
         perform_srvctl_abort_instance "$target"
@@ -14930,9 +13597,6 @@ execute_actions() {
         ;;
       srvctl_stop_start_service_instance)
         perform_srvctl_stop_start_service_instance "$target" "$detail"
-        ;;
-      srvctl_drain_service_instance)
-        perform_srvctl_drain_service_instance "$target" "$detail"
         ;;
       systemctl_stop_service)
         perform_systemctl_service_action stop "$target"
@@ -14954,64 +13618,13 @@ execute_actions() {
         ;;
     esac
   done
-
 }
 
 perform_asm_rm() {
   local path="$1"
   [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM remove action received a non-ASM path: $path"
-
-  # State, not exit codes. The plan offlines the datafile first precisely so the
-  # instance closes it; if that did not actually happen, ASM refuses the drop
-  # with ORA-15028 and the operator is left reading an ASM error about a step
-  # that is not the one that failed. Check the CONDITION we need rather than
-  # trusting that an earlier action reported success.
-  local df_status
-  df_status="$(asm_datafile_online_status "$path")"
-  if [[ "$df_status" == "ONLINE" ]]; then
-    die "Refusing to remove ${path}: the datafile is still ONLINE. ASM will not drop a file an instance holds open (ORA-15028), so the offline step must have taken effect first. Nothing was changed."
-  fi
-
-  # Reversibility for ASM datafiles is RMAN-based, NOT asmcmd-based. Two facts,
-  # both verified on a live ASM diskgroup, rule out an in-ASM copy/restore:
-  #   * you cannot copy a file back to its exact OMF system name - ASM rejects it
-  #     ("ORA-15046 ... cannot include multiple file creation form"); and
-  #   * a same-directory asmcmd .bak alias overflows ASM's 48-char name-component
-  #     limit (ORA-15126) for a typical OMF datafile name.
-  # Recovery therefore restores by FILE# (restore datafile N; recover datafile N),
-  # which recreates the file with a valid new OMF name and fixes the control file.
-  # So we FAIL CLOSED here unless a usable RMAN backup / image copy of this
-  # datafile already exists (run --protect <id> first). Tempfiles are exempt -
-  # they are recreated on open, never restored.
-  # Prefer the status captured before any up-front abort (SYSTEM/UNDO scenarios
-  # take the database down first; a live re-query here would return UNKNOWN and
-  # fail us closed on a datafile we DID back up). Fall back to a live query for
-  # scenarios that leave the database up, or if the snapshot was never taken.
-  local bkp_status
-  bkp_status="${ASM_BACKUP_STATUS_CACHE[$path]:-}"
-  [[ -n "$bkp_status" ]] || bkp_status="$(asm_path_backup_status "$path")"
-  case "$bkp_status" in
-    TEMPFILE|BACKED) : ;;
-    DATAFILE_NO_BACKUP)
-      die "Refusing to remove ASM datafile with no usable RMAN backup (recovery restores by FILE# and would have nothing to restore): $path. Run --protect ${CURRENT_SCENARIO_ID:-<id>} first, or ensure a current RMAN backup/image copy of this datafile exists."
-      ;;
-    BACKUP_PRE_RESETLOGS)
-      # Backups exist, but every one predates the current incarnation, so a
-      # restore would fail ORA-01190 and the drill would not be recoverable.
-      # Read-only tablespaces hit this permanently: their datafile headers are
-      # frozen, so they are never re-stamped by OPEN RESETLOGS and even a fresh
-      # backup keeps the old resetlogs_change#. The fix is to bring the
-      # tablespace READ WRITE once (re-stamping the header) and back it up, or
-      # to recreate it - not to take another backup of the same frozen file.
-      die "Refusing to remove ${path}: every RMAN backup of this datafile predates the current incarnation (OPEN RESETLOGS at $(printf '%s' "${DB_RESETLOGS_TIME:-the last resetlogs}")), so restoring it would fail ORA-01190 and this drill would not be recoverable. For a READ ONLY tablespace this is permanent until the header is re-stamped: alter the tablespace READ WRITE then READ ONLY again and back it up - which is exactly what --protect ${CURRENT_SCENARIO_ID:-<id>} (menu option 7) now does automatically when its plan includes this tablespace. Another backup of the frozen file will not help."
-      ;;
-    *)
-      die "Could not confirm a usable RMAN backup for the ASM datafile before removal: $path (backup check returned '${bkp_status}'). Refusing an irreversible delete."
-      ;;
-  esac
-
   echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
+  run_asmcmd_with_grid_env rm "$path" ||
     die "Unable to remove ASM file with asmcmd: $path"
 }
 
@@ -15134,10 +13747,7 @@ perform_fs_rename() {
   [[ -e "$path" ]] || die "Target does not exist: $path"
   local backup="${path}.${RUN_ID}.crashsim.bak"
   echo "mv -- $path $backup"
-  # Fail closed: if the rename fails (perms, busy) do NOT record a phantom backup
-  # in the manifest - the recovery path would later try to restore from a .bak
-  # that never existed, leaving a half-injected state. There is no errexit here.
-  mv -- "$path" "$backup" || die "Failed to move $path to $backup - aborting before recording the manifest backup."
+  mv -- "$path" "$backup"
   RENAME_COUNT=$((RENAME_COUNT + 1))
   manifest_append "rename_${RENAME_COUNT}_original" "$path"
   manifest_append "rename_${RENAME_COUNT}_backup" "$backup"
@@ -15173,37 +13783,15 @@ perform_srvctl_abort_instance() {
   local instance="$1"
   command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
   [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
-  record_pre_abort_service_placement "$instance"
-  # -force is required, not optional politeness: CRS refuses to stop an instance
-  # that a service depends on (CRS-2974 "would require stopping or relocating
-  # resource ora.<db>.<svc>.svc but the appropriate force flag was not
-  # specified"). Any lab with services configured - which is what
-  # crashsim_configure_ha_lab creates - hits this, and the drill then dies AFTER
-  # the fault is injected. Aborting an instance is inherently forceful; refusing
-  # over a dependent service only turns a clean abort into a half-finished run.
-  echo "srvctl stop instance -d $DB_UNIQUE_NAME -i $instance -o abort -force"
-  if ! srvctl stop instance -d "$DB_UNIQUE_NAME" -i "$instance" -o abort -force; then
-    # Idempotent: an already-stopped instance is not a failure.
-    if srvctl status instance -d "$DB_UNIQUE_NAME" -i "$instance" 2>/dev/null | grep -qi "not running"; then
-      info "Instance $instance is already not running; abort is a no-op."
-      return "$SUCCESS"
-    fi
-    die "srvctl stop instance -o abort failed for $instance"
-  fi
+  echo "srvctl stop instance -d $DB_UNIQUE_NAME -i $instance -o abort"
+  srvctl stop instance -d "$DB_UNIQUE_NAME" -i "$instance" -o abort
 }
 
 perform_srvctl_abort_database() {
   command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
   [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
-  echo "srvctl stop database -d $DB_UNIQUE_NAME -o abort -force"
-  if ! srvctl stop database -d "$DB_UNIQUE_NAME" -o abort -force; then
-    # Idempotent: an already-stopped database is not a failure.
-    if ! srvctl status database -d "$DB_UNIQUE_NAME" 2>/dev/null | grep -qi "is running"; then
-      info "Database $DB_UNIQUE_NAME is already down; abort is a no-op."
-      return "$SUCCESS"
-    fi
-    die "srvctl stop database -o abort failed for $DB_UNIQUE_NAME"
-  fi
+  echo "srvctl stop database -d $DB_UNIQUE_NAME -o abort"
+  srvctl stop database -d "$DB_UNIQUE_NAME" -o abort
 }
 
 perform_srvctl_relocate_service() {
@@ -15251,29 +13839,6 @@ abort_target_instance() {
     return "$SUCCESS"
   fi
 
-  # A planned action already took the whole database down (ASM will not drop a
-  # file the instance holds open). Stopping an instance of a stopped database
-  # makes CRS emit PRCR-1191 on what is a completely successful run - the abort
-  # is already done, so say that instead of surfacing a scary error.
-  #
-  # Check the PLAN as well as the runtime flag: a dry run prints the plan and
-  # returns before dispatching anything, so the flag is never set and the
-  # preview would contradict itself - "abort the database" as action 1, then
-  # "would abort target instance" underneath it, reading like two aborts.
-  # An empty plan (a --recover run) matches nothing and behaves as before.
-  local _ab_idx
-  for _ab_idx in "${!ACTION_KINDS[@]}"; do
-    if [[ "${ACTION_KINDS[$_ab_idx]}" == "abort_for_asm_open_file" ||
-          "${ACTION_KINDS[$_ab_idx]}" == "shutdown_clean_for_asm_redo_group" ]]; then
-      DATABASE_ABORTED_BY_PLAN=1
-      break
-    fi
-  done
-  if [[ "$DATABASE_ABORTED_BY_PLAN" -eq 1 ]]; then
-    info "Database ${DB_UNIQUE_NAME:-} was already aborted by an earlier planned action; instance abort is a no-op."
-    return "$SUCCESS"
-  fi
-
   if [[ "$EXECUTE" -eq 0 ]]; then
     info "DRY-RUN: would abort target instance ${INSTANCE_NAME}"
     return "$SUCCESS"
@@ -15284,24 +13849,13 @@ abort_target_instance() {
     return "$SUCCESS"
   fi
 
-  local sid="${ORACLE_SID:-$INSTANCE_NAME}"
+  local pmon_pattern="ora_pmon_${ORACLE_SID:-$INSTANCE_NAME}"
   local pid
   pid="$(discover_pmon_spid || true)"
   if [[ -z "$pid" ]]; then
-    # Never pgrep a bare "ora_pmon_" pattern: with an empty SID it matches EVERY
-    # PMON on the host and head -1 would pick (and kill -9) an arbitrary, possibly
-    # unrelated, instance. Refuse rather than risk crashing the wrong database.
-    [[ -n "$sid" ]] || die "Cannot identify the target instance PMON (ORACLE_SID/INSTANCE_NAME are both empty) - refusing to guess which instance to abort."
-    pid="$(pgrep -f "ora_pmon_${sid}\$" | head -n 1 || true)"
+    pid="$(pgrep -f "$pmon_pattern" | head -n 1 || true)"
   fi
-  # Idempotent: no PMON means the instance is already down, which is exactly the
-  # abort's goal. This matters when the abort is done as an up-front action for a
-  # non-offlinable (SYSTEM/UNDO) ASM datafile loss and the scenario's trailing
-  # abort_target_instance then runs again.
-  if [[ -z "$pid" ]]; then
-    info "Instance ${sid} PMON not found - already down; abort is a no-op."
-    return "$SUCCESS"
-  fi
+  [[ -n "$pid" ]] || die "Could not find PMON for ${ORACLE_SID:-$INSTANCE_NAME}"
   echo "kill -9 $pid (PMON ${ORACLE_SID:-$INSTANCE_NAME})"
   kill -9 "$pid"
 }
@@ -15328,39 +13882,18 @@ add_fs_rename_targets() {
 }
 
 add_datafile_loss_targets() {
-  local row class i=0
-
-  datafile_plan_scan_targets
-  if [[ "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 1 ]]; then
-    # ONE abort, first - it covers every file in the plan.
-    add_action "abort_for_shared_datafile" "$DATAFILE_PLAN_ABORT_ROW" "abort target before removing non-offlinable (SYSTEM/UNDO) ASM datafile: ${DATAFILE_PLAN_ABORT_ROW}"
-  fi
-
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    class="${DATAFILE_PLAN_CLASS[i]}"
+    class="$(storage_path_class "$row")"
     if [[ "$class" == "asm" ]]; then
-      # ASM refuses to remove an OPEN datafile (ORA-15028), so make it not-open
-      # first. With a whole-database abort planned above the file is already
-      # closed; otherwise the instance stays up and each file is offlined.
-      if [[ "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 0 ]]; then
-        add_datafile_offline_action "$row"
-      fi
       add_action "asm_rm" "$row" "ASM datafile loss via asmcmd rm"
     elif [[ "$class" == "fex" ]]; then
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "datafile loss injection")"
     elif storage_path_is_local_filesystem "$row"; then
-      # Filesystem: renaming an OPEN file works, so the classic (abort) drill needs
-      # no offline; only the online datafile drill offlines first so recovery can
-      # be online (no startup force mount) - and never after a whole-database
-      # abort, where the offline would hit the same dead instance.
-      if online_datafile_drill_enabled && [[ "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 0 ]]; then
-        add_datafile_offline_action "$row"
-      fi
       add_action "fs_rename" "$row"
     else
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "datafile loss injection")"
     fi
-    i=$((i + 1))
   done
 }
 
@@ -15369,17 +13902,6 @@ add_tempfile_loss_targets() {
   for row in "${TARGET_ROWS[@]}"; do
     class="$(storage_path_class "$row")"
     if [[ "$class" == "asm" ]]; then
-      # Same ORA-15028 rule as control files and redo members: the instance
-      # holds every tempfile OPEN, so ASM refuses to drop one. Confirmed with
-      # asmcmd lsof - which my earlier open-file audit missed, because it
-      # grepped CONTROLFILE|ONLINELOG|PARAMETERFILE|PASSWORD|ARCHIVELOG and
-      # never looked at TEMPFILE.
-      #
-      # Unlike a control file or redo member, a tempfile CAN be offlined while
-      # the database stays open - so this needs no abort, exactly like a
-      # non-SYSTEM datafile. A PDB tempfile must be offlined inside its own
-      # container.
-      add_tempfile_offline_action "$row"
       add_action "asm_tempfile_rm" "$row" "ASM tempfile loss via asmcmd rm"
     elif [[ "$class" == "fex" ]]; then
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "tempfile loss injection")"
@@ -15393,67 +13915,10 @@ add_tempfile_loss_targets() {
 
 add_fs_corrupt_targets() {
   local kind="$1"
-  local asm_kind="${2:-}"
-  local row class surrogate_planned=0 abort_planned=0
-  local -A redo_group_planned=()
-  # Never let a failed lookup abort the plan - the per-row fallback handles it.
-  if [[ "$asm_kind" == "asm_redo_rm" ]]; then
-    redo_member_group_map_load >/dev/null 2>&1 || true
-  fi
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
     class="$(storage_path_class "$row")"
-    if [[ "$class" == "asm" && -n "$asm_kind" ]]; then
-      # The surrogate REMOVES an open file, so the abort must come FIRST -
-      # control files and active redo members are held open continuously and
-      # asmcmd rm fails with ORA-15028 against a running instance (observed
-      # live on scenario 23's first real ASM execution). The handler's own
-      # trailing abort_target_instance is the FILESYSTEM ordering, where
-      # corrupting bytes in place works on an open file and the crash comes
-      # after. One abort covers every removal in the plan.
-      if [[ "$abort_planned" -eq 0 ]]; then
-        add_action "abort_for_asm_open_file" "$row" "abort the database before removing the open ASM file (ASM refuses to drop an open file: ORA-15028)"
-        abort_planned=1
-      fi
-      # The control-file surrogate takes ONE copy, by design: the catalog note
-      # says "a copy is removed instead as a labelled surrogate", and recovery
-      # rebuilds it from a surviving multiplexed copy. Enumerating EVERY copy
-      # (as the filesystem corruption path rightly does) left zero survivors,
-      # and the never-remove-the-last-control-file guard then refused the whole
-      # drill at action 1 - a plan the guard can never pass. Observed live on
-      # scenario 23. The remaining copies are the recovery source, so leaving
-      # them is the injection working as documented, not reduced coverage.
-      if [[ "$asm_kind" == "asm_controlfile_rm" && "$surrogate_planned" -eq 1 ]]; then
-        echo "NOTE: leaving control file copy intact as the recovery survivor (ASM surrogate removes one copy by design): ${row}"
-        continue
-      fi
-      # Same rule for redo members, and for the same reason. On FILESYSTEM this
-      # scenario corrupts every member of the group in place - that is the
-      # drill. On ASM the surrogate REMOVES instead, and removing every member
-      # is a total group loss: it contradicts the catalog note ("the member is
-      # removed"), it contradicts the recovery that exists (drop the missing
-      # member, add a replacement), and total group loss is scenarios 3/4's
-      # job. Observed live on scenario 24: both members of group 2 planned,
-      # first removed, second correctly refused by the survivor guard - a plan
-      # that could only ever half-complete. Cap PER GROUP: a RAC plan may
-      # legitimately touch one CURRENT group per thread.
-      if [[ "$asm_kind" == "asm_redo_rm" ]]; then
-        local grp="${REDO_MEMBER_GROUP[$row]:-}"
-        if [[ -z "$grp" ]]; then
-          redo_member_group_map_load >/dev/null 2>&1 || true
-          grp="${REDO_MEMBER_GROUP[$row]:-}"
-        fi
-        # Unresolvable group -> fall back to a single removal for the whole
-        # plan. Fewer removals is always the safe direction here.
-        [[ -n "$grp" ]] || grp="__unresolved__"
-        if [[ -n "${redo_group_planned[$grp]:-}" ]]; then
-          echo "NOTE: leaving redo member intact as the recovery survivor (ASM surrogate removes one member per group by design): ${row}"
-          continue
-        fi
-        redo_group_planned[$grp]=1
-      fi
-      add_action "$asm_kind" "$row" "ASM corruption surrogate: remove the ASM file and rebuild it (byte-level corruption is not possible in a disk group)"
-      surrogate_planned=1
-    elif [[ "$class" == "asm" || "$class" == "fex" ]]; then
+    if [[ "$class" == "asm" || "$class" == "fex" ]]; then
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "corruption handling")"
     elif storage_path_is_local_filesystem "$row"; then
       add_action "$kind" "$row"
@@ -15464,22 +13929,10 @@ add_fs_corrupt_targets() {
 }
 
 add_datafile_header_corrupt_targets() {
-  local row class i=0
-
-  # Same open-file rule AND same whole-plan rule as add_datafile_loss_targets:
-  # one abort up front covers every file, and no per-file offline can run (or
-  # is needed) after it.
-  datafile_plan_scan_targets
-  if [[ "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 1 ]]; then
-    add_action "abort_for_shared_datafile" "$DATAFILE_PLAN_ABORT_ROW" "abort target before removing non-offlinable (SYSTEM/UNDO) ASM datafile: ${DATAFILE_PLAN_ABORT_ROW}"
-  fi
-
+  local row class
   for row in "${TARGET_ROWS[@]}"; do
-    class="${DATAFILE_PLAN_CLASS[i]}"
+    class="$(storage_path_class "$row")"
     if [[ "$class" == "asm" ]]; then
-      if [[ "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 0 ]]; then
-        add_datafile_offline_action "$row"
-      fi
       add_action "asm_corrupt_header" "$row" "ASM header-corruption surrogate: remove ASM datafile and recover FILE#"
     elif [[ "$class" == "fex" ]]; then
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "header-corruption handling")"
@@ -15488,7 +13941,6 @@ add_datafile_header_corrupt_targets() {
     else
       add_action "external" "$row" "$(storage_path_provider_reason "$row" "header-corruption handling")"
     fi
-    i=$((i + 1))
   done
 }
 
@@ -15600,7 +14052,7 @@ select name
 from (select name from v\$controlfile order by name)
 where rownum = 1;
 "
-  add_controlfile_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15610,7 +14062,7 @@ scenario_control_all() {
   query_targets "$WORK_DIR/control_all.lst" "
 select name from v\$controlfile order by name;
 "
-  add_controlfile_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15643,7 +14095,7 @@ from (
 )
 where rownum = 1;
 "
-  add_redo_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15657,7 +14109,7 @@ join v\$logfile lf on lf.group# = l.group#
 where l.status = 'CURRENT'
 order by lf.group#, lf.member;
 "
-  add_redo_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15671,7 +14123,7 @@ join v\$logfile lf on lf.group# = l.group#
 where l.status = 'INACTIVE'
 order by lf.group#, lf.member;
 "
-  add_redo_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15696,7 +14148,7 @@ where l.status = 'ACTIVE'
 order by lf.group#, lf.member;
 "
   fi
-  add_redo_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -15708,7 +14160,7 @@ scenario_non_system_one() {
     "$(one_row)"
   add_datafile_loss_targets
   execute_actions
-  abort_target_instance_or_online_hold
+  abort_target_instance
 }
 
 scenario_temp_one() {
@@ -15737,31 +14189,15 @@ scenario_undo_one() {
 
 scenario_readonly_tbs() {
   reset_actions
-  # A READ ONLY tablespace freezes its datafile header at the SCN it went
-  # read-only. If that predates the database's last RESETLOGS, the header stays
-  # on the older incarnation even in a backup taken today - so restore succeeds,
-  # recover has no redo to apply (read-only files generate none), and bringing
-  # the file online dies ORA-01190 "from before the last RESETLOGS". The drill
-  # would be UNRECOVERABLE. Seen live on rac26db: file 48 destroyed 09:45, every
-  # recovery since impossible. Exclude those tablespaces from target selection so
-  # readiness reports NOT RUNNABLE instead of destroying something unrestorable.
   query_nonpdb_datafiles "$WORK_DIR/readonly_tbs.lst" "
 df.tablespace_name = (
   select tablespace_name
   from (
-    select ts.tablespace_name
-    from dba_tablespaces ts
-    where ts.status = 'READ ONLY'
-      and ts.contents = 'PERMANENT'
-      and ts.tablespace_name not in ('SYSTEM','SYSAUX')
-      and not exists (
-        select 1
-        from v\$datafile vdf, v\$tablespace vts, v\$datafile_header vdh, v\$database vdb
-        where vts.name = ts.tablespace_name
-          and vdf.ts# = vts.ts#
-          and vdh.file# = vdf.file#
-          and vdh.resetlogs_change# < vdb.resetlogs_change#
-      )
+    select tablespace_name
+    from dba_tablespaces
+    where status = 'READ ONLY'
+      and contents = 'PERMANENT'
+      and tablespace_name not in ('SYSTEM','SYSAUX')
     order by case
                when tablespace_name = 'CRASHSIM_ROOT_RO_TBS' then 0
                when tablespace_name like 'CRASHSIM%' then 1
@@ -15824,17 +14260,7 @@ scenario_drop_indexes() {
   if [[ -n "$TARGET_SCHEMA" ]]; then
     owner_filter="and i.owner = $(sql_quote "$TARGET_SCHEMA")"
   fi
-  # Honour --pdb on a CDB: the lab schema usually lives inside a PDB, so query and
-  # drop in that container. Without this the dictionary lookup runs in CDB$ROOT and
-  # reports "no candidate" even when --pdb/--schema named a valid PDB lab schema.
-  local container_clause="" container_restore="" target_context="root/non-CDB"
-  if [[ "$DB_CDB" == "YES" && -n "$TARGET_PDB" ]]; then
-    container_clause="alter session set container = ${TARGET_PDB};"
-    container_restore="alter session set container = CDB\$ROOT;"
-    target_context="PDB ${TARGET_PDB}"
-  fi
   query_targets "$WORK_DIR/drop_indexes.lst" "
-${container_clause}
 select owner || '.' || index_name
 from (
   select i.owner, i.index_name
@@ -15847,12 +14273,10 @@ from (
   order by i.owner, i.index_name
 )
 where rownum <= 20;
-${container_restore}
 "
   [[ "${#TARGET_ROWS[@]}" -gt 0 ]] ||
-    die "No non-unique user index candidate was found in ${target_context}. Re-run seed_crashsim_lab.sql or use --schema for a lab schema."
+    die "No non-unique user index candidate was found. Re-run seed_crashsim_lab.sql or use --schema for a lab schema."
   local sql_text="
-${container_clause}
 begin
   for rec in (
     select i.owner, i.index_name
@@ -15868,9 +14292,8 @@ begin
   end loop;
 end;
 /
-${container_restore}
 "
-  add_action "sql" "$sql_text" "drop non-unique indexes in ${target_context} (${#TARGET_ROWS[@]} candidates)"
+  add_action "sql" "$sql_text" "drop non-unique indexes (${#TARGET_ROWS[@]} candidates)"
   execute_actions
 }
 
@@ -15949,7 +14372,7 @@ scenario_password_file() {
   fi
   [[ -n "$path" ]] || die "Password file path was not discovered."
   TARGET_ROWS=("$path")
-  add_password_file_loss_targets
+  add_fs_rename_targets
   execute_actions
 }
 
@@ -15974,7 +14397,7 @@ scenario_control_corrupt() {
   query_targets "$WORK_DIR/control_corrupt.lst" "
 select name from v\$controlfile order by name;
 "
-  add_fs_corrupt_targets "fs_corrupt_body" "asm_controlfile_rm"
+  add_fs_corrupt_targets "fs_corrupt_body"
   execute_actions
   abort_target_instance
 }
@@ -15999,7 +14422,7 @@ where l.status = 'ACTIVE'
 order by lf.group#, lf.member;
 "
   fi
-  add_fs_corrupt_targets "fs_corrupt_body" "asm_redo_rm"
+  add_fs_corrupt_targets "fs_corrupt_body"
   execute_actions
   abort_target_instance
 }
@@ -16066,7 +14489,7 @@ scenario_spfile() {
   reset_actions
   [[ -n "$SPFILE_PATH" ]] || die "SPFILE path was not discovered."
   TARGET_ROWS=("$SPFILE_PATH")
-  add_spfile_loss_targets
+  add_fs_rename_targets
   execute_actions
   abort_target_instance
 }
@@ -16111,7 +14534,7 @@ scenario_pdb_non_system_one() {
     "$(one_row)"
   add_datafile_loss_targets
   execute_actions
-  abort_target_instance_or_online_hold
+  abort_target_instance
 }
 
 scenario_pdb_temp_one() {
@@ -16571,28 +14994,14 @@ format_seconds() {
 }
 
 latest_completed_recovery_manifest() {
-  # Recovery markers live in the SCENARIO manifest (the menu/--recover flow
-  # appends recovery_*_at_utc there); separate crashsim_recover_s* manifests
-  # are the legacy shape. Scanning only the legacy name made scenario 64
-  # report NOT MEASURED forever on hosts with dozens of completed recoveries
-  # (field, testdbone 2026-08-13: 57 scenario manifests carried the marker,
-  # the scanner saw 2 legacy files without it). Scan both shapes and pick the
-  # LATEST COMPLETION TIME, not a filename sort - ISO-8601 UTC strings order
-  # lexicographically, and completion recency is the semantics the RTO
-  # validation report claims.
-  local manifest completed best_manifest="" best_completed=""
-  for manifest in "$LOG_DIR"/crashsim_recover_s*.manifest "$LOG_DIR"/crashsim_scenario_s*.manifest; do
-    [[ -f "$manifest" ]] || continue
-    completed="$(awk -F= '$1=="recovery_completed_at_utc"{print $2; exit}' "$manifest" 2>/dev/null)"
-    [[ -n "$completed" ]] || continue
-    if [[ -z "$best_completed" || "$completed" > "$best_completed" ]]; then
-      best_completed="$completed"
-      best_manifest="$manifest"
+  local manifest
+  while IFS= read -r manifest; do
+    if grep -q '^recovery_completed_at_utc=' "$manifest" 2>/dev/null; then
+      printf "%s\n" "$manifest"
+      return "$SUCCESS"
     fi
-  done
-  [[ -n "$best_manifest" ]] || return "$FAIL"
-  printf "%s\n" "$best_manifest"
-  return "$SUCCESS"
+  done < <(find "$LOG_DIR" -maxdepth 1 -type f -name 'crashsim_recover_s*.manifest' 2>/dev/null | sort -r)
+  return "$FAIL"
 }
 
 write_rto_validation_report() {
@@ -16790,15 +15199,6 @@ write_rpo_validation_report() {
   else
     actual_seconds=""
     actual_basis="No archived redo age was measurable from target control-file evidence."
-  fi
-
-  # Machine-readable twin of the report headline (field 2026-08-13: the
-  # estimate lived only in this markdown, so the agent had nothing to push
-  # and p15 showed 'not set' for a drill whose whole product is this number).
-  # It is an EXPOSURE ESTIMATE, never measured_rpo - the consumer labels it so.
-  if [[ -n "$actual_seconds" ]]; then
-    manifest_append "rpo_estimate_sec" "$actual_seconds"
-    manifest_append "rpo_estimate_basis" "$actual_basis"
   fi
 
   {
@@ -17017,41 +15417,6 @@ discover_grid_home_for_tool() {
     fi
   fi
 
-  # Canonical source first: the Oracle Local Registry pointer names the running
-  # Grid home for THIS host, whatever its version or path. The hardcoded version
-  # directories below miss every release nobody thought to list - a 26ai lab with
-  # its home at /u01/app/26.0.0/grid reported "requires Grid Infrastructure
-  # commands" while crsctl sat right there, keeping the OCR, voting-disk and VIP
-  # scenarios permanently NOT-RUNNABLE. Readable by oracle on a normal install.
-  local olr_home oratab_home glob_home
-  if [[ -r /etc/oracle/olr.loc ]]; then
-    olr_home="$(sed -n 's/^[[:space:]]*crs_home=//p' /etc/oracle/olr.loc 2>/dev/null | head -n 1 | tr -d '[:space:]')"
-    if [[ -n "$olr_home" && -x "${olr_home}/bin/${tool}" ]]; then
-      printf "%s" "$olr_home"
-      return "$SUCCESS"
-    fi
-  fi
-
-  # /etc/oratab's +ASM entry names the Grid home where olr.loc is absent.
-  if [[ -r /etc/oratab ]]; then
-    oratab_home="$(awk -F: '/^\+ASM/ {print $2; exit}' /etc/oratab 2>/dev/null | tr -d '[:space:]')"
-    if [[ -n "$oratab_home" && -x "${oratab_home}/bin/${tool}" ]]; then
-      printf "%s" "$oratab_home"
-      return "$SUCCESS"
-    fi
-  fi
-
-  # Version-agnostic glob, newest first, so a new Oracle release needs no code
-  # change. The fixed list below stays as a last resort for odd layouts.
-  for glob_home in $(ls -d /u01/app/*/grid /u01/app/*/gridhome_* \
-                            /u01/app/grid/product/*/grid \
-                            /u01/app/oracle/product/*/grid 2>/dev/null | sort -V -r); do
-    if [[ -x "${glob_home}/bin/${tool}" ]]; then
-      printf "%s" "$glob_home"
-      return "$SUCCESS"
-    fi
-  done
-
   for tool_path in \
     "/u01/app/23.0.0.0/gridhome_1/bin/${tool}" \
     "/u01/app/23.0.0.0/grid/bin/${tool}" \
@@ -17109,24 +15474,9 @@ run_asmcmd_with_grid_env() {
   asm_sid="${CRASHSIM_ASM_SID:-}"
   [[ -n "$asm_sid" ]] || asm_sid="$(detect_asm_sid_from_process || true)"
   [[ -n "$asm_sid" ]] || asm_sid="+ASM"
-  # ROLE SEPARATION IS NOT UNIVERSAL. This escalated to $GRID_USER (default
-  # "grid") whenever the current user was not it and sudo existed - so on a
-  # SINGLE-OWNER install, where one `oracle` account owns both Grid and the
-  # database and no `grid` user exists at all, every call became
-  # `sudo -n -u grid ...` and failed. The ASM write preflight then reported
-  # "OS user 'oracle' cannot perform ASM write operations" and refused the
-  # drill, while that same user could create and remove a directory in +DATA
-  # by hand (proven on rac19n2, 2026-08-17, which blocked DRILL-688).
-  #
-  # A false NEGATIVE here is expensive in a specific way: it does not merely
-  # fail, it fails while naming a cause that is not true, and sends the operator
-  # off to fix a group membership that was never the problem.
-  #
-  # So: escalate only when there is something to escalate TO. Otherwise run as
-  # the current user, which is exactly right for a single-owner install and no
-  # worse than before anywhere else - if that user genuinely lacks ASM write,
-  # the probe still fails and the refusal still stands, just honestly.
-  if asm_should_escalate_to_grid_user; then
+  if [[ "$(id -un 2>/dev/null || true)" == "$GRID_USER" ]]; then
+    env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
+  elif command -v sudo >/dev/null 2>&1; then
     sudo -n -u "$GRID_USER" env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
   else
     env ORACLE_HOME="$asm_home" ORACLE_SID="$asm_sid" PATH="${asm_home}/bin:${PATH}" "$asmcmd_bin" "$@"
@@ -17305,8 +15655,7 @@ collect_dgmgrl_fsfo_evidence() {
     return "$FAIL"
   fi
   printf 'show configuration verbose;\nshow fast_start failover;\nexit\n' |
-    "$dgmgrl_bin" -silent / >"$output_file" 2>&1 || { annotate_dgmgrl_os_auth_artifacts "$output_file"; return "$FAIL"; }
-  annotate_dgmgrl_os_auth_artifacts "$output_file"
+    "$dgmgrl_bin" -silent / >"$output_file" 2>&1 || return "$FAIL"
 }
 
 write_adg_pressure_sql_file() {
@@ -17448,14 +15797,7 @@ from v\$database;
   [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "ADG pressure readiness SQL failed: $sql_file (evidence: $evidence_file)"
   grep -q '^CSIM_ADG|' "$evidence_file" ||
     die "ADG pressure readiness SQL produced no evidence rows: $evidence_file"
@@ -17747,14 +16089,7 @@ scenario_standby_redo_log_misconfig() {
   [[ "$PLANNING_ONLY" -eq 1 || "$EXECUTE" -eq 0 ]] && return "$SUCCESS"
 
   ensure_sqlplus
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "Standby redo log review SQL failed: $sql_file (evidence: $evidence_file)"
   write_standby_redo_log_review_report "$report_file" "$evidence_file"
   cat "$report_file"
@@ -17763,20 +16098,14 @@ SQL
 
 scenario_rac_vip_relocation() {
   reset_actions
-  # Use the Grid-home-aware helpers, not a bare `command -v`: crsctl lives in the
-  # Grid home and is normally NOT on the oracle user's PATH, so a plain lookup
-  # reported "crsctl not found" on a perfectly good cluster and made this
-  # scenario permanently NOT-RUNNABLE. grid_tool_available/run_grid_tool resolve
-  # the running Grid home (olr.loc, oratab, then known layouts).
-  grid_tool_available crsctl ||
-    die "crsctl not found in the Grid Infrastructure home or PATH. Set CRASHSIM_GRID_HOME if this cluster uses a non-standard layout."
+  command -v crsctl >/dev/null 2>&1 || die "crsctl not found"
   local vip_file="$WORK_DIR/rac_vip_resources.out"
   local vip_detail_file="$WORK_DIR/rac_vip_resources_detail.out"
   local vip_resource
 
-  run_grid_tool crsctl stat res -t >"$vip_file" 2>&1 ||
+  crsctl stat res -t >"$vip_file" 2>&1 ||
     die "Unable to collect Clusterware resource status with crsctl."
-  run_grid_tool crsctl stat res -w "TYPE = ora.cluster_vip_net1.type" -p >"$vip_detail_file" 2>&1 || true
+  crsctl stat res -w "TYPE = ora.cluster_vip_net1.type" -p >"$vip_detail_file" 2>&1 || true
 
   vip_resource="$(awk '/^ora\..*\.vip([[:space:]]|$)/ {print $1; exit}' "$vip_file")"
   if [[ -z "$vip_resource" ]]; then
@@ -17825,7 +16154,7 @@ scenario_rac_service_placement_failure() {
   sed 's/^/  /' "$status_file"
 
   status_line="$(grep -E '^Service .* is running on instance' "$status_file" | head -n 1 || true)"
-  running="$(printf "%s" "$status_line" | awk '{print $NF}')"
+  running="$(printf "%s" "$status_line" | sed -E 's/^.*instance\(s\)[[:space:]]*//; s/[[:space:]]//g')"
   [[ -n "$running" ]] || die "Service ${service} is not running. Start it before service placement failure practice."
   source_inst="$(first_csv_value "$running" || true)"
   [[ -n "$source_inst" ]] || die "Unable to determine a running source instance for service ${service}."
@@ -18447,7 +16776,7 @@ scenario_rac_service_relocation() {
 
   preferred="$(awk -F': ' '/^Preferred instances:/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$config_file")"
   status_line="$(grep -E '^Service .* is running on instance' "$status_file" | head -n 1 || true)"
-  running="$(printf "%s" "$status_line" | awk '{print $NF}')"
+  running="$(printf "%s" "$status_line" | sed -E 's/^.*instance\(s\)[[:space:]]*//; s/[[:space:]]//g')"
   [[ -n "$running" ]] || die "Service ${service} is not running. Start it before relocation/failure practice."
 
   db_instances="$(srvctl_database_instances_csv "$db_status_file" || true)"
@@ -18530,7 +16859,7 @@ from (
 )
 where rownum = 1;
 "
-  add_archivelog_loss_targets
+  add_fs_rename_targets
   execute_actions
 }
 
@@ -18633,7 +16962,7 @@ where rownum = 1;
   manifest_append "archivelog_recovery_decision_rman" "$rman_file"
 
   if [[ "$archive_name" == +* ]]; then
-    add_action "asm_archivelog_rm" "$archive_name" "ASM archived-log loss via asmcmd rm (recovery restores thread ${thread_no} sequence ${sequence_no}); RMAN decision file: ${rman_file}"
+    add_action "external" "$archive_name" "ASM archived-log removal requires an ASM-aware handler; RMAN decision file: ${rman_file}"
   else
     add_action "fs_rename" "$archive_name" "thread=${thread_no} sequence=${sequence_no}; RMAN decision file: ${rman_file}"
   fi
@@ -18709,14 +17038,7 @@ scenario_rpo_validation() {
 
   ensure_sqlplus
   write_rpo_validation_sql_file "$sql_file"
-  "$SQLPLUS_BIN" -L -s /nolog >"$evidence_file" <<SQL ||
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-set define on
-@${sql_file}
-SQL
+  "$SQLPLUS_BIN" -s "$SQLPLUS_LOGON" @"$sql_file" >"$evidence_file" </dev/null ||
     die "RPO validation SQL failed: $sql_file (evidence: $evidence_file)"
   parse_rpo_evidence_file "$evidence_file"
   write_rpo_validation_report "$report_file" "$evidence_file"
@@ -19345,52 +17667,6 @@ parse_args() {
         MODE="node_sync_check"
         shift
         ;;
-      # --- carried by the OSE line-item sync (OSS surface) ---
-      # Each of these is referenced by synced code or by text the tool prints.
-      # An advertised flag the parser does not accept is the same defect class
-      # this release fixes elsewhere: the product saying something it cannot do.
-      --reconcile-drills|--reconcile-manifests)
-        MODE="reconcile_drills"
-        SCENARIO_ID=""
-        shift
-        ;;
-      --prep-list|--prep-checklist|--preparation-checklist)
-        MODE="prep_checklist"
-        SCENARIO_ID=""
-        shift
-        ;;
-      --prep-remove)
-        [[ $# -ge 2 ]] || die "--prep-remove requires a comma-separated item list; see --prep-list"
-        PREP_FILTER="$2"
-        MODE="prep_remove"
-        SCENARIO_ID=""
-        shift 2
-        ;;
-      --prep)
-        [[ $# -ge 2 ]] || die "--prep requires a comma-separated item list (or 'all'); see --prep-list"
-        PREP_FILTER="$2"
-        MODE="prepare_environment"
-        SCENARIO_ID=""
-        shift 2
-        ;;
-      --online-datafile-drill)
-        ONLINE_DATAFILE_DRILL=1
-        shift
-        ;;
-      --redo-resetlogs-recovery)
-        REDO_RESETLOGS_RECOVERY=1
-        shift
-        ;;
-      --maa-distributed-scope)
-        [[ "$#" -ge 2 ]] || die "--maa-distributed-scope requires a value (multi-node|multi-az|multi-region|multi-country)"
-        MAA_DISTRIBUTED_SCOPE_INPUT="$2"
-        shift 2
-        ;;
-      --maa-globally-distributed)
-        [[ "$#" -ge 2 ]] || die "--maa-globally-distributed requires a value"
-        MAA_GLOBALLY_DISTRIBUTED="$2"
-        shift 2
-        ;;
       --runbook)
         [[ "$#" -ge 2 ]] || die "--runbook requires an id"
         MODE="runbook"
@@ -19865,24 +18141,12 @@ menu_discover_environment_optional() {
     return "$SUCCESS"
   fi
 
-  if discover_environment; then
-    # Populate the cache this function just tried to read, so the next menu start
-    # within the TTL is instant instead of re-running discovery every time.
-    save_topology_cache
-  else
-    warn "Database topology discovery did not complete. The guided menu will open with currently available context."
-  fi
+  discover_environment || warn "Database topology discovery did not complete. The guided menu will open with currently available context."
 }
 
 menu_print_header() {
   echo
-  if edition_is_enterprise; then
-    echo "CrashSimulator V2 ${VERSION}"
-  else
-    # Deliberately quiet on EE builds (golden menu fixtures pin that header);
-    # OSE announces itself so a hidden option reads as an edition boundary.
-    echo "CrashSimulator V2 ${VERSION} (OSE - open-source edition)"
-  fi
+  echo "CrashSimulator V2 ${VERSION}"
   echo "Database: ${DB_UNIQUE_NAME:-not discovered}  Role: ${DB_ROLE:-unknown}  Open: ${DB_OPEN_MODE:-unknown}  CDB: ${DB_CDB:-unknown}"
   echo "Instance: ${INSTANCE_NAME:-unknown}  Storage: ${STORAGE_TYPE:-unknown}  Cluster: ${CLUSTER_TYPE:-unknown}"
   echo
@@ -19937,7 +18201,7 @@ menu_require_scenario() {
 menu_select_pdb() {
   local answer idx row name con_id open_mode
 
-  menu_discover_environment_if_available
+  discover_environment || true
   echo
   if [[ "$DB_CDB" != "YES" ]]; then
     warn "The discovered database is not a CDB. Leave PDB unset for non-CDB scenarios."
@@ -20005,7 +18269,7 @@ scenario_file_no_context_useful() {
 menu_auto_select_single_pdb() {
   local row con_id open_mode
 
-  menu_discover_environment_if_available
+  discover_environment || true
   [[ "$DB_CDB" == "YES" && -z "$TARGET_PDB" && "${#PDB_ROWS[@]}" -eq 1 ]] || return "$FAIL"
   IFS='|' read -r TARGET_PDB con_id open_mode <<<"${PDB_ROWS[0]}"
   echo "Using only available PDB: ${TARGET_PDB} (OPEN_MODE=${open_mode})"
@@ -20176,9 +18440,7 @@ menu_apply_manifest_context_if_available() {
   [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$SUCCESS"
 
   if [[ -z "$TARGET_PDB" ]]; then
-    value="$(manifest_first_value "target_pdb" "target_1_pdb_name" || true)"
-    [[ -n "$value" ]] || value="$(manifest_first_action_value pdb_name || true)"
-    [[ -n "$value" ]] || value="$(manifest_first_value "apex_runtime_target_container" || true)"
+    value="$(manifest_first_value "target_pdb" "target_1_pdb_name" "action_1_pdb_name" "apex_runtime_target_container" || true)"
     if [[ -n "$value" ]]; then
       value="$(normalize_name "$value")"
       if validate_oracle_name "$value"; then
@@ -20189,8 +18451,7 @@ menu_apply_manifest_context_if_available() {
   fi
 
   if [[ -z "$TARGET_SCHEMA" ]]; then
-    value="$(manifest_first_value "target_schema" || true)"
-    [[ -n "$value" ]] || value="$(manifest_first_action_value owner || true)"
+    value="$(manifest_first_value "target_schema" "action_1_owner" || true)"
     if [[ -n "$value" ]]; then
       value="$(normalize_name "$value")"
       if validate_oracle_name "$value"; then
@@ -20201,8 +18462,7 @@ menu_apply_manifest_context_if_available() {
   fi
 
   if [[ -z "$TARGET_FILE_NO" ]]; then
-    value="$(manifest_first_value "recover_file_no" "target_1_file_no" || true)"
-    [[ -n "$value" ]] || value="$(manifest_first_action_value file_no || true)"
+    value="$(manifest_first_value "recover_file_no" "target_1_file_no" "action_1_file_no" || true)"
     if [[ "$value" =~ ^[0-9]+$ ]]; then
       TARGET_FILE_NO="$value"
       echo "FILE# loaded from manifest: ${TARGET_FILE_NO}"
@@ -20338,7 +18598,7 @@ menu_prompt_rman_catalog() {
 menu_prompt_file_no() {
   local answer target_file idx row file_no pdb_name tablespace size_mb file_name where_clause
 
-  menu_discover_environment_if_available
+  discover_environment || true
   target_file="$WORK_DIR/menu_datafiles.lst"
   if [[ "$DB_CDB" == "YES" ]]; then
     where_clause="where c.name <> 'PDB\$SEED'"
@@ -20416,19 +18676,15 @@ order by vf.file#;
 menu_show_selected_scenario_readiness() {
   [[ -n "$SCENARIO_ID" && -n "${SCENARIO_TITLE[$SCENARIO_ID]:-}" ]] || return "$SUCCESS"
 
-  if scenario_capability_evaluate "$SCENARIO_ID"; then
-    echo "Readiness: RUNNABLE - ${SCENARIO_CAPABILITY_CURRENT_REASON}"
-    echo "Evidence provenance: ${SCENARIO_CAPABILITY_CURRENT_PROVENANCE}"
-  elif [[ "$SCENARIO_CAPABILITY_CURRENT_STATUS" == "PLAN_ONLY" ]]; then
-    echo "Readiness: PLAN-ONLY - ${SCENARIO_CAPABILITY_CURRENT_REASON}"
+  if validate_scenario_can_run "$SCENARIO_ID"; then
+    echo "Readiness: RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
+  elif [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
+    echo "Readiness: PLAN-ONLY - ${SCENARIO_VALIDATION_REASON}"
     echo "Execution remains blocked until the guardrail is resolved."
-    echo "Evidence provenance: ${SCENARIO_CAPABILITY_CURRENT_PROVENANCE}"
   else
-    echo "Readiness: NOT RUNNABLE - ${SCENARIO_CAPABILITY_CURRENT_REASON}"
+    echo "Readiness: NOT RUNNABLE - ${SCENARIO_VALIDATION_REASON}"
     echo "This scenario cannot be executed in the current topology or target context."
-    echo "Evidence provenance: ${SCENARIO_CAPABILITY_CURRENT_PROVENANCE}"
   fi
-  echo "Guardrail: ${SCENARIO_CAPABILITY_CURRENT_GUARDRAIL}"
 }
 
 menu_prompt_file_no_for_recovery_if_useful() {
@@ -20456,7 +18712,7 @@ menu_ensure_scenario_context() {
 
   [[ -n "$run_mode" ]] || run_mode="dry-run"
   menu_require_scenario || return "$FAIL"
-  menu_discover_environment_if_available
+  discover_environment || true
 
   if scenario_requires_pdb_context "$SCENARIO_ID" && [[ -z "$TARGET_PDB" ]]; then
     echo
@@ -21174,8 +19430,6 @@ menu_run_maa_report() {
   [[ -n "$MAA_DR_REQUIRED" ]] && MENU_CMD+=("--maa-dr-required" "$MAA_DR_REQUIRED")
   [[ -n "$MAA_AUTOMATIC_FAILOVER_REQUIRED" ]] && MENU_CMD+=("--maa-automatic-failover-required" "$MAA_AUTOMATIC_FAILOVER_REQUIRED")
   [[ -n "$MAA_ACTIVE_ACTIVE_REQUIRED" ]] && MENU_CMD+=("--maa-active-active-required" "$MAA_ACTIVE_ACTIVE_REQUIRED")
-  [[ -n "$MAA_GLOBALLY_DISTRIBUTED" ]] && MENU_CMD+=("--maa-globally-distributed" "$MAA_GLOBALLY_DISTRIBUTED")
-  [[ -n "$MAA_DISTRIBUTED_SCOPE_INPUT" ]] && MENU_CMD+=("--maa-distributed-scope" "$MAA_DISTRIBUTED_SCOPE_INPUT")
   [[ -n "$MAA_PLATFORM_HINT" ]] && MENU_CMD+=("--maa-platform-hint" "$MAA_PLATFORM_HINT")
   [[ -n "$MAA_STANDBY_SCOPE" ]] && MENU_CMD+=("--maa-standby-scope" "$MAA_STANDBY_SCOPE")
   MENU_CMD+=("--html")
@@ -21363,8 +19617,6 @@ menu_configure_maa_context() {
   menu_prompt_path "DR required (yes/no)" MAA_DR_REQUIRED "$MAA_DR_REQUIRED"
   menu_prompt_path "automatic failover required (yes/no)" MAA_AUTOMATIC_FAILOVER_REQUIRED "$MAA_AUTOMATIC_FAILOVER_REQUIRED"
   menu_prompt_path "active-active required (yes/no)" MAA_ACTIVE_ACTIVE_REQUIRED "$MAA_ACTIVE_ACTIVE_REQUIRED"
-  menu_prompt_path "globally distributed with Raft (yes/no)" MAA_GLOBALLY_DISTRIBUTED "$MAA_GLOBALLY_DISTRIBUTED"
-  menu_prompt_path "distributed scope (multi-node/multi-az/multi-region/multi-country)" MAA_DISTRIBUTED_SCOPE_INPUT "$MAA_DISTRIBUTED_SCOPE_INPUT"
   menu_prompt_path "platform hint (generic/Exadata/ODA/BaseDB/etc.)" MAA_PLATFORM_HINT "$MAA_PLATFORM_HINT"
   menu_prompt_path "standby scope (local/remote/unknown)" MAA_STANDBY_SCOPE "$MAA_STANDBY_SCOPE"
 }
@@ -21616,8 +19868,6 @@ artifact_kind_from_path() {
     *.sql) printf "sql" ;;
     *.md) printf "report" ;;
     *.html) printf "html" ;;
-    *.csv) printf "csv" ;;
-    *.ics) printf "ical" ;;
     *.log) printf "log" ;;
     *.txt) printf "text" ;;
     *.evidence) printf "evidence" ;;
@@ -21644,7 +19894,7 @@ menu_collect_artifacts() {
         [[ -n "$file" ]] || continue
         epoch="$(file_mtime_epoch "$file")"
         records+=("${epoch}|${file}")
-      done < <(find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' -o -name '*.txt' -o -name '*.html' -o -name '*.csv' -o -name '*.ics' -o -name '*.out' -o -name '*.evidence' \) 2>/dev/null)
+      done < <(find "$LOG_DIR" -maxdepth 1 -type f \( -name '*.manifest' -o -name '*.log' -o -name '*.rman' -o -name '*.sql' -o -name '*.md' -o -name '*.txt' -o -name '*.html' -o -name '*.out' -o -name '*.evidence' \) 2>/dev/null)
       ;;
     reports)
       [[ -d "$LOG_DIR" ]] || return "$SUCCESS"
@@ -21661,7 +19911,7 @@ menu_collect_artifacts() {
         [[ -n "$file" ]] || continue
         epoch="$(file_mtime_epoch "$file")"
         records+=("${epoch}|${file}")
-      done < <(find "$AUDIT_DIR" -mindepth 1 -maxdepth 4 -type f \( -name '*.log' -o -name '*.env' -o -name '*.redacted' -o -name '*.manifest' -o -name '*.md' -o -name '*.txt' -o -name '*.html' -o -name '*.csv' -o -name '*.ics' -o -name '*.rman' -o -name '*.sql' -o -name '*.out' -o -name '*.evidence' -o -name 'exit_status' -o -name 'artifact_index' \) 2>/dev/null)
+      done < <(find "$AUDIT_DIR" -mindepth 1 -maxdepth 4 -type f \( -name '*.log' -o -name '*.env' -o -name '*.redacted' -o -name '*.manifest' -o -name '*.md' -o -name '*.txt' -o -name '*.rman' -o -name '*.sql' -o -name '*.out' -o -name '*.evidence' -o -name 'exit_status' -o -name 'artifact_index' \) 2>/dev/null)
       ;;
     *)
       warn "Unknown artifact category: $category"
@@ -22252,15 +20502,6 @@ main() {
     release_check)
       run_release_check
       ;;
-    prep_checklist)
-      run_prep_checklist
-      ;;
-    prep_remove)
-      run_prep_remove
-      ;;
-    reconcile_drills)
-      run_reconcile_drills
-      ;;
     runbook)
       [[ -n "$SCENARIO_ID" ]] || die "No scenario id provided."
       print_runbook_only "$SCENARIO_ID"
@@ -22293,2913 +20534,6 @@ main() {
   esac
 
   maybe_refresh_resilience_scorecard "$MODE" "$SCENARIO_ID"
-}
-
-# ---- synced from the development tree (OSS surface) ----
-
-abort_target_for_shared_datafile() {
-  local reason="${1:-a non-offlinable datafile}"
-  if [[ "$PLANNING_ONLY" -eq 1 ]]; then
-    return "$SUCCESS"
-  fi
-  if [[ "$EXECUTE" -eq 0 ]]; then
-    info "DRY-RUN: would abort $([[ "$CLUSTER_TYPE" == "RAC" || "$INSTANCE_PARALLEL" == "YES" ]] && echo "the whole database ${DB_UNIQUE_NAME}" || echo "target instance ${INSTANCE_NAME}") before removing ${reason}"
-    DATABASE_ABORTED_BY_PLAN=1
-    return "$SUCCESS"
-  fi
-  # From here the database is down BECAUSE of us. If the run dies before the
-  # injection lands, put it back (field: a failed scenario 1 left rac19db down
-  # with no drill performed). scenario_exit_handler also records abandonment.
-  trap 'scenario_exit_handler "$?"' EXIT
-  if [[ "$CLUSTER_TYPE" == "RAC" || "$INSTANCE_PARALLEL" == "YES" ]]; then
-    perform_srvctl_abort_database
-  else
-    abort_target_instance
-  fi
-  # Only AFTER the abort has actually happened. Setting it earlier would make
-  # the single-instance branch above - which delegates to abort_target_instance
-  # - short-circuit into the very no-op this flag exists to allow, leaving the
-  # database up and the removal back on ORA-15028.
-  DATABASE_ABORTED_BY_PLAN=1
-}
-
-abort_target_instance_or_online_hold() {
-  if online_datafile_drill_enabled; then
-    manifest_append "drill_mode" "online_datafile"
-    info "Online datafile drill: instance left running; the target datafile is offline and removed. Recover it in place with --recover (online restore/recover - no instance bounce)."
-    return "$SUCCESS"
-  fi
-  abort_target_instance
-}
-
-adb_scenario_guardrail_capability() {
-  local id="$1"
-  case "$id" in
-    ADB*)
-      printf "ADB cloud-service guardrail: validate OCI/wallet/application context first; helper posture is %s." "${ADB_SCENARIO_HELPER[$id]:-not registered}"
-      ;;
-    *)
-      printf "Readiness guardrail required."
-      ;;
-  esac
-}
-
-add_archivelog_loss_targets() {
-  local row class
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    if [[ "$class" == "asm" ]]; then
-      # Decide at PLANNING time whether this log is recoverable. On ASM the only
-      # way back is an RMAN restore, so an unbacked log would be a one-way delete
-      # - and the newest archived log (which these scenarios select) is exactly
-      # the one most likely not to be backed up yet. Saying so here beats
-      # reporting RUNNABLE and refusing at execution.
-      local arc_meta arc_thread arc_seq arc_bkp
-      arc_meta="$(archivelog_metadata_for_path "$row" || true)"
-      if [[ -z "$arc_meta" ]]; then
-        add_action "external" "$row" "archived log is not described in v\$archived_log, so recovery could not restore it by thread/sequence"
-        continue
-      fi
-      IFS='|' read -r arc_thread arc_seq <<<"$arc_meta"
-      arc_bkp="$(archivelog_backup_status "$arc_thread" "$arc_seq")"
-      if [[ "$arc_bkp" != "BACKED" ]]; then
-        add_action "external" "$row" "archived log thread ${arc_thread} sequence ${arc_seq} has no RMAN backup (check returned ${arc_bkp}); ASM recovery restores from backup, so removing it would be irreversible. Run: RMAN> backup archivelog all; then re-run"
-        continue
-      fi
-      add_action "asm_archivelog_rm" "$row" "ASM archived-log loss via asmcmd rm (thread ${arc_thread} sequence ${arc_seq}; RMAN backup confirmed, recovery restores it)"
-    elif storage_path_is_local_filesystem "$row"; then
-      add_action "fs_rename" "$row"
-    else
-      add_action "external" "$row" "$(storage_path_provider_reason "$row" "archived-log loss injection")"
-    fi
-  done
-}
-
-add_controlfile_loss_targets() {
-  local row class total asm_total_loss=0 asm_abort_added=0
-
-  # Would this drill remove EVERY control file? On ASM that is a different drill:
-  # with no surviving copy the only way back is a control-file autobackup or
-  # CREATE CONTROLFILE, and this recovery path rebuilds from a survivor. Say so
-  # at planning time - reporting RUNNABLE and then refusing at execution would be
-  # the worse outcome.
-  total="$(controlfile_count_or_unknown)"
-  if [[ "$total" =~ ^[0-9]+$ && "${#TARGET_ROWS[@]}" -ge "$total" ]]; then
-    asm_total_loss=1
-  fi
-
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    if [[ "$class" == "asm" && "$asm_total_loss" -ne 1 ]]; then
-      # ORA-15028: ASM will not drop a control file while an instance has it
-      # open, and unlike a datafile it cannot be offlined. Bring the database
-      # down first, then remove - once for the whole plan, however many copies
-      # this drill targets. (Confirmed with `asmcmd lsof`: every CONTROLFILE and
-      # ONLINELOG is held open; SPFILE and password file are not.)
-      if [[ "$asm_abort_added" -eq 0 ]]; then
-        asm_abort_added=1
-        add_action "abort_for_asm_open_file" "$row" "abort the database before removing the ASM control file (ASM refuses to drop an open file: ORA-15028)"
-      fi
-      add_action "asm_controlfile_rm" "$row" "ASM control-file loss via asmcmd rm"
-      continue
-    fi
-    if [[ "$class" == "asm" && "$asm_total_loss" -eq 1 ]]; then
-      add_action "external" "$row" \
-        "total ASM control-file loss needs autobackup-based recovery, which this scenario's recovery does not implement (it rebuilds from a surviving multiplexed copy). Use the single-control-file scenario on ASM, or run this one against a filesystem target"
-    elif storage_path_is_local_filesystem "$row"; then
-      add_action "fs_rename" "$row"
-    else
-      add_action "external" "$row" "$(storage_path_provider_reason "$row" "control-file loss injection")"
-    fi
-  done
-}
-
-add_datafile_offline_action() {
-  local row="$1"
-  if [[ -n "${TARGET_PDB:-}" ]]; then
-    add_action "sql" "alter session set container = \"${TARGET_PDB}\";
-alter database datafile '${row}' offline;" "offline PDB datafile before removal: ${row}"
-  else
-    add_action "sql" "alter database datafile '${row}' offline;" "offline datafile before removal: ${row}"
-  fi
-}
-
-add_password_file_loss_targets() {
-  local row class
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    if [[ "$class" == "asm" ]]; then
-      add_action "asm_pwfile_rm" "$row" "ASM password-file loss via asmcmd rm (recovery recreates it with orapwd; needs --sys-password)"
-    elif storage_path_is_local_filesystem "$row"; then
-      add_action "fs_rename" "$row"
-    else
-      add_action "external" "$row" "$(storage_path_provider_reason "$row" "password-file loss injection")"
-    fi
-  done
-}
-
-add_redo_loss_targets() {
-  local row class asm_abort_added=0 asm_clean_stop_added=0 meta grp total targeted_in_grp
-
-  # Would this drill remove EVERY member of a group? The ASM recovery rebuilds a
-  # group by DROPPING the missing member and ADDING a fresh one, which needs at
-  # least one member left to keep the group alive. With none, the way back is
-  # "alter database clear unarchived logfile" (discarding that redo, and any
-  # transaction only recorded there) or incomplete recovery with RESETLOGS -
-  # neither of which this recovery implements. Say so at PLANNING time. This is
-  # the same call already made for total ASM control-file loss: refuse rather
-  # than inject a fault the tool cannot undo. Filesystem is unaffected - a
-  # renamed member is still on disk and gets moved back.
-  # Count PER GROUP, not across the whole plan: scenarios 19/20/21 target several
-  # groups at once, and comparing every targeted member against a single group's
-  # total would condemn groups that keep a surviving member - and name the wrong
-  # group in the reason.
-  declare -A _redo_grp_of=() _redo_hits=() _redo_thr_of=() _redo_thr_groups=()
-  for row in "${TARGET_ROWS[@]}"; do
-    [[ "$(storage_path_class "$row")" == "asm" ]] || continue
-    meta="$(redo_metadata_for_path "$row" 2>/dev/null || true)"
-    [[ -n "$meta" ]] || continue
-    IFS='|' read -r grp thr _ _ _ _ <<<"$meta"
-    [[ "$grp" =~ ^[0-9]+$ ]] || continue
-    _redo_grp_of["$row"]="$grp"
-    [[ -n "${_redo_hits[$grp]:-}" ]] || {
-      # first time we have seen this GROUP: it counts once against its thread,
-      # however many of its members the plan targets
-      [[ "$thr" =~ ^[0-9]+$ ]] && {
-        _redo_thr_of["$grp"]="$thr"
-        _redo_thr_groups["$thr"]=$(( ${_redo_thr_groups[$thr]:-0} + 1 ))
-      }
-    }
-    _redo_hits["$grp"]=$(( ${_redo_hits[$grp]:-0} + 1 ))
-  done
-
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    grp="${_redo_grp_of[$row]:-}"
-    total="unknown"
-    targeted_in_grp=0
-    if [[ -n "$grp" ]]; then
-      total="$(redo_group_member_total "$grp")"
-      targeted_in_grp="${_redo_hits[$grp]:-0}"
-    fi
-    if [[ "$class" == "asm" && "$total" =~ ^[0-9]+$ && "$targeted_in_grp" -ge "$total" ]]; then
-      # TOTAL group loss. Recoverable by CLEAR - but only because we take the
-      # database down CLEANLY rather than aborting it. ASM needs the files
-      # CLOSED, not the database CRASHED, and a consistent shutdown leaves the
-      # redo not "needed for crash recovery", so CLEAR succeeds without
-      # ORA-01624 and without RESETLOGS. Proven on 26ai; see
-      # design/REDO_GROUP_TOTAL_LOSS_SCOPE.md 6.0.
-      warn_redo_thread_headroom "${_redo_thr_of[$grp]:-}" "${_redo_thr_groups[${_redo_thr_of[$grp]:-x}]:-0}"
-      if [[ "$asm_clean_stop_added" -eq 0 ]]; then
-        asm_clean_stop_added=1
-        add_action "shutdown_clean_for_asm_redo_group" "$row" "shut the database down CLEANLY (not abort) so the lost redo is not needed for crash recovery and recovery can CLEAR the group"
-      fi
-      record_redo_total_loss_group "$grp"
-      add_action "asm_redo_rm" "$row" "ASM redo member loss via asmcmd rm (total loss of group ${grp})"
-      continue
-    fi
-    if [[ "$class" == "asm" ]]; then
-      # Same ORA-15028 rule as control files: the instance holds every online
-      # redo member open and a member cannot be offlined, so the database goes
-      # down first - once, no matter how many members this drill targets.
-      if [[ "$asm_abort_added" -eq 0 ]]; then
-        asm_abort_added=1
-        add_action "abort_for_asm_open_file" "$row" "abort the database before removing the ASM redo member (ASM refuses to drop an open file: ORA-15028)"
-      fi
-      add_action "asm_redo_rm" "$row" "ASM redo member loss via asmcmd rm"
-    elif storage_path_is_local_filesystem "$row"; then
-      add_action "fs_rename" "$row"
-    else
-      add_action "external" "$row" "$(storage_path_provider_reason "$row" "redo loss injection")"
-    fi
-  done
-}
-
-add_spfile_loss_targets() {
-  local row class
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    if [[ "$class" == "asm" ]]; then
-      add_action "asm_spfile_rm" "$row" "ASM SPFILE loss via asmcmd rm (a pfile is captured first as the restore source)"
-    elif storage_path_is_local_filesystem "$row"; then
-      add_action "fs_rename" "$row"
-    else
-      add_action "external" "$row" "$(storage_path_provider_reason "$row" "SPFILE loss injection")"
-    fi
-  done
-}
-
-add_tempfile_offline_action() {
-  local row="$1"
-  if [[ -n "${TARGET_PDB:-}" ]]; then
-    add_action "sql" "alter session set container = \"${TARGET_PDB}\";
-alter database tempfile '${row}' offline;" "offline PDB tempfile before removal: ${row}"
-  else
-    add_action "sql" "alter database tempfile '${row}' offline;" "offline tempfile before removal: ${row}"
-  fi
-}
-
-advise_protection_next_step() {
-  local id="${1:-${CURRENT_SCENARIO_ID:-}}"
-  local counts unprotected unknown stale
-  counts="$(count_unprotected_asm_targets)"
-  # Field-positional, not ${x##* }: the counter returns THREE numbers, and a
-  # suffix strip silently reads the last one. That regression made the advisory
-  # go quiet for an unconfirmable backup - caught by its own suite.
-  unprotected="$(printf '%s' "$counts" | awk '{print $1}')"
-  unknown="$(printf '%s' "$counts" | awk '{print $2}')"
-  stale="$(printf '%s' "$counts" | awk '{print $3}')"
-  # A stale-incarnation backup is as unusable as no backup: advise on it too.
-  unknown=$(( unknown + stale ))
-
-  [[ "$unprotected" -gt 0 || "$unknown" -gt 0 ]] || return "$SUCCESS"
-
-  echo
-  if [[ "$unprotected" -gt 0 ]]; then
-    warn "NEXT STEP - run protection first: ${unprotected} target datafile(s) in this plan have no usable RMAN backup."
-  else
-    warn "NEXT STEP - run protection first: could not confirm an RMAN backup for ${unknown} target datafile(s) in this plan."
-  fi
-  echo "  ASM recovery for these targets RESTORES the datafile by FILE#, so without a backup"
-  echo "  the removal would be irreversible - execution will refuse rather than proceed."
-  if supports_file_recovery_automation "$id"; then
-    echo "  Guided menu : choose 7 (Execute protection for selected scenario), then 8 (Execute selected scenario)."
-    echo "  Command line: ./CrashSimulatorV2.sh --protect ${id} --execute"
-  else
-    echo "  Automated protection is not registered for scenario ${id}; take an RMAN backup of the"
-    echo "  listed datafile(s) yourself, or see --runbook ${id}."
-  fi
-  return "$SUCCESS"
-}
-
-annotate_dgmgrl_os_auth_artifacts() {
-  local file="$1" tmp
-  [[ -n "$file" && -s "$file" ]] || return "$SUCCESS"
-  grep -q 'DGM-17623' "$file" 2>/dev/null || return "$SUCCESS"
-  grep -q 'CrashSimulator note: DGM-17623' "$file" 2>/dev/null && return "$SUCCESS"
-  tmp="${file}.ann.$$"
-  "$AWK_BIN" '{
-    print
-    if (index($0, "DGM-17623") > 0) {
-      print "      [CrashSimulator note: DGM-17623 above is an artifact of OS-authenticated"
-      print "       evidence collection, not a broker fault. dgmgrl / cannot open a fresh"
-      print "       client connection to the primary to fetch OBSERVER details; the broker'\''s"
-      print "       own inter-member channel is unaffected - the Configuration Status in this"
-      print "       block is authoritative. Observer health is judged from the primary'\''s"
-      print "       evidence (DR Pre-flight, FSFO observer check).]"
-    }
-  }' "$file" >"$tmp" 2>/dev/null && mv "$tmp" "$file"
-  rm -f "$tmp" 2>/dev/null
-  return "$SUCCESS"
-}
-
-append_evidence_provenance_section() {
-  local report_file="$1"
-  shift
-  local row claim source detail
-
-  append_report_section "$report_file" "Evidence Provenance"
-  {
-    printf "| Claim or output | Source type | Detail |\n"
-    printf "| --- | --- | --- |\n"
-    if [[ "$#" -eq 0 ]]; then
-      printf "| Report content | inference | No explicit provenance rows were supplied by this report. |\n"
-    fi
-    for row in "$@"; do
-      IFS='|' read -r claim source detail <<<"$row"
-      printf '| %s | %s | %s |\n' "$(md_escape "$claim")" "$(md_escape "$source")" "$(md_escape "$detail")"
-    done
-  } >>"$report_file"
-}
-
-archivelog_backup_status() {
-  local thread_no="$1" seq_no="$2" out status
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_arclog_bkp_${RUN_ID}_$$.out"
-  sql_query "$out" "
-select case when exists (
-         select 1 from v\$backup_redolog
-          where thread# = ${thread_no} and sequence# = ${seq_no})
-       then 'BACKED' else 'NO_BACKUP' end from dual;" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; printf 'UNKNOWN'; return 0; }
-  status="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  printf '%s' "${status:-UNKNOWN}"
-}
-
-archivelog_metadata_for_path() {
-  local path="$1" out meta
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_arclog_meta_${RUN_ID}_$$.out"
-  sql_query "$out" "
-select thread# || '|' || sequence#
-  from v\$archived_log
- where name = $(sql_quote "$path")
-   and rownum = 1;" 2>/dev/null || { rm -f "$out" 2>/dev/null; return 1; }
-  meta="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  [[ -n "$meta" ]] || return 1
-  printf '%s' "$meta"
-}
-
-asm_datafile_is_offlinable() {
-  local path="$1" out ans
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_offlinable_${RUN_ID}_$$.out"
-  sql_query "$out" "
-select case
-  when exists (
-    select 1 from cdb_data_files d
-      join cdb_tablespaces t
-        on t.con_id = d.con_id and t.tablespace_name = d.tablespace_name
-     where d.file_name = $(sql_quote "$path")
-       and (t.contents = 'UNDO' or d.tablespace_name = 'SYSTEM')
-  ) then 'no'
-  when exists (select 1 from cdb_data_files where file_name = $(sql_quote "$path")) then 'yes'
-  else 'unknown'
-end from dual;" 2>/dev/null || { printf 'unknown'; rm -f "$out" 2>/dev/null; return; }
-  ans="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  printf '%s' "${ans:-unknown}"
-}
-
-asm_datafile_online_status() {
-  local path="$1" out st
-  # Tempfiles live in v$tempfile, not v$datafile. Checking only the latter made
-  # this guard return "unknown" for a tempfile and wave the removal through -
-  # which is exactly how scenario 6 reached asmcmd rm with the file still open.
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_df_status_${RUN_ID}_$$.out"
-  sql_query "$out" "select status from v\$datafile where name = $(sql_quote "$path")
-union all
-select status from v\$tempfile where name = $(sql_quote "$path");" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; printf 'unknown'; return 0; }
-  st="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  printf '%s' "${st:-unknown}"
-}
-
-asm_file_exists() {
-  local path="$1" out
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_asmls_${RUN_ID}_$$.out"
-  if run_asmcmd_with_grid_env ls "$path" >"$out" 2>&1; then
-    if grep -qiE 'ASMCMD-|ORA-[0-9]+|No such file' "$out"; then
-      rm -f "$out" 2>/dev/null; printf 'no'; return
-    fi
-    if [[ -s "$out" ]]; then rm -f "$out" 2>/dev/null; printf 'yes'; return; fi
-    rm -f "$out" 2>/dev/null; printf 'unknown'; return
-  fi
-  if grep -qiE 'ASMCMD-8002|No such file|not exist' "$out" 2>/dev/null; then
-    rm -f "$out" 2>/dev/null; printf 'no'; return
-  fi
-  rm -f "$out" 2>/dev/null; printf 'unknown'
-}
-
-asm_path_backup_status() {
-  local path="$1" out status
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_asm_bkp_check_${RUN_ID}_$$.out"
-  sql_query "$out" "
-select case
-  when exists (select 1 from v\$tempfile where name = $(sql_quote "$path")) then 'TEMPFILE'
-  -- A backup is only reversible if it belongs to the CURRENT incarnation.
-  -- After an OPEN RESETLOGS a restore of an older-incarnation backup fails
-  -- ORA-01190, and read-only tablespaces are the trap: their datafile headers
-  -- are frozen, so they are never re-stamped and EVERY backup of them - even
-  -- one taken after the resetlogs - keeps the old resetlogs_change#. Observed
-  -- live on scenario 34 (file 50, 11 backups, 0 usable). Matching on the
-  -- current resetlogs_change# is what makes this guard mean what it says.
-  when exists (
-    select 1 from v\$backup_datafile b join v\$datafile d on d.file# = b.file#
-     where d.name = $(sql_quote "$path")
-       and b.resetlogs_change# = (select resetlogs_change# from v\$database)
-    union all
-    select 1 from v\$datafile_copy c join v\$datafile d on d.file# = c.file#
-     where d.name = $(sql_quote "$path") and c.status = 'A'
-       and c.resetlogs_change# = (select resetlogs_change# from v\$database)
-  ) then 'BACKED'
-  -- Backups exist but all predate the current incarnation: restoring them
-  -- would fail ORA-01190, so this is NOT reversible.
-  when exists (
-    select 1 from v\$backup_datafile b join v\$datafile d on d.file# = b.file#
-     where d.name = $(sql_quote "$path")
-    union all
-    select 1 from v\$datafile_copy c join v\$datafile d on d.file# = c.file#
-     where d.name = $(sql_quote "$path") and c.status = 'A'
-  ) then 'BACKUP_PRE_RESETLOGS'
-  when exists (select 1 from v\$datafile where name = $(sql_quote "$path")) then 'DATAFILE_NO_BACKUP'
-  else 'UNKNOWN'
-end from dual;" 2>/dev/null || { printf 'UNKNOWN'; rm -f "$out" 2>/dev/null; return; }
-  status="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  printf '%s' "${status:-UNKNOWN}"
-}
-
-asm_preflight_write_ok() {
-  local dg="$1" probe _pf_err
-  [[ -n "$dg" && "$dg" == +* ]] || return "$SUCCESS"
-  # asmcmd states its own reason (ORA-15260 privilege, ORA-15032, "sudo: unknown
-  # user", a missing SID...). Discarding it left the refusal free to guess, and
-  # it guessed wrong. Keep it and quote it back to the operator verbatim.
-  ASM_PREFLIGHT_DETAIL=""
-  probe="${dg}/crashsim_pfw_${RUN_ID}_$$"
-  if _pf_err="$(run_asmcmd_with_grid_env mkdir "$probe" 2>&1)"; then
-    # asmcmd has no 'rmdir' - directory removal is 'rm -r'. Using rmdir here left
-    # the throwaway probe dir behind in the diskgroup on every preflight.
-    run_asmcmd_with_grid_env rm -rf "$probe" >/dev/null 2>&1 || true
-    return "$SUCCESS"
-  fi
-  ASM_PREFLIGHT_DETAIL="$(printf '%s' "$_pf_err" | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-300)"
-  return "$FAIL"
-}
-
-asm_rm_with_retry() {
-  local path="$1" what="${2:-ASM file}" attempt=1
-  local tries="${CRASHSIM_ASM_RM_RETRIES:-10}" pause="${CRASHSIM_ASM_RM_RETRY_SEC:-3}"
-  local out="${WORK_DIR:-$LOG_DIR}/crashsim_asm_rm_${RUN_ID}_$$.out"
-
-  while :; do
-    if run_asmcmd_with_grid_env rm "$path" >"$out" 2>&1; then
-      [[ "$attempt" -gt 1 ]] && info "${what} removed on attempt ${attempt} (ASM needed a moment to release it)."
-      rm -f "$out" 2>/dev/null
-      return "$SUCCESS"
-    fi
-    # Only ORA-15028 ("currently being accessed") is worth retrying. Anything
-    # else - a wrong path, a permissions problem - will not improve with time,
-    # and retrying it would just delay an honest failure.
-    if ! grep -q 'ORA-15028' "$out"; then
-      cat "$out" >&2
-      rm -f "$out" 2>/dev/null
-      return "$FAIL"
-    fi
-    if [[ "$attempt" -ge "$tries" ]]; then
-      warn "${what} still held by ASM after ${attempt} attempts over $(( (attempt - 1) * pause ))s:"
-      cat "$out" >&2
-      rm -f "$out" 2>/dev/null
-      return "$FAIL"
-    fi
-    [[ "$attempt" -eq 1 ]] && info "ASM has not released ${path} yet - retrying the removal (up to ${tries} times, ${pause}s apart)."
-    attempt=$((attempt + 1))
-    sleep "$pause"
-  done
-}
-
-asm_should_escalate_to_grid_user() {
-  [[ "$(id -un 2>/dev/null || true)" != "$GRID_USER" ]] || return "$FAIL"
-  command -v sudo >/dev/null 2>&1 || return "$FAIL"
-  id "$GRID_USER" >/dev/null 2>&1 || return "$FAIL"
-  return "$SUCCESS"
-}
-
-asm_write_refusal_message() {
-  local dg="$1" what="$2" closing="${3:- Nothing was changed.}" who how fix
-  who="$(id -un 2>/dev/null || echo unknown)"
-  if asm_should_escalate_to_grid_user; then
-    how="as Grid owner '${GRID_USER}' via sudo"
-    fix="Confirm '${GRID_USER}' is in the OSASM group of the Grid home, and that '${who}' has passwordless sudo to it. Otherwise run the runtime as '${GRID_USER}'."
-  else
-    how="directly as '${who}' - there is no separate Grid owner to escalate to, because CRASHSIM_GRID_USER resolves to '${GRID_USER}', which is not an account on this host"
-    fix="This looks like a single-owner install, so the fix is to add '${who}' to the OSASM group of the Grid home. If this estate does use role separation, set CRASHSIM_GRID_USER to the real Grid owner and give '${who}' passwordless sudo to it."
-  fi
-  printf '%s%s%s%s%s' \
-    "ASM write preflight failed: asmcmd could not write to ${dg}. It ran ${how}. " \
-    "${what}, which needs OSASM/SYSASM. " \
-    "${fix}" \
-    "${ASM_PREFLIGHT_DETAIL:+ asmcmd reported: \"${ASM_PREFLIGHT_DETAIL}\".}" \
-    "$closing"
-}
-
-assert_plan_backup_coverage_or_refuse() {
-  local id="${1:-${CURRENT_SCENARIO_ID:-}}" counts unprotected unknown stale
-  counts="$(count_unprotected_asm_targets)"
-  unprotected="$(printf '%s' "$counts" | awk '{print $1}')"
-  unknown="$(printf '%s' "$counts" | awk '{print $2}')"
-  stale="$(printf '%s' "$counts" | awk '{print $3}')"
-  [[ "$unprotected" -gt 0 || "$unknown" -gt 0 || "$stale" -gt 0 ]] || return "$SUCCESS"
-
-  echo
-  [[ "$unprotected" -gt 0 ]] && \
-    warn "REFUSING TO START: ${unprotected} datafile(s) in this plan have no RMAN backup at all."
-  # Say WHICH problem it is. "Could not confirm a backup" and "every backup
-  # predates the current incarnation" call for completely different actions, and
-  # for a READ ONLY datafile the second may have no action at all.
-  [[ "$stale" -gt 0 ]] && \
-    warn "REFUSING TO START: ${stale} datafile(s) have backups, but every one predates this database's last RESETLOGS (restore would fail ORA-01190)."
-  [[ "$unknown" -gt 0 ]] && \
-    warn "REFUSING TO START: an RMAN backup could not be confirmed for ${unknown} datafile(s) in this plan."
-  echo "  ASM recovery restores these targets by FILE#, so removing one without a backup"
-  echo "  is irreversible. This is checked over the WHOLE plan before any file is touched:"
-  echo "  a per-file refusal partway through would leave the database missing the files"
-  echo "  already removed, which is exactly how a drill turns into an outage."
-  echo
-  echo "  Nothing has been changed."
-  if supports_file_recovery_automation "$id"; then
-    echo "  Guided menu : 21 -> 7 (protection), then run the scenario."
-    echo "  Command line: ./CrashSimulatorV2.sh --protect ${id} --execute"
-  else
-    echo "  Automated protection is not registered for scenario ${id}; take an RMAN backup"
-    echo "  of the listed datafile(s) yourself, or see --runbook ${id}."
-  fi
-  echo "  NOTE: a READ ONLY tablespace cannot be protected by taking a backup now - its"
-  echo "  datafile header is frozen, so every backup keeps the pre-RESETLOGS"
-  echo "  resetlogs_change# and stays unusable. Make it READ WRITE and READ ONLY again"
-  echo "  first, which re-stamps the header, then back it up."
-  echo "  PDB\$SEED is the case with no easy remedy: it is read-only by design, so on any"
-  echo "  CDB that has been through an OPEN RESETLOGS its datafiles stay unrestorable and"
-  echo "  every plan that includes them is blocked. Scope the drill to exclude the seed,"
-  echo "  or run it on a database that has not been reset."
-  die "Refusing to execute scenario ${id}: the plan is not fully recoverable."
-}
-
-claim_zero_rpo_if_complete() {
-  local f
-  for f in "$@"; do
-    [[ -f "$f" ]] || continue
-    if grep -qiE 'resetlogs|until (time|scn|sequence|cancel)' "$f"; then
-      manifest_append "recovery_rpo_basis" "incomplete-recovery verb found in $(basename "$f")"
-      record_recovery_rpo "UNKNOWN"
-      return "$SUCCESS"
-    fi
-  done
-  manifest_append "recovery_rpo_basis" "complete recovery - no RESETLOGS or UNTIL in the executed command files"
-  record_recovery_rpo "ZERO"
-}
-
-controlfile_count_or_unknown() {
-  local out count
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_ctl_total_${RUN_ID}_$$.out"
-  sql_query "$out" "select count(*) from v\$controlfile;" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; printf 'unknown'; return 0; }
-  count="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  [[ "$count" =~ ^[0-9]+$ ]] && printf "%s" "$count" || printf 'unknown'
-}
-
-controlfile_survivors_after_run() {
-  local out listed removed=0 idx
-  # Prefer the pre-abort snapshot: an ASM control-file drill takes the database
-  # down before the removal, so a live query here would fail and the guard would
-  # refuse a drill that is in fact perfectly reversible.
-  if [[ "${#CONTROLFILE_PRE_ABORT_LIST[@]}" -gt 0 ]]; then
-    listed="${#CONTROLFILE_PRE_ABORT_LIST[@]}"
-  else
-    out="${WORK_DIR:-$LOG_DIR}/crashsim_ctl_count_${RUN_ID}_$$.out"
-    sql_query "$out" "select count(*) from v\$controlfile;" 2>/dev/null || {
-      rm -f "$out" 2>/dev/null; printf 'unknown'; return 0; }
-    listed="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-    rm -f "$out" 2>/dev/null
-  fi
-  [[ "$listed" =~ ^[0-9]+$ ]] || { printf 'unknown'; return 0; }
-  for idx in "${!ACTION_KINDS[@]}"; do
-    case "${ACTION_KINDS[$idx]}" in
-      asm_controlfile_rm|fs_rename) removed=$((removed + 1)) ;;
-    esac
-  done
-  printf "%s" "$((listed - removed))"
-}
-
-count_unprotected_asm_targets() {
-  local idx target status unprotected=0 unknown=0 stale=0
-  for idx in "${!ACTION_KINDS[@]}"; do
-    case "${ACTION_KINDS[$idx]}" in
-      asm_rm|asm_corrupt_header) ;;
-      *) continue ;;
-    esac
-    target="${ACTION_TARGETS[$idx]}"
-    status="${ASM_BACKUP_STATUS_CACHE[$target]:-}"
-    [[ -n "$status" ]] || status="$(asm_path_backup_status "$target")"
-    case "$status" in
-      BACKED|TEMPFILE) ;;
-      DATAFILE_NO_BACKUP) unprotected=$((unprotected + 1)) ;;
-      # Backups exist but every one predates the current incarnation: restoring
-      # them fails ORA-01190. Counted separately because the remedy is different
-      # and, for a READ ONLY datafile, may not exist at all - see below.
-      BACKUP_PRE_RESETLOGS) stale=$((stale + 1)) ;;
-      *) unknown=$((unknown + 1)) ;;
-    esac
-  done
-  printf '%s %s %s\n' "$unprotected" "$unknown" "$stale"
-}
-
-datafile_plan_scan_targets() {
-  local row class offlinable i=0
-  DATAFILE_PLAN_WHOLE_DB_ABORT=0
-  DATAFILE_PLAN_ABORT_ROW=""
-  DATAFILE_PLAN_CLASS=()
-  for row in "${TARGET_ROWS[@]}"; do
-    class="$(storage_path_class "$row")"
-    DATAFILE_PLAN_CLASS[i]="$class"
-    if [[ "$class" == "asm" && "$DATAFILE_PLAN_WHOLE_DB_ABORT" -eq 0 ]]; then
-      offlinable="$(asm_datafile_is_offlinable "$row")"
-      if [[ "$offlinable" == "no" ]]; then
-        DATAFILE_PLAN_WHOLE_DB_ABORT=1
-        DATAFILE_PLAN_ABORT_ROW="$row"
-      fi
-    fi
-    i=$((i + 1))
-  done
-}
-
-edition_is_enterprise() { [[ "${EDITION:-enterprise}" != "ose" ]]; }
-
-maa_resolve_class() {
-  local scope
-  MAA_CLASS="Replicated"
-  MAA_DISTRIBUTED_SCOPE=""
-  [[ "$(maa_normalized_yes_no "$MAA_GLOBALLY_DISTRIBUTED")" == "yes" ]] || return "$SUCCESS"
-  MAA_CLASS="Distributed"
-  scope="$(printf "%s" "${MAA_DISTRIBUTED_SCOPE_INPUT:-}" | tr '[:upper:] ' '[:lower:]-')"
-  case "$scope" in
-    multi-node|node)         MAA_DISTRIBUTED_SCOPE="Multi-Node" ;;
-    multi-az|az)             MAA_DISTRIBUTED_SCOPE="Multi-AZ" ;;
-    multi-region|region)     MAA_DISTRIBUTED_SCOPE="Multi-Region" ;;
-    multi-country|country)   MAA_DISTRIBUTED_SCOPE="Multi-Country" ;;
-    "")                      MAA_DISTRIBUTED_SCOPE="not stated" ;;
-    *)                       MAA_DISTRIBUTED_SCOPE="not stated" ;;
-  esac
-  return "$SUCCESS"
-}
-
-manifest_all_values() {
-  local key="$1"
-  [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$FAIL"
-  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print }' "$MANIFEST_FILE"
-}
-
-manifest_first_action_value() {
-  local suffix="$1"
-  [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]] || return "$FAIL"
-  awk -F= -v suf="$suffix" '
-    $1 ~ ("^action_[0-9]+_" suf "$") {
-      n = $1; sub(/^action_/, "", n); sub(/_.*$/, "", n) + 0
-      if (best == "" || n + 0 < best + 0) { best = n; sub(/^[^=]*=/, ""); val = $0 }
-    }
-    END { if (best != "") { print val; exit 0 } exit 1 }
-  ' "$MANIFEST_FILE"
-}
-
-manifest_outstanding_line() {
-  local manifest="$1" base sid dry dbun inj rec
-  [[ -f "$manifest" ]] || return 0
-  [[ "$manifest" == "${MANIFEST_FILE:-}" ]] && return 0
-  base="$(basename "$manifest")"
-  sid="${base#crashsim_scenario_s}"; sid="${sid%%_*}"
-  # Self-restoring drills restore inside their own execute and legitimately
-  # carry no recovery marker. Single-source classes (task #78) cover the
-  # read-only and external-evidence sets plus EE 91; 56/70/71 are the local
-  # residue - destructive-class service drills that self-restore by design.
-  if scenario_is_read_only "$sid" || scenario_is_external_evidence "$sid" \
-     || scenario_is_enterprise_only "$sid"; then
-    return 0
-  fi
-  case "$sid" in 56|70|71) return 0 ;; esac
-  dry="$(awk -F= '$1=="dry_run"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ "$dry" == "no" ]] || return 0
-  dbun="$(awk -F= '$1=="db_unique_name"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ -n "$dbun" && -n "${DB_UNIQUE_NAME:-}" && "$dbun" != "$DB_UNIQUE_NAME" ]] && return 0
-  inj="$(awk -F= '$1=="injection_time_utc"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ -n "$inj" ]] || return 0
-  rec="$(awk -F= '$1=="recovery_completed_at_utc"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ -n "$rec" ]] && return 0
-  # A run that refused or died before injecting left nothing to recover.
-  rec="$(awk -F= '$1=="injection_abandoned_at_utc"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ -n "$rec" ]] && return 0
-  # A RECONCILED manifest is closed: an operator verified the database clean
-  # and signed the closure (task #84). Distinct key from recovery_completed -
-  # reconciliation must never impersonate a recovery that did not run.
-  rec="$(awk -F= '$1=="reconciled_at_utc"{print $2; exit}' "$manifest" 2>/dev/null)"
-  [[ -n "$rec" ]] && return 0
-  printf '%s|%s|%s\n' "$sid" "$inj" "$base"
-}
-
-manifest_restore_path_ok() {
-  local p="$1"
-  case "$p" in
-    /*|+*|@*) ;;
-    *) return "$FAIL" ;;
-  esac
-  case "$p" in
-    *../*|*/..) return "$FAIL" ;;
-  esac
-  [[ "$p" == *[[:cntrl:]]* ]] && return "$FAIL"
-  return "$SUCCESS"
-}
-
-mark_injection_abandoned_if_not_landed() {
-  local rc="$1"
-  [[ "$rc" -ne 0 ]] || return 0
-  [[ "${INJECTION_LANDED:-0}" -eq 0 ]] || return 0
-  [[ -n "${MANIFEST_FILE:-}" && -f "${MANIFEST_FILE}" ]] || return 0
-  grep -q '^injection_time_utc=' "$MANIFEST_FILE" 2>/dev/null || return 0
-  grep -q '^injection_abandoned_at_utc=' "$MANIFEST_FILE" 2>/dev/null && return 0
-  printf 'injection_abandoned_at_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$MANIFEST_FILE"
-  echo "No fault was injected - this drill is recorded as abandoned, not outstanding." >&2
-}
-
-menu_discover_environment_if_available() {
-  # Guarded discovery for interactive-menu paths: discover_environment calls
-  # ensure_sqlplus, which die()s (exits the whole menu) when SQL*Plus is absent.
-  # On a host without SQL*Plus, skip discovery so the menu stays alive and the
-  # scenario readiness display reports database scenarios as blocked instead.
-  #
-  # The same applies to a database that is DOWN. An OR-true guard could never
-  # catch that: discovery die()s, and die exits the process rather than
-  # returning. Selecting a scenario with the instance down therefore threw
-  # the operator out of the menu entirely - observed live, and at the worst
-  # possible moment: the database was down because a drill had just aborted it,
-  # and the menu is how you reach recovery. DISCOVERY_NON_FATAL makes discovery
-  # report instead of exit, for this interactive path only.
-  local rc=0
-  if find_sqlplus_if_available; then
-    DISCOVERY_NON_FATAL=1
-    discover_environment || rc=1
-    DISCOVERY_NON_FATAL=0
-  fi
-  [[ "$rc" -eq 0 ]] || return "$FAIL"
-  return "$SUCCESS"
-}
-
-online_datafile_drill_enabled() {
-  [[ "$ONLINE_DATAFILE_DRILL" -eq 1 ]] && return "$SUCCESS"
-  case "${CRASHSIM_ONLINE_DATAFILE_DRILL:-}" in
-    [Yy]|[Yy][Ee][Ss]|1|[Tt][Rr][Uu][Ee]) return "$SUCCESS" ;;
-  esac
-  return "$FAIL"
-}
-
-open_cluster_and_pdb_after_recovery() {
-  local pdb="$1"
-  if [[ "$EXECUTE" -eq 0 ]]; then
-    echo "Post-recovery (abort mode): would start any remaining cluster instances${pdb:+ and reopen PDB $pdb}."
-    return "$SUCCESS"
-  fi
-  # Resolve the DB unique name: a --recover run with --manifest may not have run
-  # topology discovery, so DB_UNIQUE_NAME / CLUSTER_TYPE can be unset here - fall
-  # back to the manifest. Then start the database via srvctl unconditionally: a
-  # harmless no-op on single instance (inst1 already open), and it opens the
-  # remaining instances on RAC.
-  local dbun="${DB_UNIQUE_NAME:-}"
-  [[ -n "$dbun" ]] || dbun="$(manifest_get "db_unique_name" 2>/dev/null || true)"
-  local ctype="${CLUSTER_TYPE:-}"
-  [[ -n "$ctype" ]] || ctype="$(manifest_get "cluster_type" 2>/dev/null || true)"
-  if command -v srvctl >/dev/null 2>&1 && [[ -n "$dbun" ]]; then
-    # A single-instance host has no "remaining instances" - the step exists
-    # there only to hand the resource back to Oracle Restart. And a database
-    # that is not REGISTERED with CRS/Oracle Restart (field 2026-08-13:
-    # standalone testdbone warned "verify the rest of the cluster" on every
-    # recover) is a no-op, not a failure: announce and move on.
-    if ! srvctl config database -d "$dbun" >/dev/null 2>&1; then
-      info "Database $dbun is not managed by CRS/Oracle Restart on this host; nothing for srvctl to start after recovery."
-    else
-      if [[ "$ctype" == "RAC" ]]; then
-        echo "srvctl start database -d $dbun (open remaining instances)"
-      else
-        echo "srvctl start database -d $dbun (ensure the Oracle Restart resource is started)"
-      fi
-      local start_log status_log
-      start_log="${LOG_DIR}/crashsim_recover_${RUN_ID}_srvctl_start_database.log"
-      status_log="${LOG_DIR}/crashsim_recover_${RUN_ID}_srvctl_status_database.log"
-      # Do NOT swallow this. The call exists so recovery never reports success
-      # over a half-available cluster, and ">/dev/null 2>&1 || true" defeats
-      # exactly that. It still must not be fatal - a node that is legitimately
-      # down (stopped host, planned maintenance) is not a recovery failure - so
-      # report the real instance states and let the operator judge.
-      if ! srvctl start database -d "$dbun" >"$start_log" 2>&1; then
-        srvctl status database -d "$dbun" >"$status_log" 2>&1 || true
-        if grep -qiE "already running" "$start_log"; then
-          info "Database $dbun was already running; nothing further to start."
-        elif [[ "$ctype" == "RAC" ]]; then
-          warn "srvctl start database -d $dbun did not succeed (log: ${start_log}). Recovery of the target instance completed - verify the rest of the cluster."
-        else
-          warn "srvctl start database -d $dbun did not succeed (log: ${start_log}): $(grep -m1 -oE '(PRC[A-Z]-[0-9]+|CRS-[0-9]+|ORA-[0-9]+).*' "$start_log" | head -1). The recovered instance itself is open."
-        fi
-        if [[ -s "$status_log" ]]; then
-          # Name the instances that are still down rather than leaving "recovery
-          # complete" as the only thing the operator reads.
-          local down_list
-          down_list="$(grep -i "is not running" "$status_log" | tr "\n" "; " | sed "s/; $//")"
-          [[ -n "$down_list" ]] && warn "Instances still down after recovery: ${down_list}"
-        fi
-      fi
-    fi
-  fi
-  if [[ -n "$pdb" ]]; then
-    local pdb_sql pdb_log
-    pdb_sql="${LOG_DIR}/crashsim_recover_s${CURRENT_SCENARIO_ID}_${RUN_ID}_open_pdb_all.sql"
-    pdb_log="${LOG_DIR}/crashsim_recover_s${CURRENT_SCENARIO_ID}_${RUN_ID}_open_pdb_all.log"
-    write_pdb_open_all_sql_file "$pdb" "$pdb_sql"
-    run_sql_script_file "$pdb_sql" "$pdb_log"
-  fi
-}
-
-perform_asm_archivelog_rm() {
-  local path="$1"
-  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM archived-log remove action received a non-ASM path: $path"
-
-  local diskgroup meta thread_no seq_no bkp
-  diskgroup="${path%%/*}"
-
-  meta="$(archivelog_metadata_for_path "$path" || true)"
-  [[ -n "$meta" ]] ||
-    die "Could not read thread/sequence for ${path} from v\$archived_log. Recovery restores by thread/sequence, so removing a log we cannot identify would be irreversible."
-  IFS='|' read -r thread_no seq_no <<<"$meta"
-  [[ "$thread_no" =~ ^[0-9]+$ && "$seq_no" =~ ^[0-9]+$ ]] ||
-    die "Unusable thread/sequence for ${path}: '${meta}'. Refusing an irreversible archived-log delete."
-
-  # Reversibility gate. Unlike the filesystem drill there is no copy aside: the
-  # only way back is RMAN restore, so an unbacked log would be gone for good -
-  # and with it any recovery window that needs it.
-  bkp="$(archivelog_backup_status "$thread_no" "$seq_no")"
-  case "$bkp" in
-    BACKED) : ;;
-    NO_BACKUP)
-      die "Refusing to remove archived log thread ${thread_no} sequence ${seq_no} (${path}): it has no RMAN backup, and ASM recovery restores it from backup. Back up archived logs first (e.g. RMAN backup archivelog all), then re-run."
-      ;;
-    *)
-      die "Could not confirm an RMAN backup for archived log thread ${thread_no} sequence ${seq_no} (backup check returned '${bkp}'). Refusing an irreversible delete."
-      ;;
-  esac
-
-  asm_preflight_write_ok "$diskgroup" ||
-    die "$(asm_write_refusal_message "$diskgroup" "An ASM archived-log drill must remove an ASM file")"
-
-  # Recovery reads these; v$archived_log will no longer describe the file.
-  manifest_append "archivelog_asm_removed" "$path"
-  manifest_append "archivelog_asm_thread" "$thread_no"
-  manifest_append "archivelog_asm_sequence" "$seq_no"
-
-  echo "asmcmd rm $path (thread ${thread_no} sequence ${seq_no}; RMAN backup confirmed)"
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
-    die "Unable to remove ASM archived log with asmcmd: $path"
-}
-
-perform_asm_controlfile_rm() {
-  local path="$1"
-  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM control-file remove action received a non-ASM path: $path"
-
-  local diskgroup survivors
-  diskgroup="${path%%/*}"
-
-  # GUARD 1 - never destroy the last control file. With a surviving multiplexed
-  # copy the drill is reversible by definition: recovery copies that copy back.
-  # With none, the only route back is a control-file autobackup or CREATE
-  # CONTROLFILE, which is a different (and far more dangerous) drill - refuse
-  # rather than silently turn "lose one control file" into "lose the database".
-  survivors="$(controlfile_survivors_after_run || printf "unknown")"
-  case "$survivors" in
-    unknown)
-      die "Could not confirm how many control files would survive this drill. Refusing an irreversible control-file delete: $path"
-      ;;
-    0)
-      die "Refusing to remove the last control file: $path would leave the database with none, and recovery here restores from a surviving multiplexed copy. Multiplex the control file first (see the controlfile_multiplex preparation item), or use a scenario whose recovery is control-file autobackup based."
-      ;;
-  esac
-
-  # GUARD 2 - ASM write access. asmcmd rm needs OSASM/SYSASM (the Grid owner);
-  # asmdba alone can read the diskgroup but not remove from it (ASMCMD-8102).
-  # Fail before touching anything rather than half-way through.
-  asm_preflight_write_ok "$diskgroup" ||
-    die "$(asm_write_refusal_message "$diskgroup" "An ASM control-file drill must remove an ASM file")"
-
-  # Record the surviving copies BEFORE the removal: recovery restores from one of
-  # them, and once the instance is down v$controlfile is no longer queryable.
-  local survivor_out survivor_list _cf
-  survivor_list=""
-  if [[ "${#CONTROLFILE_PRE_ABORT_LIST[@]}" -gt 0 ]]; then
-    for _cf in "${CONTROLFILE_PRE_ABORT_LIST[@]}"; do
-      [[ "$_cf" == "$path" ]] && continue
-      survivor_list="${survivor_list:+${survivor_list},}${_cf}"
-    done
-  else
-    survivor_out="${WORK_DIR:-$LOG_DIR}/crashsim_ctl_survivors_${RUN_ID}_$$.out"
-    if sql_query "$survivor_out" "select name from v\$controlfile where name <> $(sql_quote "$path") order by name;" 2>/dev/null; then
-      survivor_list="$(trim_blank_lines <"$survivor_out" | tr '\n' ',' | sed 's/,$//')"
-    fi
-    rm -f "$survivor_out" 2>/dev/null
-  fi
-  manifest_append "controlfile_asm_removed" "$path"
-  manifest_append "controlfile_asm_diskgroup" "$diskgroup"
-  manifest_append "controlfile_asm_survivors" "$survivor_list"
-
-  echo "asmcmd rm $path (Grid owner: ${GRID_USER}; ${survivors} control file(s) will survive)"
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
-    die "Unable to remove ASM control file with asmcmd: $path"
-  INJECTION_LANDED=1
-}
-
-perform_asm_pwfile_rm() {
-  local path="$1"
-  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM password-file remove action received a non-ASM path: $path"
-
-  local diskgroup
-  diskgroup="${path%%/*}"
-
-  # THE reversibility gate. A password file cannot be copied aside in any useful
-  # sense - orapwd recreates it from a password, it cannot recover the existing
-  # one - so without a SYS password there is no way back, and on a Data Guard
-  # primary that also means redo transport stays broken.
-  [[ -n "${SYS_PASSWORD:-}" ]] ||
-    die "Refusing to remove the password file ${path}: recovery recreates it with orapwd, which needs the SYS password, and it cannot be recovered any other way. Re-run with --sys-password (or CRASHSIM_SYS_PASSWORD). Nothing was changed."
-
-  asm_preflight_write_ok "$diskgroup" ||
-    die "$(asm_write_refusal_message "$diskgroup" "An ASM password-file drill must remove an ASM file")"
-
-  manifest_append "pwfile_asm_removed" "$path"
-  manifest_append "pwfile_asm_diskgroup" "$diskgroup"
-  manifest_append "pwfile_asm_dbuniquename" "${DB_UNIQUE_NAME:-}"
-
-  echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
-  echo "NOTE: on a Data Guard primary this also stops redo transport until recovery recreates the file."
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
-    die "Unable to remove ASM password file with asmcmd: $path"
-}
-
-perform_asm_redo_rm() {
-  local path="$1"
-  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM redo remove action received a non-ASM path: $path"
-
-  local diskgroup
-  diskgroup="${path%%/*}"
-
-  # GUARD - the survivor must exist ON DISK, not merely in the control file.
-  # This drill is "lose ONE member of a multiplexed group"; its recovery drops
-  # the missing member and adds a new one, which only works while the group can
-  # still be read. v$logfile is not proof of that: on 2026-08-06 scenario 24
-  # removed the one member of group 1 that still existed - the other had been
-  # gone for hours, invisible in the metadata - which turned a routine drill
-  # into a total group loss, an unrecoverable sequence, and a RESETLOGS. Count
-  # the survivors physically, and fail closed when the count cannot be trusted.
-  #
-  # Skipped for a planned TOTAL group loss (scenarios 3/4), which owns that
-  # outcome deliberately and has its own clean-shutdown + CLEAR recovery.
-  local group_no survivors
-  group_no="$(manifest_first_action_value "redo_group" 2>/dev/null || printf '')"
-  if [[ -n "$group_no" ]] && ! redo_group_is_total_loss "$group_no"; then
-    survivors="$(redo_group_physical_survivors "$group_no" "$path")"
-    case "$survivors" in
-      unknown)
-        die "Could not confirm that another member of redo group ${group_no} physically exists in ASM. Refusing to remove ${path}: if it is the last real member, this stops being a single-member drill and becomes a total group loss (unrecoverable sequence, RESETLOGS). Check 'asmcmd ls' against v\$logfile, or run the total redo-group loss drill instead."
-        ;;
-      0)
-        die "Refusing to remove ${path}: it is the LAST member of redo group ${group_no} that still exists in ASM - the other member(s) listed in v\$logfile are already gone from disk. Removing it would silently turn a single-member drill into a total group loss. Repair the group first (alter database clear logfile group ${group_no}, or drop/add the missing member), or run the total redo-group loss drill, which handles that outcome deliberately."
-        ;;
-    esac
-    echo "Redo group ${group_no}: ${survivors} member(s) verified present in ASM besides the target."
-  fi
-
-  # Reversibility here is NOT an RMAN backup and NOT an in-ASM copy: redo members
-  # are recreated, not restored. The recovery drops the missing member from the
-  # control file and adds a new one to the same disk group, so what must be true
-  # is that the disk group is writable and the group metadata survives - which it
-  # does, because removing the file does not remove the group.
-  asm_preflight_write_ok "$diskgroup" ||
-    die "$(asm_write_refusal_message "$diskgroup" "An ASM redo drill must remove an ASM file")"
-
-  echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
-    die "Unable to remove ASM redo member with asmcmd: $path"
-}
-
-perform_asm_spfile_rm() {
-  local path="$1"
-  [[ "$(storage_path_class "$path")" == "asm" ]] || die "ASM SPFILE remove action received a non-ASM path: $path"
-
-  local diskgroup pfile_backup sql_file sql_log
-  diskgroup="${path%%/*}"
-  pfile_backup="${LOG_DIR}/crashsim_spfile_capture_${RUN_ID}.ora"
-
-  # Capture the parameters BEFORE removing the spfile. This is the reversibility
-  # source: a pfile is a text file on the filesystem, so unlike an in-ASM copy it
-  # survives the loss being simulated and sidesteps ASM's OMF naming entirely.
-  # Fail closed - without it the instance could not be started again.
-  sql_file="${LOG_DIR}/crashsim_spfile_capture_${RUN_ID}.sql"
-  sql_log="${LOG_DIR}/crashsim_spfile_capture_${RUN_ID}.log"
-  cat >"$sql_file" <<SQL || die "Unable to write SPFILE capture SQL: $sql_file"
-whenever sqlerror exit sql.sqlcode
-create pfile='${pfile_backup}' from spfile;
-exit
-SQL
-  run_sql_script_file "$sql_file" "$sql_log" ||
-    die "Could not capture a pfile from the running SPFILE (log: ${sql_log}). Refusing to remove ${path}: without a parameter source the instance could not be started again."
-  [[ -s "$pfile_backup" ]] ||
-    die "SPFILE capture produced no pfile at ${pfile_backup}. Refusing an irreversible SPFILE delete."
-
-  asm_preflight_write_ok "$diskgroup" ||
-    die "$(asm_write_refusal_message "$diskgroup" "An ASM SPFILE drill must remove an ASM file" " The captured pfile at ${pfile_backup} is unused; nothing else was changed.")"
-
-  manifest_append "spfile_asm_removed" "$path"
-  manifest_append "spfile_asm_diskgroup" "$diskgroup"
-  manifest_append "spfile_asm_pfile_capture" "$pfile_backup"
-
-  echo "Captured parameters to ${pfile_backup}"
-  echo "asmcmd rm $path (Grid owner: ${GRID_USER})"
-  asm_rm_with_retry "$path" "$(basename "$path")" ||
-    die "Unable to remove ASM SPFILE with asmcmd: $path"
-}
-
-perform_srvctl_drain_service_instance() {
-  local service="$1"
-  local detail="$2"
-  local instance drain
-  IFS='|' read -r instance drain <<<"$detail"
-  [[ -n "$service" && -n "$instance" ]] ||
-    die "Service drain action is missing service or instance metadata."
-  [[ "$drain" =~ ^[0-9]+$ ]] || drain=120
-  command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
-  [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
-  echo "srvctl stop service -d $DB_UNIQUE_NAME -s $service -i $instance -drain_timeout $drain -stopoption TRANSACTIONAL -force"
-  # -force lets the drain proceed even with sessions connected; TRANSACTIONAL +
-  # drain_timeout is the graceful FAN drain path. If this srvctl build predates
-  # the drain flags, fall back to a plain stop (still FAN-driven).
-  srvctl stop service -d "$DB_UNIQUE_NAME" -s "$service" -i "$instance" \
-    -drain_timeout "$drain" -stopoption TRANSACTIONAL -force 2>/dev/null ||
-    srvctl stop service -d "$DB_UNIQUE_NAME" -s "$service" -i "$instance" -force
-  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service"
-  echo "srvctl start service -d $DB_UNIQUE_NAME -s $service -i $instance"
-  srvctl start service -d "$DB_UNIQUE_NAME" -s "$service" -i "$instance"
-  srvctl status service -d "$DB_UNIQUE_NAME" -s "$service"
-}
-
-perform_srvctl_start_database_best_effort() {
-  local dbun="${DB_UNIQUE_NAME:-${DB_NAME:-}}" log
-  [[ -n "$dbun" ]] || { warn "cannot restore the database: no db_unique_name in context"; return "$SUCCESS"; }
-  log="${LOG_DIR}/crashsim_restore_after_failed_injection_${RUN_ID}.log"
-  echo "srvctl start database -d ${dbun}"
-  if srvctl start database -d "$dbun" >"$log" 2>&1; then
-    echo "Database ${dbun} restarted after the abandoned injection."
-  else
-    warn "srvctl start database -d ${dbun} did not succeed (log: ${log}). The database is still down - start it before the next drill."
-  fi
-  return "$SUCCESS"
-}
-
-perform_srvctl_start_mount_best_effort() {
-  local dbun="${DB_UNIQUE_NAME:-${DB_NAME:-}}"
-  # Discovery is exactly what failed, so the context variables are empty here.
-  # The manifest is the fallback and a good one: since 264c139 it records
-  # db_unique_name/db_name established BEFORE the injection ran. Without this
-  # the mount-start silently no-ops, the recovery proceeds with no SQL, and it
-  # then trips the declared-evidence guard for want of a database to talk to.
-  if [[ -z "$dbun" && -n "${MANIFEST_FILE:-}" && -f "${MANIFEST_FILE}" ]]; then
-    dbun="$(awk -F= '"'"'$1=="db_unique_name" && $2 != "" && $2 != "unknown" {print $2; exit}'"'"' "$MANIFEST_FILE" 2>/dev/null)"
-    [[ -n "$dbun" ]] || dbun="$(awk -F= '"'"'$1=="db_name" && $2 != "" && $2 != "unknown" {print $2; exit}'"'"' "$MANIFEST_FILE" 2>/dev/null)"
-    [[ -n "$dbun" ]] && info "Database name taken from the manifest (${dbun}) - discovery could not reach the database."
-  fi
-  [[ -n "$dbun" ]] || return "$SUCCESS"
-  echo "srvctl start database -d ${dbun} -startoption mount"
-  srvctl start database -d "$dbun" -startoption mount >/dev/null 2>&1 || true
-  return "$SUCCESS"
-}
-
-preflight_unrecovered_drills() {
-  local id="$1" manifest row listed=0 lines=""
-  # THE GATE IS ABOUT FILE-LEVEL DAMAGE. A plan-only or read-only scenario
-  # performs no destructive action, so stacking it on an un-recovered drill
-  # cannot compound anything - yet the gate fired on scenario 85 (a role
-  # transition the runtime never executes) on 2026-08-14 and taught the
-  # operator to reach for the ack. A gate that fires on the wrong class is
-  # how CRASHSIM_ACK_UNRECOVERED=YES becomes routine, and a routine ack is
-  # no gate at all. Waived loudly, never silently.
-  if scenario_is_plan_only "$id" || scenario_is_read_only "$id" \
-     || scenario_is_external_evidence "$id"; then
-    echo "Un-recovered drill gate waived: scenario ${id} is plan-only/read-only - it performs no destructive action to stack."
-    return "$SUCCESS"
-  fi
-  for manifest in "$LOG_DIR"/crashsim_scenario_s*.manifest; do
-    row="$(manifest_outstanding_line "$manifest")"
-    [[ -n "$row" ]] || continue
-    listed=$((listed + 1))
-    lines="${lines}  - scenario ${row%%|*} injected $(printf '%s' "$row" | cut -d'|' -f2) ($(printf '%s' "$row" | cut -d'|' -f3))"$'\n'
-    [[ "$listed" -ge 5 ]] && break
-  done
-  [[ "$listed" -eq 0 ]] && return "$SUCCESS"
-  if [[ "${CRASHSIM_ACK_UNRECOVERED:-}" == "YES" ]]; then
-    warn "Executing scenario ${id} over ${listed} un-recovered drill(s) (CRASHSIM_ACK_UNRECOVERED=YES):"
-    printf '%s' "$lines" >&2
-    return "$SUCCESS"
-  fi
-  echo "Outstanding un-recovered drill(s) on this target:" >&2
-  printf '%s' "$lines" >&2
-  die "Recover them first (--recover <id> --manifest <file>), reconcile them against the live database (--reconcile-drills), or set CRASHSIM_ACK_UNRECOVERED=YES to proceed anyway. Stacking a new destructive drill on an un-recovered one is how a recoverable lab becomes an unrecoverable one."
-}
-
-prep_remove_refusal_reason() {
-  case "$1" in
-    baseline_backup)      printf 'a baseline backup is recovery evidence; "removing" one is deleting backups, which this tool will not automate' ;;
-    redo_multiplex)       printf 'removing redo members reduces redundancy - a protection downgrade stays a deliberate manual act' ;;
-    controlfile_multiplex) printf 'removing control-file copies reduces redundancy - a protection downgrade stays a deliberate manual act' ;;
-    fsfo)                 printf 'FSFO posture is broker configuration; disable it in DGMGRL deliberately, not via a lab cleanup verb' ;;
-    apex_ords)            printf 'the APEX/ORDS stack may serve real applications; uninstalling it is out of scope for lab cleanup' ;;
-    asm_gi_redundant_lab) printf 'storage-lab teardown touches ASM disk groups; follow the runbook manually' ;;
-    rman_catalog)         printf 'no RMAN_CATALOG_CONNECT configured - deregistration needs the catalog connection (set it, or unregister manually)' ;;
-    *)                    printf 'no automated inverse is registered for this item' ;;
-  esac
-}
-
-prep_remove_supported() {
-  case "$1" in
-    logical_lab|services_ac_tac|test_pdb) return "$SUCCESS" ;;
-    rman_catalog) [[ -n "${RMAN_CATALOG_CONNECT:-}" ]] && return "$SUCCESS"; return "$FAIL" ;;
-    *) return "$FAIL" ;;
-  esac
-}
-
-prep_selected() {
-  local id="$1"
-  [[ -z "$PREP_FILTER" || "$PREP_FILTER" == "all" ]] && return "$SUCCESS"
-  case ",${PREP_FILTER}," in *",${id},"*) return "$SUCCESS" ;; esac
-  return "$FAIL"
-}
-
-prep_validate_filter() {
-  local filter="$1" id ok
-  [[ -z "$filter" || "$filter" == "all" ]] && return "$SUCCESS"
-  local old_ifs="$IFS"; IFS=','
-  for id in $filter; do
-    ok=0
-    local known
-    for known in "${PREP_IDS[@]}"; do [[ "$known" == "$id" ]] && ok=1; done
-    [[ "$ok" -eq 1 ]] ||
-      die "Unknown preparation item '${id}'. Valid items: ${PREP_IDS[*]}"
-  done
-  IFS="$old_ifs"
-}
-
-protect_restamp_pre_resetlogs_read_only() {
-  local idx path pdb ts status
-  local -A done_ts=()
-  for idx in "${!PLAN_TARGET_FILE_NOS[@]}"; do
-    path="${PLAN_TARGET_PATHS[$idx]}"
-    pdb="${PLAN_TARGET_PDBS[$idx]}"
-    ts="${PLAN_TARGET_TABLESPACES[$idx]}"
-    [[ -n "$ts" ]] || continue
-    [[ -n "${done_ts[${pdb}.${ts}]:-}" ]] && continue
-
-    status="${ASM_BACKUP_STATUS_CACHE[$path]:-}"
-    [[ -n "$status" ]] || status="$(asm_path_backup_status "$path")"
-    [[ "$status" == "BACKUP_PRE_RESETLOGS" ]] || continue
-
-    # Confirm the tablespace really is READ ONLY in its container; a read-write
-    # file with only old backups is fixed by the ordinary backup below.
-    local ro_out ro_flag
-    ro_out="${WORK_DIR:-$LOG_DIR}/crashsim_ro_check_${RUN_ID}_$$.out"
-    if [[ -n "$pdb" && "$pdb" != "CDB\$ROOT" ]]; then
-      sql_query "$ro_out" "alter session set container = \"${pdb}\";
-select status from dba_tablespaces where tablespace_name = upper($(sql_quote "$ts"));" 2>/dev/null || { rm -f "$ro_out"; continue; }
-    else
-      sql_query "$ro_out" "select status from dba_tablespaces where tablespace_name = upper($(sql_quote "$ts"));" 2>/dev/null || { rm -f "$ro_out"; continue; }
-    fi
-    ro_flag="$(trim_blank_lines <"$ro_out" | tail -n 1 | tr -d '[:space:]')"
-    rm -f "$ro_out" 2>/dev/null
-    [[ "$ro_flag" == "READONLY" || "$ro_flag" == "READ_ONLY" ]] || continue
-
-    done_ts["${pdb}.${ts}"]=1
-    echo "Protection: tablespace ${ts}${pdb:+ (PDB ${pdb})} is READ ONLY and every backup of it predates the current incarnation (would restore ORA-01190)."
-    if [[ "$EXECUTE" -ne 1 ]]; then
-      echo "DRY-RUN: would re-stamp it (READ WRITE then READ ONLY) so the backup below is usable, then back it up."
-      continue
-    fi
-
-    local restamp_sql restamp_log
-    restamp_sql="${LOG_DIR}/crashsim_protect_s${CURRENT_SCENARIO_ID}_${RUN_ID}_restamp_${ts}.sql"
-    restamp_log="${LOG_DIR}/crashsim_protect_s${CURRENT_SCENARIO_ID}_${RUN_ID}_restamp_${ts}.log"
-    {
-      printf 'whenever sqlerror exit sql.sqlcode
-'
-      printf 'set echo on feedback on
-'
-      if [[ -n "$pdb" && "$pdb" != "CDB\$ROOT" ]]; then
-        printf 'alter session set container = "%s";
-' "$pdb"
-      fi
-      printf 'alter tablespace %s read write;
-' "$ts"
-      printf 'alter tablespace %s read only;
-' "$ts"
-    } >"$restamp_sql" || die "Unable to write re-stamp SQL: $restamp_sql"
-    echo "Re-stamping ${ts}: READ WRITE -> READ ONLY (header moves to the current incarnation)."
-    run_sql_script_file "$restamp_sql" "$restamp_log" ||
-      die "Re-stamp of READ ONLY tablespace ${ts} failed (log: ${restamp_log}). Protection cannot produce a usable backup while the datafile header predates the current incarnation."
-    manifest_append "protect_restamped_tablespace" "${pdb:+${pdb}.}${ts}"
-    ASM_BACKUP_STATUS_CACHE["$path"]=""
-  done
-  return "$SUCCESS"
-}
-
-record_archive_chain_state() {
-  local broken="$1" reason="${2:-}"
-  case "${broken^^}" in
-    Y|YES) manifest_append "recovery_archive_chain_broken" "YES" ;;
-    N|NO)  manifest_append "recovery_archive_chain_broken" "NO" ;;
-    *)     return "$SUCCESS" ;;
-  esac
-  [[ -n "$reason" ]] && manifest_append "recovery_archive_chain_reason" "$reason"
-  return "$SUCCESS"
-}
-
-record_backup_coverage_state() {
-  local state="$1" reason="${2:-}"
-  case "${state^^}" in
-    INTACT)  manifest_append "recovery_backup_coverage" "INTACT" ;;
-    REDUCED) manifest_append "recovery_backup_coverage" "REDUCED" ;;
-    *)       return "$SUCCESS" ;;
-  esac
-  [[ -n "$reason" ]] && manifest_append "recovery_backup_coverage_reason" "$reason"
-  return "$SUCCESS"
-}
-
-record_pre_abort_service_placement() {
-  local doomed="$1" out
-  [[ -n "$DB_UNIQUE_NAME" ]] || return "$SUCCESS"
-  command -v srvctl >/dev/null 2>&1 || return "$SUCCESS"
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_svc_preabort_${RUN_ID}_$$.out"
-  srvctl status service -d "$DB_UNIQUE_NAME" >"$out" 2>/dev/null || { rm -f "$out"; return "$SUCCESS"; }
-  local total=0 surviving=0 line svc insts
-  while IFS= read -r line; do
-    case "$line" in
-      Service*is\ running\ on\ instances*)
-        svc="${line#Service }"; svc="${svc%% is running*}"
-        insts="${line##*is running on instances }"
-        total=$((total + 1))
-        # a service survives when it runs on at least one instance that is NOT
-        # the one being aborted
-        printf '%s' "$insts" | tr ',' '\n' | grep -qv "^${doomed}$" && surviving=$((surviving + 1))
-        ;;
-    esac
-  done <"$out"
-  rm -f "$out" 2>/dev/null
-  manifest_append "preabort_services_total" "$total"
-  manifest_append "preabort_services_surviving_elsewhere" "$surviving"
-  manifest_append "preabort_aborted_instance" "$doomed"
-  return "$SUCCESS"
-}
-
-record_recovery_rpo() {
-  local class="$1" seconds="${2:-}"
-  case "$class" in
-    ZERO)
-      manifest_append "recovery_rpo_class" "ZERO"
-      manifest_append "recovery_rpo_seconds" "0"
-      ;;
-    LOSS)
-      manifest_append "recovery_rpo_class" "LOSS"
-      [[ -n "$seconds" ]] && manifest_append "recovery_rpo_seconds" "$seconds"
-      ;;
-    *)
-      manifest_append "recovery_rpo_class" "UNKNOWN"
-      ;;
-  esac
-}
-
-record_redo_total_loss_group() {
-  local group_no="$1" out line thr status arc
-  for line in "${REDO_TOTAL_LOSS_RECORDED[@]:-}"; do
-    [[ "$line" == "$group_no" ]] && return "$SUCCESS"
-  done
-  REDO_TOTAL_LOSS_RECORDED+=("$group_no")
-
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_grpmeta_${group_no}_${RUN_ID}_$$.out"
-  thr=""; status=""; arc=""
-  if sql_query "$out" "select thread# || '|' || status || '|' || archived from v\$log where group# = ${group_no};" 2>/dev/null; then
-    IFS='|' read -r thr status arc <<<"$(trim_blank_lines <"$out" | head -n 1)"
-  fi
-  rm -f "$out" 2>/dev/null
-
-  manifest_append "redo_total_loss_group" "$group_no"
-  manifest_append "redo_total_loss_group_${group_no}_thread" "${thr:-unknown}"
-  manifest_append "redo_total_loss_group_${group_no}_status" "${status:-unknown}"
-  manifest_append "redo_total_loss_group_${group_no}_archived" "${arc:-unknown}"
-}
-
-recover_asm_archivelog() {
-  local id="$1" path="$2" thread_no="$3" seq_no="$4"
-  local rman_file rman_log
-
-  echo "ASM archived-log recovery"
-  echo "  removed : ${path}"
-  echo "  restore : thread ${thread_no} sequence ${seq_no} (from RMAN backup)"
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  manifest_append "recover_archivelog_asm_thread" "$thread_no"
-  manifest_append "recover_archivelog_asm_sequence" "$seq_no"
-
-  rman_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_archivelog.rman"
-  rman_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_archivelog.log"
-  {
-    printf "crosscheck archivelog all;\n"
-    printf "restore archivelog thread %s sequence %s;\n" "$thread_no" "$seq_no"
-    printf "crosscheck archivelog all;\n"
-    printf "list archivelog thread %s sequence %s;\n" "$thread_no" "$seq_no"
-  } >"$rman_file" || die "Unable to write ASM archived-log recovery RMAN file: $rman_file"
-  manifest_append "recover_archivelog_asm_rmanfile" "$rman_file"
-  manifest_append "recover_archivelog_asm_log" "$rman_log"
-
-  if [[ "$EXECUTE" -ne 1 ]]; then
-    echo "DRY-RUN: would run the RMAN restore below; nothing is changed."
-    sed 's/^/  /' "$rman_file"
-    return "$SUCCESS"
-  fi
-
-  run_rman_cmdfile "$rman_file" "$rman_log" ||
-    die "RMAN restore of archived log thread ${thread_no} sequence ${seq_no} failed (log: ${rman_log}). The database is unchanged apart from the missing log; the backup it restores from is still intact."
-
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "ASM archived-log recovery complete: thread ${thread_no} sequence ${seq_no} restored."
-  # The removed log is restored from RMAN, so the gap the drill created is
-  # repaired. Stating that positively is more useful than silence, which the
-  # console has to render as "not determined".
-  record_archive_chain_state NO "archived log restored from RMAN backup; the gap this drill created was repaired"
-
-}
-
-recover_asm_controlfile() {
-  local id="$1" removed="$2" diskgroup="$3" survivors="$4"
-  local survivor replacement sql_file sql_log
-
-  survivor="${survivors%%,*}"
-  [[ "$survivor" == +* ]] ||
-    die "Recorded surviving control file is not an ASM path: '${survivor}'. Cannot rebuild ${removed} without a known-good copy."
-  [[ -n "$diskgroup" ]] || diskgroup="${removed%%/*}"
-  replacement="${diskgroup}/crashsim_ctl_r${RUN_ID}.ctl"
-
-  echo "ASM control-file recovery"
-  echo "  removed copy : ${removed}"
-  echo "  restore from : ${survivor}"
-  echo "  replacement  : ${replacement}"
-  # Stamp the start BEFORE any recovery work. The agent derives a measured RTO
-  # from recovery_started_at_utc -> recovery_completed_at_utc when a scenario
-  # records no inject/recover epochs; without the start stamp the drill reaches
-  # p15 with RTO "not set", which is a poor outcome for a tool whose whole point
-  # is measuring recovery time. Every other recovery path already does this.
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  manifest_append "recover_controlfile_asm_from" "$survivor"
-  manifest_append "recover_controlfile_asm_replacement" "$replacement"
-
-  # The instance must be down before the copy. A control file open by a live
-  # instance is being written to; copying it would capture a torn image.
-  echo "Stopping the database before copying the surviving control file..."
-  abort_target_instance
-
-  run_asmcmd_with_grid_env cp "$survivor" "$replacement" ||
-    die "Unable to copy the surviving control file ${survivor} to ${replacement}. The database is down; the surviving copy is untouched, so it can still be started by setting control_files to it alone."
-
-  # Repoint control_files at the survivor plus the new copy, then bring the
-  # database back. sid='*' so every RAC instance sees it.
-  sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_controlfile.sql"
-  sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_controlfile.log"
-  cat >"$sql_file" <<SQL || die "Unable to write ASM control-file recovery SQL: $sql_file"
-whenever sqlerror exit sql.sqlcode
-set echo on feedback on pages 100 lines 220
-startup nomount;
-alter system set control_files=$(sql_quote "$survivor"),$(sql_quote "$replacement") scope=spfile sid='*';
--- shutdown ABORT, not IMMEDIATE: the instance is only NOMOUNT here, and
--- SHUTDOWN IMMEDIATE against an unmounted database raises ORA-01507, which
--- "whenever sqlerror exit" turns into a failed recovery one statement short of
--- opening the database. Nothing is mounted, so there is nothing an abort can
--- lose - the whole point of this restart is to re-read the new control_files.
-shutdown abort;
-startup mount;
-alter database open;
-select name from v\$controlfile order by name;
-exit
-SQL
-  manifest_append "recover_controlfile_asm_sqlfile" "$sql_file"
-  manifest_append "recover_controlfile_asm_log" "$sql_log"
-
-  run_sql_script_file "$sql_file" "$sql_log" ||
-    die "ASM control-file recovery SQL failed (log: ${sql_log}). The replacement copy exists at ${replacement}; the database can still be started against ${survivor} alone by setting control_files to it."
-
-  # The injection aborted the WHOLE database (ASM will not drop a control file
-  # any instance holds open), and the SQL above reopened only the local one.
-  # Leaving the rest of the cluster down would report "recovered" over a
-  # half-available database.
-  open_cluster_and_pdb_after_recovery "${TARGET_PDB:-}"
-
-  claim_zero_rpo_if_complete "$sql_file"
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "ASM control-file recovery complete. Control files now: ${survivor}, ${replacement}"
-  echo "Note: the replacement carries a CrashSimulator alias name, not an OMF name."
-}
-
-recover_asm_password_file() {
-  local id="$1" path="$2" diskgroup="$3" dbuniquename="$4"
-  local orapwd_bin new_path
-
-  echo "ASM password-file recovery"
-  echo "  removed  : ${path}"
-  echo "  recreate : in ${diskgroup}${dbuniquename:+ for ${dbuniquename}}"
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  manifest_append "recover_pwfile_asm_diskgroup" "$diskgroup"
-
-  # ASM rejects writing back to an exact OMF system name, so use a deterministic
-  # short name in the disk group and let GI record where it landed.
-  new_path="${diskgroup}/orapw${dbuniquename:-db}_crashsim"
-  manifest_append "recover_pwfile_asm_path" "$new_path"
-  # ASM will not accept a write back to the exact OMF system name the removed
-  # file had, so recovery necessarily lands on a DIFFERENT path. That is a
-  # change to the estate the drill is obliged to declare: rac26 ran this branch,
-  # ended up on +DATA/orapwrac26db_crashsim, and the standby kept its own file.
-  if [[ -n "$path" && "$path" != "$new_path" ]]; then
-    manifest_append "recover_pwfile_path_changed" "YES"
-    manifest_append "recover_pwfile_path_before" "$path"
-  else
-    manifest_append "recover_pwfile_path_changed" "NO"
-  fi
-
-  if [[ "$EXECUTE" -ne 1 ]]; then
-    echo "DRY-RUN: would run orapwd file=${new_path} password=******** entries=30 force=y${dbuniquename:+ dbuniquename=${dbuniquename}}"
-    echo "DRY-RUN: would then confirm the cluster registration with: srvctl config database -d ${dbuniquename:-<db>}"
-    remote_sysdba_test
-    return "$SUCCESS"
-  fi
-
-  [[ -n "${SYS_PASSWORD:-}" ]] ||
-    die "Password-file recovery needs the SYS credential. Re-run with --sys-password (or set CRASHSIM_SYS_PASSWORD). orapwd cannot recover the original file's contents."
-
-  orapwd_bin="$(ensure_orapwd)"
-  echo "orapwd file=${new_path} password=******** entries=30 force=y${dbuniquename:+ dbuniquename=${dbuniquename}}"
-  # RESIDUAL (accepted, as in the filesystem path): orapwd takes the password
-  # only on argv. Short-lived, EXECUTE-only, and the alternative (no password
-  # argument) prompts on /dev/tty, which cannot work unattended.
-  if [[ -n "$dbuniquename" ]]; then
-    "$orapwd_bin" file="$new_path" password="$SYS_PASSWORD" entries=30 force=y dbuniquename="$dbuniquename" ||
-      die "orapwd failed to recreate the password file at ${new_path}"
-  else
-    "$orapwd_bin" file="$new_path" password="$SYS_PASSWORD" entries=30 force=y ||
-      die "orapwd failed to recreate the password file at ${new_path}"
-  fi
-
-  restore_sysbackup_user_if_present
-
-  if grid_tool_available srvctl && [[ -n "$dbuniquename" ]]; then
-    echo "Cluster password-file registration:"
-    run_grid_tool srvctl config database -d "$dbuniquename" 2>/dev/null |
-      grep -i "password file" | sed 's/^/  /' || true
-  fi
-
-  # Prove it, the same way the filesystem path does. A local "/ as sysdba" would
-  # succeed with no password file at all (OS authentication), so only a NETWORK
-  # SYSDBA connect through the listener demonstrates the recreated file works -
-  # which is the entire reason the SYS password and service were collected.
-  # Declaring "complete" without this shipped in the first ASM cut and left the
-  # proof step to the operator's goodwill.
-  remote_sysdba_test
-
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "ASM password-file recovery complete: ${new_path}"
-  echo "The SYS password is the one supplied now; re-add any other accounts the old file held."
-  warn_password_file_standby_propagation "$new_path"
-}
-
-recover_asm_redo_group_total() {
-  local id="$1"
-  local groups grp arc thr sql_file sql_log probe_file probe_log chain_expected=0 cleared=""
-
-  groups="$(manifest_all_values "redo_total_loss_group" 2>/dev/null || true)"
-  [[ -n "$groups" ]] || die "Manifest records no total-loss redo groups."
-
-  # Explicit opt-in only. Never reached by falling out of a failed CLEAR.
-  if [[ "${REDO_RESETLOGS_RECOVERY:-0}" -eq 1 ]]; then
-    recover_redo_group_route_b "$id"
-    return "$SUCCESS"
-  fi
-
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_redo_group_total.sql"
-  sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_redo_group_total.log"
-  probe_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_redo_group_probe.sql"
-  probe_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_redo_group_probe.log"
-
-  # Why the archived flag is re-read, and why it is re-read HERE.
-  #
-  # The manifest's flag is a PLAN-TIME snapshot, and the plan's own abort is what
-  # invalidates it: aborting leaves the CURRENT log ACTIVE and unarchived, so a
-  # group recorded archived=YES at injection can need archiving by the time
-  # recovery runs. On rac19db that produced "alter database clear logfile
-  # group 2" against a log the abort had just dirtied - ORA-00350, recovery
-  # dead, thread 2 never reached.
-  #
-  # The read cannot be done in PL/SQL. This recovery runs against a MOUNTED
-  # instance, where the data dictionary is not open, so an anonymous block fails
-  # to compile before it can do anything (PLS-00201 on RAISE_APPLICATION_ERROR -
-  # also learned on rac19db, by shipping exactly that mistake). Fixed views ARE
-  # readable at mount, so the live read is its own SQL*Plus pass that leaves the
-  # instance mounted, and the shell builds the statements from what it read.
-  declare -A live_arc=()
-  if [[ "$EXECUTE" -eq 1 ]]; then
-    {
-      printf 'whenever sqlerror exit sql.sqlcode\n'
-      printf 'set echo off feedback off pages 0 lines 200 heading off\n'
-      # FORCE MOUNT is safe here and idempotent: a mounted instance generates no
-      # redo, so it cannot undo the consistent shutdown this recovery depends on.
-      printf 'startup force mount;\n'
-      cat <<'PROBESQL'
-select 'CRASHSIM_REDO_ARC|'||group#||'|'||archived from v$log;
-exit
-PROBESQL
-    } >"$probe_file" || die "Unable to write redo-group probe SQL: $probe_file"
-
-    run_sql_script_file "$probe_file" "$probe_log" || {
-      warn "Could not read live redo state (log: ${probe_log})."
-      die "Refusing to clear redo groups on a plan-time guess. Nothing was changed."
-    }
-    while IFS='|' read -r _ g a; do
-      [[ -n "$g" ]] || continue
-      live_arc["$g"]="$a"
-    done < <(grep -a '^CRASHSIM_REDO_ARC|' "$probe_log" 2>/dev/null || true)
-    manifest_append "recover_redo_total_probe_log" "$probe_log"
-  fi
-
-  {
-    printf 'whenever sqlerror exit sql.sqlcode\n'
-    printf 'set echo on feedback on pages 200 lines 220\n'
-    # Idempotent, and required in the dry-run preview where no probe ran.
-    printf 'startup force mount;\n'
-  } >"$sql_file" || die "Unable to write redo-group recovery SQL: $sql_file"
-
-  echo "ASM total redo-group recovery"
-  while IFS= read -r grp; do
-    [[ -n "$grp" ]] || continue
-    arc="$(manifest_get "redo_total_loss_group_${grp}_archived" 2>/dev/null || true)"
-    thr="$(manifest_get "redo_total_loss_group_${grp}_thread" 2>/dev/null || true)"
-    cleared="${cleared:+${cleared},}${grp}"
-
-    local decide basis
-    if [[ "$EXECUTE" -eq 1 ]]; then
-      if [[ -n "${live_arc[$grp]:-}" ]]; then
-        decide="${live_arc[$grp]}"; basis="live v\$log at recovery"
-      else
-        # A group in the manifest that the mounted instance cannot see is an
-        # anomaly, not a default. Assume the destructive-but-safe form and say so.
-        decide="NO"; basis="NOT VISIBLE in v\$log - assuming unarchived"
-        warn "group ${grp} is recorded in the manifest but absent from v\$log at mount."
-      fi
-    else
-      decide="${arc}"; basis="manifest expectation (dry run makes no live read)"
-    fi
-
-    if [[ "${decide^^}" == "YES" ]]; then
-      echo "  group ${grp} (thread ${thr:-?}): archived - CLEAR LOGFILE, chain intact [${basis}]"
-      printf 'alter database clear logfile group %s;\n' "$grp" >>"$sql_file"
-    else
-      chain_expected=1
-      echo "  group ${grp} (thread ${thr:-?}): NOT archived - CLEAR UNARCHIVED LOGFILE, chain breaks here [${basis}]"
-      printf 'alter database clear unarchived logfile group %s;\n' "$grp" >>"$sql_file"
-    fi
-    # Marker for the read-back: what this run decided, and on what basis.
-    printf "prompt CRASHSIM_REDO_CLEAR|%s|%s|%s\n" \
-      "$grp" "${decide^^}" "$([[ "${decide^^}" == "YES" ]] && echo CLEAR || echo CLEAR_UNARCHIVED)" >>"$sql_file"
-    if [[ "${arc^^}" != "${decide^^}" && "$EXECUTE" -eq 1 ]]; then
-      echo "      NOTE: manifest recorded archived=${arc:-unknown} at injection; the live value is ${decide}."
-      echo "            The plan's own abort is the usual reason - this is why it is re-read."
-    fi
-  done <<<"$groups"
-
-  {
-    printf 'alter database open;\n'
-    printf 'select group#, thread#, sequence#, status, archived, members from v$log order by thread#, group#;\n'
-    printf 'select group#, member from v$logfile order by group#, member;\n'
-    printf 'exit\n'
-  } >>"$sql_file"
-
-  manifest_append "recover_redo_total_sqlfile" "$sql_file"
-  manifest_append "recover_redo_total_log" "$sql_log"
-  manifest_append "recover_redo_total_groups" "$cleared"
-  manifest_append "recover_redo_total_archive_chain_expected" "$([[ "$chain_expected" -eq 1 ]] && echo YES || echo NO)"
-
-  if [[ "$EXECUTE" -ne 1 ]]; then
-    # A dry run makes no live read, so it records the EXPECTATION and says so.
-    # Recording it as the outcome would be a claim the run cannot make.
-    manifest_append "recover_redo_total_archive_chain_broken" "UNKNOWN_DRY_RUN"
-    echo "DRY-RUN: would run the SQL below. The CLEAR vs CLEAR UNARCHIVED choice is re-made"
-    echo "         against live v\$log when this runs for real."
-    sed 's/^/  /' "$sql_file"
-    return "$SUCCESS"
-  fi
-
-  run_sql_script_file "$sql_file" "$sql_log" || {
-    echo
-    warn "CLEAR did not succeed (log: ${sql_log})."
-    redo_report_unreached_groups "$groups" "$sql_log"
-    # Record what the PARTIAL run actually did before dying. Groups already
-    # cleared unarchived have discarded redo whether or not the run finished,
-    # and a target whose chain broke must not be left recorded as intact.
-    redo_record_actual_chain_state "$sql_log"
-    echo "If the log reports ORA-01624, the group is still needed for crash recovery - which"
-    echo "means the database did not come down cleanly. This recovery deliberately stops here"
-    echo "rather than guessing. The remaining route costs data:"
-    echo "  rman target /"
-    echo "  startup mount;"
-    echo "  recover database until cancel;   -- cancel at the last available archived log"
-    echo "  alter database open resetlogs;   -- NEW INCARNATION: invalidates standbys,"
-    echo "                                   -- take a full backup immediately"
-    die "ASM total redo-group recovery failed; database left mounted. Nothing was guessed."
-  }
-
-  # The injection stopped the WHOLE database; the SQL above opened only this
-  # instance.
-  open_cluster_and_pdb_after_recovery "${TARGET_PDB:-}"
-
-  # RPO is ZERO here even when the archive chain breaks, and the two must not be
-  # conflated: the clean shutdown means the cleared redo was already applied and
-  # checkpointed, so nothing COMMITTED was lost. What breaks is future
-  # recoverability from older backups - recorded separately below.
-  claim_zero_rpo_if_complete "$sql_file"
-
-  redo_record_actual_chain_state "$sql_log"
-
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "ASM total redo-group recovery complete. Groups cleared: ${cleared}"
-  if [[ "${REDO_CHAIN_BROKE_ACTUAL:-0}" -eq 1 ]]; then
-    echo
-    warn "ARCHIVE CHAIN BROKEN: unarchived redo was discarded. Backups taken before this drill"
-    warn "cannot recover past this point. TAKE A FRESH FULL BACKUP NOW."
-    echo "  Guided menu : 21 -> 7 (Run fresh RMAN baseline backup after preparation)"
-    echo "  Command line: rman target / <<< 'backup database plus archivelog;'"
-    # Discarded redo the standby has not yet received becomes a gap no FAL server
-    # can ever resolve: the log does not exist anywhere. Seen on rac19db, where
-    # the standby sat in MRP0 WAIT_FOR_GAP on T-1.S-44 until it was rolled
-    # forward from the primary. Say so here, while the operator is still looking.
-    if [[ "$(redo_standby_destination_count)" -gt 0 ]]; then
-      echo
-      warn "DATA GUARD: this database has a standby, and the redo just discarded may never have"
-      warn "reached it. A gap on discarded redo cannot be fetched - FAL will retry forever."
-      echo "  Check : dgmgrl / \"show configuration\"   (and v\$archive_gap on the standby)"
-      echo "  Repair: on the standby, RMAN> recover standby database from service <primary>;"
-      echo "          then restore the standby controlfile from service, catalog + switch, and"
-      echo "          restart apply."
-    fi
-  fi
-}
-
-recover_asm_spfile() {
-  local id="$1" old_path="$2" diskgroup="$3" pfile="$4"
-  local sql_file sql_log new_spfile
-
-  echo "ASM SPFILE recovery"
-  echo "  removed        : ${old_path}"
-  echo "  parameter source: ${pfile}"
-  echo "  recreate in    : ${diskgroup}"
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  manifest_append "recover_spfile_asm_pfile" "$pfile"
-  manifest_append "recover_spfile_asm_diskgroup" "$diskgroup"
-
-  [[ -s "$pfile" ]] ||
-    die "Captured pfile is missing or empty: ${pfile}. Without it the SPFILE cannot be rebuilt; start the instance with a known-good pfile and recreate the SPFILE manually."
-
-  sql_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_spfile.sql"
-  sql_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_asm_spfile.log"
-  cat >"$sql_file" <<SQL || die "Unable to write ASM SPFILE recovery SQL: $sql_file"
-whenever sqlerror exit sql.sqlcode
-set echo on feedback on pages 100 lines 220
--- The instance is down after SPFILE loss; start it from the captured pfile so a
--- new SPFILE can be written into the disk group.
-startup nomount pfile='${pfile}';
-create spfile='${diskgroup}' from pfile='${pfile}';
--- ABORT, not IMMEDIATE: the instance never got past NOMOUNT, and SHUTDOWN
--- IMMEDIATE against an unmounted database raises ORA-01507 (the same trap that
--- broke ASM control-file recovery). The SPFILE is already written at this
--- point, so there is nothing to lose. write_asm_spfile_capture_sql_file in
--- 10_core.sh already used abort here - this path just did not match it.
-shutdown abort;
-exit
-SQL
-  manifest_append "recover_spfile_asm_sqlfile" "$sql_file"
-  manifest_append "recover_spfile_asm_log" "$sql_log"
-
-  if [[ "$EXECUTE" -ne 1 ]]; then
-    echo "DRY-RUN: would run the SQL below, then repoint the cluster registration and restart."
-    sed 's/^/  /' "$sql_file"
-    echo "  srvctl modify database -d ${DB_UNIQUE_NAME:-<db>} -spfile <new ASM spfile>"
-    return "$SUCCESS"
-  fi
-
-  run_sql_script_file "$sql_file" "$sql_log" ||
-    die "Rebuilding the SPFILE in ${diskgroup} failed (log: ${sql_log}). The captured pfile at ${pfile} is intact - the instance can still be started with: startup pfile='${pfile}'."
-
-  # Find the SPFILE just written, so the cluster is repointed at the real name.
-  new_spfile="$(run_asmcmd_with_grid_env ls -l --absolutepath "${diskgroup}/" 2>/dev/null |
-    awk '/spfile/ {print $NF}' | tail -n 1)"
-  if [[ -n "$new_spfile" ]] && grid_tool_available srvctl && [[ -n "${DB_UNIQUE_NAME:-}" ]]; then
-    echo "Repointing cluster registration at ${new_spfile}"
-    run_grid_tool srvctl modify database -d "$DB_UNIQUE_NAME" -spfile "$new_spfile" ||
-      warn "Could not update the cluster SPFILE registration with srvctl. Set it manually: srvctl modify database -d ${DB_UNIQUE_NAME} -spfile ${new_spfile}"
-    manifest_append "recover_spfile_asm_new_path" "$new_spfile"
-  else
-    warn "New SPFILE path could not be resolved automatically. Locate it with: asmcmd ls ${diskgroup}/ and set it with srvctl modify database -d ${DB_UNIQUE_NAME:-<db>} -spfile <path>"
-  fi
-
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "ASM SPFILE recovery complete. Start the database normally and confirm: show parameter spfile"
-}
-
-recover_redo_group_route_b() {
-  local id="$1"
-  local rman_file rman_log sql_file sql_log out last_seq last_thr inj_epoch rp_epoch rp_scn rpo="" scn_delta=""
-
-  require_data_loss_ack "$id" || return "$FAIL"
-
-  manifest_append "recovery_started_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  manifest_append "recover_redo_route" "B_RESETLOGS"
-
-  # MOUNT FIRST. v$archived_log lives in the control file and is unreadable while
-  # the database is down - and the injection took it down. Querying before the
-  # mount returned nothing, and "${last_seq:-0} + 1" then built
-  # "set until sequence 1", i.e. recover to the very beginning of time. It
-  # survived a live run only because the datafiles were consistent so media
-  # recovery was a no-op; on the crashed database Route B actually exists for,
-  # it would have recovered to the wrong point. Same trap as the control-file
-  # survivor guard: do not ask a database that is not up.
-  local mount_sql mount_log
-  mount_sql="${WORK_DIR:-$LOG_DIR}/crashsim_routeb_mount_${RUN_ID}.sql"
-  mount_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_route_b_mount.log"
-  cat >"$mount_sql" <<'SQL' || die "Unable to write Route B mount SQL: $mount_sql"
-whenever sqlerror exit sql.sqlcode
-startup force mount;
-exit
-SQL
-  if [[ "$EXECUTE" -eq 1 ]]; then
-    run_sql_script_file "$mount_sql" "$mount_log" ||
-      die "Route B could not mount the database (log: ${mount_log}). Nothing was recovered."
-  fi
-
-  # Recovery point = the newest AVAILABLE archived log. Everything after it is
-  # what the drill costs.
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_routeb_lastlog_${RUN_ID}_$$.out"
-  last_seq=""; last_thr=""; rp_epoch=""
-  if sql_query "$out" "
-select thread# || '|' || sequence# || '|' ||
-       to_char(cast(next_time as timestamp) at time zone 'UTC', 'YYYYMMDDHH24MISS') || '|' ||
-       next_change#
-from (select thread#, sequence#, next_time, next_change#
-        from v\$archived_log
-       where status = 'A'
-       order by next_time desc)
-where rownum = 1;" 2>/dev/null; then
-    IFS='|' read -r last_thr last_seq rp_epoch rp_scn <<<"$(trim_blank_lines <"$out" | head -n 1)"
-  fi
-  rm -f "$out" 2>/dev/null
-
-  # Fail closed. An unknown recovery point must never be turned into a number:
-  # "until sequence 1" is not a conservative default, it is the whole database.
-  if [[ "$EXECUTE" -eq 1 ]] && { [[ ! "$last_seq" =~ ^[0-9]+$ ]] || [[ ! "$last_thr" =~ ^[0-9]+$ ]]; }; then
-    die "Route B could not determine a recovery point from v\$archived_log (thread='${last_thr}' sequence='${last_seq}'). Refusing to guess one - the database is mounted and unchanged, and CLEAR-based recovery is still available."
-  fi
-
-  echo "Route B recovery (incomplete recovery + OPEN RESETLOGS)"
-  echo "  recovery point : thread ${last_thr:-?} sequence ${last_seq:-?}"
-  echo "  everything after that point is LOST."
-
-  rman_file="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_route_b.rman"
-  rman_log="${LOG_DIR}/crashsim_recover_s${id}_${RUN_ID}_route_b.log"
-  {
-    # No startup here: the database was mounted above so the recovery point
-    # could be read from the control file.
-    # Datafiles are intact - only redo was lost - so this recovers with what the
-    # archived logs still provide and stops there. No restore: restoring datafiles
-    # we never damaged would turn a redo drill into a full database restore.
-    printf 'run {\n'
-    printf '  set until sequence %s thread %s;\n' "$(( ${last_seq:-0} + 1 ))" "${last_thr:-1}"
-    printf '  recover database;\n'
-    printf '}\n'
-    printf 'alter database open resetlogs;\n'
-    printf 'report schema;\n'
-  } >"$rman_file" || die "Unable to write Route B RMAN command file: $rman_file"
-  manifest_append "recover_redo_route_b_rman" "$rman_file"
-  manifest_append "recover_redo_route_b_log" "$rman_log"
-
-  if [[ "$EXECUTE" -ne 1 ]]; then
-    echo "DRY-RUN: would run the RMAN below."
-    sed 's/^/  /' "$rman_file"
-    return "$SUCCESS"
-  fi
-
-  run_rman_cmdfile "$rman_file" "$rman_log" || {
-    warn "Route B recovery failed (log: ${rman_log}). The database is left MOUNTED."
-    die "Incomplete recovery did not complete; nothing was opened RESETLOGS. Inspect ${rman_log} before retrying."
-  }
-
-  # RPO: from the recovery point to the moment the fault was injected. Recorded
-  # as LOSS even when the arithmetic fails - "we lost data but cannot say how
-  # much" is honest; claiming ZERO here would be a lie.
-  # Prefer the injection-time snapshot: it is the authoritative "where we were".
-  # Fall back to scenario_completed_at_utc only if the snapshot is absent.
-  local inj_iso inj_scn
-  inj_iso="$(manifest_get injection_time_utc || true)"
-  [[ -n "$inj_iso" ]] || inj_iso="$(manifest_get scenario_completed_at_utc || true)"
-  inj_epoch="$(iso_to_epoch "$inj_iso" || true)"
-  inj_scn="$(manifest_get injection_scn || true)"
-
-  if [[ "$rp_epoch" =~ ^[0-9]{14}$ && "$inj_epoch" =~ ^[0-9]+$ ]]; then
-    local rp_iso rp_secs
-    rp_iso="${rp_epoch:0:4}-${rp_epoch:4:2}-${rp_epoch:6:2}T${rp_epoch:8:2}:${rp_epoch:10:2}:${rp_epoch:12:2}Z"
-    rp_secs="$(iso_to_epoch "$rp_iso" || true)"
-    [[ "$rp_secs" =~ ^[0-9]+$ && "$inj_epoch" -ge "$rp_secs" ]] && rpo=$(( inj_epoch - rp_secs ))
-  fi
-  if [[ "$inj_scn" =~ ^[0-9]+$ && "$rp_scn" =~ ^[0-9]+$ && "$inj_scn" -ge "$rp_scn" ]]; then
-    scn_delta=$(( inj_scn - rp_scn ))
-    manifest_append "recovery_rpo_scn_delta" "$scn_delta"
-    manifest_append "recovery_rpo_recovery_point_scn" "$rp_scn"
-    manifest_append "recovery_rpo_injection_scn" "$inj_scn"
-  fi
-
-  record_recovery_rpo "LOSS" "$rpo"
-  manifest_append "recovery_rpo_basis" "incomplete recovery to thread ${last_thr:-?} sequence ${last_seq:-?} (SCN ${rp_scn:-unknown}), then OPEN RESETLOGS. Measures redo DISCARDED, not rows lost."
-
-  open_cluster_and_pdb_after_recovery "${TARGET_PDB:-}"
-  # RESETLOGS is not merely a chain break - it starts a NEW INCARNATION, so no
-  # backup from before this point can roll forward across it at all. Recording
-  # it as broken understates the damage, but silence would misreport it as
-  # undetermined, which is worse.
-  record_archive_chain_state YES "OPEN RESETLOGS started a new incarnation; backups from the previous incarnation cannot roll forward across it"
-  record_backup_coverage_state REDUCED "new incarnation: every backup from the previous incarnation is unusable for roll-forward"
-  manifest_append "recovery_completed_at_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-  echo
-  warn "OPEN RESETLOGS completed: this database is now a NEW INCARNATION."
-  warn "  - any physical standby is INVALIDATED and must be re-created or flashed back"
-  warn "  - backups from the previous incarnation cannot roll forward across this point"
-  warn "  - TAKE A FULL BACKUP NOW; until you do, this database has no usable backup"
-  if [[ -n "$rpo" ]]; then
-    warn "  - measured RPO: ${rpo}s of redo discarded${scn_delta:+ (SCN gap ${scn_delta})}"
-  else
-    warn "  - data was lost; the amount could not be measured from the available logs"
-  fi
-}
-
-recovery_establish_context() {
-  local id="$1"
-
-  scenario_requires_sqlplus_context "$id" || return "$SUCCESS"
-  find_sqlplus_if_available ||
-    die "Scenario $id requires database SQL*Plus context, but sqlplus was not found. Set ORACLE_HOME or SQLPLUS after the database is created or installed."
-
-  # A recovery must be able to run after its OWN injection stopped the instance.
-  #
-  # Field, rac19db 2026-08-18: scenario 5 aborts the local instance as part of
-  # the fault, and `--recover 5` then died on ORA-01034 before dispatch, advising
-  # "run --recover for that scenario first" - the command being run. The
-  # operator had to start the instance by hand, with nothing saying so.
-  #
-  # So: try discovery non-fatally first; if it fails and this scenario has an
-  # outstanding drill of ours, start what our injection stopped and try once
-  # more. Only then give up - and say something true when we do.
-  local saved="${DISCOVERY_NON_FATAL:-0}"
-  DISCOVERY_NON_FATAL=1
-  if discover_environment; then
-    DISCOVERY_NON_FATAL="$saved"
-    return "$SUCCESS"
-  fi
-  DISCOVERY_NON_FATAL="$saved"
-
-  if ! recovery_has_outstanding_drill "$id"; then
-    die "Topology discovery cannot reach the database, and scenario $id has no injected drill on this host to recover.
-Start the instance (srvctl start database, or sqlplus / as sysdba; startup), then retry."
-  fi
-
-  echo "The database is down and scenario ${id} has an un-recovered drill here - this recovery's own injection stopped it."
-
-  # Try to bring it far enough up to discover. MOUNT, not OPEN: a fault that
-  # removed a current redo member or a control file CANNOT open, and demanding
-  # OPEN here is what made this unreachable.
-  #
-  # Non-fatal again for the retry. The restore above is for the give-up path;
-  # leaving it in force here made the second discovery fatal and undid this
-  # whole fix - it died before printing a word of it.
-  DISCOVERY_NON_FATAL=1
-  perform_srvctl_start_mount_best_effort
-  if discover_environment; then
-    DISCOVERY_NON_FATAL="$saved"
-    return "$SUCCESS"
-  fi
-
-  # Still no context - and that is survivable. The recovery functions for this
-  # class run their OWN `startup force` and read the removed paths from the
-  # manifest (which carries db_name/db_role since 264c139), so they do not need
-  # discovery to have succeeded. Dying here blocks the only code that can fix
-  # the database.
-  #
-  # Field, rac19db 2026-08-19: scenario 3 removes a member of the CURRENT redo
-  # group and leaves the database down - exactly what its recovery expects. The
-  # context check refused first, so `--recover 3` could never run against the
-  # state `--scenario 3` creates. Starting the database instead (the first
-  # version of this fix) cannot work either: it has no current redo to open with.
-  DISCOVERY_NON_FATAL="$saved"
-  warn "Proceeding without full topology context: the database cannot open while the fault from scenario ${id} is present."
-  warn "The recovery will start it itself, using the paths recorded in the manifest."
-  return "$SUCCESS"
-}
-
-recovery_has_outstanding_drill() {
-  local id="$1" m
-
-  # The manifest we were POINTED AT counts first.
-  #
-  # manifest_outstanding_line deliberately skips $MANIFEST_FILE so a run never
-  # counts itself - correct for the pre-execute gate, wrong here. Recovering
-  # with `--manifest <scenario manifest>` (which several scenarios REQUIRE, and
-  # which the batch driver now always passes) made this function skip the very
-  # drill it was asked about, so the recovery refused with "no injected drill on
-  # this host" and left scenario 4 with its redo group gone and the database
-  # unable to open. Field, rac19db 2026-08-19.
-  if [[ "${MANIFEST_FROM_ARG:-0}" -eq 1 && -n "${MANIFEST_FILE:-}" && -f "${MANIFEST_FILE}" ]]; then
-    if grep -q '^injection_time_utc=' "$MANIFEST_FILE" 2>/dev/null \
-       && ! grep -q '^recovery_completed_at_utc=' "$MANIFEST_FILE" 2>/dev/null; then
-      return "$SUCCESS"
-    fi
-  fi
-
-  for m in "$LOG_DIR"/crashsim_scenario_s"${id}"_*.manifest; do
-    [[ -f "$m" ]] || continue
-    [[ -n "$(manifest_outstanding_line "$m")" ]] && return "$SUCCESS"
-  done
-  return "$FAIL"
-}
-
-recovery_target_down() {
-  local logon out probe
-  logon="${SQLPLUS_LOGON:-/ as sysdba}"
-  if [[ -n "${SQLPLUS_BIN:-}" ]] && { command -v "$SQLPLUS_BIN" >/dev/null 2>&1 || [[ -x "$SQLPLUS_BIN" ]]; }; then
-    out="${WORK_DIR:-${LOG_DIR:-/tmp}}/crashsim_recovery_updown_${RUN_ID}_$$.out"
-    # /nolog + connect on stdin: no credential on argv (house rule). v$database
-    # reads only at MOUNT+, so a clean marker means "restore can run"; anything
-    # else (ORA-01034 not started, ORA-01507 not mounted, connection refused)
-    # means "below mount -> down".
-    "$SQLPLUS_BIN" -s -L /nolog >"$out" 2>&1 <<SQL || true
-whenever sqlerror continue
-connect ${logon}
-set heading off feedback off pagesize 0 verify off echo off
-select 'CSIM_MOUNTED_OK' from v\$database where rownum = 1;
-exit
-SQL
-    probe="$(grep -c 'CSIM_MOUNTED_OK' "$out" 2>/dev/null)"
-    rm -f "$out" 2>/dev/null
-    [[ "${probe:-0}" -ge 1 ]] && return 1   # mounted or open -> not down
-    return 0                                 # cannot read v$database -> down
-  fi
-  # sqlplus genuinely unavailable: fall back to srvctl (authoritative for CRS),
-  # resolving the unique name from the manifest when discovery has not run.
-  local dbun="${DB_UNIQUE_NAME:-}"
-  [[ -n "$dbun" ]] || dbun="$(manifest_get "db_unique_name" 2>/dev/null || true)"
-  if command -v srvctl >/dev/null 2>&1 && [[ -n "$dbun" ]]; then
-    srvctl status database -d "$dbun" 2>/dev/null | grep -qi "is running" && return 1
-    return 0
-  fi
-  # last resort: a running pmon is a WEAK signal (a not-started instance can
-  # leave one), so treat its ABSENCE as down but do not trust its presence -
-  # default to down (safe: an unnecessary startup mount is a no-op via -force).
-  return 0
-}
-
-redo_group_is_total_loss() {
-  local group_no="$1" line
-  for line in "${REDO_TOTAL_LOSS_RECORDED[@]:-}"; do
-    [[ "$line" == "$group_no" ]] && return "$SUCCESS"
-  done
-  return "$FAIL"
-}
-
-redo_group_member_total() {
-  local group_no="$1" out count
-  [[ "$group_no" =~ ^[0-9]+$ ]] || { printf 'unknown'; return 0; }
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_members_${group_no}_${RUN_ID}_$$.out"
-  sql_query "$out" "select count(*) from v\$logfile where group# = ${group_no};" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; printf 'unknown'; return 0; }
-  count="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  [[ "$count" =~ ^[0-9]+$ ]] && printf "%s" "$count" || printf 'unknown'
-}
-
-redo_group_physical_survivors() {
-  local group_no="$1" doomed="$2" out member present=0 ex row
-  local -a members=()
-
-  # Prefer the PRE-ABORT snapshot: by the time this runs the plan has usually
-  # aborted the instance, so v$logfile is gone. Falling back to a live query
-  # covers plans with no abort (and dry-runs).
-  if [[ "${#REDO_PRE_ABORT_MEMBERS[@]}" -gt 0 ]]; then
-    for row in "${REDO_PRE_ABORT_MEMBERS[@]}"; do
-      [[ "${row%%|*}" == "$group_no" ]] || continue
-      members+=("${row#*|}")
-    done
-  else
-    out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_members_${group_no}_${RUN_ID}_$$.out"
-    sql_query "$out" "select member from v\$logfile where group# = ${group_no} order by member;" 2>/dev/null || {
-      rm -f "$out" 2>/dev/null; printf 'unknown'; return
-    }
-    while IFS= read -r member; do
-      [[ -n "$member" ]] && members+=("$member")
-    done < <(trim_blank_lines <"$out")
-    rm -f "$out" 2>/dev/null
-  fi
-
-  # An empty list is not "no survivors" - it means we never learned the group's
-  # members at all, which is exactly what unknown is for.
-  [[ "${#members[@]}" -gt 0 ]] || { printf 'unknown'; return; }
-
-  for member in "${members[@]}"; do
-    [[ "$member" == "$doomed" ]] && continue
-    ex="$(asm_file_exists "$member")"
-    case "$ex" in
-      yes) present=$((present + 1)) ;;
-      unknown) printf 'unknown'; return ;;
-    esac
-  done
-  printf '%s' "$present"
-}
-
-redo_member_group_map_load() {
-  [[ "${#REDO_MEMBER_GROUP[@]}" -eq 0 ]] || return "$SUCCESS"
-  local out row
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_grpmap_${RUN_ID}_$$.out"
-  sql_query "$out" "select group# || '|' || member from v\$logfile order by group#, member;" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; return "$FAIL"
-  }
-  while IFS= read -r row; do
-    [[ -n "$row" ]] && REDO_MEMBER_GROUP["${row#*|}"]="${row%%|*}"
-  done < <(trim_blank_lines <"$out")
-  rm -f "$out" 2>/dev/null
-  [[ "${#REDO_MEMBER_GROUP[@]}" -gt 0 ]]
-}
-
-redo_record_actual_chain_state() {
-  local sql_log="$1" markers cleared_actual="" line grp act
-  REDO_CHAIN_BROKE_ACTUAL=0
-  # Anchored at start of line on purpose: `set echo on` also echoes the
-  # put_line SOURCE, which contains the same marker text mid-line.
-  markers="$(grep -a '^CRASHSIM_REDO_CLEAR|' "$sql_log" 2>/dev/null || true)"
-  while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    grp="$(printf '%s' "$line" | cut -d'|' -f2)"
-    act="$(printf '%s' "$line" | cut -d'|' -f4)"
-    cleared_actual="${cleared_actual:+${cleared_actual},}${grp}"
-    [[ "$act" == "CLEAR_UNARCHIVED" ]] && REDO_CHAIN_BROKE_ACTUAL=1
-  done <<<"$markers"
-
-  manifest_append "recover_redo_total_groups_cleared_actual" "${cleared_actual:-none}"
-  manifest_append "recover_redo_total_archive_chain_broken" \
-    "$([[ "$REDO_CHAIN_BROKE_ACTUAL" -eq 1 ]] && echo YES || echo NO)"
-  if [[ "$REDO_CHAIN_BROKE_ACTUAL" -eq 1 ]]; then
-    record_archive_chain_state YES "unarchived redo discarded by CLEAR UNARCHIVED LOGFILE"
-    record_backup_coverage_state REDUCED "backups taken before this drill cannot recover past the discarded redo"
-  else
-    record_archive_chain_state NO "every cleared group was already archived at recovery time"
-    record_backup_coverage_state INTACT "no redo was discarded, so existing backups remain usable across this point"
-  fi
-  return "$SUCCESS"
-}
-
-redo_report_unreached_groups() {
-  local groups="$1" sql_log="$2" grp done_list="" missing=""
-  done_list="$(grep -a '^CRASHSIM_REDO_CLEAR|' "$sql_log" 2>/dev/null | cut -d'|' -f2 | tr '\n' ' ')"
-  while IFS= read -r grp; do
-    [[ -n "$grp" ]] || continue
-    case " ${done_list} " in *" ${grp} "*) ;; *) missing="${missing:+${missing},}${grp}" ;; esac
-  done <<<"$groups"
-  if [[ -n "$missing" ]]; then
-    warn "Groups still NOT cleared: ${missing}. Their members remain missing, so any instance"
-    warn "whose thread owns them will fail to start (ORA-00312/ORA-15012, often surfacing only"
-    warn "as CRS-2674 from srvctl). Clear them before treating this database as recovered."
-  fi
-  [[ -n "$done_list" ]] && echo "  Groups cleared before the failure: ${done_list% }"
-  return "$SUCCESS"
-}
-
-redo_standby_destination_count() {
-  local out cnt
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_sbdest_${RUN_ID}_$$.out"
-  sql_query "$out" "select count(*) from v\$archive_dest where target = 'STANDBY' and status = 'VALID';" >/dev/null 2>&1 || { echo 0; return 0; }
-  cnt="$(tr -dc '0-9' <"$out" 2>/dev/null)"
-  rm -f "$out" 2>/dev/null
-  echo "${cnt:-0}"
-}
-
-redo_thread_untargeted_groups() {
-  local thr="$1" targeted="$2" out total
-  [[ "$thr" =~ ^[0-9]+$ ]] || { printf 'unknown'; return 0; }
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_redo_thread_groups_${thr}_${RUN_ID}_$$.out"
-  sql_query "$out" "select count(*) from v\$log where thread# = ${thr};" 2>/dev/null || {
-    rm -f "$out" 2>/dev/null; printf 'unknown'; return 0; }
-  total="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-  rm -f "$out" 2>/dev/null
-  [[ "$total" =~ ^[0-9]+$ ]] || { printf 'unknown'; return 0; }
-  printf '%s' "$(( total - targeted ))"
-}
-
-require_archive_chain_break_ack() {
-  local groups grp arc unarchived=""
-  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
-  groups="$(manifest_all_values "redo_total_loss_group" 2>/dev/null || true)"
-  [[ -n "$groups" ]] || return "$SUCCESS"
-
-  while IFS= read -r grp; do
-    [[ -n "$grp" ]] || continue
-    arc="$(manifest_get "redo_total_loss_group_${grp}_archived" 2>/dev/null || true)"
-    [[ "${arc^^}" == "YES" ]] || unarchived="${unarchived:+${unarchived}, }${grp}"
-  done <<<"$groups"
-  [[ -n "$unarchived" ]] || return "$SUCCESS"
-
-  echo
-  echo "Archive-chain warning: redo group(s) ${unarchived} hold redo that is NOT yet archived."
-  echo "Recovery clears these groups, which DISCARDS that redo. The database returns with no"
-  echo "data loss, but the archive chain breaks at that point: backups taken BEFORE this drill"
-  echo "will no longer be usable to recover PAST it. Take a fresh full backup afterwards."
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    [[ "${CRASHSIM_ACCEPT_ARCHIVE_CHAIN_BREAK^^}" == "YES" ]] ||
-      die "Refusing to break the archive chain unattended. Set CRASHSIM_ACCEPT_ARCHIVE_CHAIN_BREAK=YES only if a fresh backup after the drill is acceptable."
-    return "$SUCCESS"
-  fi
-  local answer
-  echo "Type BREAK-ARCHIVE-CHAIN to confirm this is acceptable:"
-  read -r answer
-  [[ "$answer" == "BREAK-ARCHIVE-CHAIN" ]] ||
-    die "Archive-chain acknowledgement did not match. Nothing was changed."
-}
-
-require_data_loss_ack() {
-  local id="$1" answer
-  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
-  echo
-  echo "Route B recovery for scenario ${id} DELIBERATELY LOSES DATA."
-  echo "Incomplete recovery discards every change after the last available archived log,"
-  echo "and OPEN RESETLOGS starts a new incarnation - invalidating any physical standby"
-  echo "and every backup taken before this point."
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    [[ "${CRASHSIM_ACCEPT_DATA_LOSS^^}" == "YES" ]] ||
-      die "Refusing an unattended data-losing recovery. Set CRASHSIM_ACCEPT_DATA_LOSS=YES only if losing committed transactions on this database is acceptable."
-    return "$SUCCESS"
-  fi
-  echo "Type ACCEPT-DATA-LOSS to continue:"
-  read -r answer
-  [[ "$answer" == "ACCEPT-DATA-LOSS" ]] ||
-    die "Data-loss acknowledgement did not match. Nothing was changed; the database is still mounted and CLEAR-based recovery remains available."
-}
-
-restore_database_aborted_by_plan() {
-  local rc="$1"
-  [[ "$rc" -ne 0 ]] || return 0
-  [[ "${DATABASE_ABORTED_BY_PLAN:-0}" -eq 1 ]] || return 0
-  [[ "${INJECTION_LANDED:-0}" -eq 0 ]] || return 0
-  echo "The plan aborted the database to prepare this injection, and the injection did not happen." >&2
-  echo "Restoring what the abort stopped - the drill is being abandoned, not left half-applied." >&2
-  perform_srvctl_start_database_best_effort
-}
-
-run_prep_checklist() {
-  local sql_file evidence_file id auto inv
-  discover_environment
-  ensure_sqlplus
-  sql_file="${LOG_DIR}/crashsim_prep_checklist_${RUN_ID}.sql"
-  evidence_file="${LOG_DIR}/crashsim_prep_checklist_${RUN_ID}.evidence"
-  collect_prepare_environment_evidence "$sql_file" "$evidence_file"
-  evaluate_prepare_environment
-  # machine mode (agents): stable PREP| protocol lines, nothing else on stdout
-  # worth parsing - consumers grep ^PREP| so discovery chatter is harmless
-  if [[ "${MACHINE_OUTPUT:-0}" -eq 1 ]]; then
-    for id in "${PREP_IDS[@]}"; do
-      printf 'PREP|%s|%s|%s|%s\n' \
-        "$id" "${PREP_STATUS[$id]:-UNKNOWN}" "${PREP_AUTO[$id]:-no}" \
-        "$(prep_remove_supported "$id" && echo yes || echo no)"
-    done
-    return "$SUCCESS"
-  fi
-  echo "Target preparation checklist for ${DB_UNIQUE_NAME:-this database}:"
-  echo
-  printf '  %-22s %-12s %-7s %-8s %s\n' "ITEM" "STATUS" "APPLY" "REMOVE" "TITLE"
-  printf '  %-22s %-12s %-7s %-8s %s\n' "----" "------" "-----" "------" "-----"
-  for id in "${PREP_IDS[@]}"; do
-    auto="${PREP_AUTO[$id]:-no}"
-    inv="$(prep_remove_supported "$id" && echo yes || echo no)"
-    printf '  %-22s %-12s %-7s %-8s %s\n' \
-      "$id" "${PREP_STATUS[$id]:-?}" "$auto" "$inv" "${PREP_TITLE[$id]:-}"
-  done
-  echo
-  echo "Apply selected items :  --seed-environment --prep <id,id|all> --execute"
-  echo "Remove selected items:  --prep-remove <id,id> --execute"
-  echo "Items with APPLY=no need the operator action named in the planner report"
-  echo "(--seed-environment without --execute renders it); REMOVE=no items either"
-  echo "have nothing sensible to remove (a baseline backup is evidence) or would"
-  echo "downgrade redundancy (multiplexing) - those stay manual, with the reason"
-  echo "stated when asked."
-}
-
-run_prep_remove() {
-  local sql_file evidence_file id script_root rc any=0
-  discover_environment
-  ensure_sqlplus
-  script_root="$(script_dir)"
-  sql_file="${LOG_DIR}/crashsim_prep_remove_${RUN_ID}.sql"
-  evidence_file="${LOG_DIR}/crashsim_prep_remove_${RUN_ID}.evidence"
-  collect_prepare_environment_evidence "$sql_file" "$evidence_file"
-  evaluate_prepare_environment
-  [[ -n "$PREP_FILTER" && "$PREP_FILTER" != "all" ]] ||
-    die "--prep-remove requires an explicit item list (never 'all'): removal is per-item and deliberate."
-  prep_validate_filter "$PREP_FILTER"
-  echo "Preparation removal plan for ${DB_UNIQUE_NAME:-this database}:"
-  local old_ifs="$IFS"; IFS=','
-  for id in $PREP_FILTER; do
-    if prep_remove_supported "$id"; then
-      echo "  - ${id}: WILL REMOVE (${PREP_TITLE[$id]:-})"
-      any=1
-    else
-      echo "  - ${id}: REFUSED - $(prep_remove_refusal_reason "$id")"
-    fi
-  done
-  IFS="$old_ifs"
-  [[ "$any" -eq 1 ]] || die "Nothing removable in the selection; the reasons are listed above."
-  if [[ "$EXECUTE" -eq 0 ]]; then
-    echo "DRY-RUN: re-run with --execute to remove the items marked WILL REMOVE."
-    return "$SUCCESS"
-  fi
-  require_destructive_lab_ack "preparation removal"
-  old_ifs="$IFS"; IFS=','
-  for id in $PREP_FILTER; do
-    prep_remove_supported "$id" || continue
-    case "$id" in
-      logical_lab)
-        # The seed creates objects in BOTH containers: the c##/root set in
-        # CDB\$ROOT and the local users/tablespaces in the target PDB. The
-        # inverse must run once per seeded container - the first cut ran root
-        # only, and the live count on rac19n1 showed the three PDB-local lab
-        # users surviving removal (root said 0, the PDB said otherwise).
-        local helper="${script_root}/remove_crashsim_lab.sql" container
-        [[ -f "$helper" ]] || die "Removal SQL not found: $helper"
-        for container in "" "${TARGET_PDB:-}"; do
-          [[ -z "$container" || "$DB_CDB" == "YES" ]] || continue
-          "$SQLPLUS_BIN" -s -L /nolog >>"${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log" 2>&1 <<SQL
-set define off
-whenever sqlerror exit failure
-connect ${SQLPLUS_LOGON}
-whenever sqlerror continue
-${container:+alter session set container=${container};}
-set define on
-@${helper}
-SQL
-          rc=$?
-          [[ "$rc" -eq 0 ]] || die "Removal ${id} failed$( [[ -n "$container" ]] && printf ' in container %s' "$container"). Log: ${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log"
-          echo "Removed ${id} in ${container:-CDB\$ROOT} (crashsim-named lab objects only)."
-        done
-        echo "Removal log: ${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log"
-        ;;
-      services_ac_tac)
-        # enumerate the database's services and remove ONLY crashsim_* names -
-        # the hard filter is the safety property, never a convenience
-        local svc removed=0
-        while IFS= read -r svc; do
-          case "$svc" in
-            crashsim_*)
-              run_grid_tool srvctl stop service -d "$DB_UNIQUE_NAME" -s "$svc" -force >/dev/null 2>&1 || true
-              if run_grid_tool srvctl remove service -d "$DB_UNIQUE_NAME" -s "$svc" >/dev/null 2>&1; then
-                echo "Removed service ${svc}."
-                removed=$((removed + 1))
-              else
-                warn "Could not remove service ${svc} - see srvctl output."
-              fi
-              ;;
-          esac
-        done < <(run_grid_tool srvctl config service -d "$DB_UNIQUE_NAME" 2>/dev/null |
-                   sed -n 's/^Service name: //p')
-        echo "services_ac_tac removal complete: ${removed} crashsim_* service(s) removed; non-crashsim services untouched by construction."
-        ;;
-      test_pdb)
-        # drop ONLY CRASHSIM%-named PDBs - the name prefix is the entire
-        # safety argument, same as the seed inverse and scenario 45's guardrail
-        local tp dropped=0
-        while IFS= read -r tp; do
-          case "$tp" in
-            CRASHSIM*)
-              "$SQLPLUS_BIN" -s -L /nolog >>"${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log" 2>&1 <<SQL
-set define off
-whenever sqlerror continue
-connect ${SQLPLUS_LOGON}
-alter pluggable database ${tp} close immediate instances=all;
-drop pluggable database ${tp} including datafiles;
-SQL
-              echo "Removed test PDB ${tp} (including datafiles)."
-              dropped=$((dropped + 1))
-              ;;
-          esac
-        done < <("$SQLPLUS_BIN" -s -L /nolog 2>/dev/null <<SQL | trim_blank_lines
-set define off heading off feedback off pages 0
-connect ${SQLPLUS_LOGON}
-select name from v\$pdbs where name like 'CRASHSIM%';
-exit
-SQL
-)
-        echo "test_pdb removal complete: ${dropped} CRASHSIM%-named PDB(s) dropped; every other PDB untouched by construction."
-        ;;
-      rman_catalog)
-        echo "Deregistering ${DB_UNIQUE_NAME:-target} from the RMAN catalog..."
-        rman target / catalog "$RMAN_CATALOG_CONNECT" >"${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log" 2>&1 <<'RMAN'
-unregister database noprompt;
-exit
-RMAN
-        rc=$?
-        [[ "$rc" -eq 0 ]] || die "Catalog deregistration failed. Log: ${LOG_DIR}/crashsim_prep_remove_${id}_${RUN_ID}.log"
-        echo "Removed ${id}: database unregistered from the recovery catalog."
-        ;;
-    esac
-  done
-  IFS="$old_ifs"
-  return "$SUCCESS"
-}
-
-run_reconcile_drills() {
-  local manifest row sid inj base state evidence closed=0 kept=0 seen=0
-  local rf_n off_n open_mode f probe missing
-  local out="${WORK_DIR:-$LOG_DIR}/crashsim_reconcile_$$.out"
-  echo "Reconciling outstanding drill manifests against ${DB_UNIQUE_NAME:-the local database}..."
-  # one live probe for the generic cleanliness evidence, shared by all
-  sql_query "$out" "
-select 'RF|'  || count(*) from v\$recover_file;
-select 'OFF|' || count(*) from v\$datafile where status not in ('ONLINE','SYSTEM');
-select 'OM|'  || open_mode from v\$database;
-" || die "Could not read the live database state; reconciliation needs it."
-  rf_n="$(awk -F'|' '$1=="RF"{print $2; exit}' "$out" | tr -d ' ')"
-  off_n="$(awk -F'|' '$1=="OFF"{print $2; exit}' "$out" | tr -d ' ')"
-  open_mode="$(awk -F'|' '$1=="OM"{print $2; exit}' "$out")"
-  rm -f "$out" 2>/dev/null
-  [[ "$rf_n" =~ ^[0-9]+$ && "$off_n" =~ ^[0-9]+$ ]] ||
-    die "Live state probe returned no usable evidence (recover_file='${rf_n}', offline='${off_n}'); refusing to reconcile blind."
-  echo "Live evidence: v\$recover_file=${rf_n}, non-ONLINE datafiles=${off_n}, open_mode=${open_mode}."
-  for manifest in "$LOG_DIR"/crashsim_scenario_s*.manifest; do
-    row="$(manifest_outstanding_line "$manifest")"
-    [[ -n "$row" ]] || continue
-    seen=$((seen + 1))
-    sid="${row%%|*}"; inj="$(printf '%s' "$row" | cut -d'|' -f2)"; base="$(printf '%s' "$row" | cut -d'|' -f3)"
-    state="CLEAN"; missing=""
-    [[ "$rf_n" -gt 0 || "$off_n" -gt 0 ]] && state="DAMAGED"
-    [[ "$open_mode" == "READ WRITE" || "$open_mode" == "READ ONLY WITH APPLY" ]] || state="DAMAGED"
-    # manifest-specific: every file the drill removed must be present again.
-    # unknown is not present - an unreadable path keeps the manifest open.
-    while IFS= read -r f; do
-      [[ -n "$f" ]] || continue
-      case "$f" in
-        +*) probe="$(asm_file_exists "$f")"
-            [[ "$probe" == "yes" ]] || { state="DAMAGED"; missing="${missing}${missing:+, }${f} (${probe})"; } ;;
-        /*) [[ -e "$f" ]] || { state="DAMAGED"; missing="${missing}${missing:+, }${f} (absent)"; } ;;
-      esac
-    done < <(awk -F= '$1 ~ /^scenario_.*_original(_path)?$|^recover_original_path$/ {print $2}' "$manifest" 2>/dev/null | sort -u)
-    if [[ "$state" != "CLEAN" ]]; then
-      kept=$((kept + 1))
-      echo "KEPT OPEN: scenario ${sid} (${base}) - database still shows damage:"
-      [[ "$rf_n" -gt 0 ]] && echo "    ${rf_n} file(s) in v\$recover_file"
-      [[ "$off_n" -gt 0 ]] && echo "    ${off_n} datafile(s) not ONLINE"
-      [[ -n "$missing" ]] && echo "    removed file(s) still absent: ${missing}"
-      continue
-    fi
-    evidence="v\$recover_file=0; non-ONLINE datafiles=0; open_mode=${open_mode}${missing:+; }"
-    if [[ "$EXECUTE" -eq 0 ]]; then
-      echo "WOULD RECONCILE: scenario ${sid} injected ${inj} (${base}) - ${evidence}"
-      continue
-    fi
-    {
-      printf 'reconciled_at_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      printf 'reconciled_by=%s\n' "${CRASHSIM_OPERATOR:-$(id -un 2>/dev/null || echo unknown)}"
-      printf 'reconciled_evidence=%s\n' "$evidence"
-      printf 'reconciled_note=closed by --reconcile-drills: the live database showed no outstanding damage; no recovery marker exists because the recovery was performed outside the tool. This is a verified closure, not a recovery record.\n'
-    } >>"$manifest"
-    closed=$((closed + 1))
-    echo "RECONCILED: scenario ${sid} injected ${inj} (${base}) - closed on live evidence by ${CRASHSIM_OPERATOR:-$(id -un 2>/dev/null || echo unknown)}."
-  done
-  if [[ "$seen" -eq 0 ]]; then
-    echo "No outstanding un-recovered drill manifests on this target."
-  else
-    echo "Reconcile summary: outstanding=${seen} closed=${closed} kept_open=${kept}$( [[ "$EXECUTE" -eq 0 ]] && printf ' (dry-run - re-run with --execute to close)')"
-  fi
-  return "$SUCCESS"
-}
-
-save_topology_cache() {
-  local cache_file="${LOG_DIR}/crashsim_topology_latest.txt"
-  local tmp_file
-
-  [[ "$TOPOLOGY_CACHE_DISABLED" -eq 0 ]] || return "$SUCCESS"
-  [[ "$TOPOLOGY_CACHE_TTL_SECONDS" -gt 0 ]] || return "$SUCCESS"
-  [[ -n "${DB_UNIQUE_NAME:-}" ]] || return "$SUCCESS"
-  [[ -d "$LOG_DIR" ]] || return "$SUCCESS"
-
-  tmp_file="$(mktemp "${LOG_DIR}/.crashsim_topology.XXXXXX" 2>/dev/null)" || return "$SUCCESS"
-  # Write then rename: a reader must never see a half-written cache.
-  if write_discovery_text "$tmp_file" 2>/dev/null; then
-    mv -f -- "$tmp_file" "$cache_file" 2>/dev/null || rm -f -- "$tmp_file" 2>/dev/null || true
-  else
-    rm -f -- "$tmp_file" 2>/dev/null || true
-  fi
-  return "$SUCCESS"
-}
-
-scenario_capability_evaluate() {
-  local id="$1"
-  local status reason dry_run execute guardrail provenance next_action
-
-  SCENARIO_CAPABILITY_CURRENT_STATUS="NOT_RUNNABLE"
-  SCENARIO_CAPABILITY_CURRENT_REASON=""
-  SCENARIO_CAPABILITY_CURRENT_PROVENANCE=""
-  SCENARIO_CAPABILITY_CURRENT_DRY_RUN="NO"
-  SCENARIO_CAPABILITY_CURRENT_EXECUTE="NO"
-  SCENARIO_CAPABILITY_CURRENT_GUARDRAIL=""
-  SCENARIO_CAPABILITY_CURRENT_NEXT_ACTION=""
-
-  if ! scenario_exists "$id"; then
-    reason="Unknown scenario id: $id"
-    provenance="inference:scenario registry lookup"
-    guardrail="Registry blocker: scenario id is not registered."
-    status="NOT_RUNNABLE"
-  elif validate_scenario_can_run "$id"; then
-    status="RUNNABLE"
-    reason="$SCENARIO_VALIDATION_REASON"
-    dry_run="YES"
-    execute="YES"
-    guardrail="$(scenario_guardrail_capability "$id")"
-    provenance="$(scenario_capability_provenance "$id")"
-  else
-    reason="$SCENARIO_VALIDATION_REASON"
-    guardrail="$(scenario_guardrail_capability "$id")"
-    provenance="$(scenario_capability_provenance "$id")"
-    dry_run="NO"
-    execute="NO"
-    if [[ "$SCENARIO_VALIDATION_STATUS" == "PLAN_ONLY" ]]; then
-      status="PLAN_ONLY"
-      dry_run="YES"
-    elif [[ "$SCENARIO_VALIDATION_STATUS" == "UNVERIFIED" ]]; then
-      # Distinct from NOT_RUNNABLE on purpose: nothing was learned about this
-      # scenario, so neither dry-run nor execute is offered, but the report must
-      # not claim it is unsupported.
-      status="UNVERIFIED"
-    else
-      status="NOT_RUNNABLE"
-    fi
-  fi
-
-  dry_run="${dry_run:-NO}"
-  execute="${execute:-NO}"
-  next_action="$(scenario_capability_next_action "$id" "$status" "$reason")"
-
-  SCENARIO_CAPABILITY_STATUS["$id"]="$status"
-  SCENARIO_CAPABILITY_REASON["$id"]="$reason"
-  SCENARIO_CAPABILITY_PROVENANCE["$id"]="$provenance"
-  SCENARIO_CAPABILITY_DRY_RUN["$id"]="$dry_run"
-  SCENARIO_CAPABILITY_EXECUTE["$id"]="$execute"
-  SCENARIO_CAPABILITY_GUARDRAIL["$id"]="$guardrail"
-  SCENARIO_CAPABILITY_NEXT_ACTION["$id"]="$next_action"
-
-  SCENARIO_CAPABILITY_CURRENT_STATUS="$status"
-  SCENARIO_CAPABILITY_CURRENT_REASON="$reason"
-  SCENARIO_CAPABILITY_CURRENT_PROVENANCE="$provenance"
-  SCENARIO_CAPABILITY_CURRENT_DRY_RUN="$dry_run"
-  SCENARIO_CAPABILITY_CURRENT_EXECUTE="$execute"
-  SCENARIO_CAPABILITY_CURRENT_GUARDRAIL="$guardrail"
-  SCENARIO_CAPABILITY_CURRENT_NEXT_ACTION="$next_action"
-
-  [[ "$status" == "RUNNABLE" ]]
-}
-
-scenario_capability_next_action() {
-  local id="$1"
-  local status="$2"
-  local reason="$3"
-
-  case "$status" in
-    RUNNABLE)
-      printf "Run --scenario %s --dry-run, review the runbook/evidence, then execute only in an approved lab." "$id"
-      ;;
-    PLAN-ONLY)
-      printf "Keep dry-run/runbook evidence only until the guardrail is resolved: %s" "$reason"
-      ;;
-    *)
-      printf "Resolve the blocker, refresh topology/target context, and rerun --validate-scenario %s." "$id"
-      ;;
-  esac
-}
-
-scenario_capability_provenance() {
-  local id="$1"
-  local provenance="inference:scenario registry/lifecycle policy"
-  local requires=",${SCENARIO_REQUIRES[$id]:-},"
-
-  if scenario_requires_sqlplus_context "$id"; then
-    if [[ -n "${SQLPLUS_BIN:-}" || -n "${SQLPLUS:-}" || -n "${ORACLE_HOME:-}" ]]; then
-      provenance="live SQL:SQL*Plus topology and target-planning evidence"
-    else
-      provenance="inference:SQL*Plus unavailable, database-scoped evidence not collected"
-    fi
-  fi
-
-  case "$requires" in
-    *",rac,"*|*",gi,"*)
-      provenance+=", srvctl/crsctl:Grid Infrastructure capability checks"
-      ;;
-  esac
-  case "$requires" in
-    *",asm,"*)
-      provenance+=", asmcmd/storage metadata:ASM/FEX/ACFS posture checks"
-      ;;
-  esac
-  case "$id" in
-    ADB*|OCI*)
-      provenance+=", OCI CLI/API:cloud-control-plane evidence when configured"
-      ;;
-    GG*)
-      provenance+=", GoldenGate tooling:replication evidence when configured"
-      ;;
-    EXA*)
-      provenance+=", platform tooling:Exadata evidence when configured"
-      ;;
-  esac
-
-  printf "%s" "$provenance"
-}
-
-scenario_exit_handler() {
-  local rc="$1"
-  restore_database_aborted_by_plan "$rc"
-  mark_injection_abandoned_if_not_landed "$rc"
-}
-
-scenario_guardrail_capability() {
-  local id="$1"
-  # single-source classification (task #78); 28 shares the plan-only guardrail
-  if scenario_is_plan_only "$id" || [[ "$id" == "28" ]]; then
-    printf "Plan-only guardrail blocks destructive/provider-specific execution until an approved external lab procedure and rollback evidence exist."
-    return "$SUCCESS"
-  fi
-  if scenario_is_read_only "$id"; then
-    printf "Read-only/report guardrail; no destructive database action is executed."
-    return "$SUCCESS"
-  fi
-  case "$id" in
-    25)
-      printf "Execution blocker requires explicit --piece-handle or --local-only with max targets before backup-piece loss can execute."
-      ;;
-    45)
-      printf "Execution blocker requires an explicitly disposable PDB name that starts with CRASHSIM_."
-      ;;
-    *)
-      if [[ "${SCENARIO_IMPACT[$id]}" == "destructive" ]]; then
-        printf "Destructive lab acknowledgement, readiness validation, and target-selection blockers protect execution."
-      else
-        printf "Readiness validation and topology/target blockers protect execution."
-      fi
-      ;;
-  esac
-}
-
-scenario_has_specific_runbook() {
-  local id="$1"
-  ! print_recovery_runbook "$id" 2>/dev/null | grep -q "Generic recovery:"
-}
-
-scenario_id_in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
-
-scenario_is_enterprise_only()   { scenario_id_in_list "$1" "$EE_ONLY_SCENARIO_IDS"; }
-
-scenario_is_external_evidence() { scenario_id_in_list "$1" "$EXTERNAL_EVIDENCE_SCENARIO_IDS"; }
-
-scenario_is_plan_only()         { scenario_id_in_list "$1" "$PLAN_ONLY_SCENARIO_IDS"; }
-
-scenario_is_read_only()         { scenario_id_in_list "$1" "$READ_ONLY_SCENARIO_IDS"; }
-
-shutdown_target_cleanly_for_redo() {
-  local reason="${1:-a total redo-group loss}"
-  if [[ "$PLANNING_ONLY" -eq 1 ]]; then
-    return "$SUCCESS"
-  fi
-  if [[ "$EXECUTE" -eq 0 ]]; then
-    info "DRY-RUN: would SHUT DOWN CLEANLY (shutdown immediate, not abort) $([[ "$CLUSTER_TYPE" == "RAC" || "$INSTANCE_PARALLEL" == "YES" ]] && echo "the whole database ${DB_UNIQUE_NAME}" || echo "instance ${INSTANCE_NAME}") before ${reason}"
-    DATABASE_ABORTED_BY_PLAN=1
-    return "$SUCCESS"
-  fi
-
-  if [[ "$CLUSTER_TYPE" == "RAC" || "$INSTANCE_PARALLEL" == "YES" ]]; then
-    command -v srvctl >/dev/null 2>&1 || die "srvctl not found"
-    [[ -n "$DB_UNIQUE_NAME" ]] || die "DB_UNIQUE_NAME was not discovered"
-    echo "srvctl stop database -d $DB_UNIQUE_NAME -o immediate -force (CLEAN shutdown - an abort would make this drill unrecoverable without RESETLOGS)"
-    if ! srvctl stop database -d "$DB_UNIQUE_NAME" -o immediate -force; then
-      if srvctl status database -d "$DB_UNIQUE_NAME" 2>/dev/null | grep -qi "is running"; then
-        die "Clean shutdown of ${DB_UNIQUE_NAME} failed. Refusing to remove redo members: without a consistent shutdown the lost redo is needed for crash recovery and CLEAR would fail (ORA-01624). Nothing was changed."
-      fi
-      info "Database $DB_UNIQUE_NAME is already down."
-    fi
-  else
-    local sql_file sql_log
-    sql_file="${WORK_DIR:-$LOG_DIR}/crashsim_clean_stop_${RUN_ID}.sql"
-    sql_log="${LOG_DIR}/crashsim_clean_stop_${RUN_ID}.log"
-    cat >"$sql_file" <<'SQL' || die "Unable to write clean-shutdown SQL: $sql_file"
-whenever sqlerror exit sql.sqlcode
-shutdown immediate
-exit
-SQL
-    echo "shutdown immediate (CLEAN shutdown - an abort would make this drill unrecoverable without RESETLOGS)"
-    run_sql_script_file "$sql_file" "$sql_log" ||
-      die "Clean shutdown failed (log: ${sql_log}). Refusing to remove redo members: CLEAR needs a consistent shutdown. Nothing was changed."
-  fi
-  DATABASE_ABORTED_BY_PLAN=1
-}
-
-snapshot_pre_fault_position() {
-  [[ "$EXECUTE" -eq 1 ]] || return "$SUCCESS"
-  local out scn
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_prefault_scn_${RUN_ID}_$$.out"
-  if sql_query "$out" "select current_scn from v\$database;" 2>/dev/null; then
-    scn="$(trim_blank_lines <"$out" | head -n 1 | tr -d '[:space:]')"
-    [[ "$scn" =~ ^[0-9]+$ ]] && {
-      manifest_append "injection_scn" "$scn"
-      manifest_append "injection_time_utc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      # This key is written BEFORE the fault - it records the pre-fault
-      # position, not a landed injection. The un-recovered-drill gate reads it
-      # as proof a drill is in flight, so from here on a run that refuses or
-      # dies MUST say so, or it leaves a phantom drill behind.
-      #
-      # Field, rac19db 2026-08-19: scenario 16 refused cleanly ("Nothing was
-      # changed" - the password file needs --sys-password) and the phantom then
-      # blocked EVERY later destructive scenario: 22 of 34 in one batch, each
-      # reporting a plausible failure of its own.
-      trap 'scenario_exit_handler "$?"' EXIT
-    }
-  fi
-  rm -f "$out" 2>/dev/null
-  return "$SUCCESS"
-}
-
-sqlplus_logon_has_password() {
-  case "$1" in
-    /*) return 1 ;;    # OS-auth or wallet logon: no password on the command line
-    */*) return 0 ;;   # username '/' password [@tns]
-    *) return 1 ;;
-  esac
-}
-
-standby_apply_assert_restarted() {
-  local id="$1"
-  local validate_log="$2"
-  local deadline_secs="${CRASHSIM_STANDBY_APPLY_TIMEOUT:-90}"
-  local probe_file="$WORK_DIR/standby_apply_probe.lst"
-  local waited=0 mrp_line="" open_mode=""
-
-  [[ "$deadline_secs" =~ ^[0-9]+$ ]] || deadline_secs=90
-
-  while :; do
-    sql_query "$probe_file" "
-select 'MRP|' || process || '|' || status
-from v\$managed_standby
-where process like 'MRP%'
-order by process;
-select 'OPENMODE|' || open_mode
-from v\$database;
-select 'STAT|' || name || '=' || nvl(value, 'UNKNOWN') || ' ' || nvl(unit, '')
-from v\$dataguard_stats
-where name in ('transport lag','apply lag','apply finish time')
-order by name;
-" || die "Unable to query standby apply status after restarting managed recovery (scenario ${id})."
-
-    mrp_line="$(grep -m1 '^MRP|' "$probe_file" 2>/dev/null || true)"
-    open_mode="$(sed -n 's/^OPENMODE|//p' "$probe_file" 2>/dev/null | head -n 1)"
-    [[ -n "$mrp_line" ]] && break
-    [[ "$waited" -ge "$deadline_secs" ]] && break
-    sleep 3
-    waited=$((waited + 3))
-  done
-
-  # The evidence file is written from the probe that was actually judged, so the
-  # log and the verdict can never disagree.
-  {
-    printf '%s\n' "$(sed -n 's/^MRP|//p' "$probe_file")"
-    printf 'open_mode=%s\n' "${open_mode:-UNKNOWN}"
-    sed -n 's/^STAT|//p' "$probe_file"
-  } >"$validate_log" || die "Unable to write standby apply status evidence: $validate_log"
-  manifest_append "recover_standby_apply_status_log" "$validate_log"
-  manifest_append "recover_standby_apply_open_mode" "${open_mode:-UNKNOWN}"
-
-  if [[ -z "$mrp_line" ]]; then
-    manifest_append "recovery_failed_reason" "managed recovery did not restart: no MRP process after ${deadline_secs}s (open_mode=${open_mode:-UNKNOWN})"
-    echo "Standby apply status evidence:"
-    sed 's/^/  /' "$validate_log"
-    die "Managed standby recovery did NOT restart for scenario ${id}: no MRP process is running after ${deadline_secs}s (open_mode=${open_mode:-UNKNOWN}). The standby is NOT applying redo. Evidence: ${validate_log}"
-  fi
-
-  manifest_append "recover_standby_apply_process" "${mrp_line#MRP|}"
-  echo "Managed recovery restarted: ${mrp_line#MRP|} (open_mode=${open_mode:-UNKNOWN})"
-  echo "Standby apply status evidence:"
-  sed 's/^/  /' "$validate_log"
-}
-
-validation_unverifiable_reason() {
-  local output="$1"
-  case "$output" in
-    *ORA-01034*)  printf 'Could not verify: the Oracle instance was not available when readiness was probed (ORA-01034). This is not a verdict about the scenario - start the instance and re-check.'; return "$SUCCESS" ;;
-    *ORA-01033*)  printf 'Could not verify: the database was still starting up or shutting down when readiness was probed (ORA-01033). Re-check once it is open.'; return "$SUCCESS" ;;
-    *ORA-12541*|*ORA-12154*|*ORA-12162*|*ORA-12514*)
-                  printf 'Could not verify: the readiness probe could not reach the database through SQL*Net. This is a connectivity problem, not a scenario limitation.'; return "$SUCCESS" ;;
-    *"timed out"*|*"Timed out"*|*"timeout"*)
-                  printf 'Could not verify: the readiness probe timed out before the database answered. On a loaded or emulated host this says nothing about the scenario - re-check when the host is quieter.'; return "$SUCCESS" ;;
-    *"SQL*Plus is not available"*|*"sqlplus not found"*)
-                  printf 'Could not verify: SQL*Plus was not available to probe readiness.'; return "$SUCCESS" ;;
-  esac
-  return "$FAIL"
-}
-
-warn_password_file_standby_propagation() {
-  local new_path="$1"
-  local out count=0
-  # A WARNING IS NOT EVIDENCE (task #83 check 2). This used to print to the
-  # console and stop there - so a drill that left the estate needing a manual
-  # standby copy produced no record of that fact, nothing surfaced it on the
-  # console, and nothing re-checked it. On rac26 the gap closed four days later
-  # as ORA-01017 in the middle of a switchover. Every branch below therefore
-  # stamps the manifest, including the branches where NO action is needed: the
-  # difference between "no propagation required" and "we never looked" has to
-  # survive into the evidence.
-  [[ "${DB_ROLE:-}" == "PRIMARY" ]] || {
-    manifest_append "recover_pwfile_standby_propagation_required" "NO_NOT_PRIMARY"
-    return "$SUCCESS"
-  }
-  out="${WORK_DIR:-$LOG_DIR}/crashsim_pwfile_dg_${RUN_ID}_$$.out"
-  if sql_query "$out" "select count(*) from v\$archive_dest where target = 'STANDBY' and status <> 'INACTIVE';" 2>/dev/null; then
-    count="$(trim_blank_lines <"$out" | head -n 1 | tr -d ' ')"
-  else
-    # could not ask the database - say so rather than implying "no standbys"
-    rm -f "$out" 2>/dev/null
-    manifest_append "recover_pwfile_standby_propagation_required" "UNKNOWN_QUERY_FAILED"
-    warn "Could not determine whether this database has standby destinations; if it does, the recreated password file MUST be copied to each one."
-    return "$SUCCESS"
-  fi
-  rm -f "$out" 2>/dev/null
-  [[ "$count" =~ ^[0-9]+$ ]] || count=0
-  if [[ "$count" -le 0 ]]; then
-    manifest_append "recover_pwfile_standby_propagation_required" "NO_NO_STANDBY"
-    return "$SUCCESS"
-  fi
-  manifest_append "recover_pwfile_standby_propagation_required" "YES"
-  manifest_append "recover_pwfile_standby_dest_count" "$count"
-  manifest_append "recover_pwfile_new_path" "$new_path"
-
-  warn "DATA GUARD: this database has ${count} standby destination(s), and the password file was just RECREATED."
-  warn "A physical standby needs an IDENTICAL password file. Until you copy this one to every standby, redo transport will fail (ORA-1017 / ORA-16810) even though this recovery succeeded."
-  echo "  Copy it to each standby, then verify transport:"
-  case "$new_path" in
-    +*)
-      echo "    # on this host, as the Grid owner:"
-      echo "    asmcmd pwcopy ${new_path} /tmp/orapw_primary"
-      ;;
-    *)
-      echo "    # on this host:"
-      echo "    cp ${new_path} /tmp/orapw_primary"
-      ;;
-  esac
-  echo "    # copy /tmp/orapw_primary to each standby host, then place it as that"
-  echo "    # standby's password file (keep the standby's own filename/location),"
-  echo "    # and re-check: dgmgrl / \"show configuration\""
-  manifest_append "pwfile_standby_propagation_required" "yes"
-  return "$SUCCESS"
-}
-
-warn_redo_thread_headroom() {
-  local thr="$1" targeted="$2" left
-  [[ " ${REDO_THREAD_WARNED[*]:-} " != *" ${thr} "* ]] || return "$SUCCESS"
-  REDO_THREAD_WARNED+=("$thr")
-  left="$(redo_thread_untargeted_groups "$thr" "$targeted")"
-  case "$left" in
-    unknown) warn "Could not determine how many redo groups thread ${thr} keeps during this drill." ;;
-    0)  warn "Thread ${thr} will have EVERY redo group emptied by this drill; recovery must CLEAR all of them before the database can open." ;;
-    1)  warn "Thread ${thr} will be left with a single redo group during this drill; it cannot switch logfiles until recovery completes." ;;
-  esac
-  return "$SUCCESS"
-}
-
-write_datafile_online_sql_file() {
-  local file_no="$1"
-  local pdb="$2"
-  local sql_file="$3"
-  local container_sql=""
-
-  # Onlining a PDB datafile must happen inside the PDB container.
-  [[ -n "$pdb" ]] && container_sql="alter session set container = \"${pdb}\";"
-
-  # Guarded on the CURRENT status so this step is idempotent and can run after
-  # EVERY datafile recovery, not just the online-drill one. The injection
-  # offlines an offlinable datafile in both modes, but only the online-drill
-  # recovery used to bring it back - so a default scenario-5 run finished with
-  # the file restored, recovered and still OFFLINE, leaving the tablespace
-  # unusable while every step reported success.
-  #
-  # Heredoc rather than printf: the block needs literal single quotes AND a
-  # literal v$datafile, which is exactly the combination printf format strings
-  # get wrong in either quoting style.
-  # Accepts ONE file# or a comma-separated LIST ("7,41"): a single number is a
-  # valid one-element IN list, so the original single-file callers are unchanged.
-  # The list form is what recover_datafile_list_scenario needs - that path used to
-  # have no online step at all, which is why an ASM scenario-9 run finished
-  # "successfully" with its datafile still OFFLINE (rac26db, FILE# 48).
-  cat >"$sql_file" <<SQL || die "Unable to write datafile-online SQL file: $sql_file"
-whenever sqlerror exit sql.sqlcode
-set echo on feedback on serveroutput on
-${container_sql}
-declare
-  l_done number := 0;
-begin
-  for r in (
-    select file# from v\$datafile
-     where file# in (${file_no}) and status = 'OFFLINE'
-     order by file#
-  ) loop
-    execute immediate 'alter database datafile ' || r.file# || ' online';
-    dbms_output.put_line('datafile ' || r.file# || ' brought ONLINE');
-    l_done := l_done + 1;
-  end loop;
-  if l_done = 0 then
-    dbms_output.put_line('no OFFLINE datafile among ${file_no}; nothing to do');
-  end if;
-end;
-/
-select file#, status from v\$datafile where file# in (${file_no}) order by file#;
-exit
-SQL
-}
-
-write_pdb_open_all_sql_file() {
-  local pdb_name="$1"
-  local sql_file="$2"
-
-  cat >"$sql_file" <<SQL || die "Unable to write PDB open-all SQL file: $sql_file"
-set serveroutput on feedback on
-begin
-  execute immediate 'alter pluggable database ${pdb_name} open instances=all';
-exception
-  when others then
-    if sqlcode = -65019 then
-      dbms_output.put_line('PDB ${pdb_name} already open');
-    else
-      raise;
-    end if;
-end;
-/
-exit
-SQL
-
-  manifest_append "recover_pdb_open_all_sqlfile" "$sql_file"
-}
-
-write_recover_abort_datafile_rman_file() {
-  local file_list="$1"
-  local cmd_file="$2"
-
-  {
-    printf "startup mount;\n"
-    printf "restore datafile %s;\n" "$file_list"
-    printf "recover datafile %s;\n" "$file_list"
-    printf "sql \"alter database open\";\n"
-    # Onlining is a separate guarded SQL step - see
-    # write_recover_datafile_list_rman_file.
-  } >"$cmd_file" || die "Unable to write abort-mode RMAN datafile recovery file: $cmd_file"
-
-  manifest_append "recover_rman_cmdfile" "$cmd_file"
-}
-
-write_recover_online_datafile_rman_file() {
-  local file_no="$1"
-  local cmd_file="$2"
-
-  {
-    printf "restore datafile %s;\n" "$file_no"
-    printf "recover datafile %s;\n" "$file_no"
-  } >"$cmd_file" || die "Unable to write online-datafile RMAN recovery file: $cmd_file"
-
-  manifest_append "recover_rman_cmdfile" "$cmd_file"
 }
 
 main "$@"
