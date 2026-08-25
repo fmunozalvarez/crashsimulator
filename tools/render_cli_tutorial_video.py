@@ -84,7 +84,7 @@ SCENES: tuple[Scene, ...] = (
         (
             "$ sudo su - oracle",
             "$ export ORACLE_HOME=/u02/app/oracle/product/19.0.0.0/dbhome_1",
-            "$ export ORACLE_SID=crashdb1",
+            "$ export ORACLE_SID=exampledb1",
             "$ export ORACLE_UNQNAME=crashdb",
             "$ export PATH=$ORACLE_HOME/bin:/u01/app/19.0.0.0/gridhome_1/bin:$PATH",
             "$ cd /tmp/crashsimulator",

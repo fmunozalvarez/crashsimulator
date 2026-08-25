@@ -1,10 +1,10 @@
 # CrashSimulator Backup Strategy And Recoverability Report
 
 - Generated UTC: `2026-06-07T07:44:09Z`
-- Host: `crashdb26ai1`
+- Host: `exampledb1`
 - OS user: `oracle`
 - Database: `CRASHDB`
-- DB unique name: `crashdb_26ai`
+- DB unique name: `exampledb`
 - DBID: `1275113611`
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
@@ -68,7 +68,7 @@ Command: /u01/app/oracle/product/23.0.0.0/dbhome_1/bin/sqlplus -s /\ as\ sysdba 
 
 NAME                                   DB_UNIQUE_NAME                 DATABASE_ROLE    OPEN_MODE            CDB LOG_MODE     FORCE_LOGGING                           FLASHBACK_ON
 -------------------------------------- ------------------------------ ---------------- -------------------- --- ------------ --------------------------------------- ------------------
-CRASHDB                                crashdb_26ai                   PRIMARY          READ WRITE           YES ARCHIVELOG   YES                                     NO
+CRASHDB                                exampledb                   PRIMARY          READ WRITE           YES ARCHIVELOG   YES                                     NO
 
 1 row selected.
 
@@ -87,7 +87,7 @@ DEVICE TYPE                            'SBT_TAPE' BACKUP TYPE TO COMPRESSED BACK
 ENCRYPTION ALGORITHM                   'AES256'
 ENCRYPTION FOR DATABASE                ON
 RETENTION POLICY                       TO RECOVERY WINDOW OF 30 DAYS
-SNAPSHOT CONTROLFILE NAME              TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f'
+SNAPSHOT CONTROLFILE NAME              TO '+RECO/exampledb/controlfile/snapcf_crashdb.f'
 
 10 rows selected.
 
@@ -640,7 +640,7 @@ CONFIGURE ENCRYPTION ALGORITHM 'AES256';
 CONFIGURE COMPRESSION ALGORITHM 'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE;
 CONFIGURE RMAN OUTPUT TO KEEP FOR 7 DAYS; # default
 CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
-CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f';
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/exampledb/controlfile/snapcf_crashdb.f';
 
 
 List of Backups
@@ -841,19 +841,19 @@ no obsolete backups found
 
 Starting restore at 07-JUN-26
 allocated channel: ORA_SBT_TAPE_1
-channel ORA_SBT_TAPE_1: SID=20 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: SID=20 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_2
-channel ORA_SBT_TAPE_2: SID=186 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: SID=186 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_3
-channel ORA_SBT_TAPE_3: SID=338 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: SID=338 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_4
-channel ORA_SBT_TAPE_4: SID=482 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_4: SID=482 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_4: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_DISK_1
-channel ORA_DISK_1: SID=631 instance=crashdb1 device type=DISK
+channel ORA_DISK_1: SID=631 instance=exampledb1 device type=DISK
 
 
 List of Backups
@@ -919,7 +919,7 @@ Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_backup_report_2
 
 ```text
 CSIM_BKP|db_name|CRASHDB
-CSIM_BKP|db_unique_name|crashdb_26ai
+CSIM_BKP|db_unique_name|exampledb
 CSIM_BKP|dbid|1275113611
 CSIM_BKP|database_role|PRIMARY
 CSIM_BKP|open_mode|READ WRITE

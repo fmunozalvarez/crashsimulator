@@ -68,7 +68,7 @@ CONFIG_REVIEW_SCENES: tuple[Scene, ...] = (
             "$ ./CrashSimulatorV2.sh --show-config",
             "",
             "Oracle environment:",
-            "  ORACLE_SID=crashdb1",
+            "  ORACLE_SID=exampledb1",
             "  ORACLE_HOME=/u02/app/oracle/product/23.0.0.0/dbhome_1",
             "CrashSimulator defaults:",
             "  PDB=CRASHPDB",

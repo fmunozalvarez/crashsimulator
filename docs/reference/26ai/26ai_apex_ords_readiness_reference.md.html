@@ -20,10 +20,10 @@ pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1
 # CrashSimulator APEX / ORDS Readiness Report
 
 - Generated UTC: `2026-06-07T09:01:09Z`
-- Host: `crashdb26ai1`
+- Host: `exampledb1`
 - OS user: `oracle`
 - Database: `CRASHDB`
-- DB unique name: `crashdb_26ai`
+- DB unique name: `exampledb`
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
 - Target PDB detail: `CRASHDB_PDB1`
@@ -100,12 +100,12 @@ Evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_apex_ords_repor
 
 ```text
 CSIM_APEX|db_name|CRASHDB
-CSIM_APEX|db_unique_name|crashdb_26ai
+CSIM_APEX|db_unique_name|exampledb
 CSIM_APEX|db_role|PRIMARY
 CSIM_APEX|open_mode|READ WRITE
 CSIM_APEX|cdb|YES
-CSIM_APEX|instance_name|crashdb1
-CSIM_APEX|host_name|crashdb26ai1
+CSIM_APEX|instance_name|exampledb1
+CSIM_APEX|host_name|exampledb1
 CSIM_APEX|version|23.0.0.0.0
 CSIM_APEX|target_pdb_requested|CRASHDB_PDB1
 CSIM_APEX|cdb_registry_apex_count|1
@@ -171,7 +171,7 @@ Setting                              Value                                      
 ----------------------------------   --------------------------------------------------   -----------
 database.api.enabled                 true                                                 Global     
 db.connectionType                    basic                                                Pool       
-db.hostname                          crashdb26ai-scan.sub05260219130.examplevcn.orac   Pool       
+db.hostname                          example-scan.subexample.examplevcn.orac   Pool       
                                      levcn.com                                                       
 db.password                          ******                                               Pool Wallet
 db.port                              1521                                                 Pool       

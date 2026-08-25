@@ -1,11 +1,11 @@
 # CrashSimulator Target Database Configuration Report
 
 - Generated UTC: `2026-06-07T03:15:07Z`
-- Host: `crashdb26ai1`
+- Host: `exampledb1`
 - OS user: `oracle`
 - Database: `CRASHDB`
-- DB unique name: `crashdb_26ai`
-- Instance/SID: `crashdb1`
+- DB unique name: `exampledb`
+- Instance/SID: `exampledb1`
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
 - Storage: `ASM`
@@ -29,7 +29,7 @@ NAME                               DB_UNIQUE_NAME                               
 ---------------------------------- ------------------------------ -------------------- ----------------------------------------------------------------------------------------------------- ---------------- -------------------- --- ------------
 FORCE_LOGGING                           FLASHBACK_ON       PROTECTION_MODE      SWITCHOVER_STATUS
 --------------------------------------- ------------------ -------------------- --------------------
-CRASHDB                            crashdb_26ai                             1275113611 Linux x86 64-bit                                                                                      PRIMARY          READ WRITE           YES ARCHIVELOG
+CRASHDB                            exampledb                             1275113611 Linux x86 64-bit                                                                                      PRIMARY          READ WRITE           YES ARCHIVELOG
 YES                                     NO                 MAXIMUM PERFORMANCE  NOT ALLOWED
 
 
@@ -39,7 +39,7 @@ YES                                     NO                 MAXIMUM PERFORMANCE  
 
 INSTANCE_NAME    HOST_NAME                                                        VERSION           STATUS       DATABASE_STATUS   ACTIVE_ST PAR              THREAD# ARCHIVE STARTUP_TIME
 ---------------- ---------------------------------------------------------------- ----------------- ------------ ----------------- --------- --- -------------------- ------- -------------------
-crashdb1         crashdb26ai1                                                     23.0.0.0.0        OPEN         ACTIVE            NORMAL    YES                    1 STARTED 2026-06-07 03:13:08
+exampledb1         exampledb1                                                     23.0.0.0.0        OPEN         ACTIVE            NORMAL    YES                    1 STARTED 2026-06-07 03:13:08
 
 1 row selected.
 
@@ -62,13 +62,13 @@ db_create_online_log_dest_2
 db_name                            crashdb
 db_recovery_file_dest              +RECO
 db_recovery_file_dest_size         255G
-db_unique_name                     crashdb_26ai
+db_unique_name                     exampledb
 diagnostic_dest                    /u01/app/oracle
 enable_pluggable_database          TRUE
 remote_login_passwordfile          EXCLUSIVE
 spfile                             +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
 tde_configuration                  keystore_configuration=FILE
-wallet_root                        /opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+wallet_root                        /opt/oracle/dcs/commonstore/wallets/exampledb
 
 18 rows selected.
 
@@ -97,15 +97,15 @@ db_block_checksum                                             2 FALSE     FALSE 
 db_block_size                                                 3 FALSE     FALSE      FALSE     FALSE 8192
 db_create_file_dest                                           2 FALSE     FALSE      IMMEDIATE TRUE  +DATA
 db_create_online_log_dest_1                                   2 FALSE     FALSE      IMMEDIATE TRUE  +RECO
-db_domain                                                     2 FALSE     FALSE      FALSE     TRUE  sub05260219130.operatexamplevcn.oraclevcn.com
+db_domain                                                     2 FALSE     FALSE      FALSE     TRUE  subexample.examplevcn.oraclevcn.com
 db_files                                                      3 FALSE     FALSE      FALSE     TRUE  1024
 db_lost_write_protect                                         2 FALSE     FALSE      IMMEDIATE TRUE  TYPICAL
 db_name                                                       2 FALSE     FALSE      FALSE     FALSE crashdb
 db_recovery_file_dest                                         2 FALSE     FALSE      IMMEDIATE FALSE +RECO
 db_recovery_file_dest_size                                    6 FALSE     FALSE      IMMEDIATE FALSE 255G
-db_unique_name                                                2 FALSE     FALSE      FALSE     FALSE crashdb_26ai
+db_unique_name                                                2 FALSE     FALSE      FALSE     FALSE exampledb
 diagnostic_dest                                               2 FALSE     FALSE      IMMEDIATE FALSE /u01/app/oracle
-dispatchers                                                   2 FALSE     FALSE      IMMEDIATE FALSE (PROTOCOL=TCP) (SERVICE=crashdbXDB)
+dispatchers                                                   2 FALSE     FALSE      IMMEDIATE FALSE (PROTOCOL=TCP) (SERVICE=exampledbXDB)
 enable_ddl_logging                                            1 FALSE     FALSE      IMMEDIATE TRUE  TRUE
 enable_pluggable_database                                     1 FALSE     FALSE      FALSE     FALSE TRUE
 fast_start_mttr_target                                        3 FALSE     FALSE      IMMEDIATE FALSE 300
@@ -136,7 +136,7 @@ thread                                                        3 FALSE     FALSE 
 undo_retention                                                3 FALSE     FALSE      IMMEDIATE TRUE  900
 undo_tablespace                                               2 FALSE     FALSE      IMMEDIATE TRUE  UNDOTBS1
 use_large_pages                                               2 FALSE     FALSE      FALSE     FALSE only
-wallet_root                                                   2 FALSE     FALSE      FALSE     FALSE /opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+wallet_root                                                   2 FALSE     FALSE      FALSE     FALSE /opt/oracle/dcs/commonstore/wallets/exampledb
 
 61 rows selected.
 
@@ -145,17 +145,17 @@ wallet_root                                                   2 FALSE     FALSE 
 NAME                               VALUE
 ---------------------------------- ------------------------------------------------------------------------------------------------------------------------
 ADR Base                           /u01/app/oracle
-ADR Home                           /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1
+ADR Home                           /u01/app/oracle/diag/rdbms/exampledb/exampledb1
 Active Incident Count              0
 Active Problem Count               0
-Attention Log                      /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace/attention_crashdb1.log
-Default Trace File                 /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace/crashdb1_ora_91694.trc
-Diag Alert                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/alert
-Diag Cdump                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/cdump
+Attention Log                      /u01/app/oracle/diag/rdbms/exampledb/exampledb1/trace/attention_crashdb1.log
+Default Trace File                 /u01/app/oracle/diag/rdbms/exampledb/exampledb1/trace/exampledb1_ora_91694.trc
+Diag Alert                         /u01/app/oracle/diag/rdbms/exampledb/exampledb1/alert
+Diag Cdump                         /u01/app/oracle/diag/rdbms/exampledb/exampledb1/cdump
 Diag Enabled                       TRUE
-Diag Incident                      /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/incident
-Diag Trace                         /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/trace
-Health Monitor                     /u01/app/oracle/diag/rdbms/crashdb_26ai/crashdb1/hm
+Diag Incident                      /u01/app/oracle/diag/rdbms/exampledb/exampledb1/incident
+Diag Trace                         /u01/app/oracle/diag/rdbms/exampledb/exampledb1/trace
+Health Monitor                     /u01/app/oracle/diag/rdbms/exampledb/exampledb1/hm
 ORACLE_HOME                        /u01/app/oracle/product/23.0.0.0/dbhome_1
 
 13 rows selected.
@@ -283,7 +283,7 @@ DEVICE TYPE                        'SBT_TAPE' BACKUP TYPE TO COMPRESSED BACKUPSE
 ENCRYPTION ALGORITHM               'AES256'
 ENCRYPTION FOR DATABASE            ON
 RETENTION POLICY                   TO RECOVERY WINDOW OF 30 DAYS
-SNAPSHOT CONTROLFILE NAME          TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f'
+SNAPSHOT CONTROLFILE NAME          TO '+RECO/exampledb/controlfile/snapcf_crashdb.f'
 
 10 rows selected.
 
@@ -496,7 +496,7 @@ WRL_PARAMETER
 STATUS                         WALLET_TYPE          WALLET_OR KEYSTORE FULLY_BAC               CON_ID
 ------------------------------ -------------------- --------- -------- --------- --------------------
 FILE
-/opt/oracle/dcs/commonstore/wallets/crashdb_26ai/tde/
+/opt/oracle/dcs/commonstore/wallets/exampledb/tde/
 OPEN                           AUTOLOGIN            SINGLE    NONE     NO                           1
 
 FILE
@@ -703,7 +703,7 @@ CONFIGURE ENCRYPTION ALGORITHM 'AES256';
 CONFIGURE COMPRESSION ALGORITHM 'low' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE;
 CONFIGURE RMAN OUTPUT TO KEEP FOR 7 DAYS; # default
 CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
-CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/crashdb_26ai/controlfile/snapcf_crashdb.f';
+CONFIGURE SNAPSHOT CONTROLFILE NAME TO '+RECO/exampledb/controlfile/snapcf_crashdb.f';
 
 Recovery Manager complete.
 ```
@@ -726,19 +726,19 @@ RMAN> restore database preview summary;
 Starting restore at 07-JUN-26
 using target database control file instead of recovery catalog
 allocated channel: ORA_SBT_TAPE_1
-channel ORA_SBT_TAPE_1: SID=1096 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: SID=1096 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_2
-channel ORA_SBT_TAPE_2: SID=23 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: SID=23 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_3
-channel ORA_SBT_TAPE_3: SID=634 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: SID=634 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_SBT_TAPE_4
-channel ORA_SBT_TAPE_4: SID=335 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_4: SID=335 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_4: Oracle Database Backup Service Library VER 23.0.0.1
 allocated channel: ORA_DISK_1
-channel ORA_DISK_1: SID=635 instance=crashdb1 device type=DISK
+channel ORA_DISK_1: SID=635 instance=exampledb1 device type=DISK
 
 
 List of Backups
@@ -803,7 +803,7 @@ BASH_FUNC_which%%=() {  ( alias;
 HISTCONTROL=ignoredups
 HISTSIZE=1000
 HOME=/home/oracle
-HOSTNAME=crashdb26ai1
+HOSTNAME=exampledb1
 LANG=en_US.utf-8
 LC_CTYPE=C.UTF-8
 LD_LIBRARY_PATH=/u01/app/oracle/product/23.0.0.0/dbhome_1/lib
@@ -812,14 +812,14 @@ LOGNAME=oracle
 MAIL=/var/spool/mail/oracle
 OLDPWD=/home/opc
 ORACLE_HOME=/u01/app/oracle/product/23.0.0.0/dbhome_1
-ORACLE_SID=crashdb1
-ORACLE_UNQNAME=crashdb_26ai
+ORACLE_SID=exampledb1
+ORACLE_UNQNAME=exampledb
 PATH=/u01/app/oracle/product/23.0.0.0/dbhome_1/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:/home/oracle/.local/bin:/home/oracle/bin:/home/opc/.local/bin:/home/opc/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/u01/app/oracle/product/23.0.0.0/dbhome_1/bin
 PWD=/tmp/crashsimulator
 S_COLORS=auto
 SHELL=/bin/bash
 SHLVL=2
-SUDO_COMMAND=/usr/bin/bash -lc export ORACLE_HOME=/u01/app/oracle/product/23.0.0.0/dbhome_1; export ORACLE_SID=crashdb1; export ORACLE_UNQNAME=crashdb_26ai; export PATH=$ORACLE_HOME/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:$PATH; cd /tmp/crashsimulator; ./CrashSimulatorV2.sh --config-report --pdb CRASHDB_PDB1 --html
+SUDO_COMMAND=/usr/bin/bash -lc export ORACLE_HOME=/u01/app/oracle/product/23.0.0.0/dbhome_1; export ORACLE_SID=exampledb1; export ORACLE_UNQNAME=exampledb; export PATH=$ORACLE_HOME/bin:/u01/app/23.0.0.0/grid/bin:/u01/app/grid/bin:$PATH; cd /tmp/crashsimulator; ./CrashSimulatorV2.sh --config-report --pdb CRASHDB_PDB1 --html
 SUDO_GID=1000
 SUDO_UID=1000
 SUDO_USER=opc
@@ -834,7 +834,7 @@ which_declare=declare -f
 Command: uname -a
 
 ```text
-Linux crashdb26ai1 5.15.0-319.201.4.6.el8uek.x86_64 #2 SMP Fri May 8 21:13:59 PDT 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux exampledb1 5.15.0-319.201.4.6.el8uek.x86_64 #2 SMP Fri May 8 21:13:59 PDT 2026 x86_64 x86_64 x86_64 GNU/Linux
 ```
 
 ## ORACLE_HOME Directory
@@ -879,7 +879,7 @@ Trace Level               off
 Security                  ON: Local OS Authentication
 SNMP                      OFF
 Listener Parameter File   /u01/app/23.0.0.0/grid/network/admin/listener.ora
-Listener Log File         /u01/app/grid/diag/tnslsnr/crashdb26ai1/listener/alert/log.xml
+Listener Log File         /u01/app/grid/diag/tnslsnr/exampledb1/listener/alert/log.xml
 Listening Endpoints Summary...
   (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=LISTENER)))
   (DESCRIPTION=(ADDRESS=(PROTOCOL=tcps)(HOST=10.0.0.144)(PORT=2484)))
@@ -894,20 +894,20 @@ Service "+ASM_DATA" has 1 instance(s).
   Instance "+ASM1", status READY, has 1 handler(s) for this service...
 Service "+ASM_RECO" has 1 instance(s).
   Instance "+ASM1", status READY, has 1 handler(s) for this service...
-Service "50a6ae8a641c26e6e0635e02f40a3b6e.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
-Service "53a1adbfcef966e7e0630500000ab462.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
-Service "crashdbXDB.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
-Service "crashdb_26ai.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "exampleguid.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
+Service "exampleguid.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
 Service "crashdb_CRASHDB_PDB1.paas.oracle.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
-Service "crashdb_crashdb_pdb1.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
-Service "crashdb_pdb1.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
 The command completed successfully
 ```
 
@@ -943,39 +943,39 @@ Service "+ASM_RECO" has 1 instance(s).
     Handler(s):
       "DEDICATED" established:0 refused:0 state:ready
          LOCAL SERVER
-Service "50a6ae8a641c26e6e0635e02f40a3b6e.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "exampleguid.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
-Service "53a1adbfcef966e7e0630500000ab462.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "exampleguid.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
-Service "crashdbXDB.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "D000" established:0 refused:0 current:0 max:1022 state:ready
-         DISPATCHER <machine: crashdb26ai1, pid: 86167>
-         (ADDRESS=(PROTOCOL=tcp)(HOST=crashdb26ai1.sub05260219130.operatexamplevcn.oraclevcn.com)(PORT=34465))
-Service "crashdb_26ai.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+         DISPATCHER <machine: exampledb1, pid: 86167>
+         (ADDRESS=(PROTOCOL=tcp)(HOST=example-crashd.subexample.examplevcn.oraclevcn.com)(PORT=34465))
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
 Service "crashdb_CRASHDB_PDB1.paas.oracle.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
-Service "crashdb_crashdb_pdb1.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
-Service "crashdb_pdb1.sub05260219130.operatexamplevcn.oraclevcn.com" has 1 instance(s).
-  Instance "crashdb1", status READY, has 1 handler(s) for this service...
+Service "example-crashd.subexample.examplevcn.oraclevcn.com" has 1 instance(s).
+  Instance "exampledb1", status READY, has 1 handler(s) for this service...
     Handler(s):
       "DEDICATED" established:20 refused:0 state:ready
          LOCAL SERVER
@@ -998,7 +998,7 @@ CRASHDB_26AI=
 	  (ADDRESS=
 	    (PROTOCOL= TCP)
 
-	    (HOST= crashdb26ai-scan.sub05260219130.operatexamplevcn.oraclevcn.com)
+	    (HOST= example-crashd.subexample.examplevcn.oraclevcn.com)
 
 	    (PORT= 1521)
 	    )
@@ -1006,7 +1006,7 @@ CRASHDB_26AI=
 	  (CONNECT_DATA=
 	    (SERVER= DEDICATED)
 
-	    (SERVICE_NAME= crashdb_26ai.sub05260219130.operatexamplevcn.oraclevcn.com)
+	    (SERVICE_NAME= example-crashd.subexample.examplevcn.oraclevcn.com)
 	    )
 	  )
 
@@ -1015,7 +1015,7 @@ CRASHDB_PDB1=
 	  (ADDRESS=
 	    (PROTOCOL=TCP)
 
-	    (HOST=crashdb26ai-scan.sub05260219130.operatexamplevcn.oraclevcn.com)
+	    (HOST=example-crashd.subexample.examplevcn.oraclevcn.com)
 
 	    (PORT=1521)
 	    )
@@ -1023,7 +1023,7 @@ CRASHDB_PDB1=
 	  (CONNECT_DATA=
 	    (SERVER=DEDICATED)
 
-	    (SERVICE_NAME=crashdb_crashdb_pdb1.sub05260219130.operatexamplevcn.oraclevcn.com)
+	    (SERVICE_NAME=example-crashd.subexample.examplevcn.oraclevcn.com)
 
 	    (FAILOVER_MODE=
 	      (TYPE=select)
@@ -1059,16 +1059,16 @@ SQLNET.EXPIRE_TIME=10
 
 ## srvctl config database
 
-Command: srvctl config database -d crashdb_26ai
+Command: srvctl config database -d exampledb
 
 ```text
-Database unique name: crashdb_26ai
+Database unique name: exampledb
 Database name: crashdb
 Oracle home: /u01/app/oracle/product/23.0.0.0/dbhome_1
 Oracle user: oracle
 Spfile: +DATA/CRASHDB_26AI/PARAMETERFILE/spfile.266.1235269757
-Password file: +DATA/CRASHDB_26AI/PASSWORD/pwdcrashdb_26ai.262.1235269335
-Domain: sub05260219130.operatexamplevcn.oraclevcn.com
+Password file: +DATA/CRASHDB_26AI/PASSWORD/pwdexampledb.262.1235269335
+Domain: subexample.examplevcn.oraclevcn.com
 Start options: open
 Stop options: immediate
 Database role: PRIMARY
@@ -1076,14 +1076,14 @@ Management policy: AUTOMATIC
 Server pools:
 Disk Groups: RECO,DATA
 Mount point paths: /opt/oracle/dcs/commonstore
-Services: crashdb_CRASHDB_PDB1.paas.oracle.com,crashdb_crashdb_pdb1
+Services: crashdb_CRASHDB_PDB1.paas.oracle.com,exampledb_pdb1
 Type: RAC
 Start concurrency:
 Stop concurrency:
 OSDBA group: dba
 OSOPER group: dbaoper
-Database instances: crashdb1,crashdb2
-Configured nodes: crashdb26ai1,crashdb26ai2
+Database instances: exampledb1,exampledb2
+Configured nodes: exampledb1,exampledb2
 CSS critical: no
 CPU count: 0
 Memory target: 0
@@ -1094,16 +1094,16 @@ Database is administrator managed
 
 ## srvctl status database
 
-Command: srvctl status database -d crashdb_26ai
+Command: srvctl status database -d exampledb
 
 ```text
-Instance crashdb1 is running on node crashdb26ai1
-Instance crashdb2 is running on node crashdb26ai2
+Instance exampledb1 is running on node exampledb1
+Instance exampledb2 is running on node exampledb2
 ```
 
 ## srvctl config services
 
-Command: srvctl config service -d crashdb_26ai
+Command: srvctl config service -d exampledb
 
 ```text
 Service name: crashdb_CRASHDB_PDB1.paas.oracle.com
@@ -1139,11 +1139,11 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
 
-Service name: crashdb_crashdb_pdb1
+Service name: exampledb_pdb1
 Cardinality: 2
 Service role: PRIMARY
 Management policy: AUTOMATIC
@@ -1176,18 +1176,18 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
 ```
 
 ## srvctl status services
 
-Command: srvctl status service -d crashdb_26ai
+Command: srvctl status service -d exampledb
 
 ```text
-Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances crashdb1,crashdb2
-Service crashdb_crashdb_pdb1 is running on instances crashdb1,crashdb2
+Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances exampledb1,exampledb2
+Service exampledb_pdb1 is running on instances exampledb1,exampledb2
 ```
 
 ## srvctl config asm
@@ -1208,7 +1208,7 @@ Cluster ASM listener: ASMNET1LSNR_ASM
 Command: srvctl status asm
 
 ```text
-ASM is running on crashdb26ai2,crashdb26ai1
+ASM is running on exampledb2,exampledb1
 ```
 
 ## Grid Infrastructure CRS Check
@@ -1233,95 +1233,95 @@ Name           Target  State        Server                   State details
 Local Resources
 --------------------------------------------------------------------------------
 ora.DATA.COMMONSTORE.advm
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 ora.LISTENER.lsnr
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 ora.chad
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 ora.data.commonstore.acfs
-               ONLINE  ONLINE       crashdb26ai1             mounted on /opt/orac
+               ONLINE  ONLINE       exampledb1             mounted on /opt/orac
                                                              le/dcs/commonstore,S
                                                              TABLE
-               ONLINE  ONLINE       crashdb26ai2             mounted on /opt/orac
+               ONLINE  ONLINE       exampledb2             mounted on /opt/orac
                                                              le/dcs/commonstore,S
                                                              TABLE
 ora.helper
-               OFFLINE OFFLINE      crashdb26ai1             IDLE,STABLE
-               OFFLINE OFFLINE      crashdb26ai2             IDLE,STABLE
+               OFFLINE OFFLINE      exampledb1             IDLE,STABLE
+               OFFLINE OFFLINE      exampledb2             IDLE,STABLE
 ora.net1.network
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 ora.ons
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 ora.proxy_advm
-               ONLINE  ONLINE       crashdb26ai1             STABLE
-               ONLINE  ONLINE       crashdb26ai2             STABLE
+               ONLINE  ONLINE       exampledb1             STABLE
+               ONLINE  ONLINE       exampledb2             STABLE
 --------------------------------------------------------------------------------
 Cluster Resources
 --------------------------------------------------------------------------------
 ora.ASMNET1LSNR_ASM.lsnr(ora.asmgroup)
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
 ora.DATA.dg(ora.asmgroup)
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
 ora.LISTENER_SCAN1.lsnr
-      1        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb2             STABLE
 ora.LISTENER_SCAN2.lsnr
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
 ora.LISTENER_SCAN3.lsnr
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
 ora.RECO.dg(ora.asmgroup)
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
 ora.asm(ora.asmgroup)
-      1        ONLINE  ONLINE       crashdb26ai1             Started,STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             Started,STABLE
+      1        ONLINE  ONLINE       exampledb1             Started,STABLE
+      2        ONLINE  ONLINE       exampledb2             Started,STABLE
 ora.asmnet1.asmnetwork(ora.asmgroup)
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
 ora.cdp1.cdp
       1        OFFLINE OFFLINE                               STABLE
 ora.cdp2.cdp
       1        OFFLINE OFFLINE                               STABLE
 ora.cdp3.cdp
       1        OFFLINE OFFLINE                               STABLE
-ora.crashdb26ai1.vip
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-ora.crashdb26ai2.vip
-      1        ONLINE  ONLINE       crashdb26ai2             STABLE
-ora.crashdb_26ai.crashdb_crashdb_pdb1.paas.oracle.com.svc
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
-ora.crashdb_26ai.crashdb_crashdb_pdb1.svc
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             STABLE
-ora.crashdb_26ai.crashdb_pdb1.pdb
-      1        ONLINE  ONLINE       crashdb26ai1             READ WRITE,STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             READ WRITE,STABLE
-ora.crashdb_26ai.db
-      1        ONLINE  ONLINE       crashdb26ai1             Open,HOME=/u01/app/o
+ora.exampledb1.vip
+      1        ONLINE  ONLINE       exampledb1             STABLE
+ora.exampledb2.vip
+      1        ONLINE  ONLINE       exampledb2             STABLE
+ora.exampledb.exampledb_pdb1.paas.oracle.com.svc
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
+ora.exampledb.exampledb_pdb1.svc
+      1        ONLINE  ONLINE       exampledb1             STABLE
+      2        ONLINE  ONLINE       exampledb2             STABLE
+ora.exampledb.exampledb_pdb1.pdb
+      1        ONLINE  ONLINE       exampledb1             READ WRITE,STABLE
+      2        ONLINE  ONLINE       exampledb2             READ WRITE,STABLE
+ora.exampledb.db
+      1        ONLINE  ONLINE       exampledb1             Open,HOME=/u01/app/o
                                                              racle/product/23.0.0
                                                              .0/dbhome_1,STABLE
-      2        ONLINE  ONLINE       crashdb26ai2             Open,HOME=/u01/app/o
+      2        ONLINE  ONLINE       exampledb2             Open,HOME=/u01/app/o
                                                              racle/product/23.0.0
                                                              .0/dbhome_1,STABLE
 ora.cvu
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
 ora.cvuhelper
       1        OFFLINE OFFLINE                               STABLE
 ora.rhpserver
       1        OFFLINE OFFLINE                               STABLE
 ora.scan1.vip
-      1        ONLINE  ONLINE       crashdb26ai2             STABLE
+      1        ONLINE  ONLINE       exampledb2             STABLE
 ora.scan2.vip
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
 ora.scan3.vip
-      1        ONLINE  ONLINE       crashdb26ai1             STABLE
+      1        ONLINE  ONLINE       exampledb1             STABLE
 --------------------------------------------------------------------------------
 ```
 
@@ -1332,7 +1332,7 @@ Command: crsctl query css votedisk
 ```text
 ##  STATE    File Universal Id                File Name Disk group
 --  -----    -----------------                --------- ---------
- 1. ONLINE   e5c6214ca8024fccbff1426bea65c241 (/dev/DATADISK3) [DATA]
+ 1. ONLINE   exampleguid2 (/dev/DATADISK3) [DATA]
 Located 1 voting disk(s).
 ```
 
@@ -1370,11 +1370,11 @@ Command: ocrconfig -showbackup
 
 ```text
 
-crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/backup00.ocr.258.1235268739     3598864773
+exampledb1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/backup00.ocr.258.1235268739     3598864773
 
-crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/day.ocr.259.1235268741     3598864773
+exampledb1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/day.ocr.259.1235268741     3598864773
 
-crashdb26ai1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/week.ocr.260.1235268741     3598864773
+exampledb1     2026/06/07 02:12:20     +DATA:/dbSysamorgcaa/OCRBACKUP/week.ocr.260.1235268741     3598864773
 PROT-25: Manual backups for the Oracle Cluster Registry are not available
 ```
 
@@ -1405,7 +1405,7 @@ ASMCMD-8102: no connection to Oracle ASM; command requires Oracle ASM to run
 Command: bash -lc printf\ \'show\ configuration\ verbose\;\\nshow\ fast_start\ failover\;\\nexit\\n\'\ \|\ dgmgrl\ -silent\ /
 
 ```text
-Connected to "crashdb_26ai"
+Connected to "exampledb"
 ORA-16525: The Oracle Data Guard broker is not yet available.
 
 Configuration details cannot be determined by DGMGRL

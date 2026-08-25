@@ -152,7 +152,7 @@ CSIM_MAA|fsfo_threshold|30
 CSIM_MAA|fsfo_observer_present|YES
 CSIM_MAA|dbid|1275206961
 CSIM_MAA|platform_name|Linux x86 64-bit
-CSIM_MAA|instance_name|crashdb1
+CSIM_MAA|instance_name|exampledb1
 CSIM_MAA|host_name|crashrac1-xnvfw
 CSIM_MAA|version|23.0.0.0.0
 CSIM_MAA|version_major|23
@@ -318,8 +318,8 @@ Database - crashrdb
   Intended State:      TRANSPORT-ON
   Redo Rate:           365 Byte/s  in 15 seconds (computed 9 seconds ago)
   Instance(s):
-    crashdb1
-    crashdb2
+    exampledb1
+    exampledb2
 
   Properties:
     AlternateLocation               = ''
@@ -374,8 +374,8 @@ Database - crashdr
   Maximum Apply Rate:  9.96 MByte/s
   Real Time Query:     ON
   Instance(s):
-    crashdb1 (apply instance)
-    crashdb2
+    exampledb1 (apply instance)
+    exampledb2
 
   Properties:
     AlternateLocation               = ''
@@ -445,7 +445,7 @@ Start concurrency:
 Stop concurrency:
 OSDBA group: dba
 OSOPER group: racoper
-Database instances: crashdb1,crashdb2
+Database instances: exampledb1,exampledb2
 Configured nodes: crashrac1-xnvfw,crashrac2-picqh
 CSS critical: no
 CPU count: 0
@@ -453,8 +453,8 @@ Memory target: 0
 Maximum memory: 0
 Default network number for database services:
 Database is administrator managed
-Instance crashdb1 is running on node crashrac1-xnvfw
-Instance crashdb2 is running on node crashrac2-picqh
+Instance exampledb1 is running on node crashrac1-xnvfw
+Instance exampledb2 is running on node crashrac2-picqh
 Service name: crashdb_CRASHPDB.paas.oracle.com
 Cardinality: 2
 Service role: PRIMARY
@@ -488,7 +488,7 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
 
@@ -525,9 +525,9 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
-Service crashdb_CRASHPDB.paas.oracle.com is running on instances crashdb1,crashdb2
+Service crashdb_CRASHPDB.paas.oracle.com is running on instances exampledb1,exampledb2
 Service crashdb_CRASHPDB_ro.paas.oracle.com is not running.
 ```

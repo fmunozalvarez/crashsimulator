@@ -27,7 +27,7 @@ This report validates the discovered target environment against the CrashSimulat
 | Database role | PHYSICAL STANDBY |
 | Open mode | READ ONLY WITH APPLY |
 | CDB | YES |
-| Instance | crashdb1 |
+| Instance | exampledb1 |
 | Thread | 1 |
 | RAC parallel | YES |
 | Cluster type | RAC |
@@ -36,7 +36,7 @@ This report validates the discovered target environment against the CrashSimulat
 | Protection mode | MAXIMUM PERFORMANCE |
 | Switchover status | NOT ALLOWED |
 | SPFILE | @rJOnB8bM/CRASHSTBY-9E231D37B918FF9BFFE28F2EE3A2029F/CRASHDR/PARAMETERFILE/spfile.OMF.172E355A |
-| Password file | @rJOnB8bM/crashstby-9e231d37b918ff9bffe28f2ee3a2029f/CRASHDR/PASSWORD/pwdCRASHDR |
+| Password file | @rJOnB8bM/crashstby-exampleguid1/CRASHDR/PASSWORD/pwdCRASHDR |
 | FRA | @rJOnB8bM |
 
 ## PDBs

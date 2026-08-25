@@ -27,7 +27,7 @@ This report validates the discovered target environment against the CrashSimulat
 | Database role | PRIMARY |
 | Open mode | READ WRITE |
 | CDB | YES |
-| Instance | crashdb1 |
+| Instance | exampledb1 |
 | Thread | 1 |
 | RAC parallel | YES |
 | Cluster type | RAC |

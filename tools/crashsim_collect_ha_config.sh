@@ -2,7 +2,7 @@
 set -uo pipefail
 
 DB_UNIQUE_NAME="${DB_UNIQUE_NAME:-crashrac}"
-ORACLE_SID="${ORACLE_SID:-crashdb1}"
+ORACLE_SID="${ORACLE_SID:-exampledb1}"
 ORACLE_HOME="${ORACLE_HOME:-/u02/app/oracle/product/23.0.0.0/dbhome_1}"
 GRID_HOME="${GRID_HOME:-/u01/app/23.0.0.0/gridhome_1}"
 export ORACLE_SID ORACLE_HOME

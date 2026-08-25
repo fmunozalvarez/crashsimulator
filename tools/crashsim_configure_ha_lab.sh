@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DB_UNIQUE_NAME="${DB_UNIQUE_NAME:-crashrac}"
-ORACLE_SID="${ORACLE_SID:-crashdb1}"
+ORACLE_SID="${ORACLE_SID:-exampledb1}"
 ORACLE_HOME="${ORACLE_HOME:-/u02/app/oracle/product/23.0.0.0/dbhome_1}"
 GRID_HOME="${GRID_HOME:-/u01/app/23.0.0.0/gridhome_1}"
 PDB_NAME="${PDB_NAME:-CRASHPDB}"
@@ -14,7 +14,7 @@ CATALOG_SERVICE="${CATALOG_SERVICE:-}"
 CATALOG_CONNECT="${CATALOG_CONNECT:-}"
 AC_SERVICE="${AC_SERVICE:-crashsim_ac}"
 TAC_SERVICE="${TAC_SERVICE:-crashsim_tac}"
-PREFERRED_INSTANCES="${PREFERRED_INSTANCES:-crashdb1,crashdb2}"
+PREFERRED_INSTANCES="${PREFERRED_INSTANCES:-exampledb1,exampledb2}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%d_%H%M%S)}"
 LOG_DIR="${LOG_DIR:-/tmp/crashsimulator/crashsimulator_logs}"
 

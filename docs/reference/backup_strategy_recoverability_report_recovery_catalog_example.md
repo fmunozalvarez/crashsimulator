@@ -763,19 +763,19 @@ no obsolete backups found
 
 Starting restore at 05-JUN-26
 allocated channel: ORA_SBT_TAPE_1
-channel ORA_SBT_TAPE_1: SID=2395 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_1: SID=2395 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_1: Oracle Database Backup Service Library VER=19.0.0.1
 allocated channel: ORA_SBT_TAPE_2
-channel ORA_SBT_TAPE_2: SID=2398 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_2: SID=2398 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_2: Oracle Database Backup Service Library VER=19.0.0.1
 allocated channel: ORA_SBT_TAPE_3
-channel ORA_SBT_TAPE_3: SID=57 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_3: SID=57 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_3: Oracle Database Backup Service Library VER=19.0.0.1
 allocated channel: ORA_SBT_TAPE_4
-channel ORA_SBT_TAPE_4: SID=2379 instance=crashdb1 device type=SBT_TAPE
+channel ORA_SBT_TAPE_4: SID=2379 instance=exampledb1 device type=SBT_TAPE
 channel ORA_SBT_TAPE_4: Oracle Database Backup Service Library VER=19.0.0.1
 allocated channel: ORA_DISK_1
-channel ORA_DISK_1: SID=2394 instance=crashdb1 device type=DISK
+channel ORA_DISK_1: SID=2394 instance=exampledb1 device type=DISK
 
 
 List of Backups

@@ -80,7 +80,7 @@ Autonomous Database validation environment:
 Oracle AI Database 26ai RAC/ASM validation environment:
 
 - Oracle AI Database 26ai EE Extreme Perf Release `23.26.2.0.0`
-- Two-node RAC primary database `CRASHDB`, DB unique name `crashdb_26ai`
+- Two-node RAC primary database `CRASHDB`, DB unique name `exampledb`
 - CDB with PDB `CRASHDB_PDB1`
 - ASM storage with `DATA` and `RECO` diskgroups
 - No standby database and no Active Data Guard in this lab
@@ -370,8 +370,8 @@ and `RECO`.
 
 The current two-node RAC lab uses Oracle Database 19.31, CDB `CRASHDB`, PDB
 `CRASHPDB`, DB unique name `crashdb`, ASM storage, and a RAC service
-`crashdb_CRASHPDB.paas.oracle.com` running on instances `crashdb1` and
-`crashdb2`.
+`crashdb_CRASHPDB.paas.oracle.com` running on instances `exampledb1` and
+`exampledb2`.
 
 Additional framework improvements and validations completed:
 
@@ -429,8 +429,8 @@ Final two-node RAC validation showed:
 - PDB `CRASHPDB` open read write
 - `V$RECOVER_FILE` returned no rows
 - `V$DATABASE_BLOCK_CORRUPTION` returned no rows
-- Service `crashdb_CRASHPDB.paas.oracle.com` running on `crashdb1` and
-  `crashdb2`
+- Service `crashdb_CRASHPDB.paas.oracle.com` running on `exampledb1` and
+  `exampledb2`
 - Logical lab users, tables, non-unique indexes, read-only tablespace, and
   index-only tablespace present after reseed
 - No remaining `.crashsim.bak` artifacts in the exercised SQL*Net or wallet-root

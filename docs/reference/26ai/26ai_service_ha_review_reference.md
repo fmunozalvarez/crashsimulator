@@ -1,10 +1,10 @@
 # CrashSimulator Oracle Service HA Best-Practice Review
 
 - Generated UTC: `2026-06-07T03:46:13Z`
-- Host: `crashdb26ai1`
+- Host: `exampledb1`
 - OS user: `oracle`
 - Database: `CRASHDB`
-- DB unique name: `crashdb_26ai`
+- DB unique name: `exampledb`
 - Role/open mode: `PRIMARY` / `READ WRITE`
 - CDB: `YES`
 - Cluster type: `RAC`
@@ -57,7 +57,7 @@ SQL evidence file: `/tmp/crashsimulator/crashsimulator_logs/crashsim_service_rev
 
 ```text
 CSIM_MAA|db_name|CRASHDB
-CSIM_MAA|db_unique_name|crashdb_26ai
+CSIM_MAA|db_unique_name|exampledb
 CSIM_MAA|db_role|PRIMARY
 CSIM_MAA|open_mode|READ WRITE
 CSIM_MAA|cdb|YES
@@ -73,8 +73,8 @@ CSIM_MAA|fsfo_threshold|0
 CSIM_MAA|fsfo_observer_present|UNKNOWN
 CSIM_MAA|dbid|1275113611
 CSIM_MAA|platform_name|Linux x86 64-bit
-CSIM_MAA|instance_name|crashdb1
-CSIM_MAA|host_name|crashdb26ai1
+CSIM_MAA|instance_name|exampledb1
+CSIM_MAA|host_name|exampledb1
 CSIM_MAA|version|23.0.0.0.0
 CSIM_MAA|version_major|23
 CSIM_MAA|instance_status|OPEN
@@ -85,7 +85,7 @@ CSIM_MAA|remote_login_passwordfile|EXCLUSIVE
 CSIM_MAA|db_recovery_file_dest|+RECO
 CSIM_MAA|db_recovery_file_dest_size|255G
 CSIM_MAA|local_undo_enabled|UNKNOWN
-CSIM_MAA|wallet_root|/opt/oracle/dcs/commonstore/wallets/crashdb_26ai
+CSIM_MAA|wallet_root|/opt/oracle/dcs/commonstore/wallets/exampledb
 CSIM_MAA|tde_configuration|keystore_configuration=FILE
 CSIM_MAA|archive_lag_target|0
 CSIM_MAA|adg_redirect_dml|FALSE
@@ -179,11 +179,11 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
 
-Service name: crashdb_crashdb_pdb1
+Service name: exampledb_pdb1
 Cardinality: 2
 Service role: PRIMARY
 Management policy: AUTOMATIC
@@ -216,18 +216,18 @@ Session State Consistency:
 Auto Connection Rebalance: DEFAULT
 GSM Flags: 0
 Service is enabled
-Preferred instances: crashdb1,crashdb2
+Preferred instances: exampledb1,exampledb2
 Available instances:
 CSS critical: no
 ```
 
 ## srvctl Service Status
 
-Command: srvctl status service -d crashdb_26ai
+Command: srvctl status service -d exampledb
 
 ```text
-Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances crashdb1,crashdb2
-Service crashdb_crashdb_pdb1 is running on instances crashdb1,crashdb2
+Service crashdb_CRASHDB_PDB1.paas.oracle.com is running on instances exampledb1,exampledb2
+Service exampledb_pdb1 is running on instances exampledb1,exampledb2
 ```
 
 ## Data Guard Broker FSFO Evidence
@@ -235,7 +235,7 @@ Service crashdb_crashdb_pdb1 is running on instances crashdb1,crashdb2
 Command: bash -lc printf\ \'show\ configuration\ verbose\;\\nshow\ fast_start\ failover\;\\nexit\\n\'\ \|\ dgmgrl\ -silent\ /
 
 ```text
-Connected to "crashdb_26ai"
+Connected to "exampledb"
 ORA-16525: The Oracle Data Guard broker is not yet available.
 
 Configuration details cannot be determined by DGMGRL
